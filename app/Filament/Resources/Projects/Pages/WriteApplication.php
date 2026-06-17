@@ -1,0 +1,202 @@
+<?php
+
+namespace App\Filament\Resources\Projects\Pages;
+
+use App\Filament\Resources\Projects\ProjectResource;
+use App\Models\ContentBlock;
+use App\Models\ProjectApplicationSection;
+use App\Support\ApplicationTemplates;
+use Filament\Facades\Filament;
+use Filament\Resources\Pages\Page;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Notifications\Notification;
+
+class WriteApplication extends Page
+{
+    use InteractsWithRecord;
+
+    protected static string $resource = ProjectResource::class;
+    protected string $view = 'filament.pages.write-application';
+
+    public string $selectedTemplate = 'ka152';
+
+    /** @var array<int, string> sectionId => content (bound to the textareas) */
+    public array $content = [];
+
+    /** @var array<int, string> sectionId => title (bound to the title inputs) */
+    public array $titles = [];
+
+    // ─── Library picker state ───
+    public bool $showLibrary = false;
+    public ?int $libraryTargetId = null;
+    public string $librarySearch = '';
+
+    public function mount(int|string $record): void
+    {
+        $this->record = $this->resolveRecord($record);
+        $this->selectedTemplate = $this->record->ka_action ?: 'ka152';
+        $this->loadState();
+    }
+
+    public function getTitle(): string
+    {
+        return $this->record->name . ' — Application';
+    }
+
+    protected function sectionsQuery()
+    {
+        return ProjectApplicationSection::where('project_id', $this->record->id)
+            ->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function getSections()
+    {
+        return $this->sectionsQuery()->get();
+    }
+
+    public function getTemplates(): array
+    {
+        return ApplicationTemplates::list();
+    }
+
+    public function getHasContentProperty(): bool
+    {
+        return $this->sectionsQuery()
+            ->where('content', '!=', '')
+            ->whereNotNull('content')
+            ->exists();
+    }
+
+    /** Mirror the DB rows into the bound arrays (mount + after structural changes). */
+    protected function loadState(): void
+    {
+        $this->content = [];
+        $this->titles = [];
+
+        foreach ($this->sectionsQuery()->get() as $s) {
+            $this->content[$s->id] = (string) $s->content;
+            $this->titles[$s->id] = (string) $s->title;
+        }
+    }
+
+    // ─── Auto-save hooks ───
+    public function updatedContent($value, $key): void
+    {
+        $this->persistField((int) $key, 'content', (string) $value);
+    }
+
+    public function updatedTitles($value, $key): void
+    {
+        $this->persistField((int) $key, 'title', (string) $value);
+    }
+
+    protected function persistField(int $id, string $field, string $value): void
+    {
+        $sec = $this->sectionsQuery()->find($id);
+        if (! $sec) return;
+        $sec->{$field} = $value;
+        $sec->save();
+    }
+
+    // ─── Library picker ───
+    public function openLibrary(int $sectionId): void
+    {
+        $this->libraryTargetId = $sectionId;
+        $this->librarySearch = '';
+        $this->showLibrary = true;
+    }
+
+    public function closeLibrary(): void
+    {
+        $this->showLibrary = false;
+        $this->libraryTargetId = null;
+    }
+
+    public function getLibraryBlocks()
+    {
+        $ka = $this->record->ka_action ?: 'any';
+
+        return ContentBlock::query()
+            ->where('workspace_id', Filament::getTenant()?->id)
+            ->where(fn ($q) => $q->where('ka_action', $ka)->orWhere('ka_action', 'any'))
+            ->when($this->librarySearch !== '', function ($q) {
+                $s = $this->librarySearch;
+                $q->where(fn ($q2) => $q2->where('title', 'like', "%{$s}%")->orWhere('body', 'like', "%{$s}%"));
+            })
+            ->orderByDesc('is_proven')
+            ->orderBy('category')
+            ->orderBy('title')
+            ->get();
+    }
+
+    public function insertBlock(int $blockId): void
+    {
+        $block = ContentBlock::where('workspace_id', Filament::getTenant()?->id)->find($blockId);
+        if (! $block || ! $this->libraryTargetId) return;
+
+        $sec = $this->sectionsQuery()->find($this->libraryTargetId);
+        if (! $sec) return;
+
+        $existing = $this->content[$sec->id] ?? (string) $sec->content;
+        $new = trim($existing) === '' ? $block->body : rtrim($existing) . "\n\n" . $block->body;
+
+        $this->content[$sec->id] = $new;
+        $sec->content = $new;
+        $sec->save();
+
+        $block->increment('usage_count');
+
+        $this->showLibrary = false;
+        $this->libraryTargetId = null;
+
+        Notification::make()->title('Inserted from library')->success()->send();
+    }
+
+    // ─── Template + sections ───
+    public function loadTemplate(): void
+    {
+        $sections = ApplicationTemplates::sections($this->selectedTemplate);
+        if (empty($sections)) return;
+
+        ProjectApplicationSection::where('project_id', $this->record->id)->delete();
+
+        $i = 0;
+        foreach ($sections as $sec) {
+            ProjectApplicationSection::create([
+                'project_id' => $this->record->id,
+                'title'      => $sec['title'],
+                'category'   => $sec['category'] ?? null,
+                'char_limit' => $sec['char_limit'] ?? null,
+                'content'    => '',
+                'sort_order' => $i++,
+            ]);
+        }
+
+        $this->record->ka_action = $this->selectedTemplate;
+        $this->record->save();
+
+        $this->loadState();
+
+        Notification::make()->title('Template loaded')->success()->send();
+    }
+
+    public function addSection(): void
+    {
+        $maxSort = ProjectApplicationSection::where('project_id', $this->record->id)->max('sort_order') ?? -1;
+        ProjectApplicationSection::create([
+            'project_id' => $this->record->id,
+            'title'      => 'New section',
+            'content'    => '',
+            'sort_order' => $maxSort + 1,
+        ]);
+
+        $this->loadState();
+    }
+
+    public function deleteSection(int $id): void
+    {
+        ProjectApplicationSection::where('project_id', $this->record->id)->where('id', $id)->delete();
+
+        $this->loadState();
+    }
+}
