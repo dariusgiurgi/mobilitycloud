@@ -81,10 +81,10 @@
                     <span class="text-gray-500 dark:text-gray-400" style="display:inline-flex;align-items:center;gap:4px;">
                         Budget: €
                         <input type="number" step="0.01" min="0" value="{{ $lineAlloc }}"
-                               wire:change="updateBasketBudget({{ $line->id }}, $event.target.value)"
-                               class="text-gray-950 dark:text-white"
-                               style="width:90px;text-align:right;background:transparent;border:1px solid rgba(100,116,139,.25);border-radius:4px;padding:3px 6px;font-size:12px;font-weight:600;">
-                    </span>
+       wire:key="basket-alloc-{{ $line->id }}-{{ $lineAlloc }}"
+       wire:change="updateBasketBudget({{ $line->id }}, $event.target.value)"
+       class="text-gray-950 dark:text-white"
+       style="width:90px;text-align:right;background:transparent;border:1px solid rgba(100,116,139,.25);border-radius:4px;padding:3px 6px;font-size:12px;font-weight:600;">
                     <span class="text-gray-500 dark:text-gray-400">Spent: <strong class="text-gray-950 dark:text-white">€ {{ number_format($lineSpent, 2) }}</strong></span>
                     <span class="text-gray-500 dark:text-gray-400">Left: <strong class="{{ $lineLeft < 0 ? 'mc-neg' : 'mc-pos' }}">€ {{ number_format($lineLeft, 2) }}</strong></span>
 
