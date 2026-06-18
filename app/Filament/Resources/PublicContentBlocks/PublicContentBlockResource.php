@@ -24,6 +24,10 @@ class PublicContentBlockResource extends Resource
     protected static ?string $pluralModelLabel = 'public blocks';
     protected static ?string $recordTitleAttribute = 'title';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
     // NU e tenant-scoped: biblioteca publica e comuna tuturor workspace-urilor.
     public static function isScopedToTenant(): bool
     {

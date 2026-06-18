@@ -18,8 +18,8 @@ class CreatePublicContentBlock extends CreateRecord
         return $data;
     }
 
-    protected function getRedirectUrl(): string
+  protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        return \App\Filament\Pages\PublicLibrary::getUrl(['tenant' => \Filament\Facades\Filament::getTenant()]);
     }
 }

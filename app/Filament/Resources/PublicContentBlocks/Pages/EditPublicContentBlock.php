@@ -25,12 +25,13 @@ class EditPublicContentBlock extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->successRedirectUrl(fn () => \App\Filament\Pages\PublicLibrary::getUrl(['tenant' => \Filament\Facades\Filament::getTenant()])),
         ];
     }
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('index');
+        return \App\Filament\Pages\PublicLibrary::getUrl(['tenant' => \Filament\Facades\Filament::getTenant()]);
     }
 }

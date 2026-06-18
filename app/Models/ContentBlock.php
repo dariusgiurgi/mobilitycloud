@@ -9,7 +9,7 @@ class ContentBlock extends Model
 {
     protected $fillable = [
         'workspace_id', 'title', 'category', 'ka_action', 'language',
-        'body', 'tags', 'is_proven', 'source_note', 'usage_count',
+        'body', 'tags', 'is_proven', 'source_note', 'usage_count', 'imported_from_public_id',
     ];
 
     protected $casts = [

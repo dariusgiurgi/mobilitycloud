@@ -17,7 +17,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password', 'current_workspace_id',
+        'name', 'email', 'password', 'current_workspace_id', 'role',
     ];
 
     protected $hidden = [
@@ -57,5 +57,25 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function canAccessPanel(Panel $panel): bool
     {
         return true;
+    }
+
+    public const ROLE_USER       = 'user';
+    public const ROLE_ADMIN      = 'admin';
+    public const ROLE_SUPERVISOR = 'supervisor';
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isSupervisor(): bool
+    {
+        return $this->role === self::ROLE_SUPERVISOR;
+    }
+
+    /** Are drepturi de moderare (admin sau supervisor)? */
+    public function canModerate(): bool
+    {
+        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPERVISOR], true);
     }
 }

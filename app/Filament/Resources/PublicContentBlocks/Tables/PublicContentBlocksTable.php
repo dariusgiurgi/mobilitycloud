@@ -94,6 +94,7 @@ class PublicContentBlocksTable
                             'is_proven'    => $record->is_proven,
                             'source_note'  => $record->source_note,
                             'usage_count'  => 0,
+                            'imported_from_public_id' => $block->id,
                         ]);
 
                         $record->increment('import_count');

@@ -58,8 +58,7 @@ class ContentBlocksTable
 
                 TextColumn::make('updated_at')
                     ->dateTime('d M Y')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('category')->options(ContentBlock::CATEGORIES),
@@ -68,15 +67,15 @@ class ContentBlocksTable
                 TernaryFilter::make('is_proven')->label('Proven only'),
             ])
             ->recordActions([
-                // Publica blocul personal in biblioteca publica (copie independenta).
+                // Publish — ascuns pe blocurile importate din biblioteca publica.
                 Action::make('publish')
                     ->label('Publish')
                     ->icon('heroicon-o-globe-alt')
                     ->color('success')
+                    ->visible(fn (ContentBlock $record) => blank($record->imported_from_public_id))
                     ->modalHeading('Publish to public library')
                     ->modalDescription('A public copy will be shared with all users. You stay the author and can edit or remove it later from the Public Library.')
                     ->form(function (ContentBlock $record) {
-                        // Daca e "proven" dar fara sursa, cerem sursa inainte de publicare.
                         if ($record->is_proven && blank($record->source_note)) {
                             return [
                                 TextInput::make('source_note')
@@ -119,6 +118,7 @@ class ContentBlocksTable
                     ->beforeReplicaSaved(function (ContentBlock $replica): void {
                         $replica->title = $replica->title . ' (copy)';
                         $replica->usage_count = 0;
+                        $replica->imported_from_public_id = null;
                     }),
                 DeleteAction::make(),
             ])
