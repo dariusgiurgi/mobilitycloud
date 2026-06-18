@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Enums\ProjectStatus;
 use App\Models\Project;
 use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
@@ -11,31 +12,47 @@ class ProjectStatsOverview extends BaseWidget
 {
     protected function getStats(): array
     {
-        $workspace = Filament::getTenant();
+        $workspaceId = Filament::getTenant()?->id;
 
-        $base = Project::query()->where('workspace_id', $workspace?->id);
+        $base = Project::query()->where('workspace_id', $workspaceId);
 
-        $draft     = (clone $base)->where('status', 'draft')->count();
-        $active    = (clone $base)->whereIn('status', ['approved', 'activated'])->count();
-        $completed = (clone $base)->where('status', 'completed')->count();
+        // Lifecycle pipeline (values come from the enum, so they never drift).
+        $writing = (clone $base)
+            ->whereIn('status', [ProjectStatus::Writing->value, ProjectStatus::Revise->value])
+            ->count();
 
-        $totalBudget = (clone $base)->sum('total_budget');
+        $submitted = (clone $base)
+            ->where('status', ProjectStatus::Submitted->value)
+            ->count();
+
+        $active = (clone $base)
+            ->whereIn('status', [ProjectStatus::Approved->value, ProjectStatus::Active->value])
+            ->count();
+
+        $completed = (clone $base)
+            ->where('status', ProjectStatus::Completed->value)
+            ->count();
+
+        // Effective grant: approved amount once confirmed, otherwise requested.
+        $totalGrant = (float) (clone $base)
+            ->selectRaw('COALESCE(SUM(CASE WHEN approved_budget > 0 THEN approved_budget ELSE total_budget END), 0) as t')
+            ->value('t');
 
         return [
-            Stat::make('Draft', $draft)
-                ->description('Projects in writing')
+            Stat::make('Being written', $writing)
+                ->description('Writing or revising')
                 ->color('gray'),
 
-            Stat::make('Active', $active)
-                ->description('Approved or activated')
-                ->color('success'),
-
-            Stat::make('Completed', $completed)
-                ->description('Finished projects')
+            Stat::make('Awaiting result', $submitted)
+                ->description('Submitted to the funder')
                 ->color('info'),
 
-            Stat::make('Total budget', '€ ' . number_format((float) $totalBudget, 2))
-                ->description('Across all projects')
+            Stat::make('In implementation', $active)
+                ->description('Approved or active')
+                ->color('success'),
+
+            Stat::make('Total grant', '€ ' . number_format($totalGrant, 2))
+                ->description($completed . ' completed · across all projects')
                 ->color('primary'),
         ];
     }
