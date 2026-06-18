@@ -7,6 +7,7 @@
         .mc-wa select option { background:#fff; }
         .dark .mc-wa select option { background:#27303f; }
         .mc-iconbtn { flex-shrink:0; width:28px; height:28px; border-radius:6px; border:none; background:transparent; cursor:pointer; color:#9ca3af; display:inline-flex; align-items:center; justify-content:center; }
+        .mc-iconbtn:disabled { opacity:.25; cursor:default; }
         .mc-libcard { border:1px solid rgba(100,116,139,.2); border-radius:10px; padding:.85rem 1rem; margin-bottom:.6rem; }
         .mc-libcard:hover { border-color:#6366f1; }
     </style>
@@ -65,6 +66,22 @@
                     <input type="text" wire:key="title-{{ $sec->id }}" class="mc-title text-gray-950 dark:text-white"
                            wire:model.blur="titles.{{ $sec->id }}">
 
+                    {{-- Move up --}}
+                    <button type="button" wire:click="moveSection({{ $sec->id }}, -1)" title="Move up"
+                            class="mc-iconbtn" @if($loop->first) disabled @endif
+                            onmouseover="if(!this.disabled){this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';}"
+                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
+                    </button>
+
+                    {{-- Move down --}}
+                    <button type="button" wire:click="moveSection({{ $sec->id }}, 1)" title="Move down"
+                            class="mc-iconbtn" @if($loop->last) disabled @endif
+                            onmouseover="if(!this.disabled){this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';}"
+                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+                    </button>
+
                     {{-- Insert from library --}}
                     <button type="button" wire:click="openLibrary({{ $sec->id }})" title="Insert from library"
                             class="mc-iconbtn"
@@ -108,9 +125,8 @@
     @if($showLibrary)
         <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:3.5rem 1rem;background:rgba(0,0,0,.5);"
              wire:click.self="closeLibrary">
-            <div class="bg-white dark:bg-gray-900 text-gray-950 dark:text-white"
-                 style="width:100%;max-width:740px;max-height:82vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;">
-
+<div class="mc-lib-modal"
+                 style="width:100%;max-width:740px;max-height:82vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;background:#ffffff;color:#18181b;">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.25rem;border-bottom:1px solid rgba(100,116,139,.2);">
                     <div style="font-size:15px;font-weight:600;">Insert from library</div>
                     <button type="button" wire:click="closeLibrary" class="mc-iconbtn" style="color:#9ca3af;">
@@ -159,4 +175,9 @@
             </div>
         </div>
     @endif
+
+    <style>
+        .mc-lib-modal { background:#ffffff !important; color:#18181b !important; }
+        .dark .mc-lib-modal { background:#18212f !important; color:#f4f4f5 !important; }
+    </style>
 </x-filament-panels::page>

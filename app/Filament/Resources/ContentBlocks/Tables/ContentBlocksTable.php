@@ -3,11 +3,15 @@
 namespace App\Filament\Resources\ContentBlocks\Tables;
 
 use App\Models\ContentBlock;
+use App\Models\PublicContentBlock;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ReplicateAction;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -64,6 +68,51 @@ class ContentBlocksTable
                 TernaryFilter::make('is_proven')->label('Proven only'),
             ])
             ->recordActions([
+                // Publica blocul personal in biblioteca publica (copie independenta).
+                Action::make('publish')
+                    ->label('Publish')
+                    ->icon('heroicon-o-globe-alt')
+                    ->color('success')
+                    ->modalHeading('Publish to public library')
+                    ->modalDescription('A public copy will be shared with all users. You stay the author and can edit or remove it later from the Public Library.')
+                    ->form(function (ContentBlock $record) {
+                        // Daca e "proven" dar fara sursa, cerem sursa inainte de publicare.
+                        if ($record->is_proven && blank($record->source_note)) {
+                            return [
+                                TextInput::make('source_note')
+                                    ->label('Source')
+                                    ->required()
+                                    ->maxLength(255)
+                                    ->placeholder('e.g. Approved KA152 youth exchange, 2025')
+                                    ->helperText('Required because this block is marked as proven.'),
+                            ];
+                        }
+                        return [];
+                    })
+                    ->action(function (ContentBlock $record, array $data): void {
+                        $sourceNote = $record->source_note ?: ($data['source_note'] ?? null);
+
+                        PublicContentBlock::create([
+                            'user_id'             => auth()->id(),
+                            'origin_workspace_id' => $record->workspace_id,
+                            'title'               => $record->title,
+                            'category'            => $record->category,
+                            'ka_action'           => $record->ka_action,
+                            'language'            => $record->language,
+                            'body'                => $record->body,
+                            'tags'                => $record->tags,
+                            'is_proven'           => $record->is_proven,
+                            'source_note'         => $sourceNote,
+                            'import_count'        => 0,
+                        ]);
+
+                        Notification::make()
+                            ->title('Published to public library')
+                            ->body('Other users can now find and import this block.')
+                            ->success()
+                            ->send();
+                    }),
+
                 EditAction::make(),
                 ReplicateAction::make()
                     ->excludeAttributes(['usage_count'])

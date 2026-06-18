@@ -199,4 +199,47 @@ class WriteApplication extends Page
 
         $this->loadState();
     }
+
+    /**
+     * Move a section up or down by swapping sort_order with its neighbour.
+     * $direction: -1 = up, +1 = down.
+     */
+    public function moveSection(int $id, int $direction): void
+    {
+        $sections = $this->sectionsQuery()->get()->values();
+
+        $index = $sections->search(fn ($s) => $s->id === $id);
+        if ($index === false) return;
+
+        $swapIndex = $index + $direction;
+        if ($swapIndex < 0 || $swapIndex >= $sections->count()) return;
+
+        $current = $sections[$index];
+        $neighbour = $sections[$swapIndex];
+
+        // Swap their sort_order values.
+        $currentOrder = $current->sort_order;
+        $current->sort_order = $neighbour->sort_order;
+        $neighbour->sort_order = $currentOrder;
+
+        // If orders were equal/null, normalise the whole list to be safe.
+        if ($current->sort_order === $neighbour->sort_order) {
+            foreach ($sections as $i => $s) {
+                $s->sort_order = $i;
+                $s->save();
+            }
+            // re-apply the swap after normalising
+            $sections = $this->sectionsQuery()->get()->values();
+            $current = $sections[$index];
+            $neighbour = $sections[$swapIndex];
+            $tmp = $current->sort_order;
+            $current->sort_order = $neighbour->sort_order;
+            $neighbour->sort_order = $tmp;
+        }
+
+        $current->save();
+        $neighbour->save();
+
+        $this->loadState();
+    }
 }
