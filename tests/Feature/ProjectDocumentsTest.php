@@ -30,6 +30,7 @@ class ProjectDocumentsTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
         $this->assertStringStartsWith('%PDF-', $response->getContent());
         $this->assertStringContainsString('841.890 595.280', $response->getContent());
+        $this->assertSame(2, preg_match_all('/\/Type\s*\/Page\b/', $response->getContent()));
     }
 
     public function test_outsider_cannot_download_attendance_pdf(): void
