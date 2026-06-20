@@ -60,6 +60,7 @@ class Project extends Model
             }
 
             $project->participants()->get()->each->delete();
+            $project->documents()->get()->each->delete();
             $project->budgetLines()->get()->each->delete();
         });
     }
@@ -82,6 +83,11 @@ class Project extends Model
     public function participants(): HasMany
     {
         return $this->hasMany(Participant::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(ProjectDocument::class);
     }
 
     public function canBeManagedBy(?User $user): bool

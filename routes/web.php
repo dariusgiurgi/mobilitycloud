@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\ProjectExportController;
+use App\Http\Controllers\ProjectDocumentController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -16,4 +17,8 @@ Route::middleware('auth')->group(function () {
         ->name('attachments.participants.download');
     Route::get('/attachments/expenses/{expense}', [AttachmentDownloadController::class, 'expense'])
         ->name('attachments.expenses.download');
+    Route::get('/projects/{project}/documents/{document}/attendance', [ProjectDocumentController::class, 'attendance'])
+        ->name('project-documents.attendance');
+    Route::get('/projects/{project}/documents/{document}/signed', [ProjectDocumentController::class, 'signed'])
+        ->name('project-documents.signed');
 });

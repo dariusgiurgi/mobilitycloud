@@ -20,10 +20,16 @@
         </a>
         <div style="flex:1;"></div>
         <span class="text-gray-500 dark:text-gray-400" style="font-size:13px;">{{ $participants->count() }} participants</span>
-        <button type="button" wire:click="openCreate"
-                style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
-            + Add participant
-        </button>
+        @if($record->canBeManagedBy(auth()->user()))
+            <button type="button" wire:click="openAttendanceGenerator"
+                    style="padding:8px 14px;border-radius:8px;border:1px solid rgba(99,102,241,.35);background:transparent;color:#4f46e5;cursor:pointer;font-size:13px;font-weight:600;">
+                Attendance list
+            </button>
+            <button type="button" wire:click="openCreate"
+                    style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
+                + Add participant
+            </button>
+        @endif
     </div>
 
 {{-- Stats --}}
@@ -408,4 +414,5 @@
         .dark .mc-part-in { background:#27303f !important; color:#f4f4f5 !important; border-color:rgba(148,163,184,.3) !important; }
         .dark .mc-part-in option { background:#27303f; color:#f4f4f5; }
     </style>
+    @include('filament.partials.attendance-generator-modal')
 </x-filament-panels::page>

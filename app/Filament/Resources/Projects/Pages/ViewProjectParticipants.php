@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ParticipantAttachment;
 use App\Support\AuthorizesProjectManagement;
+use App\Support\GeneratesAttendanceSheets;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -15,6 +16,7 @@ use Livewire\WithFileUploads;
 class ViewProjectParticipants extends Page
 {
     use AuthorizesProjectManagement;
+    use GeneratesAttendanceSheets;
     use InteractsWithRecord;
     use WithFileUploads;
 
