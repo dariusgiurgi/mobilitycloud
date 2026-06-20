@@ -12,6 +12,7 @@ Route::get('/', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/projects/{project}/export', [ProjectExportController::class, 'report'])->name('projects.export');
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
+    Route::get('/projects/{project}/export-participants', [ProjectExportController::class, 'participantsCsv'])->name('projects.export-participants');
     Route::get('/calc/{type}/export', [ProjectExportController::class, 'calcExport'])->name('calc.export');
     Route::get('/attachments/participants/{attachment}', [AttachmentDownloadController::class, 'participant'])
         ->name('attachments.participants.download');

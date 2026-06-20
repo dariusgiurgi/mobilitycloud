@@ -6,9 +6,65 @@ use App\Models\Project;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectExportController extends Controller
 {
+    public function participantsCsv(Project $project): StreamedResponse
+    {
+        abort_unless(
+            Auth::check() && Auth::user()->workspaces()->whereKey($project->workspace_id)->exists(),
+            403
+        );
+
+        $participants = $project->participants()
+            ->with('attachments')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        $filename = 'participants-'.\Illuminate\Support\Str::slug($project->name).'.csv';
+
+        return response()->streamDownload(function () use ($participants): void {
+            $output = fopen('php://output', 'wb');
+
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, [
+                'Last name', 'First name', 'Organisation', 'Role', 'Country',
+                'Birth date', 'Age', 'Nationality', 'Gender', 'Email', 'Phone',
+                'Fewer opportunities', 'GDPR consent date', 'Documents complete',
+            ]);
+
+            foreach ($participants as $participant) {
+                fputcsv($output, array_map($this->csvValue(...), [
+                    $participant->last_name,
+                    $participant->first_name,
+                    $participant->partner_organisation,
+                    $participant->roleLabel(),
+                    $participant->country,
+                    $participant->birth_date?->format('Y-m-d'),
+                    $participant->ageAtReference(),
+                    $participant->nationality,
+                    $participant->gender,
+                    $participant->email,
+                    $participant->phone,
+                    $participant->fewer_opportunities ? 'Yes' : 'No',
+                    $participant->gdpr_consented_at?->format('Y-m-d'),
+                    $participant->hasCompleteDocs() ? 'Yes' : 'No',
+                ]));
+            }
+
+            fclose($output);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    private function csvValue(mixed $value): string
+    {
+        $value = (string) ($value ?? '');
+
+        return preg_match('/^[=+\-@]/', $value) ? "'".$value : $value;
+    }
+
     public function report(Project $project)
     {
         abort_unless(

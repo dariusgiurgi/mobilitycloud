@@ -20,6 +20,11 @@
         </a>
         <div style="flex:1;"></div>
         <span class="text-gray-500 dark:text-gray-400" style="font-size:13px;">{{ $participants->count() }} participants</span>
+        <a href="{{ route('projects.export-participants', $record) }}"
+           style="padding:8px 14px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;font-weight:600;text-decoration:none;"
+           class="text-gray-700 dark:text-gray-200">
+            Export CSV
+        </a>
         @if($record->canBeManagedBy(auth()->user()))
             <button type="button" wire:click="openAttendanceGenerator"
                     style="padding:8px 14px;border-radius:8px;border:1px solid rgba(99,102,241,.35);background:transparent;color:#4f46e5;cursor:pointer;font-size:13px;font-weight:600;">
