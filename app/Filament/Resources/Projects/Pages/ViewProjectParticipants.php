@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ParticipantAttachment;
+use App\Services\ParticipantCsvImporter;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
 use Filament\Notifications\Notification;
@@ -46,6 +47,10 @@ class ViewProjectParticipants extends Page
     public bool $filterIncompleteOnly = false;
 
     public bool $showPartFilters = false;
+
+    public bool $showImportModal = false;
+
+    public $importFile = null;
 
     // Upload de documente
     public $uploadFile = null;          // fisierul temporar Livewire
@@ -162,6 +167,32 @@ class ViewProjectParticipants extends Page
             ])
             ->values()
             ->all();
+    }
+
+    public function openImport(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->resetValidation('importFile');
+        $this->importFile = null;
+        $this->showImportModal = true;
+    }
+
+    public function importParticipants(ParticipantCsvImporter $importer): void
+    {
+        $this->authorizeProjectManagement();
+        $this->validate([
+            'importFile' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
+        ]);
+
+        $count = $importer->import($this->record, $this->importFile->getRealPath());
+
+        $this->importFile = null;
+        $this->showImportModal = false;
+
+        Notification::make()
+            ->title($count.' participant'.($count === 1 ? '' : 's').' imported')
+            ->success()
+            ->send();
     }
 
     protected function blankData(): array
