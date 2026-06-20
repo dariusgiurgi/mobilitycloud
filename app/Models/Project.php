@@ -25,7 +25,7 @@ class Project extends Model
         'total_budget', 'approved_budget', 'first_tranche_pct', 'withholding_tax_rate',
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
         'expense_prefix', 'expense_pad_length',
-        'start_date', 'end_date', 'partner_org', 'partner_orgs', 'notes',
+        'start_date', 'end_date', 'mobility_start_date', 'mobility_end_date', 'partner_org', 'partner_orgs', 'notes',
         'action_data',
     ];
 
@@ -39,6 +39,8 @@ class Project extends Model
         'action_data'         => 'array',
         'start_date'          => 'date',
         'end_date'            => 'date',
+        'mobility_start_date' => 'date',
+        'mobility_end_date'   => 'date',
     ];
 
     protected static function booted(): void

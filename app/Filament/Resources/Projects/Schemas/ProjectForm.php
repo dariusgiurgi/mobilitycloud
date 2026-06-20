@@ -108,8 +108,15 @@ class ProjectForm
                 Section::make('Timeline')
                     ->columns(2)
                     ->schema([
-                        DatePicker::make('start_date'),
-                        DatePicker::make('end_date'),
+                        DatePicker::make('start_date')
+                            ->label('Project start'),
+                        DatePicker::make('end_date')
+                            ->label('Project end'),
+                        DatePicker::make('mobility_start_date')
+                            ->label('Mobility start')
+                            ->helperText('Used to determine which participants are minors.'),
+                        DatePicker::make('mobility_end_date')
+                            ->label('Mobility end'),
                     ]),
 
                 Section::make('Expense code settings')

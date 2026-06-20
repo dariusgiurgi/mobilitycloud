@@ -78,4 +78,30 @@ class Participant extends Model
         $age = $this->ageAtReference();
         return $age !== null && $age < 18;
     }
+
+    /**
+     * Tipurile de documente necesare pentru acest participant.
+     * GDPR + agreement intotdeauna; acord parental doar pentru minori.
+     */
+    public function requiredDocTypes(): array
+    {
+        $required = ['gdpr', 'agreement'];
+        if ($this->isMinor()) {
+            $required[] = 'parental';
+        }
+        return $required;
+    }
+
+    /** Tipurile de documente necesare care LIPSESC. */
+    public function missingDocTypes(): array
+    {
+        $have = $this->attachments->pluck('type')->all();
+        return array_values(array_diff($this->requiredDocTypes(), $have));
+    }
+
+    /** Are toate documentele necesare? */
+    public function hasCompleteDocs(): bool
+    {
+        return count($this->missingDocTypes()) === 0;
+    }
 }

@@ -3,6 +3,10 @@
         $participants = $this->getParticipants();
         $roles = $this->getRoles();
         $partnerOrgs = $this->getPartnerOrgs();
+        $stats = $this->getStats();
+        $countriesInUse = $this->getCountriesInUse();
+        $orgsInUse = $this->getOrgsInUse();
+        $activeFilters = $this->activeParticipantFilters();
     @endphp
 
     <div class="mc-part">
@@ -22,6 +26,101 @@
         </button>
     </div>
 
+{{-- Stats --}}
+    <div style="display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
+            <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Total</div>
+            <div class="text-gray-950 dark:text-white" style="font-size:22px;font-weight:700;">{{ $stats['total'] }}</div>
+        </div>
+        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
+            <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Minors</div>
+            <div style="font-size:22px;font-weight:700;color:#d97706;">{{ $stats['minors'] }}</div>
+        </div>
+        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
+            <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Fewer opp.</div>
+            <div style="font-size:22px;font-weight:700;color:#6366f1;">{{ $stats['fo'] }}</div>
+        </div>
+    </div>
+
+    {{-- Search + Filters button --}}
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+        <input type="text" wire:model.live.debounce.300ms="filterSearch" placeholder="Search name…"
+               class="mc-part-in" style="flex:1;min-width:200px;width:auto;background:transparent;">
+
+        <button type="button" wire:click="$toggle('showPartFilters')"
+                class="text-gray-700 dark:text-gray-200"
+                style="display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border:1px solid rgba(100,116,139,.3);border-radius:8px;background:{{ $showPartFilters ? 'rgba(99,102,241,.08)' : 'transparent' }};cursor:pointer;font-size:13px;font-weight:500;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            Filters
+            @if($activeFilters > 0)
+                <span style="display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#6366f1;color:#fff;font-size:11px;font-weight:700;">{{ $activeFilters }}</span>
+            @endif
+        </button>
+    </div>
+
+    {{-- Collapsible filters panel --}}
+    @if($showPartFilters)
+    <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+         style="padding:1.1rem 1.25rem;margin-bottom:1.25rem;">
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;">
+
+            <div style="display:flex;flex-direction:column;gap:5px;">
+                <label class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Role</label>
+                <select wire:model.live="filterRole" class="mc-part-in" style="width:auto;min-width:150px;background:transparent;">
+                    <option value="">All roles</option>
+                    @foreach($roles as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+
+            @if(count($countriesInUse) > 0)
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                    <label class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Country</label>
+                    <select wire:model.live="filterCountry" class="mc-part-in" style="width:auto;min-width:140px;background:transparent;">
+                        <option value="">All countries</option>
+                        @foreach($countriesInUse as $c)
+                            <option value="{{ $c }}">{{ $c }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            @if(count($orgsInUse) > 0)
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                    <label class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Organisation</label>
+                    <select wire:model.live="filterOrg" class="mc-part-in" style="width:auto;min-width:150px;background:transparent;">
+                        <option value="">All organisations</option>
+                        @foreach($orgsInUse as $o)
+                            <option value="{{ $o }}">{{ $o }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            <label class="text-gray-700 dark:text-gray-200" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;">
+                <input type="checkbox" wire:model.live="filterMinorsOnly" style="accent-color:#d97706;"> Minors only
+            </label>
+
+            <label class="text-gray-700 dark:text-gray-200" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;">
+                <input type="checkbox" wire:model.live="filterIncompleteOnly" style="accent-color:#dc2626;"> Incomplete only
+            </label>
+
+            <div style="flex:1;"></div>
+
+            @if($activeFilters > 0)
+                <button type="button" wire:click="clearParticipantFilters"
+                        class="text-gray-500 dark:text-gray-400"
+                        style="padding:8px 14px;border:1px solid rgba(100,116,139,.3);border-radius:8px;background:transparent;cursor:pointer;font-size:13px;">
+                    Clear all
+                </button>
+            @endif
+        </div>
+    </div>
+    @endif
+
+    
+
     {{-- List --}}
     @if($participants->isEmpty())
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
@@ -39,7 +138,7 @@
                             <th style="padding:10px 12px;text-align:left;">Country</th>
                             <th style="padding:10px 12px;text-align:center;">Age</th>
                             <th style="padding:10px 12px;text-align:center;">Flags</th>
-                            <th style="padding:10px 12px;text-align:center;">GDPR</th>
+                            <th style="padding:10px 12px;text-align:center;">Documents</th>
                             <th style="padding:10px 12px;text-align:center;width:90px;"></th>
                         </tr>
                     </thead>
@@ -63,11 +162,18 @@
                                 @endif
                             </td>
                             <td style="padding:9px 12px;text-align:center;">
-                                <button type="button" wire:click="setGdprConsent({{ $p->id }})"
-                                        title="{{ $p->gdpr_consented_at ? 'Consented '.$p->gdpr_consented_at->format('d M Y') : 'Not consented — click to mark' }}"
-                                        style="border:none;background:transparent;cursor:pointer;font-size:16px;line-height:1;color:{{ $p->gdpr_consented_at ? '#16a34a' : '#cbd5e1' }};">
-                                    {{ $p->gdpr_consented_at ? '✔' : '○' }}
-                                </button>
+                                @php
+                                    $missing = $p->missingDocTypes();
+                                    $docLabels = \App\Models\ParticipantAttachment::TYPES;
+                                    $missingNames = collect($missing)->map(fn ($t) => $docLabels[$t] ?? $t)->implode(', ');
+                                @endphp
+                                @if($p->hasCompleteDocs())
+                                    <span title="All required documents uploaded"
+                                          style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(22,163,74,.15);color:#16a34a;">COMPLETE</span>
+                                @else
+                                    <span title="Missing: {{ $missingNames }}"
+                                          style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;background:rgba(245,158,11,.18);color:#d97706;">{{ count($missing) }} MISSING</span>
+                                @endif
                             </td>
                             <td style="padding:9px 12px;text-align:center;">
                                 <button type="button" wire:click="openEdit({{ $p->id }})" title="Edit"

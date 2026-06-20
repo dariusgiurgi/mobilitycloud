@@ -26,6 +26,15 @@ class ViewProjectParticipants extends Page
     // Bound form fields
     public array $data = [];
 
+    // Filtre lista
+    public string $filterSearch = '';
+    public string $filterRole = '';
+    public string $filterCountry = '';
+    public string $filterOrg = '';
+    public bool $filterMinorsOnly = false;
+    public bool $filterIncompleteOnly = false;
+    public bool $showPartFilters = false;
+
     // Upload de documente
     public $uploadFile = null;          // fisierul temporar Livewire
     public string $uploadType = 'gdpr'; // tipul ales pentru upload
@@ -43,15 +52,87 @@ class ViewProjectParticipants extends Page
 
     public function getParticipants()
     {
-        return Participant::where('project_id', $this->record->id)
+        $all = Participant::where('project_id', $this->record->id)
+            ->with('attachments')
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();
-    }
 
+        return $all->filter(function (Participant $p) {
+            // Cautare nume
+            if ($this->filterSearch !== '') {
+                $needle = mb_strtolower($this->filterSearch);
+                if (! str_contains(mb_strtolower($p->fullName()), $needle)) {
+                    return false;
+                }
+            }
+            if ($this->filterRole !== '' && $p->role !== $this->filterRole) {
+                return false;
+            }
+            if ($this->filterCountry !== '' && $p->country !== $this->filterCountry) {
+                return false;
+            }
+            if ($this->filterOrg !== '' && $p->partner_organisation !== $this->filterOrg) {
+                return false;
+            }
+            if ($this->filterMinorsOnly && ! $p->isMinor()) {
+                return false;
+            }
+            if ($this->filterIncompleteOnly && $p->hasCompleteDocs()) {
+                return false;
+            }
+            return true;
+        })->values();
+    }
     public function getRoles(): array
     {
         return Participant::ROLES;
+    }
+
+    /** Statistici pe toti participantii proiectului (nu cei filtrati). */
+    public function getStats(): array
+    {
+        $all = Participant::where('project_id', $this->record->id)->with('attachments')->get();
+        return [
+            'total'  => $all->count(),
+            'minors' => $all->filter(fn ($p) => $p->isMinor())->count(),
+            'fo'     => $all->where('fewer_opportunities', true)->count(),
+        ];
+    }
+
+    /** Tarile distincte existente la participanti (pentru filtru). */
+    public function getCountriesInUse(): array
+    {
+        return Participant::where('project_id', $this->record->id)
+            ->whereNotNull('country')->where('country', '!=', '')
+            ->distinct()->orderBy('country')->pluck('country')->all();
+    }
+
+    /** Organizatiile distincte existente la participanti (pentru filtru). */
+    public function getOrgsInUse(): array
+    {
+        return Participant::where('project_id', $this->record->id)
+            ->whereNotNull('partner_organisation')->where('partner_organisation', '!=', '')
+            ->distinct()->orderBy('partner_organisation')->pluck('partner_organisation')->all();
+    }
+
+    public function activeParticipantFilters(): int
+    {
+        return collect([
+            $this->filterSearch, $this->filterRole, $this->filterCountry, $this->filterOrg,
+        ])->filter(fn ($v) => $v !== '')->count()
+        + ($this->filterMinorsOnly ? 1 : 0)
+        + ($this->filterIncompleteOnly ? 1 : 0);
+    }
+
+    public function clearParticipantFilters(): void
+    {
+        $this->filterSearch = '';
+        $this->filterRole = '';
+        $this->filterCountry = '';
+        $this->filterOrg = '';
+        $this->filterMinorsOnly = false;
+        $this->filterIncompleteOnly = false;
     }
 
     public function getPartnerOrgs(): array
