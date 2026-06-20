@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectBoard;
 use App\Filament\Resources\Projects\Pages\ViewProjectEstimate;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
+use App\Filament\Resources\Projects\Pages\ViewProjectParticipants;
 use App\Filament\Resources\Projects\Pages\WriteApplication;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
@@ -48,6 +49,7 @@ class ProjectResource extends Resource
             'write'    => WriteApplication::route('/{record}/write'),
             'estimate' => ViewProjectEstimate::route('/{record}/estimate'),
             'board'    => ViewProjectBoard::route('/{record}/board'),
+            'participants' => ViewProjectParticipants::route('/{record}/participants'),
             'edit'     => EditProject::route('/{record}/edit'),
         ];
     }
@@ -81,6 +83,11 @@ class ProjectResource extends Resource
                 ->icon(Heroicon::OutlinedBanknotes)
                 ->url($budgetUrl)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectEstimate || $page instanceof ViewProjectBoard),
+
+            NavigationItem::make('Participants')
+                ->icon(Heroicon::OutlinedUsers)
+                ->url(static::getUrl('participants', ['record' => $record]))
+                ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
 
             NavigationItem::make('Settings')
                 ->icon(Heroicon::OutlinedCog6Tooth)

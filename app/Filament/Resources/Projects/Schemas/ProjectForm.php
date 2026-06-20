@@ -10,6 +10,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Toggle;
 use Illuminate\Support\Collection;
 
 class ProjectForm
@@ -46,7 +47,7 @@ class ProjectForm
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Partner organisations')
+                Section::make('Involved organisations')
                     ->schema([
                         Repeater::make('partner_orgs')
                             ->hiddenLabel()
@@ -61,10 +62,16 @@ class ProjectForm
                                 TextInput::make('oid')
                                     ->label('OID')
                                     ->maxLength(50),
+                                Toggle::make('is_coordinator')
+                                    ->label('Coordinator')
+                                    ->inline(false)
+                                    ->columnSpan(1),
                             ])
-                            ->columns(4)
-                            ->addActionLabel('Add partner organisation')
-                            ->itemLabel(fn (array $state): ?string => $state['name'] ?? null)
+                            ->columns(5)
+                            ->addActionLabel('Add organisation')
+                            ->itemLabel(fn (array $state): ?string =>
+                                ($state['name'] ?? null)
+                                . (! empty($state['is_coordinator']) ? ' — Coordinator' : ''))
                             ->collapsible()
                             ->collapsed()
                             ->reorderable()
