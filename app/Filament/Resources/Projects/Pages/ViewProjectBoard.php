@@ -6,12 +6,13 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\BudgetLine;
 use App\Models\BudgetTransfer;
 use App\Models\Expense;
+use App\Services\BudgetTransferService;
 use App\Support\AuthorizesProjectManagement;
+use DomainException;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
 
@@ -354,41 +355,20 @@ class ViewProjectBoard extends Page
             return;
         }
 
-        $amount = (float) $this->transferAmount;
-
-        // Nu poti transfera mai mult decat e LIBER in cosul sursa (alocat - cheltuit).
-        $available = (float) $from->allocated_budget - (float) $from->expenses->sum('amount_eur');
-        if ($amount > $available) {
-            $this->addError('transferAmount', 'Only € '.number_format($available, 2).' is available in "'.$from->title.'" (allocated minus already spent).');
+        try {
+            app(BudgetTransferService::class)->transfer(
+                $this->record,
+                $from,
+                $to,
+                (float) $this->transferAmount,
+                $this->transferReason,
+                auth()->user(),
+            );
+        } catch (DomainException $exception) {
+            $this->addError('transferAmount', $exception->getMessage());
 
             return;
         }
-
-        DB::transaction(function () use ($from, $to, $amount) {
-            $fromLocked = BudgetLine::lockForUpdate()->find($from->id);
-            $toLocked = BudgetLine::lockForUpdate()->find($to->id);
-
-            // Re-verifica sub lock, ca sa nu existe curse intre doua transferuri simultane.
-            $availableLocked = (float) $fromLocked->allocated_budget - (float) $fromLocked->expenses()->sum('amount_eur');
-            if ($amount > $availableLocked) {
-                return;
-            }
-
-            $fromLocked->allocated_budget = (float) $fromLocked->allocated_budget - $amount;
-            $fromLocked->save();
-            $toLocked->allocated_budget = (float) $toLocked->allocated_budget + $amount;
-            $toLocked->save();
-
-            BudgetTransfer::create([
-                'project_id' => $this->record->id,
-                'from_budget_line_id' => $from->id,
-                'to_budget_line_id' => $to->id,
-                'amount' => $amount,
-                'reason' => $this->transferReason ?: null,
-                'status' => 'active',
-                'created_by' => auth()->id(),
-            ]);
-        });
 
         $this->showTransferModal = false;
         $this->reload();
@@ -402,21 +382,17 @@ class ViewProjectBoard extends Page
             return;
         }
 
-        DB::transaction(function () use ($transfer) {
-            $from = BudgetLine::lockForUpdate()->find($transfer->from_budget_line_id);
-            $to = BudgetLine::lockForUpdate()->find($transfer->to_budget_line_id);
+        try {
+            app(BudgetTransferService::class)->reverse($this->record, $transfer);
+        } catch (DomainException $exception) {
+            Notification::make()
+                ->title('Transfer could not be reversed')
+                ->body($exception->getMessage())
+                ->warning()
+                ->send();
 
-            if ($to) {
-                $to->allocated_budget = (float) $to->allocated_budget - (float) $transfer->amount;
-                $to->save();
-            }
-            if ($from) {
-                $from->allocated_budget = (float) $from->allocated_budget + (float) $transfer->amount;
-                $from->save();
-            }
-
-            $transfer->update(['status' => 'reversed', 'reversed_at' => now()]);
-        });
+            return;
+        }
 
         $this->reload();
     }

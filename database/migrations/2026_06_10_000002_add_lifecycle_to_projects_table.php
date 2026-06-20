@@ -30,10 +30,10 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('projects', function (Blueprint $table) {
-            foreach (['status', 'is_activated', 'action_data'] as $column) {
-                if (Schema::hasColumn('projects', $column)) {
-                    $table->dropColumn($column);
-                }
+            // status and is_activated were introduced by the base projects
+            // migration. Dropping them here would destroy pre-existing data.
+            if (Schema::hasColumn('projects', 'action_data')) {
+                $table->dropColumn('action_data');
             }
         });
     }

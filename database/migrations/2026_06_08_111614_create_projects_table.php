@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('grant_ref')->nullable();
             $table->text('description')->nullable();
 
-            // Lifecycle: draft | submitted | approved | activated | completed | archived
-            $table->string('status')->default('draft');
+            // Lifecycle values are defined by App\Enums\ProjectStatus.
+            $table->string('status')->default('writing');
 
             // Buget
             $table->decimal('total_budget', 15, 2)->default(0);
