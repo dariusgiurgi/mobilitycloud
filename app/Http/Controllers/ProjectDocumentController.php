@@ -45,6 +45,17 @@ class ProjectDocumentController extends Controller
         );
     }
 
+    public function file(Project $project, ProjectDocument $document)
+    {
+        $this->authorizeDocument($project, $document);
+        abort_unless($document->type === ProjectDocument::TYPE_UPLOAD && $document->hasFile(), 404);
+
+        return Storage::disk($document->file_disk ?: 'local')->download(
+            $document->file_path,
+            $document->file_name ?: basename($document->file_path)
+        );
+    }
+
     private function authorizeDocument(Project $project, ProjectDocument $document): void
     {
         abort_unless($document->project_id === $project->id, 404);

@@ -85,6 +85,39 @@ class ProjectDocumentsTest extends TestCase
         Storage::disk('local')->assertMissing($path);
     }
 
+    public function test_uploaded_project_file_is_private_and_removed_with_its_record(): void
+    {
+        Storage::fake('local');
+        [$workspace, $project] = $this->workspaceAndProject();
+        $member = User::factory()->create();
+        $outsider = User::factory()->create();
+        $workspace->users()->attach($member, ['role' => 'viewer']);
+        $path = 'project-documents/'.$project->id.'/grant.pdf';
+        Storage::disk('local')->put($path, 'grant');
+        $document = ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => 'grant_agreement',
+            'title' => 'Grant agreement',
+            'file_path' => $path,
+            'file_disk' => 'local',
+            'file_name' => 'Grant Agreement.pdf',
+            'file_size' => 5,
+        ]);
+
+        $this->actingAs($outsider)
+            ->get(route('project-documents.file', [$project, $document]))
+            ->assertForbidden();
+
+        $this->actingAs($member)
+            ->get(route('project-documents.file', [$project, $document]))
+            ->assertOk()
+            ->assertDownload('Grant Agreement.pdf');
+
+        $document->delete();
+        Storage::disk('local')->assertMissing($path);
+    }
+
     private function workspaceAndProject(): array
     {
         $workspace = Workspace::create(['name' => 'Documents Workspace']);

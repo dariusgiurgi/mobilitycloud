@@ -30,6 +30,18 @@ class ViewProjectDocuments extends Page
 
     public $signedUpload = null;
 
+    public bool $showDocumentUploadModal = false;
+
+    public string $documentTitle = '';
+
+    public string $documentCategory = 'other';
+
+    public ?string $documentDate = null;
+
+    public string $documentNotes = '';
+
+    public $documentUpload = null;
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -43,9 +55,74 @@ class ViewProjectDocuments extends Page
     public function getDocuments()
     {
         return ProjectDocument::where('project_id', $this->record->id)
-            ->latest('activity_date')
             ->latest('id')
             ->get();
+    }
+
+    public function getDocumentCategories(): array
+    {
+        return ProjectDocument::CATEGORIES;
+    }
+
+    public function openDocumentUpload(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->resetValidation();
+        $this->documentTitle = '';
+        $this->documentCategory = 'other';
+        $this->documentDate = null;
+        $this->documentNotes = '';
+        $this->documentUpload = null;
+        $this->showDocumentUploadModal = true;
+    }
+
+    public function closeDocumentUpload(): void
+    {
+        $this->showDocumentUploadModal = false;
+        $this->documentUpload = null;
+    }
+
+    public function uploadProjectDocument(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->validate([
+            'documentTitle' => ['required', 'string', 'max:255'],
+            'documentCategory' => ['required', 'in:'.implode(',', array_keys(ProjectDocument::CATEGORIES))],
+            'documentDate' => ['nullable', 'date'],
+            'documentNotes' => ['nullable', 'string', 'max:2000'],
+            'documentUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx'],
+        ]);
+
+        $document = $this->record->documents()->create([
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => $this->documentCategory,
+            'title' => trim($this->documentTitle),
+            'document_date' => $this->documentDate ?: null,
+            'notes' => trim($this->documentNotes) ?: null,
+        ]);
+
+        try {
+            $extension = strtolower($this->documentUpload->getClientOriginalExtension() ?: 'dat');
+            $filename = Str::slug($document->title).'_'.$document->id.'.'.$extension;
+            $path = $this->documentUpload->storeAs(
+                'project-documents/'.$this->record->id.'/'.$document->id,
+                $filename,
+                'local'
+            );
+
+            $document->update([
+                'file_path' => $path,
+                'file_disk' => 'local',
+                'file_name' => $this->documentUpload->getClientOriginalName(),
+                'file_size' => $this->documentUpload->getSize(),
+            ]);
+        } catch (\Throwable $exception) {
+            $document->delete();
+            throw $exception;
+        }
+
+        $this->closeDocumentUpload();
+        Notification::make()->title('Project document uploaded')->success()->send();
     }
 
     public function openSignedUpload(int $documentId): void
