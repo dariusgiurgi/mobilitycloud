@@ -3,17 +3,23 @@
 namespace App\Filament\Pages;
 
 use App\Models\SavedCalculation;
-use Filament\Pages\Page;
-use Filament\Facades\Filament;
-use Filament\Support\Icons\Heroicon;
-use Filament\Notifications\Notification;
+use App\Support\AuthorizesWorkspaceManagement;
 use BackedEnum;
+use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
 
 class IndividualSupportCalculator extends Page
 {
+    use AuthorizesWorkspaceManagement;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
+
     protected static ?string $navigationLabel = 'IS Calculator';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Tools';
+
     protected static ?string $title = 'Individual Support Calculator';
 
     protected string $view = 'filament.pages.individual-support-calculator';
@@ -30,28 +36,39 @@ class IndividualSupportCalculator extends Page
     ];
 
     public int $participants = 1;
+
     public int $days = 7;
+
     public float $isRate = 79;
+
     public int $travelDays = 2;
+
     public bool $isTravelDaysIncluded = true;
+
     public int $travelBandIndex = 2;
+
     public bool $greenTravel = false;
+
     public float $osRate = 100;
+
     public bool $includeOS = true;
 
     // Save state
     public bool $showSaveModal = false;
+
     public string $saveName = '';
 
     public function getIsTotalProperty(): float
     {
         $totalDays = $this->days + ($this->isTravelDaysIncluded ? $this->travelDays : 0);
+
         return round($this->participants * $totalDays * $this->isRate, 2);
     }
 
     public function getTravelPerParticipantProperty(): float
     {
         $band = self::TRAVEL_BANDS[$this->travelBandIndex] ?? self::TRAVEL_BANDS[0];
+
         return (float) ($this->greenTravel ? $band['green'] : $band['standard']);
     }
 
@@ -87,14 +104,15 @@ class IndividualSupportCalculator extends Page
 
     public function saveCalculation(): void
     {
+        $this->authorizeWorkspaceManagement();
         $this->validate(['saveName' => 'required|min:2|max:255']);
 
         SavedCalculation::create([
             'workspace_id' => Filament::getTenant()?->id,
-            'created_by'   => auth()->id(),
-            'name'         => $this->saveName,
-            'type'         => 'individual_support',
-            'inputs'       => [
+            'created_by' => auth()->id(),
+            'name' => $this->saveName,
+            'type' => 'individual_support',
+            'inputs' => [
                 'participants' => $this->participants,
                 'days' => $this->days,
                 'isRate' => $this->isRate,
@@ -120,7 +138,9 @@ class IndividualSupportCalculator extends Page
     public function loadCalculation(int $id): void
     {
         $calc = SavedCalculation::where('workspace_id', Filament::getTenant()?->id)->find($id);
-        if (!$calc) return;
+        if (! $calc) {
+            return;
+        }
 
         $in = $calc->inputs;
         $this->participants = $in['participants'] ?? 1;
@@ -133,11 +153,12 @@ class IndividualSupportCalculator extends Page
         $this->osRate = $in['osRate'] ?? 100;
         $this->includeOS = $in['includeOS'] ?? true;
 
-        Notification::make()->title('Loaded: ' . $calc->name)->success()->send();
+        Notification::make()->title('Loaded: '.$calc->name)->success()->send();
     }
 
     public function deleteCalculation(int $id): void
     {
+        $this->authorizeWorkspaceManagement();
         SavedCalculation::where('workspace_id', Filament::getTenant()?->id)->where('id', $id)->delete();
         Notification::make()->title('Deleted')->send();
     }

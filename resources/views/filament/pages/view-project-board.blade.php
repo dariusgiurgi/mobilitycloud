@@ -162,7 +162,7 @@
                             <td style="padding:6px 10px;text-align:center;">
                                 @if($expense->attachment_path)
                                     <span style="display:inline-flex;align-items:center;gap:2px;">
-                                        <a href="{{ asset('storage/' . $expense->attachment_path) }}" target="_blank" title="{{ $expense->attachment_name }}">
+                                        <a href="{{ route('attachments.expenses.download', $expense) }}" target="_blank" title="{{ $expense->attachment_name }}">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.99 8.8l-8.57 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                                         </a>
                                         <button type="button" wire:click="deleteAttachment({{ $expense->id }})" title="Remove file"

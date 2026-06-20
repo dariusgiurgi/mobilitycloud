@@ -36,4 +36,11 @@ class BudgetLine extends Model
     {
         return (float) $this->allocated_budget - $this->spent;
     }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (BudgetLine $line): void {
+            $line->expenses()->withTrashed()->get()->each->forceDelete();
+        });
+    }
 }

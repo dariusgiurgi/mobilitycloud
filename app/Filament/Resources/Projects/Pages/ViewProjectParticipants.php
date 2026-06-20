@@ -4,23 +4,27 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
+use App\Models\ParticipantAttachment;
+use App\Support\AuthorizesProjectManagement;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use App\Models\ParticipantAttachment;
-use Livewire\WithFileUploads;
 use Illuminate\Support\Str;
+use Livewire\WithFileUploads;
 
 class ViewProjectParticipants extends Page
 {
+    use AuthorizesProjectManagement;
     use InteractsWithRecord;
     use WithFileUploads;
 
     protected static string $resource = ProjectResource::class;
+
     protected string $view = 'filament.pages.view-project-participants';
 
     // Modal state
     public bool $showModal = false;
+
     public ?int $editingId = null;
 
     // Bound form fields
@@ -28,16 +32,24 @@ class ViewProjectParticipants extends Page
 
     // Filtre lista
     public string $filterSearch = '';
+
     public string $filterRole = '';
+
     public string $filterCountry = '';
+
     public string $filterOrg = '';
+
     public bool $filterMinorsOnly = false;
+
     public bool $filterIncompleteOnly = false;
+
     public bool $showPartFilters = false;
 
     // Upload de documente
     public $uploadFile = null;          // fisierul temporar Livewire
+
     public string $uploadType = 'gdpr'; // tipul ales pentru upload
+
     public ?int $attachParticipantId = null; // participantul pentru care incarcam
 
     public function mount(int|string $record): void
@@ -47,7 +59,7 @@ class ViewProjectParticipants extends Page
 
     public function getTitle(): string
     {
-        return $this->record->name . ' — Participants';
+        return $this->record->name.' — Participants';
     }
 
     public function getParticipants()
@@ -81,9 +93,11 @@ class ViewProjectParticipants extends Page
             if ($this->filterIncompleteOnly && $p->hasCompleteDocs()) {
                 return false;
             }
+
             return true;
         })->values();
     }
+
     public function getRoles(): array
     {
         return Participant::ROLES;
@@ -93,10 +107,11 @@ class ViewProjectParticipants extends Page
     public function getStats(): array
     {
         $all = Participant::where('project_id', $this->record->id)->with('attachments')->get();
+
         return [
-            'total'  => $all->count(),
+            'total' => $all->count(),
             'minors' => $all->filter(fn ($p) => $p->isMinor())->count(),
-            'fo'     => $all->where('fewer_opportunities', true)->count(),
+            'fo' => $all->where('fewer_opportunities', true)->count(),
         ];
     }
 
@@ -140,8 +155,8 @@ class ViewProjectParticipants extends Page
         return collect($this->record->partners)
             ->filter(fn ($p) => ! empty($p['name']))
             ->map(fn ($p) => [
-                'name'  => $p['name'],
-                'label' => $p['name'] . (! empty($p['is_coordinator']) ? ' (coordinator)' : ''),
+                'name' => $p['name'],
+                'label' => $p['name'].(! empty($p['is_coordinator']) ? ' (coordinator)' : ''),
             ])
             ->values()
             ->all();
@@ -170,7 +185,9 @@ class ViewProjectParticipants extends Page
     public function openEdit(int $id): void
     {
         $p = Participant::where('project_id', $this->record->id)->find($id);
-        if (! $p) return;
+        if (! $p) {
+            return;
+        }
 
         $this->editingId = $p->id;
         $this->attachParticipantId = $p->id;
@@ -197,14 +214,15 @@ class ViewProjectParticipants extends Page
 
     public function save(): void
     {
+        $this->authorizeProjectManagement();
         $this->validate([
             'data.first_name' => 'required|string|max:255',
-            'data.last_name'  => 'required|string|max:255',
-            'data.email'      => 'nullable|email|max:255',
+            'data.last_name' => 'required|string|max:255',
+            'data.email' => 'nullable|email|max:255',
             'data.birth_date' => 'nullable|date',
         ], [], [
             'data.first_name' => 'first name',
-            'data.last_name'  => 'last name',
+            'data.last_name' => 'last name',
         ]);
 
         $payload = $this->data;
@@ -213,7 +231,9 @@ class ViewProjectParticipants extends Page
 
         if ($this->editingId) {
             $p = Participant::where('project_id', $this->record->id)->find($this->editingId);
-            if ($p) $p->update($payload);
+            if ($p) {
+                $p->update($payload);
+            }
         } else {
             $payload['project_id'] = $this->record->id;
             Participant::create($payload);
@@ -226,14 +246,18 @@ class ViewProjectParticipants extends Page
 
     public function deleteParticipant(int $id): void
     {
+        $this->authorizeProjectManagement();
         Participant::where('project_id', $this->record->id)->where('id', $id)->delete();
         Notification::make()->title('Participant removed')->success()->send();
     }
 
     public function setGdprConsent(int $id): void
     {
+        $this->authorizeProjectManagement();
         $p = Participant::where('project_id', $this->record->id)->find($id);
-        if (! $p) return;
+        if (! $p) {
+            return;
+        }
         $p->gdpr_consented_at = $p->gdpr_consented_at ? null : now();
         $p->save();
     }
@@ -253,30 +277,32 @@ class ViewProjectParticipants extends Page
 
     public function uploadAttachment(): void
     {
+        $this->authorizeProjectManagement();
         $this->validate([
-            'uploadFile' => 'required|file|max:10240', // 10 MB
-            'uploadType' => 'required|in:' . implode(',', array_keys(ParticipantAttachment::TYPES)),
+            'uploadFile' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx', // 10 MB
+            'uploadType' => 'required|in:'.implode(',', array_keys(ParticipantAttachment::TYPES)),
         ], [], [
             'uploadFile' => 'file',
         ]);
 
-        $participant = \App\Models\Participant::where('project_id', $this->record->id)
+        $participant = Participant::where('project_id', $this->record->id)
             ->find($this->attachParticipantId);
 
         if (! $participant) {
             $this->reset(['uploadFile']);
+
             return;
         }
 
         // Numele generat: {prefix}_{Nume}_{Prenume}.{ext}, fara diacritice.
         $prefix = ParticipantAttachment::FILE_PREFIXES[$this->uploadType] ?? 'document';
-        $namePart = Str::ascii($participant->last_name . '_' . $participant->first_name);
+        $namePart = Str::ascii($participant->last_name.'_'.$participant->first_name);
         $namePart = preg_replace('/[^A-Za-z0-9_]+/', '_', $namePart);
         $namePart = trim($namePart, '_');
         $ext = $this->uploadFile->getClientOriginalExtension() ?: 'dat';
-        $filename = $prefix . '_' . $namePart . '.' . strtolower($ext);
+        $filename = $prefix.'_'.$namePart.'.'.strtolower($ext);
 
-        $dir = 'participant-attachments/' . $participant->id;
+        $dir = 'participant-attachments/'.$participant->id;
 
         // "Doar ultimul fisier per tip": stergem atasamentul vechi de acelasi tip.
         $existing = ParticipantAttachment::where('participant_id', $participant->id)
@@ -287,19 +313,20 @@ class ViewProjectParticipants extends Page
         }
 
         // Salvam fisierul nou cu numele generat.
-        $path = $this->uploadFile->storeAs($dir, $filename, 'public');
+        $path = $this->uploadFile->storeAs($dir, $filename, 'local');
 
         ParticipantAttachment::create([
             'participant_id' => $participant->id,
-            'type'           => $this->uploadType,
-            'path'           => $path,
-            'original_name'  => $this->uploadFile->getClientOriginalName(),
-            'size'           => $this->uploadFile->getSize(),
+            'type' => $this->uploadType,
+            'path' => $path,
+            'disk' => 'local',
+            'original_name' => $this->uploadFile->getClientOriginalName(),
+            'size' => $this->uploadFile->getSize(),
         ]);
 
         $this->reset(['uploadFile']);
 
-        \Filament\Notifications\Notification::make()
+        Notification::make()
             ->title('Document uploaded')
             ->success()
             ->send();
@@ -307,11 +334,12 @@ class ViewProjectParticipants extends Page
 
     public function deleteAttachment(int $attachmentId): void
     {
+        $this->authorizeProjectManagement();
         $att = ParticipantAttachment::find($attachmentId);
         // Verificam ca apartine unui participant din acest proiect.
         if ($att && $att->participant && $att->participant->project_id === $this->record->id) {
             $att->delete();
-            \Filament\Notifications\Notification::make()->title('Document removed')->success()->send();
+            Notification::make()->title('Document removed')->success()->send();
         }
     }
 }

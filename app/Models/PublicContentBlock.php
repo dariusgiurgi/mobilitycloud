@@ -11,13 +11,15 @@ class PublicContentBlock extends Model
     protected $fillable = [
         'user_id', 'origin_workspace_id', 'title', 'category', 'ka_action',
         'language', 'body', 'tags', 'is_proven', 'source_note', 'import_count', 'likes_count',
+        'is_hidden',
     ];
 
     protected $casts = [
-        'tags'         => 'array',
-        'is_proven'    => 'boolean',
+        'tags' => 'array',
+        'is_proven' => 'boolean',
         'import_count' => 'integer',
-        'likes_count'  => 'integer',
+        'likes_count' => 'integer',
+        'is_hidden' => 'boolean',
     ];
 
     // Email-ul contului de sistem care detine blocurile oficiale.
@@ -25,8 +27,10 @@ class PublicContentBlock extends Model
 
     // Reutilizam aceleasi liste ca la blocurile personale, ca sa fie consecvent.
     public const CATEGORIES = ContentBlock::CATEGORIES;
+
     public const KA_ACTIONS = ContentBlock::KA_ACTIONS;
-    public const LANGUAGES  = ContentBlock::LANGUAGES;
+
+    public const LANGUAGES = ContentBlock::LANGUAGES;
 
     public function author(): BelongsTo
     {
@@ -43,7 +47,7 @@ class PublicContentBlock extends Model
         return $this->hasMany(PublicBlockLike::class, 'public_content_block_id');
     }
 
-    public function reports(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function reports(): HasMany
     {
         return $this->hasMany(PublicBlockReport::class, 'public_content_block_id');
     }
@@ -51,7 +55,10 @@ class PublicContentBlock extends Model
     /** Userul dat a raportat deja acest bloc? */
     public function isReportedBy(?User $user): bool
     {
-        if (! $user) return false;
+        if (! $user) {
+            return false;
+        }
+
         return $this->reports()->where('user_id', $user->id)->exists();
     }
 
@@ -75,7 +82,10 @@ class PublicContentBlock extends Model
     /** Userul dat a dat like acestui bloc? */
     public function isLikedBy(?User $user): bool
     {
-        if (! $user) return false;
+        if (! $user) {
+            return false;
+        }
+
         return $this->likes()->where('user_id', $user->id)->exists();
     }
 
@@ -87,11 +97,13 @@ class PublicContentBlock extends Model
         if ($existing) {
             $existing->delete();
             $this->decrement('likes_count');
+
             return false;
         }
 
         $this->likes()->create(['user_id' => $user->id]);
         $this->increment('likes_count');
+
         return true;
     }
 

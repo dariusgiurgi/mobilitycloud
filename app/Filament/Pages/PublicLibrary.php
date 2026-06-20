@@ -2,37 +2,58 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use App\Models\ContentBlock;
+use App\Models\PublicBlockReport;
 use App\Models\PublicContentBlock;
+use App\Models\User;
+use App\Support\AuthorizesWorkspaceManagement;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
-use Filament\Actions\Action;
 
 class PublicLibrary extends Page
 {
+    use AuthorizesWorkspaceManagement;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGlobeAlt;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Community';
+
     protected static ?string $navigationLabel = 'Public Library';
+
     protected static ?string $title = 'Public Library';
+
     protected static ?int $navigationSort = 1;
 
     protected string $view = 'filament.pages.public-library';
 
     // Filtre / sortare (legate in blade).
     public string $search = '';
+
     public string $sort = 'relevant';     // relevant | new | imports
+
     public string $category = '';
+
     public ?int $previewId = null;        // blocul deschis in modalul de preview
+
     public string $kaAction = '';
+
     public string $language = '';
+
     public string $verifiedOnly = '';   // '' sau '1'
+
     public string $officialOnly = '';   // '' sau '1'
+
     public bool $showFilters = false;
+
     public ?int $reportingId = null;     // blocul care se raporteaza acum
+
     public string $reportReason = '';
+
     public string $reportDetails = '';
 
     /** @var array<int> ordinea inghetata a ID-urilor cat stai pe pagina */
@@ -57,6 +78,7 @@ class PublicLibrary extends Page
         // Aducem blocurile dupa ID-urile inghetate, pastrand exact acea ordine.
         $blocks = PublicContentBlock::query()
             ->with('author')
+            ->where('is_hidden', false)
             ->whereIn('id', $this->orderedIds)
             ->get()
             ->keyBy('id');
@@ -70,7 +92,7 @@ class PublicLibrary extends Page
     /** Recalculeaza ordinea (apelat doar la schimbarea filtrelor/sortarii). */
     public function computeOrder(): void
     {
-        $query = PublicContentBlock::query();
+        $query = PublicContentBlock::query()->where('is_hidden', false);
 
         if ($this->search !== '') {
             $s = $this->search;
@@ -96,7 +118,7 @@ class PublicLibrary extends Page
         }
 
         if ($this->officialOnly === '1') {
-            $officialId = \App\Models\User::where('email', \App\Models\PublicContentBlock::OFFICIAL_EMAIL)->value('id');
+            $officialId = User::where('email', PublicContentBlock::OFFICIAL_EMAIL)->value('id');
             $query->where('user_id', $officialId);
         }
 
@@ -110,20 +132,47 @@ class PublicLibrary extends Page
             case 'relevant':
             default:
                 $query->orderByRaw('(import_count * 3 + likes_count * 2 + GREATEST(0, 30 - DATEDIFF(NOW(), created_at)) / 30 * 5) DESC')
-                      ->orderByDesc('created_at');
+                    ->orderByDesc('created_at');
                 break;
         }
 
         $this->orderedIds = $query->limit(60)->pluck('id')->all();
     }
 
-    public function updatedSearch(): void       { $this->computeOrder(); }
-    public function updatedSort(): void         { $this->computeOrder(); }
-    public function updatedCategory(): void     { $this->computeOrder(); }
-    public function updatedKaAction(): void     { $this->computeOrder(); }
-    public function updatedLanguage(): void     { $this->computeOrder(); }
-    public function updatedVerifiedOnly(): void { $this->computeOrder(); }
-    public function updatedOfficialOnly(): void { $this->computeOrder(); }
+    public function updatedSearch(): void
+    {
+        $this->computeOrder();
+    }
+
+    public function updatedSort(): void
+    {
+        $this->computeOrder();
+    }
+
+    public function updatedCategory(): void
+    {
+        $this->computeOrder();
+    }
+
+    public function updatedKaAction(): void
+    {
+        $this->computeOrder();
+    }
+
+    public function updatedLanguage(): void
+    {
+        $this->computeOrder();
+    }
+
+    public function updatedVerifiedOnly(): void
+    {
+        $this->computeOrder();
+    }
+
+    public function updatedOfficialOnly(): void
+    {
+        $this->computeOrder();
+    }
 
     public function getCategories(): array
     {
@@ -167,14 +216,17 @@ class PublicLibrary extends Page
             Action::make('create')
                 ->label('New public block')
                 ->icon('heroicon-o-plus')
-                ->url(fn () => \App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource::getUrl('create')),
+                ->visible(fn (): bool => PublicContentBlockResource::canCreate())
+                ->url(fn () => PublicContentBlockResource::getUrl('create')),
         ];
     }
 
     public function toggleLike(int $id): void
     {
-        $block = PublicContentBlock::find($id);
-        if (! $block) return;
+        $block = PublicContentBlock::where('is_hidden', false)->find($id);
+        if (! $block) {
+            return;
+        }
 
         $liked = $block->toggleLike(auth()->user());
 
@@ -185,21 +237,24 @@ class PublicLibrary extends Page
 
     public function import(int $id): void
     {
-        $block = PublicContentBlock::find($id);
+        $this->authorizeWorkspaceManagement();
+        $block = PublicContentBlock::where('is_hidden', false)->find($id);
         $workspace = Filament::getTenant();
-        if (! $block || ! $workspace) return;
+        if (! $block || ! $workspace) {
+            return;
+        }
 
         ContentBlock::create([
             'workspace_id' => $workspace->id,
-            'title'        => $block->title,
-            'category'     => $block->category,
-            'ka_action'    => $block->ka_action,
-            'language'     => $block->language,
-            'body'         => $block->body,
-            'tags'         => $block->tags,
-            'is_proven'    => $block->is_proven,
-            'source_note'  => $block->source_note,
-            'usage_count'  => 0,
+            'title' => $block->title,
+            'category' => $block->category,
+            'ka_action' => $block->ka_action,
+            'language' => $block->language,
+            'body' => $block->body,
+            'tags' => $block->tags,
+            'is_proven' => $block->is_proven,
+            'source_note' => $block->source_note,
+            'usage_count' => 0,
             'imported_from_public_id' => $block->id,
         ]);
 
@@ -223,12 +278,14 @@ class PublicLibrary extends Page
 
     public function getPreviewBlock(): ?PublicContentBlock
     {
-        return $this->previewId ? PublicContentBlock::with('author')->find($this->previewId) : null;
+        return $this->previewId
+            ? PublicContentBlock::with('author')->where('is_hidden', false)->find($this->previewId)
+            : null;
     }
 
     public function getReportReasons(): array
     {
-        return \App\Models\PublicBlockReport::REASONS;
+        return PublicBlockReport::REASONS;
     }
 
     public function openReport(int $id): void
@@ -251,13 +308,18 @@ class PublicLibrary extends Page
             'reportReason.required' => 'Please choose a reason.',
         ]);
 
-        $block = PublicContentBlock::find($this->reportingId);
-        if (! $block) { $this->closeReport(); return; }
+        $block = PublicContentBlock::where('is_hidden', false)->find($this->reportingId);
+        if (! $block) {
+            $this->closeReport();
+
+            return;
+        }
 
         // Nu-ti raportezi propriul bloc.
         if ($block->user_id === auth()->id()) {
             Notification::make()->title('You cannot report your own block')->warning()->send();
             $this->closeReport();
+
             return;
         }
 
@@ -265,15 +327,16 @@ class PublicLibrary extends Page
         if ($block->isReportedBy(auth()->user())) {
             Notification::make()->title('You already reported this block')->warning()->send();
             $this->closeReport();
+
             return;
         }
 
-        \App\Models\PublicBlockReport::create([
-            'user_id'                 => auth()->id(),
+        PublicBlockReport::create([
+            'user_id' => auth()->id(),
             'public_content_block_id' => $block->id,
-            'reason'                  => $this->reportReason,
-            'details'                 => $this->reportDetails ?: null,
-            'status'                  => \App\Models\PublicBlockReport::STATUS_PENDING,
+            'reason' => $this->reportReason,
+            'details' => $this->reportDetails ?: null,
+            'status' => PublicBlockReport::STATUS_PENDING,
         ]);
 
         Notification::make()

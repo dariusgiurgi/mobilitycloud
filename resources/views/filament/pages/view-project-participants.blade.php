@@ -342,7 +342,7 @@
                             <span class="text-gray-700 dark:text-gray-200" style="font-size:12px;font-weight:600;min-width:150px;">{{ $typeLabel }}</span>
 
                             @if($att)
-                                <a href="{{ $att->url() }}" target="_blank"
+                                <a href="{{ route('attachments.participants.download', $att) }}" target="_blank"
                                    class="text-gray-500 dark:text-gray-400"
                                    style="font-size:12px;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
                                    title="{{ $att->original_name }}">
@@ -378,7 +378,7 @@
                     </button>
                 </div>
                 @error('uploadFile') <span class="mc-part-err" style="margin-bottom:.5rem;">{{ $message }}</span> @enderror
-                <p class="text-gray-400" style="font-size:11px;margin:0 0 .5rem;">Max 10 MB. Uploading the same type replaces the previous file.</p>
+                <p class="text-gray-400" style="font-size:11px;margin:0 0 .5rem;">PDF, JPG, PNG, DOC or DOCX; max 10 MB. Uploading the same type replaces the previous file.</p>
             @else
                 <p class="mc-part-sec">Documents</p>
                 <p class="text-gray-400" style="font-size:12px;margin-bottom:1rem;">Save the participant first, then reopen to attach documents.</p>

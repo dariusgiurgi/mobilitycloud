@@ -81,20 +81,22 @@ class PublicContentBlocksTable
                     ->modalDescription('A personal copy will be added to your workspace Content Library. You can edit it freely afterwards.')
                     ->action(function (PublicContentBlock $record) {
                         $workspace = Filament::getTenant();
-                        if (! $workspace) return;
+                        if (! $workspace) {
+                            return;
+                        }
 
                         ContentBlock::create([
                             'workspace_id' => $workspace->id,
-                            'title'        => $record->title,
-                            'category'     => $record->category,
-                            'ka_action'    => $record->ka_action,
-                            'language'     => $record->language,
-                            'body'         => $record->body,
-                            'tags'         => $record->tags,
-                            'is_proven'    => $record->is_proven,
-                            'source_note'  => $record->source_note,
-                            'usage_count'  => 0,
-                            'imported_from_public_id' => $block->id,
+                            'title' => $record->title,
+                            'category' => $record->category,
+                            'ka_action' => $record->ka_action,
+                            'language' => $record->language,
+                            'body' => $record->body,
+                            'tags' => $record->tags,
+                            'is_proven' => $record->is_proven,
+                            'source_note' => $record->source_note,
+                            'usage_count' => 0,
+                            'imported_from_public_id' => $record->id,
                         ]);
 
                         $record->increment('import_count');

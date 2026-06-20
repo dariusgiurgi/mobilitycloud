@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Participant extends Model
 {
@@ -17,18 +18,18 @@ class Participant extends Model
     ];
 
     protected $casts = [
-        'birth_date'          => 'date',
+        'birth_date' => 'date',
         'fewer_opportunities' => 'boolean',
-        'gdpr_consented_at'   => 'datetime',
+        'gdpr_consented_at' => 'datetime',
     ];
 
     // Rolurile disponibile (cheie => eticheta).
     public const ROLES = [
-        'participant'         => 'Participant',
-        'group_leader'        => 'Group leader',
-        'facilitator'         => 'Facilitator',
+        'participant' => 'Participant',
+        'group_leader' => 'Group leader',
+        'facilitator' => 'Facilitator',
         'accompanying_person' => 'Accompanying person',
-        'trainer'             => 'Trainer',
+        'trainer' => 'Trainer',
     ];
 
     public function project(): BelongsTo
@@ -36,14 +37,21 @@ class Participant extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function attachments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function attachments(): HasMany
     {
         return $this->hasMany(ParticipantAttachment::class);
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Participant $participant): void {
+            $participant->attachments()->get()->each->delete();
+        });
+    }
+
     public function fullName(): string
     {
-        return trim($this->first_name . ' ' . $this->last_name);
+        return trim($this->first_name.' '.$this->last_name);
     }
 
     public function roleLabel(): string
@@ -65,8 +73,11 @@ class Participant extends Model
     /** Varsta la data de referinta. */
     public function ageAtReference(): ?int
     {
-        if (! $this->birth_date) return null;
-        return (int) \Carbon\Carbon::parse($this->birth_date)->diffInYears($this->referenceDate());
+        if (! $this->birth_date) {
+            return null;
+        }
+
+        return (int) Carbon::parse($this->birth_date)->diffInYears($this->referenceDate());
     }
 
     /**
@@ -76,6 +87,7 @@ class Participant extends Model
     public function isMinor(): bool
     {
         $age = $this->ageAtReference();
+
         return $age !== null && $age < 18;
     }
 
@@ -89,6 +101,7 @@ class Participant extends Model
         if ($this->isMinor()) {
             $required[] = 'parental';
         }
+
         return $required;
     }
 
@@ -96,6 +109,7 @@ class Participant extends Model
     public function missingDocTypes(): array
     {
         $have = $this->attachments->pluck('type')->all();
+
         return array_values(array_diff($this->requiredDocTypes(), $have));
     }
 

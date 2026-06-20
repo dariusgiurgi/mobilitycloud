@@ -16,7 +16,7 @@ class Workspace extends Model
     ];
 
     protected $casts = [
-        'currencies'    => 'array',
+        'currencies' => 'array',
         'trial_ends_at' => 'datetime',
     ];
 
@@ -28,10 +28,14 @@ class Workspace extends Model
                 $slug = $base;
                 $i = 1;
                 while (static::where('slug', $slug)->exists()) {
-                    $slug = $base . '-' . $i++;
+                    $slug = $base.'-'.$i++;
                 }
                 $workspace->slug = $slug;
             }
+        });
+
+        static::deleting(function (Workspace $workspace): void {
+            $workspace->projects()->withTrashed()->get()->each->forceDelete();
         });
     }
 
@@ -55,6 +59,16 @@ class Workspace extends Model
     public function roleFor(User $user): ?string
     {
         $member = $this->users()->where('user_id', $user->id)->first();
+
         return $member?->pivot->role;
+    }
+
+    public function canBeManagedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return in_array($this->roleFor($user), ['owner', 'admin', 'member'], true);
     }
 }

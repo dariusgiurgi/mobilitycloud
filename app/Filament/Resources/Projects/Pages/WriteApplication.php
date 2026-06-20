@@ -6,16 +6,19 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ContentBlock;
 use App\Models\ProjectApplicationSection;
 use App\Support\ApplicationTemplates;
+use App\Support\AuthorizesProjectManagement;
 use Filament\Facades\Filament;
-use Filament\Resources\Pages\Page;
-use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
 
 class WriteApplication extends Page
 {
+    use AuthorizesProjectManagement;
     use InteractsWithRecord;
 
     protected static string $resource = ProjectResource::class;
+
     protected string $view = 'filament.pages.write-application';
 
     public string $selectedTemplate = 'ka152';
@@ -28,7 +31,9 @@ class WriteApplication extends Page
 
     // ─── Library picker state ───
     public bool $showLibrary = false;
+
     public ?int $libraryTargetId = null;
+
     public string $librarySearch = '';
 
     public function mount(int|string $record): void
@@ -40,7 +45,7 @@ class WriteApplication extends Page
 
     public function getTitle(): string
     {
-        return $this->record->name . ' — Application';
+        return $this->record->name.' — Application';
     }
 
     protected function sectionsQuery()
@@ -92,8 +97,11 @@ class WriteApplication extends Page
 
     protected function persistField(int $id, string $field, string $value): void
     {
+        $this->authorizeProjectManagement();
         $sec = $this->sectionsQuery()->find($id);
-        if (! $sec) return;
+        if (! $sec) {
+            return;
+        }
         $sec->{$field} = $value;
         $sec->save();
     }
@@ -131,14 +139,19 @@ class WriteApplication extends Page
 
     public function insertBlock(int $blockId): void
     {
+        $this->authorizeProjectManagement();
         $block = ContentBlock::where('workspace_id', Filament::getTenant()?->id)->find($blockId);
-        if (! $block || ! $this->libraryTargetId) return;
+        if (! $block || ! $this->libraryTargetId) {
+            return;
+        }
 
         $sec = $this->sectionsQuery()->find($this->libraryTargetId);
-        if (! $sec) return;
+        if (! $sec) {
+            return;
+        }
 
         $existing = $this->content[$sec->id] ?? (string) $sec->content;
-        $new = trim($existing) === '' ? $block->body : rtrim($existing) . "\n\n" . $block->body;
+        $new = trim($existing) === '' ? $block->body : rtrim($existing)."\n\n".$block->body;
 
         $this->content[$sec->id] = $new;
         $sec->content = $new;
@@ -155,8 +168,11 @@ class WriteApplication extends Page
     // ─── Template + sections ───
     public function loadTemplate(): void
     {
+        $this->authorizeProjectManagement();
         $sections = ApplicationTemplates::sections($this->selectedTemplate);
-        if (empty($sections)) return;
+        if (empty($sections)) {
+            return;
+        }
 
         ProjectApplicationSection::where('project_id', $this->record->id)->delete();
 
@@ -164,10 +180,10 @@ class WriteApplication extends Page
         foreach ($sections as $sec) {
             ProjectApplicationSection::create([
                 'project_id' => $this->record->id,
-                'title'      => $sec['title'],
-                'category'   => $sec['category'] ?? null,
+                'title' => $sec['title'],
+                'category' => $sec['category'] ?? null,
                 'char_limit' => $sec['char_limit'] ?? null,
-                'content'    => '',
+                'content' => '',
                 'sort_order' => $i++,
             ]);
         }
@@ -182,11 +198,12 @@ class WriteApplication extends Page
 
     public function addSection(): void
     {
+        $this->authorizeProjectManagement();
         $maxSort = ProjectApplicationSection::where('project_id', $this->record->id)->max('sort_order') ?? -1;
         ProjectApplicationSection::create([
             'project_id' => $this->record->id,
-            'title'      => 'New section',
-            'content'    => '',
+            'title' => 'New section',
+            'content' => '',
             'sort_order' => $maxSort + 1,
         ]);
 
@@ -195,6 +212,7 @@ class WriteApplication extends Page
 
     public function deleteSection(int $id): void
     {
+        $this->authorizeProjectManagement();
         ProjectApplicationSection::where('project_id', $this->record->id)->where('id', $id)->delete();
 
         $this->loadState();
@@ -206,13 +224,18 @@ class WriteApplication extends Page
      */
     public function moveSection(int $id, int $direction): void
     {
+        $this->authorizeProjectManagement();
         $sections = $this->sectionsQuery()->get()->values();
 
         $index = $sections->search(fn ($s) => $s->id === $id);
-        if ($index === false) return;
+        if ($index === false) {
+            return;
+        }
 
         $swapIndex = $index + $direction;
-        if ($swapIndex < 0 || $swapIndex >= $sections->count()) return;
+        if ($swapIndex < 0 || $swapIndex >= $sections->count()) {
+            return;
+        }
 
         $current = $sections[$index];
         $neighbour = $sections[$swapIndex];

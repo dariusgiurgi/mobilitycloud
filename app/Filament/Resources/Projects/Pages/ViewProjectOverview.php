@@ -5,15 +5,18 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectApplicationSection;
+use App\Support\AuthorizesProjectManagement;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 
 class ViewProjectOverview extends Page
 {
+    use AuthorizesProjectManagement;
     use InteractsWithRecord;
 
     protected static string $resource = ProjectResource::class;
+
     protected string $view = 'filament.pages.view-project-overview';
 
     public function mount(int|string $record): void
@@ -40,13 +43,14 @@ class ViewProjectOverview extends Page
     {
         return [
             'application' => ProjectResource::getUrl('write', ['record' => $this->record]),
-            'budget'      => ProjectResource::getUrl('board', ['record' => $this->record]),
-            'settings'    => ProjectResource::getUrl('edit',  ['record' => $this->record]),
+            'budget' => ProjectResource::getUrl('board', ['record' => $this->record]),
+            'settings' => ProjectResource::getUrl('edit', ['record' => $this->record]),
         ];
     }
 
     public function transitionTo(string $target): void
     {
+        $this->authorizeProjectManagement();
         $targetEnum = ProjectStatus::tryFrom($target);
         if (! $targetEnum) {
             return;
@@ -56,9 +60,10 @@ class ViewProjectOverview extends Page
 
         if (! $current->canTransitionTo($targetEnum)) {
             Notification::make()
-                ->title('That status change is not allowed from ' . $current->getLabel())
+                ->title('That status change is not allowed from '.$current->getLabel())
                 ->danger()
                 ->send();
+
             return;
         }
 
@@ -75,7 +80,7 @@ class ViewProjectOverview extends Page
         $this->record->refresh();
 
         Notification::make()
-            ->title('Status updated to ' . $targetEnum->getLabel())
+            ->title('Status updated to '.$targetEnum->getLabel())
             ->success()
             ->send();
     }
@@ -110,10 +115,10 @@ class ViewProjectOverview extends Page
 
         // Map estimate lines onto the default baskets by title.
         $map = [
-            'Travel'                 => (float) ($lines['travel'] ?? 0),
-            'Individual Support'     => (float) ($lines['is'] ?? 0),
+            'Travel' => (float) ($lines['travel'] ?? 0),
+            'Individual Support' => (float) ($lines['is'] ?? 0),
             'Organisational Support' => (float) ($lines['os'] ?? 0),
-            'Inclusion Support'      => (float) ($lines['inclusion'] ?? 0),
+            'Inclusion Support' => (float) ($lines['inclusion'] ?? 0),
         ];
 
         foreach ($this->record->budgetLines as $line) {

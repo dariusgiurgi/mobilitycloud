@@ -4,9 +4,9 @@ namespace App\Models;
 
 use App\Enums\ProjectStatus;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
 {
@@ -30,17 +30,17 @@ class Project extends Model
     ];
 
     protected $casts = [
-        'total_budget'        => 'decimal:2',
-        'approved_budget'     => 'decimal:2',
-        'is_activated'        => 'boolean',
-        'activated_at'        => 'datetime',
+        'total_budget' => 'decimal:2',
+        'approved_budget' => 'decimal:2',
+        'is_activated' => 'boolean',
+        'activated_at' => 'datetime',
         'activation_snapshot' => 'array',
-        'partner_orgs'        => 'array',
-        'action_data'         => 'array',
-        'start_date'          => 'date',
-        'end_date'            => 'date',
+        'partner_orgs' => 'array',
+        'action_data' => 'array',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'mobility_start_date' => 'date',
-        'mobility_end_date'   => 'date',
+        'mobility_end_date' => 'date',
     ];
 
     protected static function booted(): void
@@ -53,11 +53,45 @@ class Project extends Model
                 ]);
             }
         });
+
+        static::deleting(function (Project $project): void {
+            if (! $project->isForceDeleting()) {
+                return;
+            }
+
+            $project->participants()->get()->each->delete();
+            $project->budgetLines()->get()->each->delete();
+        });
     }
 
-    public function workspace(): BelongsTo { return $this->belongsTo(Workspace::class); }
-    public function budgetLines(): HasMany { return $this->hasMany(BudgetLine::class); }
-    public function applicationSections(): HasMany { return $this->hasMany(ProjectApplicationSection::class); }
+    public function workspace(): BelongsTo
+    {
+        return $this->belongsTo(Workspace::class);
+    }
+
+    public function budgetLines(): HasMany
+    {
+        return $this->hasMany(BudgetLine::class);
+    }
+
+    public function applicationSections(): HasMany
+    {
+        return $this->hasMany(ProjectApplicationSection::class);
+    }
+
+    public function participants(): HasMany
+    {
+        return $this->hasMany(Participant::class);
+    }
+
+    public function canBeManagedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->workspace?->canBeManagedBy($user) ?? false;
+    }
 
     /**
      * The figure all spending is measured against: the approved grant once the
@@ -66,6 +100,7 @@ class Project extends Model
     public function getEffectiveBudgetAttribute(): float
     {
         $approved = (float) $this->approved_budget;
+
         return $approved > 0 ? $approved : (float) $this->total_budget;
     }
 
@@ -94,11 +129,19 @@ class Project extends Model
     {
         return (float) $this->budgetLines->sum(fn ($bl) => $bl->expenses->sum('amount_eur'));
     }
-    public function getRemainingAttribute(): float { return $this->effective_budget - $this->spent; }
+
+    public function getRemainingAttribute(): float
+    {
+        return $this->effective_budget - $this->spent;
+    }
+
     public function getProgressAttribute(): int
     {
         $budget = $this->effective_budget;
-        if ($budget <= 0) return 0;
+        if ($budget <= 0) {
+            return 0;
+        }
+
         return min(100, (int) round($this->spent / $budget * 100));
     }
 

@@ -3,44 +3,58 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
-use App\Models\Project;
 use App\Models\BudgetLine;
-use App\Models\Expense;
 use App\Models\BudgetTransfer;
-use Illuminate\Support\Facades\DB;
-use Filament\Resources\Pages\Page;
-use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use App\Models\Expense;
+use App\Support\AuthorizesProjectManagement;
 use Filament\Facades\Filament;
-use Livewire\WithFileUploads;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Livewire\WithFileUploads;
 
 class ViewProjectBoard extends Page
 {
+    use AuthorizesProjectManagement;
     use InteractsWithRecord;
     use WithFileUploads;
 
     protected static string $resource = ProjectResource::class;
+
     protected string $view = 'filament.pages.view-project-board';
 
     // ─── State pentru modale ───
     public bool $showBasketModal = false;
+
     public ?int $editingBasketId = null;
+
     public string $basketTitle = '';
+
     public string $basketEmoji = '📁';
+
     public string $basketColor = '#6366f1';
 
     public bool $showNotesModal = false;
+
     public ?int $notesExpenseId = null;
+
     public string $notesText = '';
 
     public $uploadFile = null;
+
     public ?int $uploadExpenseId = null;
 
     // Transfer state
     public bool $showTransferModal = false;
+
     public ?int $transferFromId = null;
+
     public ?int $transferToId = null;
+
     public $transferAmount = null;
+
     public string $transferReason = '';
 
     public function mount(int|string $record): void
@@ -56,13 +70,19 @@ class ViewProjectBoard extends Page
     public function getCurrencies(): array
     {
         $currencies = Filament::getTenant()?->currencies ?? [];
+
         return array_merge(['EUR' => 1], $currencies);
     }
 
     private function extractRate($value): float
     {
-        if (is_array($value))  return (float) ($value['rate'] ?? 1);
-        if (is_numeric($value)) return (float) $value;
+        if (is_array($value)) {
+            return (float) ($value['rate'] ?? 1);
+        }
+        if (is_numeric($value)) {
+            return (float) $value;
+        }
+
         return 1.0;
     }
 
@@ -74,8 +94,11 @@ class ViewProjectBoard extends Page
     // ═══════════ BUGET COȘ (inline) ═══════════
     public function updateBasketBudget(int $basketId, $value): void
     {
+        $this->authorizeProjectManagement();
         $line = BudgetLine::where('project_id', $this->record->id)->find($basketId);
-        if (!$line) return;
+        if (! $line) {
+            return;
+        }
         $line->allocated_budget = (float) $value;
         $line->save();
         $this->reload();
@@ -94,7 +117,9 @@ class ViewProjectBoard extends Page
     public function openBasketEdit(int $basketId): void
     {
         $line = BudgetLine::where('project_id', $this->record->id)->find($basketId);
-        if (!$line) return;
+        if (! $line) {
+            return;
+        }
         $this->editingBasketId = $line->id;
         $this->basketTitle = $line->title;
         $this->basketEmoji = $line->emoji ?? '📁';
@@ -104,6 +129,7 @@ class ViewProjectBoard extends Page
 
     public function saveBasket(): void
     {
+        $this->authorizeProjectManagement();
         $data = [
             'title' => trim($this->basketTitle) ?: 'Untitled',
             'emoji' => trim($this->basketEmoji) ?: '📁',
@@ -116,7 +142,7 @@ class ViewProjectBoard extends Page
             $maxSort = BudgetLine::where('project_id', $this->record->id)->max('sort_order') ?? -1;
             $this->record->budgetLines()->create(array_merge($data, [
                 'allocated_budget' => 0,
-                'sort_order'       => $maxSort + 1,
+                'sort_order' => $maxSort + 1,
             ]));
         }
 
@@ -126,14 +152,10 @@ class ViewProjectBoard extends Page
 
     public function deleteBasket(int $basketId): void
     {
+        $this->authorizeProjectManagement();
         $line = BudgetLine::where('project_id', $this->record->id)->with('expenses')->find($basketId);
-        if (!$line) return;
-
-        // Sterge fizic fisierele atasate cheltuielilor inainte ca DB sa le stearga in cascada.
-        foreach ($line->expenses as $expense) {
-            if ($expense->attachment_path && Storage::disk('public')->exists($expense->attachment_path)) {
-                Storage::disk('public')->delete($expense->attachment_path);
-            }
+        if (! $line) {
+            return;
         }
 
         $line->delete();
@@ -143,46 +165,55 @@ class ViewProjectBoard extends Page
     // ═══════════ CHELTUIELI ═══════════
     public function addExpense(int $budgetLineId): void
     {
+        $this->authorizeProjectManagement();
         $line = BudgetLine::where('project_id', $this->record->id)->findOrFail($budgetLineId);
         $maxPos = Expense::where('budget_line_id', $line->id)->max('position') ?? -1;
 
         Expense::create([
-            'budget_line_id'      => $line->id,
-            'description'         => '',
-            'expense_date'        => now()->toDateString(),
-            'amount'              => 0,
-            'currency'            => 'EUR',
-            'exchange_rate'       => 1,
-            'amount_eur'          => 0,
+            'budget_line_id' => $line->id,
+            'description' => '',
+            'expense_date' => now()->toDateString(),
+            'amount' => 0,
+            'currency' => 'EUR',
+            'exchange_rate' => 1,
+            'amount_eur' => 0,
             'is_civil_convention' => false,
-            'position'            => $maxPos + 1,
-            'created_by'          => auth()->id(),
+            'position' => $maxPos + 1,
+            'created_by' => auth()->id(),
         ]);
         $this->reload();
     }
 
     public function updateExpense(int $expenseId, string $field, $value): void
     {
+        $this->authorizeProjectManagement();
         $expense = $this->findExpense($expenseId);
-        if (!$expense) return;
+        if (! $expense) {
+            return;
+        }
 
         $currencies = $this->getCurrencies();
 
         if ($field === 'amount' || $field === 'currency') {
-            if ($field === 'amount')   $expense->amount = (float) $value;
-            if ($field === 'currency') $expense->currency = $value;
+            if ($field === 'amount') {
+                $expense->amount = (float) $value;
+            }
+            if ($field === 'currency') {
+                $expense->currency = $value;
+            }
 
             // Daca moneda nu are curs definit in workspace, NU converti silentios 1:1.
-            if ($expense->currency !== 'EUR' && !array_key_exists($expense->currency, $currencies)) {
+            if ($expense->currency !== 'EUR' && ! array_key_exists($expense->currency, $currencies)) {
                 $expense->exchange_rate = null;
                 $expense->amount_eur = 0;
                 $expense->save();
                 $this->reload();
                 Notification::make()
-                    ->title('No exchange rate for ' . $expense->currency)
+                    ->title('No exchange rate for '.$expense->currency)
                     ->body('Add a rate in Settings → Currencies, then re-enter the amount. This expense counts as € 0 until then.')
                     ->warning()
                     ->send();
+
                 return;
             }
 
@@ -201,10 +232,8 @@ class ViewProjectBoard extends Page
 
     public function deleteExpense(int $expenseId): void
     {
+        $this->authorizeProjectManagement();
         $expense = $this->findExpense($expenseId);
-        if ($expense && $expense->attachment_path && Storage::disk('public')->exists($expense->attachment_path)) {
-            Storage::disk('public')->delete($expense->attachment_path);
-        }
         $expense?->delete();
         $this->reload();
     }
@@ -218,7 +247,9 @@ class ViewProjectBoard extends Page
     public function openNotes(int $expenseId): void
     {
         $expense = $this->findExpense($expenseId);
-        if (!$expense) return;
+        if (! $expense) {
+            return;
+        }
         $this->notesExpenseId = $expense->id;
         $this->notesText = $expense->notes ?? '';
         $this->showNotesModal = true;
@@ -226,6 +257,7 @@ class ViewProjectBoard extends Page
 
     public function saveNotes(): void
     {
+        $this->authorizeProjectManagement();
         $expense = $this->findExpense($this->notesExpenseId);
         if ($expense) {
             $expense->notes = $this->notesText;
@@ -238,21 +270,27 @@ class ViewProjectBoard extends Page
     // ═══════════ ATAȘAMENTE ═══════════
     public function updatedUploadFile(): void
     {
-        if (!$this->uploadFile || !$this->uploadExpenseId) return;
+        $this->authorizeProjectManagement();
+        if (! $this->uploadFile || ! $this->uploadExpenseId) {
+            return;
+        }
 
         $this->validate([
             'uploadFile' => 'file|max:10240|mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx',
         ]);
 
         $expense = $this->findExpense($this->uploadExpenseId);
-        if (!$expense) return;
-
-        if ($expense->attachment_path && Storage::disk('public')->exists($expense->attachment_path)) {
-            Storage::disk('public')->delete($expense->attachment_path);
+        if (! $expense) {
+            return;
         }
 
-        $path = $this->uploadFile->store('expenses', 'public');
+        if ($expense->attachmentExists()) {
+            Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
+        }
+
+        $path = $this->uploadFile->store('expenses', 'local');
         $expense->attachment_path = $path;
+        $expense->attachment_disk = 'local';
         $expense->attachment_name = $this->uploadFile->getClientOriginalName();
         $expense->save();
 
@@ -268,9 +306,10 @@ class ViewProjectBoard extends Page
 
     public function deleteAttachment(int $expenseId): void
     {
+        $this->authorizeProjectManagement();
         $expense = $this->findExpense($expenseId);
-        if ($expense && $expense->attachment_path && Storage::disk('public')->exists($expense->attachment_path)) {
-            Storage::disk('public')->delete($expense->attachment_path);
+        if ($expense && $expense->attachmentExists()) {
+            Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
         }
         if ($expense) {
             $expense->attachment_path = null;
@@ -279,7 +318,6 @@ class ViewProjectBoard extends Page
         }
         $this->reload();
     }
-
 
     // ═══════════ TRANSFERURI ═══════════
     public function getTransfers()
@@ -301,30 +339,34 @@ class ViewProjectBoard extends Page
 
     public function saveTransfer(): void
     {
+        $this->authorizeProjectManagement();
         $this->validate([
             'transferFromId' => 'required|different:transferToId',
-            'transferToId'   => 'required',
+            'transferToId' => 'required',
             'transferAmount' => 'required|numeric|min:0.01',
         ], [
             'transferFromId.different' => 'Source and destination must differ.',
         ]);
 
         $from = BudgetLine::where('project_id', $this->record->id)->find($this->transferFromId);
-        $to   = BudgetLine::where('project_id', $this->record->id)->find($this->transferToId);
-        if (!$from || !$to) return;
+        $to = BudgetLine::where('project_id', $this->record->id)->find($this->transferToId);
+        if (! $from || ! $to) {
+            return;
+        }
 
         $amount = (float) $this->transferAmount;
 
         // Nu poti transfera mai mult decat e LIBER in cosul sursa (alocat - cheltuit).
         $available = (float) $from->allocated_budget - (float) $from->expenses->sum('amount_eur');
         if ($amount > $available) {
-            $this->addError('transferAmount', 'Only € ' . number_format($available, 2) . ' is available in "' . $from->title . '" (allocated minus already spent).');
+            $this->addError('transferAmount', 'Only € '.number_format($available, 2).' is available in "'.$from->title.'" (allocated minus already spent).');
+
             return;
         }
 
         DB::transaction(function () use ($from, $to, $amount) {
             $fromLocked = BudgetLine::lockForUpdate()->find($from->id);
-            $toLocked   = BudgetLine::lockForUpdate()->find($to->id);
+            $toLocked = BudgetLine::lockForUpdate()->find($to->id);
 
             // Re-verifica sub lock, ca sa nu existe curse intre doua transferuri simultane.
             $availableLocked = (float) $fromLocked->allocated_budget - (float) $fromLocked->expenses()->sum('amount_eur');
@@ -338,13 +380,13 @@ class ViewProjectBoard extends Page
             $toLocked->save();
 
             BudgetTransfer::create([
-                'project_id'          => $this->record->id,
+                'project_id' => $this->record->id,
                 'from_budget_line_id' => $from->id,
-                'to_budget_line_id'   => $to->id,
-                'amount'              => $amount,
-                'reason'              => $this->transferReason ?: null,
-                'status'              => 'active',
-                'created_by'          => auth()->id(),
+                'to_budget_line_id' => $to->id,
+                'amount' => $amount,
+                'reason' => $this->transferReason ?: null,
+                'status' => 'active',
+                'created_by' => auth()->id(),
             ]);
         });
 
@@ -354,15 +396,24 @@ class ViewProjectBoard extends Page
 
     public function reverseTransfer(int $transferId): void
     {
+        $this->authorizeProjectManagement();
         $transfer = BudgetTransfer::where('project_id', $this->record->id)->find($transferId);
-        if (!$transfer || !$transfer->isActive()) return;
+        if (! $transfer || ! $transfer->isActive()) {
+            return;
+        }
 
         DB::transaction(function () use ($transfer) {
             $from = BudgetLine::lockForUpdate()->find($transfer->from_budget_line_id);
-            $to   = BudgetLine::lockForUpdate()->find($transfer->to_budget_line_id);
+            $to = BudgetLine::lockForUpdate()->find($transfer->to_budget_line_id);
 
-            if ($to)   { $to->allocated_budget   = (float) $to->allocated_budget - (float) $transfer->amount; $to->save(); }
-            if ($from) { $from->allocated_budget = (float) $from->allocated_budget + (float) $transfer->amount; $from->save(); }
+            if ($to) {
+                $to->allocated_budget = (float) $to->allocated_budget - (float) $transfer->amount;
+                $to->save();
+            }
+            if ($from) {
+                $from->allocated_budget = (float) $from->allocated_budget + (float) $transfer->amount;
+                $from->save();
+            }
 
             $transfer->update(['status' => 'reversed', 'reversed_at' => now()]);
         });
@@ -374,6 +425,7 @@ class ViewProjectBoard extends Page
     {
         $prefix = $this->record->expense_prefix ?: 'EXP';
         $pad = (int) ($this->record->expense_pad_length ?: 3);
-        return '#' . $prefix . '-' . str_pad((string) $expense->id, $pad, '0', STR_PAD_LEFT);
+
+        return '#'.$prefix.'-'.str_pad((string) $expense->id, $pad, '0', STR_PAD_LEFT);
     }
 }

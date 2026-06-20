@@ -2,22 +2,30 @@
 
 namespace App\Filament\Pages;
 
-use Filament\Pages\Page;
-use Filament\Facades\Filament;
-use Filament\Support\Icons\Heroicon;
+use App\Support\AuthorizesWorkspaceManagement;
 use BackedEnum;
+use Filament\Facades\Filament;
+use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
 
 class ManageCurrencies extends Page
 {
+    use AuthorizesWorkspaceManagement;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCurrencyEuro;
+
     protected static ?string $navigationLabel = 'Currencies';
+
     protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+
     protected static ?string $title = 'Currencies';
 
     protected string $view = 'filament.pages.manage-currencies';
 
     public array $rows = [];
+
     public string $newCode = '';
+
     public $newRate = null;
 
     public function mount(): void
@@ -33,6 +41,7 @@ class ManageCurrencies extends Page
 
     public function addCurrency(): void
     {
+        $this->authorizeWorkspaceManagement();
         $code = strtoupper(trim($this->newCode));
         $rate = (float) $this->newRate;
 
@@ -40,12 +49,19 @@ class ManageCurrencies extends Page
             return;
         }
         if ($code === 'EUR') {
-            $this->newCode = ''; $this->newRate = null;
+            $this->newCode = '';
+            $this->newRate = null;
+
             return; // EUR e moneda de baza, rate 1 implicit
         }
         // evita duplicat
         foreach ($this->rows as $row) {
-            if ($row['code'] === $code) { $this->newCode=''; $this->newRate=null; return; }
+            if ($row['code'] === $code) {
+                $this->newCode = '';
+                $this->newRate = null;
+
+                return;
+            }
         }
 
         $this->rows[] = ['code' => $code, 'rate' => $rate];
@@ -56,6 +72,7 @@ class ManageCurrencies extends Page
 
     public function updateRate(int $index, $value): void
     {
+        $this->authorizeWorkspaceManagement();
         if (isset($this->rows[$index])) {
             $this->rows[$index]['rate'] = (float) $value;
             $this->persist();
@@ -64,6 +81,7 @@ class ManageCurrencies extends Page
 
     public function removeCurrency(int $index): void
     {
+        $this->authorizeWorkspaceManagement();
         if (isset($this->rows[$index])) {
             unset($this->rows[$index]);
             $this->rows = array_values($this->rows);
@@ -75,7 +93,7 @@ class ManageCurrencies extends Page
     {
         $currencies = [];
         foreach ($this->rows as $row) {
-            if (!empty($row['code']) && $row['rate'] > 0) {
+            if (! empty($row['code']) && $row['rate'] > 0) {
                 $currencies[strtoupper($row['code'])] = (float) $row['rate'];
             }
         }
