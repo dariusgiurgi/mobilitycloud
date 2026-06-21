@@ -26,21 +26,23 @@ class ListProjects extends ListRecords
     {
         return Project::query()
             ->where('workspace_id', Filament::getTenant()?->id)
-            ->withCount('budgetLines')
+            ->withCount('participants')
             ->with('budgetLines.expenses')
-            ->latest()
+            ->orderByRaw("CASE status
+                WHEN 'active' THEN 0
+                WHEN 'approved' THEN 1
+                WHEN 'revise' THEN 2
+                WHEN 'writing' THEN 3
+                WHEN 'submitted' THEN 4
+                WHEN 'completed' THEN 5
+                WHEN 'rejected' THEN 6
+                ELSE 7 END")
+            ->latest('updated_at')
             ->get();
     }
 
     public function getProjectUrl(Project $project): string
     {
-        // Click pe card → hub-ul proiectului (Overview cu modulele).
         return ProjectResource::getUrl('overview', ['record' => $project]);
-    }
-
-    public function getSettingsUrl(Project $project): string
-    {
-        // Rotita → setari (Edit)
-        return ProjectResource::getUrl('edit', ['record' => $project]);
     }
 }
