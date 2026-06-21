@@ -30,4 +30,7 @@ Route::middleware('auth')->group(function () {
         ->name('project-documents.civil-convention');
     Route::get('/projects/{project}/expenses/{expense}/acceptance-certificate', [ProjectDocumentController::class, 'acceptanceCertificate'])
         ->name('project-documents.acceptance-certificate');
+    Route::get('/projects/{project}/expenses/{expense}/signed/{kind}', [ProjectDocumentController::class, 'signedConvention'])
+        ->whereIn('kind', ['agreement', 'acceptance'])
+        ->name('project-documents.convention-signed');
 });

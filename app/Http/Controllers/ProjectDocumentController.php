@@ -123,6 +123,19 @@ class ProjectDocumentController extends Controller
         ])->setPaper('a4', 'portrait')->download($filename);
     }
 
+    public function signedConvention(Project $project, Expense $expense, string $kind)
+    {
+        abort_unless(in_array($kind, ['agreement', 'acceptance'], true), 404);
+        $this->authorizeConventionExpense($project, $expense);
+        abort_unless($expense->hasConventionSignedCopy($kind), 404);
+        $copy = $expense->conventionSignedCopy($kind);
+
+        return Storage::disk($copy['disk'])->download(
+            $copy['path'],
+            $copy['name'] ?: basename($copy['path'])
+        );
+    }
+
     private function authorizeConventionExpense(Project $project, Expense $expense): void
     {
         abort_unless(

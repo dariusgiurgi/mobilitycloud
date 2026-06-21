@@ -44,7 +44,7 @@
                 @foreach($civilConventions as $expense)
                     <div
                             class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-                            style="width:100%;padding:.9rem 1.1rem;display:flex;align-items:center;gap:1rem;text-align:left;">
+                            style="width:100%;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.75rem;text-align:left;flex-wrap:wrap;">
                         <div style="font-size:22px;">📝</div>
                         <div style="flex:1;min-width:180px;">
                             <div class="text-gray-950 dark:text-white" style="font-size:13px;font-weight:700;">{{ $expense->description ?: 'Untitled civil convention' }}</div>
@@ -56,16 +56,48 @@
                             {{ $expense->hasCompleteConventionData() ? 'READY' : 'DETAILS NEEDED' }}
                         </span>
                         @if($expense->hasCompleteConventionData())
-                            <a href="{{ route('project-documents.civil-convention', [$record, $expense]) }}"
-                               style="padding:7px 11px;border-radius:7px;border:1px solid rgba(79,70,229,.3);color:#4338ca;text-decoration:none;font-size:12px;font-weight:600;">
-                                Generate PDF
-                            </a>
+                            <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
+                                <a href="{{ route('project-documents.civil-convention', [$record, $expense]) }}"
+                                   style="padding:7px 11px;border-radius:7px;border:1px solid rgba(79,70,229,.3);color:#4338ca;text-decoration:none;font-size:12px;font-weight:600;">
+                                    Agreement PDF
+                                </a>
+                                @if($expense->hasConventionSignedCopy('agreement'))
+                                    <a href="{{ route('project-documents.convention-signed', [$record, $expense, 'agreement']) }}"
+                                       style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">Signed agreement</a>
+                                @endif
+                                @if($record->canBeManagedBy(auth()->user()))
+                                    <button type="button" wire:click="openConventionSignedUpload({{ $expense->id }}, 'agreement')"
+                                            style="padding:7px 10px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:11px;">
+                                        {{ $expense->hasConventionSignedCopy('agreement') ? 'Replace signed' : 'Upload signed' }}
+                                    </button>
+                                    @if($expense->hasConventionSignedCopy('agreement'))
+                                        <button type="button" wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'agreement')" wire:confirm="Remove the signed agreement?"
+                                                style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:11px;">Remove</button>
+                                    @endif
+                                @endif
+                            </div>
                         @endif
                         @if($expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData())
-                            <a href="{{ route('project-documents.acceptance-certificate', [$record, $expense]) }}"
-                               style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">
-                                Acceptance PDF
-                            </a>
+                            <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
+                                <a href="{{ route('project-documents.acceptance-certificate', [$record, $expense]) }}"
+                                   style="padding:7px 11px;border-radius:7px;border:1px solid rgba(15,118,110,.3);color:#0f766e;text-decoration:none;font-size:12px;font-weight:600;">
+                                    Acceptance PDF
+                                </a>
+                                @if($expense->hasConventionSignedCopy('acceptance'))
+                                    <a href="{{ route('project-documents.convention-signed', [$record, $expense, 'acceptance']) }}"
+                                       style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">Signed acceptance</a>
+                                @endif
+                                @if($record->canBeManagedBy(auth()->user()))
+                                    <button type="button" wire:click="openConventionSignedUpload({{ $expense->id }}, 'acceptance')"
+                                            style="padding:7px 10px;border-radius:7px;border:none;background:#ecfdf5;color:#0f766e;cursor:pointer;font-size:11px;">
+                                        {{ $expense->hasConventionSignedCopy('acceptance') ? 'Replace signed' : 'Upload signed' }}
+                                    </button>
+                                    @if($expense->hasConventionSignedCopy('acceptance'))
+                                        <button type="button" wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'acceptance')" wire:confirm="Remove the signed acceptance certificate?"
+                                                style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:11px;">Remove</button>
+                                    @endif
+                                @endif
+                            </div>
                         @endif
                         @if($record->canBeManagedBy(auth()->user()))
                             <button type="button" wire:click="openConvention({{ $expense->id }})"
@@ -168,6 +200,27 @@
     @endif
 
     @include('filament.partials.attendance-generator-modal')
+
+    @if($showConventionSignedUploadModal)
+        <div style="position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:1rem;"
+             wire:click.self="closeConventionSignedUpload">
+            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
+                 style="width:min(480px,100%);padding:1.4rem;">
+                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed {{ $conventionSignedKind === 'acceptance' ? 'acceptance certificate' : 'agreement' }}</h2>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:0 0 1rem;">PDF, JPG or PNG, maximum 20 MB. The file is private and linked to this civil convention.</p>
+                <input type="file" wire:model="conventionSignedUpload" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;font-size:13px;">
+                @error('conventionSignedUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+                    <button type="button" wire:click="closeConventionSignedUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
+                    <button type="button" wire:click="uploadConventionSignedCopy" wire:loading.attr="disabled" wire:target="uploadConventionSignedCopy,conventionSignedUpload"
+                            style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">
+                        <span wire:loading.remove wire:target="uploadConventionSignedCopy,conventionSignedUpload">Upload signed copy</span>
+                        <span wire:loading wire:target="uploadConventionSignedCopy,conventionSignedUpload">Uploading...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @if($showExpenseReportModal)
         <div style="position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.6);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;"

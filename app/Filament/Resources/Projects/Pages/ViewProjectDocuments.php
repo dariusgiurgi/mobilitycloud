@@ -73,6 +73,14 @@ class ViewProjectDocuments extends Page
 
     public bool $reportPageBreakByCategory = false;
 
+    public bool $showConventionSignedUploadModal = false;
+
+    public ?int $conventionSignedExpenseId = null;
+
+    public string $conventionSignedKind = 'agreement';
+
+    public $conventionSignedUpload = null;
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -302,6 +310,105 @@ class ViewProjectDocuments extends Page
             ->where('is_civil_convention', true)
             ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
             ->find($expenseId);
+    }
+
+    public function openConventionSignedUpload(int $expenseId, string $kind): void
+    {
+        $this->authorizeProjectManagement();
+        abort_unless(in_array($kind, ['agreement', 'acceptance'], true), 404);
+        $expense = $this->findConventionExpense($expenseId);
+        if (! $expense) {
+            return;
+        }
+
+        abort_unless(
+            $kind === 'agreement'
+                ? $expense->hasCompleteConventionData()
+                : $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
+            422
+        );
+
+        $this->resetValidation('conventionSignedUpload');
+        $this->conventionSignedExpenseId = $expense->id;
+        $this->conventionSignedKind = $kind;
+        $this->conventionSignedUpload = null;
+        $this->showConventionSignedUploadModal = true;
+    }
+
+    public function closeConventionSignedUpload(): void
+    {
+        $this->showConventionSignedUploadModal = false;
+        $this->conventionSignedExpenseId = null;
+        $this->conventionSignedKind = 'agreement';
+        $this->conventionSignedUpload = null;
+    }
+
+    public function uploadConventionSignedCopy(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->validate([
+            'conventionSignedKind' => ['required', 'in:agreement,acceptance'],
+            'conventionSignedUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png'],
+        ]);
+
+        $expense = $this->findConventionExpense($this->conventionSignedExpenseId);
+        if (! $expense) {
+            $this->closeConventionSignedUpload();
+
+            return;
+        }
+
+        $kind = $this->conventionSignedKind;
+        abort_unless(
+            $kind === 'agreement'
+                ? $expense->hasCompleteConventionData()
+                : $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
+            422
+        );
+        $existing = $expense->conventionSignedCopy($kind);
+        if ($expense->hasConventionSignedCopy($kind)) {
+            Storage::disk($existing['disk'])->delete($existing['path']);
+        }
+
+        $extension = strtolower($this->conventionSignedUpload->getClientOriginalExtension() ?: 'pdf');
+        $filename = 'signed_'.$kind.'_'.Str::slug($expense->description ?: 'civil-convention').'_'.$expense->id.'.'.$extension;
+        $path = $this->conventionSignedUpload->storeAs(
+            'project-documents/'.$this->record->id.'/civil-conventions/'.$expense->id,
+            $filename,
+            'local'
+        );
+        $data = $expense->convention_data ?? [];
+        $data[$kind.'_signed_path'] = $path;
+        $data[$kind.'_signed_disk'] = 'local';
+        $data[$kind.'_signed_name'] = $this->conventionSignedUpload->getClientOriginalName();
+        $data[$kind.'_signed_size'] = $this->conventionSignedUpload->getSize();
+        $data[$kind.'_signed_at'] = now()->toIso8601String();
+        $expense->update(['convention_data' => $data]);
+
+        $this->closeConventionSignedUpload();
+        Notification::make()->title(ucfirst($kind).' signed copy uploaded')->success()->send();
+    }
+
+    public function deleteConventionSignedCopy(int $expenseId, string $kind): void
+    {
+        $this->authorizeProjectManagement();
+        abort_unless(in_array($kind, ['agreement', 'acceptance'], true), 404);
+        $expense = $this->findConventionExpense($expenseId);
+        if (! $expense) {
+            return;
+        }
+
+        $copy = $expense->conventionSignedCopy($kind);
+        if ($expense->hasConventionSignedCopy($kind)) {
+            Storage::disk($copy['disk'])->delete($copy['path']);
+        }
+
+        $data = $expense->convention_data ?? [];
+        foreach (['path', 'disk', 'name', 'size', 'at'] as $field) {
+            unset($data[$kind.'_signed_'.$field]);
+        }
+        $expense->update(['convention_data' => $data]);
+        Notification::make()->title(ucfirst($kind).' signed copy removed')->success()->send();
     }
 
     public function openDocumentUpload(): void

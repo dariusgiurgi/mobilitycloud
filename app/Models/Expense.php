@@ -78,11 +78,39 @@ class Expense extends Model
             ->every(fn (string $field) => filled($data[$field] ?? null));
     }
 
+    public function conventionSignedCopy(string $kind): array
+    {
+        $kind = in_array($kind, ['agreement', 'acceptance'], true) ? $kind : 'agreement';
+        $data = $this->convention_data ?? [];
+
+        return [
+            'path' => $data[$kind.'_signed_path'] ?? null,
+            'disk' => $data[$kind.'_signed_disk'] ?? 'local',
+            'name' => $data[$kind.'_signed_name'] ?? null,
+            'size' => (int) ($data[$kind.'_signed_size'] ?? 0),
+            'at' => $data[$kind.'_signed_at'] ?? null,
+        ];
+    }
+
+    public function hasConventionSignedCopy(string $kind): bool
+    {
+        $copy = $this->conventionSignedCopy($kind);
+
+        return filled($copy['path']) && Storage::disk($copy['disk'])->exists($copy['path']);
+    }
+
     protected static function booted(): void
     {
         static::deleting(function (Expense $expense): void {
             if ($expense->attachmentExists()) {
                 Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
+            }
+
+            foreach (['agreement', 'acceptance'] as $kind) {
+                if ($expense->hasConventionSignedCopy($kind)) {
+                    $copy = $expense->conventionSignedCopy($kind);
+                    Storage::disk($copy['disk'])->delete($copy['path']);
+                }
             }
         });
     }

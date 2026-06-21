@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class CivilConventionTest extends TestCase
@@ -152,5 +153,59 @@ class CivilConventionTest extends TestCase
         ]);
 
         $this->assertTrue($expense->hasCompleteAcceptanceData());
+    }
+
+    public function test_signed_agreement_and_acceptance_are_private_and_removed_with_expense(): void
+    {
+        Storage::fake('local');
+        $workspace = Workspace::create(['name' => 'Convention Workspace']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Youth Exchange',
+            'status' => 'active',
+        ]);
+        $member = User::factory()->create();
+        $outsider = User::factory()->create();
+        $workspace->users()->attach($member, ['role' => 'viewer']);
+        $agreementPath = 'project-documents/'.$project->id.'/civil-conventions/1/agreement.pdf';
+        $acceptancePath = 'project-documents/'.$project->id.'/civil-conventions/1/acceptance.pdf';
+        Storage::disk('local')->put($agreementPath, 'signed agreement');
+        Storage::disk('local')->put($acceptancePath, 'signed acceptance');
+        $expense = Expense::create([
+            'budget_line_id' => $project->budgetLines()->first()->id,
+            'description' => 'Facilitation services',
+            'amount' => 1000,
+            'currency' => 'EUR',
+            'amount_eur' => 1000,
+            'is_civil_convention' => true,
+            'convention_data' => [
+                'agreement_signed_path' => $agreementPath,
+                'agreement_signed_disk' => 'local',
+                'agreement_signed_name' => 'Signed Agreement.pdf',
+                'acceptance_signed_path' => $acceptancePath,
+                'acceptance_signed_disk' => 'local',
+                'acceptance_signed_name' => 'Signed Acceptance.pdf',
+            ],
+        ]);
+
+        $this->assertTrue($expense->hasConventionSignedCopy('agreement'));
+        $this->assertTrue($expense->hasConventionSignedCopy('acceptance'));
+
+        $this->actingAs($outsider)
+            ->get(route('project-documents.convention-signed', [$project, $expense, 'agreement']))
+            ->assertForbidden();
+
+        $this->actingAs($member)
+            ->get(route('project-documents.convention-signed', [$project, $expense, 'agreement']))
+            ->assertOk()
+            ->assertDownload('Signed Agreement.pdf');
+        $this->actingAs($member)
+            ->get(route('project-documents.convention-signed', [$project, $expense, 'acceptance']))
+            ->assertOk()
+            ->assertDownload('Signed Acceptance.pdf');
+
+        $expense->delete();
+        Storage::disk('local')->assertMissing($agreementPath);
+        Storage::disk('local')->assertMissing($acceptancePath);
     }
 }
