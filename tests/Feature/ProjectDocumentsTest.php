@@ -234,6 +234,7 @@ class ProjectDocumentsTest extends TestCase
         Storage::fake('local');
         [, $project] = $this->workspaceAndProject();
         $project->update(['partner_orgs' => [
+            ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => null, 'is_coordinator' => true],
             ['name' => 'Partner Association', 'country' => 'IT', 'oid' => null],
         ]]);
 
@@ -292,6 +293,7 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame('complete', $items['Attendance records']['status']);
         $this->assertSame('complete', $items['Civil conventions']['status']);
         $this->assertSame('missing', $items['Partner documents']['status']);
+        $this->assertSame('0 partner files for 1 external partner', $items['Partner documents']['detail']);
         $this->assertSame('missing', $items['Expense reports']['status']);
         $this->assertSame(3, $checklist['complete']);
     }

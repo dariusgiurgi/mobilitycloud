@@ -20,8 +20,12 @@ class ProjectDocumentChecklist
             ->get()
             ->flatMap->expenses;
 
-        $partnerCount = count($project->partners);
+        $partnerCount = collect($project->partners)
+            ->reject(fn (array $partner) => (bool) ($partner['is_coordinator'] ?? false))
+            ->count();
         $partnerFiles = $uploads->whereIn('category', ['mandate', 'partnership_agreement'])->count();
+        $partnerFileLabel = $partnerFiles === 1 ? 'partner file' : 'partner files';
+        $partnerLabel = $partnerCount === 1 ? 'external partner' : 'external partners';
         $signedAttendance = $attendance->filter->hasSignedCopy()->count();
         $signedReports = $expenseReports->filter->hasSignedCopy()->count();
         $conventionCount = $conventions->count();
@@ -38,7 +42,7 @@ class ProjectDocumentChecklist
                 : $this->item(
                     'Partner documents',
                     $partnerFiles >= $partnerCount ? 'complete' : ($partnerFiles > 0 ? 'attention' : 'missing'),
-                    $partnerFiles.' document(s) for '.$partnerCount.' partner(s)'
+                    $partnerFiles.' '.$partnerFileLabel.' for '.$partnerCount.' '.$partnerLabel
                 ),
             $this->uploadedItem($uploads, 'activity_agenda', 'Activity agenda', 'Current activity agenda uploaded'),
             $attendance->isEmpty()
