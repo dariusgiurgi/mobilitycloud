@@ -171,6 +171,17 @@ class ProjectDocumentsTest extends TestCase
             ['category' => 'Travel', 'amount_eur' => 100.0],
             ['category' => 'Organisational Support', 'amount_eur' => 250.0],
         ], $snapshot['category_totals']);
+
+        $evidenceFirst = app(ExpenseReportSnapshot::class)->build(
+            $project,
+            Carbon::parse('2026-06-01'),
+            Carbon::parse('2026-06-30'),
+            'evidence'
+        );
+        $this->assertSame('evidence', $evidenceFirst['order_by']);
+        $this->assertSame('Supporting evidence status', $evidenceFirst['order_label']);
+        $this->assertSame(['EXP-002', 'INV-10'], array_column($evidenceFirst['expenses'], 'reference'));
+        $this->assertSame([1, 2], array_column($evidenceFirst['expenses'], 'row_number'));
     }
 
     public function test_workspace_member_can_download_landscape_expense_report_pdf(): void

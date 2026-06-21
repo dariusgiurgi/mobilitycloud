@@ -69,6 +69,10 @@ class ViewProjectDocuments extends Page
 
     public string $reportNotes = '';
 
+    public string $reportOrderBy = 'date';
+
+    public bool $reportPageBreakByCategory = false;
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -114,6 +118,8 @@ class ViewProjectDocuments extends Page
         $this->reportPreparedBy = auth()->user()?->name ?? '';
         $this->reportPreparedByRole = '';
         $this->reportNotes = '';
+        $this->reportOrderBy = 'date';
+        $this->reportPageBreakByCategory = false;
         $this->showExpenseReportModal = true;
     }
 
@@ -134,11 +140,13 @@ class ViewProjectDocuments extends Page
             'reportPreparedBy' => ['required', 'string', 'max:255'],
             'reportPreparedByRole' => ['nullable', 'string', 'max:255'],
             'reportNotes' => ['nullable', 'string', 'max:5000'],
+            'reportOrderBy' => ['required', 'in:'.implode(',', array_keys(ExpenseReportSnapshot::ORDER_OPTIONS))],
+            'reportPageBreakByCategory' => ['boolean'],
         ]);
 
         $startDate = filled($validated['reportStartDate'] ?? null) ? Carbon::parse($validated['reportStartDate'])->startOfDay() : null;
         $endDate = filled($validated['reportEndDate'] ?? null) ? Carbon::parse($validated['reportEndDate'])->endOfDay() : null;
-        $snapshot = $snapshotBuilder->build($this->record, $startDate, $endDate);
+        $snapshot = $snapshotBuilder->build($this->record, $startDate, $endDate, $validated['reportOrderBy']);
 
         $this->record->documents()->create([
             'type' => ProjectDocument::TYPE_EXPENSE_REPORT,
@@ -150,6 +158,8 @@ class ViewProjectDocuments extends Page
                 'place' => trim($validated['reportPlace'] ?? ''),
                 'prepared_by' => trim($validated['reportPreparedBy']),
                 'prepared_by_role' => trim($validated['reportPreparedByRole'] ?? ''),
+                'page_break_by_category' => $validated['reportOrderBy'] === 'category'
+                    && (bool) ($validated['reportPageBreakByCategory'] ?? false),
             ]),
             'generated_at' => now(),
         ]);

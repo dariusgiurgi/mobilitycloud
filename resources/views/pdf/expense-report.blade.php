@@ -29,6 +29,11 @@
         .center { text-align: center; }
         .evidence-ok { color: #15803d; font-weight: bold; }
         .evidence-missing { color: #b45309; font-weight: bold; }
+        .sort-note { margin: -4px 0 8px; color: #64748b; font-size: 6.8px; }
+        .category-section { margin-top: 8px; }
+        .category-section.first { margin-top: 0; }
+        .category-heading { padding: 5px 7px; background: #e0e7ff; border-left: 3px solid #4f46e5; color: #312e81; font-size: 9px; font-weight: bold; }
+        .category-subtotal { margin: 3px 0 8px; text-align: right; color: #334155; font-size: 7px; font-weight: bold; }
         .summary { width: 100%; margin-top: 10px; page-break-inside: avoid; }
         .summary td { vertical-align: top; }
         .totals { width: 52%; margin-left: auto; border-collapse: collapse; }
@@ -63,40 +68,21 @@
             <td><div class="label">Report date / place</div><div class="value">{{ $document->document_date?->format('d M Y') }}@if(!empty($report['place'])) · {{ $report['place'] }} @endif</div></td>
         </tr>
     </table>
+    <div class="sort-note">Expense order: {{ $report['order_label'] ?? 'Recorded order' }}</div>
 
     @if(!empty($report['expenses']))
-        <table class="expenses">
-            <thead>
-                <tr>
-                    <th style="width:3%;" class="center">No.</th>
-                    <th style="width:8%;">Reference</th>
-                    <th style="width:7%;">Date</th>
-                    <th style="width:14%;">Budget category</th>
-                    <th style="width:27%;">Description</th>
-                    <th style="width:9%;" class="num">Source amount</th>
-                    <th style="width:7%;" class="num">Rate</th>
-                    <th style="width:9%;" class="num">Amount EUR</th>
-                    <th style="width:16%;">Supporting evidence</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($report['expenses'] as $index => $expense)
-                    <tr>
-                        <td class="center">{{ $index + 1 }}</td>
-                        <td>{{ $expense['reference'] }}</td>
-                        <td>{{ !empty($expense['date']) ? \Carbon\Carbon::parse($expense['date'])->format('d M Y') : '—' }}</td>
-                        <td>{{ $expense['budget_category'] }}</td>
-                        <td>{{ $expense['description'] ?: '—' }}@if(!empty($expense['notes']))<br><span style="color:#64748b;">{{ $expense['notes'] }}</span>@endif</td>
-                        <td class="num">{{ number_format((float) $expense['amount'], 2) }} {{ $expense['currency'] }}</td>
-                        <td class="num">{{ number_format((float) $expense['exchange_rate'], 6) }}</td>
-                        <td class="num"><strong>{{ number_format((float) $expense['amount_eur'], 2) }}</strong></td>
-                        <td class="{{ ($expense['evidence'] ?? '') === 'Attached' ? 'evidence-ok' : 'evidence-missing' }}">
-                            {{ $expense['evidence'] ?? 'Missing' }}@if(!empty($expense['evidence_name']))<br><span style="color:#64748b;font-weight:normal;">{{ $expense['evidence_name'] }}</span>@endif
-                        </td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
+        @if(($report['order_by'] ?? 'date') === 'category')
+            @foreach(collect($report['expenses'])->groupBy('budget_category') as $category => $rows)
+                <div class="category-section {{ $loop->first ? 'first' : '' }}"
+                     @if(!$loop->first && !empty($report['page_break_by_category'])) style="page-break-before:always;" @endif>
+                    <div class="category-heading">{{ $category }} · {{ $rows->count() }} expense record(s)</div>
+                    @include('pdf.partials.expense-report-table', ['rows' => $rows])
+                    <div class="category-subtotal">Basket subtotal: {{ number_format((float) $rows->sum('amount_eur'), 2) }} EUR</div>
+                </div>
+            @endforeach
+        @else
+            @include('pdf.partials.expense-report-table', ['rows' => $report['expenses']])
+        @endif
     @else
         <div class="empty">No expenses were recorded for the selected reporting period.</div>
     @endif

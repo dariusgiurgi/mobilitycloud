@@ -198,6 +198,23 @@
                 @error('reportDate') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
                 @error('reportPreparedBy') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
 
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.8rem;align-items:end;">
+                    <div>
+                        <label style="{{ $reportLabelStyle }}">Order expenses by *</label>
+                        <select wire:model.live="reportOrderBy" style="{{ $reportFieldStyle }}">
+                            @foreach(\App\Services\ExpenseReportSnapshot::ORDER_OPTIONS as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    @if($reportOrderBy === 'category')
+                        <label style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:12px;cursor:pointer;">
+                            <input type="checkbox" wire:model="reportPageBreakByCategory">
+                            Start each budget basket on a new page
+                        </label>
+                    @endif
+                </div>
+
                 <label style="{{ $reportLabelStyle }}">Notes / reporting context</label>
                 <textarea rows="3" wire:model="reportNotes" style="{{ $reportFieldStyle }}resize:vertical;"></textarea>
 
