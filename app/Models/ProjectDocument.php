@@ -10,6 +10,8 @@ class ProjectDocument extends Model
 {
     public const TYPE_ATTENDANCE = 'attendance';
 
+    public const TYPE_EXPENSE_REPORT = 'expense_report';
+
     public const TYPE_UPLOAD = 'uploaded';
 
     public const CATEGORIES = [

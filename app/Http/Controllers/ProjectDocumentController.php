@@ -46,6 +46,21 @@ class ProjectDocumentController extends Controller
         );
     }
 
+    public function expenseReport(Project $project, ProjectDocument $document)
+    {
+        $this->authorizeDocument($project, $document);
+        abort_unless($document->type === ProjectDocument::TYPE_EXPENSE_REPORT, 404);
+
+        $filename = 'expense-report-'.Str::slug($project->acronym ?: $project->name)
+            .'-'.$document->document_date?->format('Y-m-d').'.pdf';
+
+        return Pdf::loadView('pdf.expense-report', [
+            'project' => $project->load('workspace'),
+            'document' => $document,
+            'report' => $document->metadata ?? [],
+        ])->setPaper('a4', 'landscape')->download($filename);
+    }
+
     public function file(Project $project, ProjectDocument $document)
     {
         $this->authorizeDocument($project, $document);

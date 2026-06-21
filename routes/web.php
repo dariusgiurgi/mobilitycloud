@@ -20,6 +20,8 @@ Route::middleware('auth')->group(function () {
         ->name('attachments.expenses.download');
     Route::get('/projects/{project}/documents/{document}/attendance', [ProjectDocumentController::class, 'attendance'])
         ->name('project-documents.attendance');
+    Route::get('/projects/{project}/documents/{document}/expense-report', [ProjectDocumentController::class, 'expenseReport'])
+        ->name('project-documents.expense-report');
     Route::get('/projects/{project}/documents/{document}/signed', [ProjectDocumentController::class, 'signed'])
         ->name('project-documents.signed');
     Route::get('/projects/{project}/documents/{document}/file', [ProjectDocumentController::class, 'file'])

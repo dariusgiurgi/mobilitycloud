@@ -7,6 +7,8 @@ use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\ExpenseReportSnapshot;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -116,6 +118,103 @@ class ProjectDocumentsTest extends TestCase
 
         $document->delete();
         Storage::disk('local')->assertMissing($path);
+    }
+
+    public function test_expense_report_snapshot_filters_rows_and_calculates_totals(): void
+    {
+        Storage::fake('local');
+        [, $project] = $this->workspaceAndProject();
+        $travel = $project->budgetLines()->where('title', 'Travel')->firstOrFail();
+        $support = $project->budgetLines()->where('title', 'Organisational Support')->firstOrFail();
+
+        $travel->expenses()->create([
+            'reference_nr' => 'INV-10',
+            'description' => 'Train tickets',
+            'expense_date' => '2026-06-10',
+            'amount' => 500,
+            'currency' => 'RON',
+            'exchange_rate' => 5,
+            'amount_eur' => 100,
+            'attachment_path' => 'expenses/train.pdf',
+            'attachment_disk' => 'local',
+            'attachment_name' => 'train.pdf',
+        ]);
+        Storage::disk('local')->put('expenses/train.pdf', 'proof');
+        $support->expenses()->create([
+            'description' => 'Facilitation',
+            'expense_date' => '2026-06-15',
+            'amount' => 250,
+            'currency' => 'EUR',
+            'exchange_rate' => 1,
+            'amount_eur' => 250,
+        ]);
+        $travel->expenses()->create([
+            'description' => 'Outside period',
+            'expense_date' => '2026-07-01',
+            'amount' => 50,
+            'currency' => 'EUR',
+            'exchange_rate' => 1,
+            'amount_eur' => 50,
+        ]);
+
+        $snapshot = app(ExpenseReportSnapshot::class)->build(
+            $project,
+            Carbon::parse('2026-06-01'),
+            Carbon::parse('2026-06-30')
+        );
+
+        $this->assertSame(2, $snapshot['expense_count']);
+        $this->assertSame(350.0, $snapshot['total_eur']);
+        $this->assertSame(['INV-10', 'EXP-002'], array_column($snapshot['expenses'], 'reference'));
+        $this->assertSame(['Attached', 'Missing'], array_column($snapshot['expenses'], 'evidence'));
+        $this->assertEqualsCanonicalizing([
+            ['category' => 'Travel', 'amount_eur' => 100.0],
+            ['category' => 'Organisational Support', 'amount_eur' => 250.0],
+        ], $snapshot['category_totals']);
+    }
+
+    public function test_workspace_member_can_download_landscape_expense_report_pdf(): void
+    {
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'viewer']);
+        $document = ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_EXPENSE_REPORT,
+            'category' => 'report',
+            'title' => 'Official expense report',
+            'document_date' => '2026-06-21',
+            'metadata' => [
+                'period_start' => '2026-06-01',
+                'period_end' => '2026-06-30',
+                'expense_count' => 1,
+                'total_eur' => 100,
+                'category_totals' => [['category' => 'Travel', 'amount_eur' => 100]],
+                'prepared_by' => 'Project Manager',
+                'expenses' => [[
+                    'reference' => 'INV-10',
+                    'date' => '2026-06-10',
+                    'budget_category' => 'Travel',
+                    'description' => 'Train tickets',
+                    'amount' => 500,
+                    'currency' => 'RON',
+                    'exchange_rate' => 5,
+                    'amount_eur' => 100,
+                    'evidence' => 'Attached',
+                    'evidence_name' => 'train.pdf',
+                    'notes' => null,
+                ]],
+            ],
+            'generated_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user)
+            ->get(route('project-documents.expense-report', [$project, $document]));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $response->getContent());
+        $this->assertStringContainsString('841.890 595.280', $response->getContent());
     }
 
     private function workspaceAndProject(): array

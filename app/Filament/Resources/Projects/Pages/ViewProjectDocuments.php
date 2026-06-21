@@ -5,8 +5,10 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Expense;
 use App\Models\ProjectDocument;
+use App\Services\ExpenseReportSnapshot;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -49,6 +51,24 @@ class ViewProjectDocuments extends Page
 
     public array $conventionData = [];
 
+    public bool $showExpenseReportModal = false;
+
+    public string $reportTitle = 'Official expense report';
+
+    public ?string $reportStartDate = null;
+
+    public ?string $reportEndDate = null;
+
+    public ?string $reportDate = null;
+
+    public string $reportPlace = '';
+
+    public string $reportPreparedBy = '';
+
+    public string $reportPreparedByRole = '';
+
+    public string $reportNotes = '';
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -80,6 +100,62 @@ class ViewProjectDocuments extends Page
             ->orderByDesc('expense_date')
             ->orderByDesc('id')
             ->get();
+    }
+
+    public function openExpenseReportGenerator(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->resetValidation();
+        $this->reportTitle = 'Official expense report';
+        $this->reportStartDate = $this->record->start_date?->format('Y-m-d');
+        $this->reportEndDate = $this->record->end_date?->format('Y-m-d');
+        $this->reportDate = now()->toDateString();
+        $this->reportPlace = '';
+        $this->reportPreparedBy = auth()->user()?->name ?? '';
+        $this->reportPreparedByRole = '';
+        $this->reportNotes = '';
+        $this->showExpenseReportModal = true;
+    }
+
+    public function closeExpenseReportGenerator(): void
+    {
+        $this->showExpenseReportModal = false;
+    }
+
+    public function generateExpenseReport(ExpenseReportSnapshot $snapshotBuilder): void
+    {
+        $this->authorizeProjectManagement();
+        $validated = $this->validate([
+            'reportTitle' => ['required', 'string', 'max:255'],
+            'reportStartDate' => ['nullable', 'date'],
+            'reportEndDate' => ['nullable', 'date', 'after_or_equal:reportStartDate'],
+            'reportDate' => ['required', 'date'],
+            'reportPlace' => ['nullable', 'string', 'max:255'],
+            'reportPreparedBy' => ['required', 'string', 'max:255'],
+            'reportPreparedByRole' => ['nullable', 'string', 'max:255'],
+            'reportNotes' => ['nullable', 'string', 'max:5000'],
+        ]);
+
+        $startDate = filled($validated['reportStartDate'] ?? null) ? Carbon::parse($validated['reportStartDate'])->startOfDay() : null;
+        $endDate = filled($validated['reportEndDate'] ?? null) ? Carbon::parse($validated['reportEndDate'])->endOfDay() : null;
+        $snapshot = $snapshotBuilder->build($this->record, $startDate, $endDate);
+
+        $this->record->documents()->create([
+            'type' => ProjectDocument::TYPE_EXPENSE_REPORT,
+            'category' => 'report',
+            'title' => trim($validated['reportTitle']),
+            'document_date' => $validated['reportDate'],
+            'notes' => trim($validated['reportNotes'] ?? '') ?: null,
+            'metadata' => array_merge($snapshot, [
+                'place' => trim($validated['reportPlace'] ?? ''),
+                'prepared_by' => trim($validated['reportPreparedBy']),
+                'prepared_by_role' => trim($validated['reportPreparedByRole'] ?? ''),
+            ]),
+            'generated_at' => now(),
+        ]);
+
+        $this->closeExpenseReportGenerator();
+        Notification::make()->title('Official expense report generated')->success()->send();
     }
 
     public function openConvention(int $expenseId): void

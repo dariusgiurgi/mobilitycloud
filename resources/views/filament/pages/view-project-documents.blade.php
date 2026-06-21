@@ -6,7 +6,7 @@
     @endphp
 
     <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
-        <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:0;">The project's private document repository and generated attendance records.</p>
+        <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:0;">The project's private repository for generated records and supporting files.</p>
         <div style="flex:1;"></div>
         @if($record->canBeManagedBy(auth()->user()))
             <button type="button" wire:click="openDocumentUpload"
@@ -17,6 +17,10 @@
             <button type="button" wire:click="openAttendanceGenerator"
                     style="padding:8px 15px;border-radius:8px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
                 Generate attendance list
+            </button>
+            <button type="button" wire:click="openExpenseReportGenerator"
+                    style="padding:8px 15px;border-radius:8px;border:none;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
+                Generate expense report
             </button>
         @endif
     </div>
@@ -89,7 +93,7 @@
             @foreach($documents as $document)
                 <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
                      style="padding:1rem 1.1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                    <div style="font-size:24px;">{{ $document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? '📋' : '📄' }}</div>
+                    <div style="font-size:24px;">{{ $document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? '📋' : ($document->type === \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT ? '📊' : '📄') }}</div>
                     <div style="flex:1;min-width:220px;">
                         <div class="text-gray-950 dark:text-white" style="font-size:14px;font-weight:700;">{{ $document->title }}</div>
                         @if($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE)
@@ -98,6 +102,15 @@
                                 @if($document->location) · {{ $document->location }} @endif
                                 · Generated {{ $document->generated_at?->format('d M Y, H:i') }}
                             </div>
+                        @elseif($document->type === \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT)
+                            <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
+                                Expense report · {{ (int) data_get($document->metadata, 'expense_count', 0) }} records
+                                · {{ number_format((float) data_get($document->metadata, 'total_eur', 0), 2) }} EUR
+                                · Generated {{ $document->generated_at?->format('d M Y, H:i') }}
+                            </div>
+                            @if($document->notes)
+                                <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:4px;">{{ $document->notes }}</div>
+                            @endif
                         @else
                             <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
                                 {{ $document->categoryLabel() }}
@@ -110,12 +123,12 @@
                         @endif
                     </div>
 
-                    @if($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE)
+                    @if(in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true))
                         <span style="padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;background:{{ $document->hasSignedCopy() ? '#dcfce7' : '#fef3c7' }};color:{{ $document->hasSignedCopy() ? '#166534' : '#92400e' }};">
                             {{ $document->statusLabel() }}
                         </span>
 
-                        <a href="{{ route('project-documents.attendance', [$record, $document]) }}"
+                        <a href="{{ route($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? 'project-documents.attendance' : 'project-documents.expense-report', [$record, $document]) }}"
                            style="padding:7px 11px;border-radius:7px;border:1px solid rgba(100,116,139,.3);text-decoration:none;font-size:12px;">
                             Download PDF
                         </a>
@@ -155,6 +168,50 @@
     @endif
 
     @include('filament.partials.attendance-generator-modal')
+
+    @if($showExpenseReportModal)
+        <div style="position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.6);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;"
+             wire:click.self="closeExpenseReportGenerator">
+            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
+                 style="width:min(680px,100%);padding:1.5rem;">
+                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0;">Generate official expense report</h2>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:.3rem 0 1.2rem;">The selected expenses and totals are saved as an immutable snapshot. You can then download, sign and upload the signed report.</p>
+
+                @php
+                    $reportFieldStyle = 'width:100%;padding:8px 10px;border:1px solid rgba(100,116,139,.3);border-radius:7px;background:transparent;';
+                    $reportLabelStyle = 'display:block;font-size:10px;font-weight:700;color:#71717a;margin-bottom:4px;text-transform:uppercase;';
+                @endphp
+
+                <label style="{{ $reportLabelStyle }}">Report title *</label>
+                <input wire:model="reportTitle" style="{{ $reportFieldStyle }}margin-bottom:.8rem;">
+                @error('reportTitle') <span style="display:block;color:#dc2626;font-size:11px;margin-top:-7px;margin-bottom:7px;">{{ $message }}</span> @enderror
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.8rem;">
+                    <div><label style="{{ $reportLabelStyle }}">Period start</label><input type="date" wire:model="reportStartDate" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Period end</label><input type="date" wire:model="reportEndDate" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Report date *</label><input type="date" wire:model="reportDate" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Place</label><input wire:model="reportPlace" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Prepared by *</label><input wire:model="reportPreparedBy" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Role</label><input wire:model="reportPreparedByRole" style="{{ $reportFieldStyle }}"></div>
+                </div>
+                @error('reportEndDate') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
+                @error('reportDate') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
+                @error('reportPreparedBy') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
+
+                <label style="{{ $reportLabelStyle }}">Notes / reporting context</label>
+                <textarea rows="3" wire:model="reportNotes" style="{{ $reportFieldStyle }}resize:vertical;"></textarea>
+
+                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+                    <button type="button" wire:click="closeExpenseReportGenerator" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
+                    <button type="button" wire:click="generateExpenseReport" wire:loading.attr="disabled" wire:target="generateExpenseReport"
+                            style="padding:8px 14px;border-radius:7px;border:none;background:#0f766e;color:#fff;cursor:pointer;font-weight:600;">
+                        <span wire:loading.remove wire:target="generateExpenseReport">Generate report</span>
+                        <span wire:loading wire:target="generateExpenseReport">Generating...</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @if($showConventionModal)
         <div style="position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.6);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;"
