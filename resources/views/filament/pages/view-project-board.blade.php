@@ -115,7 +115,14 @@
                             <th style="padding:8px 10px;text-align:left;width:90px;">Code</th>
                             <th style="padding:8px 10px;text-align:left;">Description</th>
                             <th style="padding:8px 10px;text-align:left;width:130px;">Date</th>
-                            <th style="padding:8px 10px;text-align:center;width:40px;" title="Civil convention">CC</th>
+                            <th style="padding:8px 10px;text-align:center;width:52px;">
+                                <span style="display:inline-flex;align-items:center;gap:.25rem;">
+                                    CC
+                                    <x-help-tip id="budget-civil-convention-{{ $line->id }}" title="Civil convention">
+                                        Select CC when this expense must generate a civil agreement and payment statement. The expense will then appear automatically in Documents → Civil conventions.
+                                    </x-help-tip>
+                                </span>
+                            </th>
                             <th style="padding:8px 10px;text-align:right;width:95px;">Amount</th>
                             <th style="padding:8px 10px;text-align:center;width:75px;">Currency</th>
                             <th style="padding:8px 10px;text-align:right;width:95px;">EUR</th>

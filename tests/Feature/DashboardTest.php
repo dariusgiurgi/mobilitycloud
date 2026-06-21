@@ -49,6 +49,7 @@ class DashboardTest extends TestCase
 
         Livewire::test(DashboardWorkspace::class)
             ->assertSee('Needs attention')
+            ->assertSee('How priorities are detected')
             ->assertSee('Mobility starts in 5 days')
             ->assertSee('1 participant record incomplete')
             ->assertSee('1 expense without evidence')

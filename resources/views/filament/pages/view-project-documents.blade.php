@@ -48,7 +48,15 @@
     </x-filament::tabs>
 
     @if($activeDocumentTab === 'checklist')
-    <x-filament::section heading="Project file checklist" description="Recommended file completeness overview" style="margin-top:1rem;">
+    <x-filament::section description="Recommended file completeness overview" style="margin-top:1rem;">
+        <x-slot name="heading">
+            <span style="display:inline-flex;align-items:center;gap:.35rem;">
+                Project file checklist
+                <x-help-tip id="document-checklist" title="Automatic checklist">
+                    The checklist is generated automatically from project settings, uploaded files, generated records and signed copies. It is a completeness aid, not a legal validation of the documents.
+                </x-help-tip>
+            </span>
+        </x-slot>
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
             <x-filament::badge color="success">{{ $checklist['complete'] }} complete</x-filament::badge>
             @if($checklist['attention'])<x-filament::badge color="warning">{{ $checklist['attention'] }} need attention</x-filament::badge>@endif
@@ -81,7 +89,12 @@
     <div style="margin:1rem 0 0;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.65rem;">
             <div>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Civil conventions</h2>
+                <div style="display:flex;align-items:center;gap:.35rem;">
+                    <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Civil conventions</h2>
+                    <x-help-tip id="civil-conventions" title="Civil convention workflow">
+                        An expense appears here after CC is selected in Budget. Complete the contract and payment details, generate the PDFs, obtain signatures outside the platform, then upload the signed copies here.
+                    </x-help-tip>
+                </div>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin:2px 0 0;">Expenses marked CC in Budget appear here automatically.</p>
             </div>
             <span class="text-gray-500 dark:text-gray-400" style="font-size:12px;">{{ $civilConventions->count() }}</span>

@@ -36,6 +36,7 @@ class ProjectListTest extends TestCase
 
         Livewire::test(ListProjects::class)
             ->assertSee('Active Mobility')
+            ->assertSee('Project order and progress')
             ->assertSee('Active')
             ->assertSee('Approved funding')
             ->assertSee('12,000.00')

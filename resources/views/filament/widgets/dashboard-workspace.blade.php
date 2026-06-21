@@ -20,7 +20,14 @@
     <div class="mc-dashboard-grid">
         <div class="mc-dashboard-stack">
             <x-filament::section>
-                <x-slot name="heading">Needs attention</x-slot>
+                <x-slot name="heading">
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;">
+                        Needs attention
+                        <x-help-tip id="dashboard-attention" title="How priorities are detected">
+                            MobilityCloud checks project dates, participant documents, expense evidence and signed records. This is an operational reminder, not a compliance decision.
+                        </x-help-tip>
+                    </span>
+                </x-slot>
                 <x-slot name="description">Priorities detected from your current project data.</x-slot>
                 @if ($attentionCount > 0)
                     <x-slot name="headerEnd">
@@ -51,7 +58,14 @@
             </x-filament::section>
 
             <x-filament::section>
-                <x-slot name="heading">Current projects</x-slot>
+                <x-slot name="heading">
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;">
+                        Current projects
+                        <x-help-tip id="dashboard-project-progress" title="Financial progress">
+                            The progress bar compares recorded expenses with the approved grant. Before approval, it uses the requested budget instead.
+                        </x-help-tip>
+                    </span>
+                </x-slot>
                 <x-slot name="description">Continue where work is most relevant.</x-slot>
                 <x-slot name="headerEnd">
                     <x-filament::button tag="a" :href="$projectsUrl" color="gray" size="sm">View all</x-filament::button>

@@ -316,9 +316,11 @@ class ProjectDocumentsTest extends TestCase
             ->call('setDocumentTab', 'conventions')
             ->assertSet('activeDocumentTab', 'conventions')
             ->assertSee('Civil conventions')
+            ->assertSee('Civil convention workflow')
             ->call('setDocumentTab', 'checklist')
             ->assertSet('activeDocumentTab', 'checklist')
-            ->assertSee('Project file checklist');
+            ->assertSee('Project file checklist')
+            ->assertSee('Automatic checklist');
     }
 
     private function workspaceAndProject(): array

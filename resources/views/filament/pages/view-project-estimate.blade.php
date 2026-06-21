@@ -8,6 +8,8 @@
 
     <style>
         .mc-est label.f { display:block; font-size:.75rem; opacity:.65; margin-bottom:.3rem; }
+        .mc-est .fl { display:flex;align-items:center;gap:.35rem;margin-bottom:.3rem; }
+        .mc-est .fl label.f { margin-bottom:0; }
         .mc-est input[type=number], .mc-est select { color:inherit; }
         .mc-est select option { background:#fff; } .dark .mc-est select option { background:#27303f; }
         .mc-est .row { display:flex; align-items:center; gap:.5rem; font-size:13px; }
@@ -17,11 +19,21 @@
     <x-filament::section heading="Inputs">
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;">
             <div>
-                <label class="f">Persons (IS + travel)</label>
+                <div class="fl">
+                    <label class="f">Persons (IS + travel)</label>
+                    <x-help-tip id="estimate-is-persons" title="Persons for IS and travel">
+                        People eligible for Individual Support and the travel unit contribution. This can differ from the Organisational Support participant count under some action rules.
+                    </x-help-tip>
+                </div>
                 <input type="number" min="0" wire:model.live.debounce.500ms="persons" style="{{ $inStyle }}">
             </div>
             <div>
-                <label class="f">Participants (OS)</label>
+                <div class="fl">
+                    <label class="f">Participants (OS)</label>
+                    <x-help-tip id="estimate-os-participants" title="Participants for Organisational Support">
+                        Enter the number of people who generate an Organisational Support unit contribution under the applicable programme rules.
+                    </x-help-tip>
+                </div>
                 <input type="number" min="0" wire:model.live.debounce.500ms="participants" style="{{ $inStyle }}">
             </div>
             <div>
@@ -49,7 +61,12 @@
                 <input type="number" min="0" step="0.01" wire:model.live.debounce.500ms="osRate" style="{{ $inStyle }}">
             </div>
             <div>
-                <label class="f">Inclusion support — organisations (€)</label>
+                <div class="fl">
+                    <label class="f">Inclusion support — organisations (€)</label>
+                    <x-help-tip id="estimate-inclusion-support" title="Inclusion Support for organisations">
+                        Enter the approved unit contribution or total intended to help the organisation arrange participation for people with fewer opportunities. Participant-specific real costs are handled separately when applicable.
+                    </x-help-tip>
+                </div>
                 <input type="number" min="0" step="0.01" wire:model.live.debounce.500ms="inclusionOrgTotal" style="{{ $inStyle }}">
             </div>
         </div>

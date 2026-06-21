@@ -29,7 +29,12 @@
         </x-filament::section>
     @else
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.2rem;">
-            <p class="mc-project-muted" style="font-size:.8rem;">{{ $projects->count() }} {{ str('project')->plural($projects->count()) }} · current work is shown first</p>
+            <div style="display:flex;align-items:center;gap:.35rem;">
+                <p class="mc-project-muted" style="font-size:.8rem;">{{ $projects->count() }} {{ str('project')->plural($projects->count()) }} · current work is shown first</p>
+                <x-help-tip id="project-card-order" title="Project order and progress">
+                    Active and approved projects appear first, followed by applications and completed work. Each progress bar compares recorded expenses with the approved grant, or with the requested budget before approval.
+                </x-help-tip>
+            </div>
         </div>
 
         <div class="mc-projects-grid">

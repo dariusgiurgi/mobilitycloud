@@ -31,10 +31,15 @@
                     class="text-gray-700 dark:text-gray-200">
                 Import CSV
             </button>
-            <button type="button" wire:click="openAttendanceGenerator"
-                    style="padding:8px 14px;border-radius:8px;border:1px solid rgba(99,102,241,.35);background:transparent;color:#4f46e5;cursor:pointer;font-size:13px;font-weight:600;">
-                Attendance list
-            </button>
+            <span style="display:inline-flex;align-items:center;gap:.35rem;">
+                <button type="button" wire:click="openAttendanceGenerator"
+                        style="padding:8px 14px;border-radius:8px;border:1px solid rgba(99,102,241,.35);background:transparent;color:#4f46e5;cursor:pointer;font-size:13px;font-weight:600;">
+                    Attendance list
+                </button>
+                <x-help-tip id="participant-attendance-list" title="Attendance list">
+                    Generates one landscape PDF grouped by partner organisation. Every organisation starts on a new page; signed copies are stored later in the Documents section.
+                </x-help-tip>
+            </span>
             <button type="button" wire:click="openCreate"
                     style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
                 + Add participant
@@ -53,7 +58,12 @@
             <div style="font-size:22px;font-weight:700;color:#d97706;">{{ $stats['minors'] }}</div>
         </div>
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
-            <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Fewer opp.</div>
+            <div style="display:flex;align-items:center;gap:.3rem;">
+                <span class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Fewer opp.</span>
+                <x-help-tip id="fewer-opportunities" title="Fewer opportunities">
+                    Participants who may face economic, social, geographic, health, disability or other barriers. This flag supports planning; eligibility must follow the applicable programme guide.
+                </x-help-tip>
+            </div>
             <div style="font-size:22px;font-weight:700;color:#6366f1;">{{ $stats['fo'] }}</div>
         </div>
     </div>
@@ -373,7 +383,12 @@
             {{-- Documents (doar la editare, cand participantul exista) --}}
             @if($editingId)
                 @php $atts = $this->attachmentsFor($editingId); $docTypes = $this->getDocTypes(); @endphp
-                <p class="mc-part-sec">Documents</p>
+                <div style="display:flex;align-items:center;gap:.35rem;">
+                    <p class="mc-part-sec">Documents</p>
+                    <x-help-tip id="participant-required-documents" title="Required participant documents">
+                        GDPR consent and the participant agreement are required for every participant. Parental consent is added automatically when the participant is under 18 on the mobility start date.
+                    </x-help-tip>
+                </div>
 
                 <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1rem;">
                     @foreach($docTypes as $typeKey => $typeLabel)
