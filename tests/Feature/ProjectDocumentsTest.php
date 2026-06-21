@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Projects\Pages\ViewProjectDocuments;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
@@ -10,8 +11,10 @@ use App\Models\Workspace;
 use App\Services\ExpenseReportSnapshot;
 use App\Services\ProjectDocumentChecklist;
 use Carbon\Carbon;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class ProjectDocumentsTest extends TestCase
@@ -296,6 +299,26 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame('0 partner files for 1 external partner', $items['Partner documents']['detail']);
         $this->assertSame('missing', $items['Expense reports']['status']);
         $this->assertSame(3, $checklist['complete']);
+    }
+
+    public function test_documents_page_switches_between_professional_workspace_tabs(): void
+    {
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'member']);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+        Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->assertSet('activeDocumentTab', 'files')
+            ->assertSee('Project document centre')
+            ->assertSee('Add document')
+            ->call('setDocumentTab', 'conventions')
+            ->assertSet('activeDocumentTab', 'conventions')
+            ->assertSee('Civil conventions')
+            ->call('setDocumentTab', 'checklist')
+            ->assertSet('activeDocumentTab', 'checklist')
+            ->assertSee('Project file checklist');
     }
 
     private function workspaceAndProject(): array

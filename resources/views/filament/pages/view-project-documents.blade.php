@@ -4,40 +4,58 @@
         $documentCategories = $this->getDocumentCategories();
         $civilConventions = $this->getCivilConventionExpenses();
         $checklist = $this->getDocumentChecklist();
+        $documentCount = $record->documents()->count();
+        $checklistIssues = $checklist['attention'] + $checklist['missing'];
     @endphp
 
-    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
-        <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:0;">The project's private repository for generated records and supporting files.</p>
-        <div style="flex:1;"></div>
-        @if($record->canBeManagedBy(auth()->user()))
-            <button type="button" wire:click="openDocumentUpload"
-                    style="padding:8px 15px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;font-weight:600;"
-                    class="text-gray-700 dark:text-gray-200">
-                Upload document
-            </button>
-            <button type="button" wire:click="openAttendanceGenerator"
-                    style="padding:8px 15px;border-radius:8px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
-                Generate attendance list
-            </button>
-            <button type="button" wire:click="openExpenseReportGenerator"
-                    style="padding:8px 15px;border-radius:8px;border:none;background:#0f766e;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
-                Generate expense report
-            </button>
-        @endif
-    </div>
-
-    <details open class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="margin-bottom:1.5rem;overflow:hidden;">
-        <summary style="padding:1rem 1.1rem;cursor:pointer;display:flex;align-items:center;gap:.75rem;list-style:none;flex-wrap:wrap;">
-            <div>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Project file checklist</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin:2px 0 0;">Recommended file completeness overview</p>
+    <x-filament::section>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <div style="flex:1;min-width:240px;">
+                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:700;margin:0;">Project document centre</h2>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8125rem;margin:.2rem 0 0;">Private files, generated records and civil convention documentation.</p>
             </div>
-            <div style="flex:1;"></div>
-            <span style="font-size:11px;color:#15803d;font-weight:700;">{{ $checklist['complete'] }} complete</span>
-            @if($checklist['attention'])<span style="font-size:11px;color:#b45309;font-weight:700;">{{ $checklist['attention'] }} need attention</span>@endif
-            @if($checklist['missing'])<span style="font-size:11px;color:#dc2626;font-weight:700;">{{ $checklist['missing'] }} missing</span>@endif
-        </summary>
-        <div style="padding:0 1.1rem 1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.6rem;">
+            @if($record->canBeManagedBy(auth()->user()))
+                <x-filament::dropdown placement="bottom-end" width="xs">
+                    <x-slot name="trigger">
+                        <x-filament::button icon="heroicon-m-plus" size="sm">Add document</x-filament::button>
+                    </x-slot>
+                    <x-filament::dropdown.list>
+                        <x-filament::dropdown.list.item wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray">
+                            Upload project file
+                        </x-filament::dropdown.list.item>
+                        <x-filament::dropdown.list.item wire:click="openAttendanceGenerator" icon="heroicon-m-clipboard-document-list">
+                            Generate attendance list
+                        </x-filament::dropdown.list.item>
+                        <x-filament::dropdown.list.item wire:click="openExpenseReportGenerator" icon="heroicon-m-chart-bar-square">
+                            Generate expense report
+                        </x-filament::dropdown.list.item>
+                    </x-filament::dropdown.list>
+                </x-filament::dropdown>
+            @endif
+        </div>
+    </x-filament::section>
+
+    <x-filament::tabs label="Document sections" style="margin-top:1rem;">
+        <x-filament::tabs.item wire:click="setDocumentTab('files')" :active="$activeDocumentTab === 'files'" icon="heroicon-m-folder" :badge="$documentCount">
+            Files
+        </x-filament::tabs.item>
+        <x-filament::tabs.item wire:click="setDocumentTab('conventions')" :active="$activeDocumentTab === 'conventions'" icon="heroicon-m-document-text" :badge="$civilConventions->count()">
+            Civil conventions
+        </x-filament::tabs.item>
+        <x-filament::tabs.item wire:click="setDocumentTab('checklist')" :active="$activeDocumentTab === 'checklist'" icon="heroicon-m-check-circle" :badge="$checklistIssues ?: null" :badge-color="$checklistIssues ? 'warning' : 'success'">
+            Checklist
+        </x-filament::tabs.item>
+    </x-filament::tabs>
+
+    @if($activeDocumentTab === 'checklist')
+    <x-filament::section heading="Project file checklist" description="Recommended file completeness overview" style="margin-top:1rem;">
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;">
+            <x-filament::badge color="success">{{ $checklist['complete'] }} complete</x-filament::badge>
+            @if($checklist['attention'])<x-filament::badge color="warning">{{ $checklist['attention'] }} need attention</x-filament::badge>@endif
+            @if($checklist['missing'])<x-filament::badge color="danger">{{ $checklist['missing'] }} missing</x-filament::badge>@endif
+            @if($checklist['optional'])<x-filament::badge color="gray">{{ $checklist['optional'] }} not applicable</x-filament::badge>@endif
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.75rem;">
             @foreach($checklist['items'] as $item)
                 @php
                     $checklistStyle = match($item['status']) {
@@ -56,9 +74,11 @@
                 </div>
             @endforeach
         </div>
-    </details>
+    </x-filament::section>
+    @endif
 
-    <div style="margin:0 0 1.5rem;">
+    @if($activeDocumentTab === 'conventions')
+    <div style="margin:1rem 0 0;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.65rem;">
             <div>
                 <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Civil conventions</h2>
@@ -77,7 +97,7 @@
                 @foreach($civilConventions as $expense)
                     <details class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="width:100%;overflow:hidden;">
                         <summary style="padding:.85rem 1.1rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;list-style:none;flex-wrap:wrap;">
-                            <div style="font-size:20px;">📝</div>
+                            <x-filament::icon icon="heroicon-m-document-text" class="h-5 w-5 text-gray-400" />
                             <div style="flex:1;min-width:180px;">
                                 <div class="text-gray-950 dark:text-white" style="font-size:13px;font-weight:700;">{{ $expense->description ?: 'Untitled civil convention' }}</div>
                                 <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
@@ -85,91 +105,88 @@
                                 </div>
                             </div>
                             @if($expense->hasConventionSignedCopy('agreement'))
-                                <span style="font-size:10px;color:#15803d;font-weight:700;">AGREEMENT SIGNED</span>
+                                <x-filament::badge color="success" size="sm">Agreement signed</x-filament::badge>
                             @endif
                             @if($expense->hasConventionSignedCopy('payment'))
-                                <span style="font-size:10px;color:#15803d;font-weight:700;">PAYMENT SIGNED</span>
+                                <x-filament::badge color="success" size="sm">Payment signed</x-filament::badge>
                             @endif
-                            <span style="padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700;background:{{ $expense->hasCompleteConventionData() ? '#dcfce7' : '#fef3c7' }};color:{{ $expense->hasCompleteConventionData() ? '#166534' : '#92400e' }};">
+                            <x-filament::badge :color="$expense->hasCompleteConventionData() ? 'success' : 'warning'" size="sm">
                                 {{ $expense->hasCompleteConventionData() ? 'READY' : 'DETAILS NEEDED' }}
-                            </span>
-                            <span class="text-gray-400" style="font-size:12px;">⌄</span>
+                            </x-filament::badge>
+                            <x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4 text-gray-400" />
                         </summary>
                         <div style="padding:.75rem 1.1rem 1rem;border-top:1px solid rgba(148,163,184,.18);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
-                        @if($expense->hasCompleteConventionData())
-                            <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
-                                <a href="{{ route('project-documents.civil-convention', [$record, $expense]) }}"
-                                   style="padding:7px 11px;border-radius:7px;border:1px solid rgba(79,70,229,.3);color:#4338ca;text-decoration:none;font-size:12px;font-weight:600;">
-                                    Agreement PDF
-                                </a>
-                                @if($expense->hasConventionSignedCopy('agreement'))
-                                    <a href="{{ route('project-documents.convention-signed', [$record, $expense, 'agreement']) }}"
-                                       style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">Signed agreement</a>
-                                @endif
-                                @if($record->canBeManagedBy(auth()->user()))
-                                    <button type="button" wire:click="openConventionSignedUpload({{ $expense->id }}, 'agreement')"
-                                            style="padding:7px 10px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:11px;">
-                                        {{ $expense->hasConventionSignedCopy('agreement') ? 'Replace signed' : 'Upload signed' }}
-                                    </button>
-                                    @if($expense->hasConventionSignedCopy('agreement'))
-                                        <button type="button" wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'agreement')" wire:confirm="Remove the signed agreement?"
-                                                style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:11px;">Remove</button>
-                                    @endif
-                                @endif
+                            <div class="text-gray-500 dark:text-gray-400" style="flex:1;font-size:.75rem;min-width:220px;">
+                                Complete the details, generate the official records, then store the signed copies in this private file.
                             </div>
-                        @endif
-                        @if($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData())
-                            <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
-                                <a href="{{ route('project-documents.payment-statement', [$record, $expense]) }}"
-                                   style="padding:7px 11px;border-radius:7px;border:1px solid rgba(180,83,9,.3);color:#b45309;text-decoration:none;font-size:12px;font-weight:600;">
-                                    Payment statement
-                                </a>
-                                @if($expense->hasConventionSignedCopy('payment'))
-                                    <a href="{{ route('project-documents.convention-signed', [$record, $expense, 'payment']) }}"
-                                       style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">Signed payment</a>
-                                @endif
-                                @if($record->canBeManagedBy(auth()->user()))
-                                    <button type="button" wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')"
-                                            style="padding:7px 10px;border-radius:7px;border:none;background:#fff7ed;color:#b45309;cursor:pointer;font-size:11px;">
-                                        {{ $expense->hasConventionSignedCopy('payment') ? 'Replace signed' : 'Upload signed' }}
-                                    </button>
-                                    @if($expense->hasConventionSignedCopy('payment'))
-                                        <button type="button" wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'payment')" wire:confirm="Remove the signed payment statement?"
-                                                style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:11px;">Remove</button>
-                                    @endif
-                                @endif
-                            </div>
-                        @endif
                         @if($record->canBeManagedBy(auth()->user()))
-                            <button type="button" wire:click="openConvention({{ $expense->id }})"
-                                    style="padding:7px 11px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:12px;">
+                            <x-filament::button wire:click="openConvention({{ $expense->id }})" color="gray" size="sm" icon="heroicon-m-pencil-square">
                                 {{ $expense->hasCompleteConventionData() ? 'Edit details' : 'Complete details' }}
-                            </button>
+                            </x-filament::button>
                         @endif
+                            <x-filament::dropdown placement="bottom-end" width="sm">
+                                <x-slot name="trigger">
+                                    <x-filament::button color="gray" size="sm" icon="heroicon-m-ellipsis-horizontal">Documents</x-filament::button>
+                                </x-slot>
+                                <x-filament::dropdown.list>
+                                    @if($expense->hasCompleteConventionData())
+                                        <x-filament::dropdown.list.item tag="a" :href="route('project-documents.civil-convention', [$record, $expense])" icon="heroicon-m-arrow-down-tray">Download agreement PDF</x-filament::dropdown.list.item>
+                                        @if($expense->hasConventionSignedCopy('agreement'))
+                                            <x-filament::dropdown.list.item tag="a" :href="route('project-documents.convention-signed', [$record, $expense, 'agreement'])" icon="heroicon-m-check-badge">Download signed agreement</x-filament::dropdown.list.item>
+                                        @endif
+                                        @if($record->canBeManagedBy(auth()->user()))
+                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'agreement')" icon="heroicon-m-arrow-up-tray">{{ $expense->hasConventionSignedCopy('agreement') ? 'Replace signed agreement' : 'Upload signed agreement' }}</x-filament::dropdown.list.item>
+                                            @if($expense->hasConventionSignedCopy('agreement'))
+                                                <x-filament::dropdown.list.item wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'agreement')" wire:confirm="Remove the signed agreement?" color="danger" icon="heroicon-m-trash">Remove signed agreement</x-filament::dropdown.list.item>
+                                            @endif
+                                        @endif
+                                    @endif
+                                    @if($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData())
+                                        <x-filament::dropdown.list.item tag="a" :href="route('project-documents.payment-statement', [$record, $expense])" icon="heroicon-m-banknotes">Download payment statement</x-filament::dropdown.list.item>
+                                        @if($expense->hasConventionSignedCopy('payment'))
+                                            <x-filament::dropdown.list.item tag="a" :href="route('project-documents.convention-signed', [$record, $expense, 'payment'])" icon="heroicon-m-check-badge">Download signed payment</x-filament::dropdown.list.item>
+                                        @endif
+                                        @if($record->canBeManagedBy(auth()->user()))
+                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" icon="heroicon-m-arrow-up-tray">{{ $expense->hasConventionSignedCopy('payment') ? 'Replace signed payment' : 'Upload signed payment' }}</x-filament::dropdown.list.item>
+                                            @if($expense->hasConventionSignedCopy('payment'))
+                                                <x-filament::dropdown.list.item wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'payment')" wire:confirm="Remove the signed payment statement?" color="danger" icon="heroicon-m-trash">Remove signed payment</x-filament::dropdown.list.item>
+                                            @endif
+                                        @endif
+                                    @endif
+                                </x-filament::dropdown.list>
+                            </x-filament::dropdown>
                         </div>
                     </details>
                 @endforeach
             </div>
         @endif
     </div>
+    @endif
 
-    <div style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin-bottom:.65rem;">
-        <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Project files and generated documents</h2>
-        <div style="flex:1;"></div>
-        <input type="search" wire:model.live.debounce.300ms="documentSearch" placeholder="Search documents..."
-               style="width:min(220px,100%);padding:7px 10px;border:1px solid rgba(100,116,139,.3);border-radius:8px;background:transparent;font-size:12px;">
-        @foreach(['all' => 'All', 'generated' => 'Generated', 'uploaded' => 'Uploaded', 'signed' => 'Signed'] as $key => $label)
-            <button type="button" wire:click="setDocumentFilter('{{ $key }}')"
-                    style="padding:6px 10px;border-radius:999px;border:1px solid {{ $documentFilter === $key ? '#4f46e5' : 'rgba(100,116,139,.25)' }};background:{{ $documentFilter === $key ? '#eef2ff' : 'transparent' }};color:{{ $documentFilter === $key ? '#4338ca' : '#64748b' }};font-size:11px;font-weight:600;cursor:pointer;">
-                {{ $label }}
-            </button>
-        @endforeach
-    </div>
+    @if($activeDocumentTab === 'files')
+    <x-filament::section heading="Files" description="Uploaded project files and generated official records" style="margin-top:1rem;">
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+            <div style="width:min(260px,100%);">
+                <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
+                    <x-filament::input type="search" wire:model.live.debounce.300ms="documentSearch" placeholder="Search documents" />
+                </x-filament::input.wrapper>
+            </div>
+            <div style="width:150px;">
+                <x-filament::input.wrapper>
+                    <x-filament::input.select wire:model.live="documentFilter">
+                        <option value="all">All files</option>
+                        <option value="generated">Generated</option>
+                        <option value="uploaded">Uploaded</option>
+                        <option value="signed">Signed</option>
+                    </x-filament::input.select>
+                </x-filament::input.wrapper>
+            </div>
+        </div>
 
     @if($documents->isEmpty())
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
              style="padding:2.5rem;text-align:center;">
-            <div style="font-size:34px;margin-bottom:.6rem;">📄</div>
+            <x-filament::icon icon="heroicon-o-folder-open" class="mx-auto h-10 w-10 text-gray-400" />
             <h3 class="text-gray-950 dark:text-white" style="font-size:16px;font-weight:700;margin:0 0 .35rem;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'No matching documents' : 'No project documents yet' }}</h3>
             <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:0;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'Try another filter or search term.' : 'Upload a project file or generate the first attendance list.' }}</p>
         </div>
@@ -178,7 +195,9 @@
             @foreach($documents as $document)
                 <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
                      style="padding:1rem 1.1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                    <div style="font-size:24px;">{{ $document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? '📋' : ($document->type === \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT ? '📊' : '📄') }}</div>
+                    <div style="width:34px;height:34px;border-radius:8px;background:rgba(99,102,241,.08);display:flex;align-items:center;justify-content:center;flex:none;">
+                        <x-filament::icon :icon="$document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? 'heroicon-m-clipboard-document-list' : ($document->type === \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT ? 'heroicon-m-chart-bar-square' : 'heroicon-m-document')" class="h-5 w-5 text-primary-600" />
+                    </div>
                     <div style="flex:1;min-width:220px;">
                         <div class="text-gray-950 dark:text-white" style="font-size:14px;font-weight:700;">{{ $document->title }}</div>
                         @if($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE)
@@ -209,47 +228,40 @@
                     </div>
 
                     @if(in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true))
-                        <span style="padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;background:{{ $document->hasSignedCopy() ? '#dcfce7' : '#fef3c7' }};color:{{ $document->hasSignedCopy() ? '#166534' : '#92400e' }};">
-                            {{ $document->statusLabel() }}
-                        </span>
-
-                        <a href="{{ route($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? 'project-documents.attendance' : 'project-documents.expense-report', [$record, $document]) }}"
-                           style="padding:7px 11px;border-radius:7px;border:1px solid rgba(100,116,139,.3);text-decoration:none;font-size:12px;">
-                            Download PDF
-                        </a>
-
-                        @if($document->hasSignedCopy())
-                            <a href="{{ route('project-documents.signed', [$record, $document]) }}"
-                               style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;">
-                                Signed copy
-                            </a>
-                        @endif
-
-                        @if($record->canBeManagedBy(auth()->user()))
-                            <button type="button" wire:click="openSignedUpload({{ $document->id }})"
-                                    style="padding:7px 11px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:12px;">
-                                {{ $document->hasSignedCopy() ? 'Replace signed' : 'Upload signed' }}
-                            </button>
-                            @if($document->hasSignedCopy())
-                                <button type="button" wire:click="deleteSignedCopy({{ $document->id }})" wire:confirm="Remove the signed copy?"
-                                        style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:12px;">Remove signed</button>
-                            @endif
-                        @endif
+                        <x-filament::badge :color="$document->hasSignedCopy() ? 'success' : 'warning'">{{ $document->statusLabel() }}</x-filament::badge>
                     @else
-                        <span style="padding:4px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#e0e7ff;color:#3730a3;">{{ $document->categoryLabel() }}</span>
-                        <a href="{{ route('project-documents.file', [$record, $document]) }}"
-                           style="padding:7px 11px;border-radius:7px;border:1px solid rgba(100,116,139,.3);text-decoration:none;font-size:12px;">
-                            Download
-                        </a>
+                        <x-filament::badge color="gray">{{ $document->categoryLabel() }}</x-filament::badge>
                     @endif
 
-                    @if($record->canBeManagedBy(auth()->user()))
-                        <button type="button" wire:click="deleteDocument({{ $document->id }})" wire:confirm="Delete this document and its stored files?"
-                                style="border:none;background:transparent;color:#9ca3af;cursor:pointer;font-size:14px;">✕</button>
-                    @endif
+                    <x-filament::dropdown placement="bottom-end" width="xs">
+                        <x-slot name="trigger">
+                            <x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" label="Document actions" />
+                        </x-slot>
+                        <x-filament::dropdown.list>
+                            @if(in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true))
+                                <x-filament::dropdown.list.item tag="a" :href="route($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? 'project-documents.attendance' : 'project-documents.expense-report', [$record, $document])" icon="heroicon-m-arrow-down-tray">Download generated PDF</x-filament::dropdown.list.item>
+                                @if($document->hasSignedCopy())
+                                    <x-filament::dropdown.list.item tag="a" :href="route('project-documents.signed', [$record, $document])" icon="heroicon-m-check-badge">Download signed copy</x-filament::dropdown.list.item>
+                                @endif
+                                @if($record->canBeManagedBy(auth()->user()))
+                                    <x-filament::dropdown.list.item wire:click="openSignedUpload({{ $document->id }})" icon="heroicon-m-arrow-up-tray">{{ $document->hasSignedCopy() ? 'Replace signed copy' : 'Upload signed copy' }}</x-filament::dropdown.list.item>
+                                    @if($document->hasSignedCopy())
+                                        <x-filament::dropdown.list.item wire:click="deleteSignedCopy({{ $document->id }})" wire:confirm="Remove the signed copy?" color="danger" icon="heroicon-m-trash">Remove signed copy</x-filament::dropdown.list.item>
+                                    @endif
+                                @endif
+                            @else
+                                <x-filament::dropdown.list.item tag="a" :href="route('project-documents.file', [$record, $document])" icon="heroicon-m-arrow-down-tray">Download file</x-filament::dropdown.list.item>
+                            @endif
+                            @if($record->canBeManagedBy(auth()->user()))
+                                <x-filament::dropdown.list.item wire:click="deleteDocument({{ $document->id }})" wire:confirm="Delete this document and its stored files?" color="danger" icon="heroicon-m-trash">Delete document</x-filament::dropdown.list.item>
+                            @endif
+                        </x-filament::dropdown.list>
+                    </x-filament::dropdown>
                 </div>
             @endforeach
         </div>
+    @endif
+    </x-filament::section>
     @endif
 
     @include('filament.partials.attendance-generator-modal')

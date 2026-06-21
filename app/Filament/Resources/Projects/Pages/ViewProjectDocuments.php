@@ -86,6 +86,8 @@ class ViewProjectDocuments extends Page
 
     public string $documentSearch = '';
 
+    public string $activeDocumentTab = 'files';
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -123,11 +125,18 @@ class ViewProjectDocuments extends Page
         return app(ProjectDocumentChecklist::class)->build($this->record);
     }
 
-    public function setDocumentFilter(string $filter): void
+    public function setDocumentTab(string $tab): void
     {
-        $this->documentFilter = in_array($filter, ['all', 'generated', 'uploaded', 'signed'], true)
-            ? $filter
-            : 'all';
+        $this->activeDocumentTab = in_array($tab, ['files', 'conventions', 'checklist'], true)
+            ? $tab
+            : 'files';
+    }
+
+    public function updatedDocumentFilter(string $filter): void
+    {
+        if (! in_array($filter, ['all', 'generated', 'uploaded', 'signed'], true)) {
+            $this->documentFilter = 'all';
+        }
     }
 
     public function getDocumentCategories(): array
