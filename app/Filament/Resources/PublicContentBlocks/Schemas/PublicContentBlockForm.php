@@ -3,13 +3,13 @@
 namespace App\Filament\Resources\PublicContentBlocks\Schemas;
 
 use App\Models\PublicContentBlock;
-use Filament\Schemas\Schema;
-use Filament\Schemas\Components\Section;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\TagsInput;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class PublicContentBlockForm
 {
@@ -48,7 +48,7 @@ class PublicContentBlockForm
                             ->placeholder('Add tag, press Enter'),
 
                         Toggle::make('is_proven')
-                            ->label('Verified (from an approved application)')
+                            ->label('Proven (from an approved application)')
                             ->live()
                             ->inline(false),
 
@@ -56,8 +56,7 @@ class PublicContentBlockForm
                             ->label('Source')
                             ->maxLength(255)
                             ->placeholder('e.g. Approved KA152 youth exchange, 2025')
-                            ->helperText('Required when the block is marked as verified.')
-                            // Sursa devine OBLIGATORIE cand bifezi "verified".
+                            ->helperText('Required when the block is marked as proven.')
                             ->required(fn (callable $get) => (bool) $get('is_proven'))
                             ->columnSpanFull(),
                     ]),

@@ -50,7 +50,7 @@ class PublicContentBlocksTable
                     ->color('gray'),
 
                 IconColumn::make('is_proven')
-                    ->label('Verified')
+                    ->label('Proven')
                     ->boolean(),
 
                 TextColumn::make('import_count')
@@ -68,20 +68,33 @@ class PublicContentBlocksTable
                 SelectFilter::make('category')->options(PublicContentBlock::CATEGORIES),
                 SelectFilter::make('ka_action')->label('Action')->options(PublicContentBlock::KA_ACTIONS),
                 SelectFilter::make('language')->options(PublicContentBlock::LANGUAGES),
-                TernaryFilter::make('is_proven')->label('Verified only'),
+                TernaryFilter::make('is_proven')->label('Proven only'),
             ])
             ->recordActions([
                 // Oricine poate importa un bloc public in biblioteca personala.
                 Action::make('import')
-                    ->label('Import')
+                    ->label('Import copy')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('primary')
                     ->requiresConfirmation()
                     ->modalHeading('Import to your library')
                     ->modalDescription('A personal copy will be added to your workspace Content Library. You can edit it freely afterwards.')
+                    ->visible(fn (): bool => Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
                     ->action(function (PublicContentBlock $record) {
                         $workspace = Filament::getTenant();
                         if (! $workspace) {
+                            return;
+                        }
+
+                        if (ContentBlock::query()
+                            ->where('workspace_id', $workspace->id)
+                            ->where('imported_from_public_id', $record->id)
+                            ->exists()) {
+                            Notification::make()
+                                ->title('Already in your Content Library')
+                                ->info()
+                                ->send();
+
                             return;
                         }
 

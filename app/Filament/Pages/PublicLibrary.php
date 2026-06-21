@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use App\Models\ContentBlock;
 use App\Models\PublicBlockReport;
@@ -44,9 +45,9 @@ class PublicLibrary extends Page
 
     public string $language = '';
 
-    public string $verifiedOnly = '';   // '' sau '1'
+    public bool $provenOnly = false;
 
-    public string $officialOnly = '';   // '' sau '1'
+    public bool $officialOnly = false;
 
     public bool $showFilters = false;
 
@@ -77,7 +78,10 @@ class PublicLibrary extends Page
 
         // Aducem blocurile dupa ID-urile inghetate, pastrand exact acea ordine.
         $blocks = PublicContentBlock::query()
-            ->with('author')
+            ->with([
+                'author',
+                'likes' => fn ($query) => $query->where('user_id', auth()->id()),
+            ])
             ->where('is_hidden', false)
             ->whereIn('id', $this->orderedIds)
             ->get()
@@ -113,11 +117,11 @@ class PublicLibrary extends Page
             $query->where('language', $this->language);
         }
 
-        if ($this->verifiedOnly === '1') {
+        if ($this->provenOnly) {
             $query->where('is_proven', true);
         }
 
-        if ($this->officialOnly === '1') {
+        if ($this->officialOnly) {
             $officialId = User::where('email', PublicContentBlock::OFFICIAL_EMAIL)->value('id');
             $query->where('user_id', $officialId);
         }
@@ -131,7 +135,7 @@ class PublicLibrary extends Page
                 break;
             case 'relevant':
             default:
-                $query->orderByRaw('(import_count * 3 + likes_count * 2 + GREATEST(0, 30 - DATEDIFF(NOW(), created_at)) / 30 * 5) DESC')
+                $query->orderByRaw('(import_count * 3 + likes_count * 2) DESC')
                     ->orderByDesc('created_at');
                 break;
         }
@@ -164,7 +168,7 @@ class PublicLibrary extends Page
         $this->computeOrder();
     }
 
-    public function updatedVerifiedOnly(): void
+    public function updatedProvenOnly(): void
     {
         $this->computeOrder();
     }
@@ -194,8 +198,8 @@ class PublicLibrary extends Page
     {
         return collect([
             $this->category, $this->kaAction, $this->language,
-            $this->verifiedOnly, $this->officialOnly,
-        ])->filter(fn ($v) => $v !== '')->count();
+            $this->provenOnly, $this->officialOnly,
+        ])->filter()->count();
     }
 
     public function clearFilters(): void
@@ -204,8 +208,8 @@ class PublicLibrary extends Page
         $this->category = '';
         $this->kaAction = '';
         $this->language = '';
-        $this->verifiedOnly = '';
-        $this->officialOnly = '';
+        $this->provenOnly = false;
+        $this->officialOnly = false;
         $this->sort = 'relevant';
         $this->computeOrder();
     }
@@ -213,8 +217,13 @@ class PublicLibrary extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('contentLibrary')
+                ->label('My content library')
+                ->icon('heroicon-o-book-open')
+                ->color('gray')
+                ->url(fn (): string => ContentBlockResource::getUrl('index')),
             Action::make('create')
-                ->label('New public block')
+                ->label('Share content')
                 ->icon('heroicon-o-plus')
                 ->visible(fn (): bool => PublicContentBlockResource::canCreate())
                 ->url(fn () => PublicContentBlockResource::getUrl('create')),
@@ -241,6 +250,19 @@ class PublicLibrary extends Page
         $block = PublicContentBlock::where('is_hidden', false)->find($id);
         $workspace = Filament::getTenant();
         if (! $block || ! $workspace) {
+            return;
+        }
+
+        if (ContentBlock::query()
+            ->where('workspace_id', $workspace->id)
+            ->where('imported_from_public_id', $block->id)
+            ->exists()) {
+            Notification::make()
+                ->title('Already in your Content Library')
+                ->body('Open your local copy to edit or use it.')
+                ->info()
+                ->send();
+
             return;
         }
 
@@ -281,6 +303,20 @@ class PublicLibrary extends Page
         return $this->previewId
             ? PublicContentBlock::with('author')->where('is_hidden', false)->find($this->previewId)
             : null;
+    }
+
+    public function getImportedBlocks()
+    {
+        return ContentBlock::query()
+            ->where('workspace_id', Filament::getTenant()?->id)
+            ->whereNotNull('imported_from_public_id')
+            ->get()
+            ->keyBy('imported_from_public_id');
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Discover reusable application content shared by the MobilityCloud community.';
     }
 
     public function getReportReasons(): array
