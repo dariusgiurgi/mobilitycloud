@@ -60,11 +60,14 @@ class IndividualSupportCalculator extends Page
 
     public string $saveName = '';
 
+    public function getEligibleDaysProperty(): int
+    {
+        return $this->days + ($this->isTravelDaysIncluded ? $this->travelDays : 0);
+    }
+
     public function getIsTotalProperty(): float
     {
-        $totalDays = $this->days + ($this->isTravelDaysIncluded ? $this->travelDays : 0);
-
-        return round($this->participants * $totalDays * $this->isRate, 2);
+        return round($this->participants * $this->eligibleDays * $this->isRate, 2);
     }
 
     public function getTravelPerParticipantProperty(): float
