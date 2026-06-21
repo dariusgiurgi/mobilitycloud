@@ -57,6 +57,12 @@
                                 Generate PDF
                             </a>
                         @endif
+                        @if($expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData())
+                            <a href="{{ route('project-documents.acceptance-certificate', [$record, $expense]) }}"
+                               style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">
+                                Acceptance PDF
+                            </a>
+                        @endif
                         @if($record->canBeManagedBy(auth()->user()))
                             <button type="button" wire:click="openConvention({{ $expense->id }})"
                                     style="padding:7px 11px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:12px;">
@@ -224,6 +230,15 @@
                         <div class="text-gray-700 dark:text-gray-200" style="{{ $fieldStyle }}background:rgba(100,116,139,.06);">{{ number_format((float) $record->withholding_tax_rate, 2) }}% · configured in Project Settings</div>
                     </div>
                     <div><label style="{{ $labelStyle }}">Payment due (days)</label><input type="number" wire:model="conventionData.payment_due_days" style="{{ $fieldStyle }}"></div>
+                </div>
+
+                <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:1.3rem 0 .7rem;text-transform:uppercase;">Acceptance record</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+                    <div><label style="{{ $labelStyle }}">Acceptance date</label><input type="date" wire:model="conventionData.acceptance_date" style="{{ $fieldStyle }}"></div>
+                    <div><label style="{{ $labelStyle }}">Acceptance place</label><input wire:model="conventionData.acceptance_place" style="{{ $fieldStyle }}"></div>
+                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Delivered services / work</label><textarea rows="3" wire:model="conventionData.acceptance_deliverables" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Acceptance status</label><select wire:model="conventionData.acceptance_status" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::ACCEPTANCE_STATUSES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
+                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Observations / reservations</label><textarea rows="2" wire:model="conventionData.acceptance_notes" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
                 </div>
 
                 @error('conventionData.*') <span style="display:block;color:#dc2626;font-size:11px;margin-top:.7rem;">{{ $message }}</span> @enderror

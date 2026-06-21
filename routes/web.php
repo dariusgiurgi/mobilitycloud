@@ -26,4 +26,6 @@ Route::middleware('auth')->group(function () {
         ->name('project-documents.file');
     Route::get('/projects/{project}/expenses/{expense}/civil-convention', [ProjectDocumentController::class, 'civilConvention'])
         ->name('project-documents.civil-convention');
+    Route::get('/projects/{project}/expenses/{expense}/acceptance-certificate', [ProjectDocumentController::class, 'acceptanceCertificate'])
+        ->name('project-documents.acceptance-certificate');
 });

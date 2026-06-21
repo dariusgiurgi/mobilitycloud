@@ -82,6 +82,9 @@ class CivilConventionTest extends TestCase
                 'gross_amount' => '1000.00',
                 'currency' => 'EUR',
                 'payment_due_days' => '10',
+                'acceptance_date' => '2026-07-08',
+                'acceptance_deliverables' => 'Facilitation services and activity report',
+                'acceptance_status' => 'accepted_without_reservations',
             ],
         ]);
 
@@ -91,6 +94,12 @@ class CivilConventionTest extends TestCase
         $response->assertOk();
         $response->assertHeader('content-type', 'application/pdf');
         $this->assertStringStartsWith('%PDF-', $response->getContent());
+
+        $acceptance = $this->actingAs($member)
+            ->get(route('project-documents.acceptance-certificate', [$project, $expense]));
+        $acceptance->assertOk();
+        $acceptance->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $acceptance->getContent());
     }
 
     public function test_copyright_assignment_requires_rights_details(): void
@@ -117,5 +126,31 @@ class CivilConventionTest extends TestCase
         ]);
 
         $this->assertTrue($expense->hasCompleteConventionData());
+    }
+
+    public function test_acceptance_certificate_requires_acceptance_details(): void
+    {
+        $expense = new Expense(['convention_data' => [
+            'convention_number' => 'CC-001',
+            'contract_date' => '2026-06-20',
+            'provider_name' => 'Alex Example',
+            'provider_address' => 'Bucharest',
+            'provider_id_number' => 'AB123456',
+            'service_description' => 'Facilitation services',
+            'service_start_date' => '2026-07-01',
+            'service_end_date' => '2026-07-07',
+            'gross_amount' => '1000.00',
+            'currency' => 'EUR',
+        ]]);
+
+        $this->assertFalse($expense->hasCompleteAcceptanceData());
+
+        $expense->convention_data = array_merge($expense->convention_data, [
+            'acceptance_date' => '2026-07-08',
+            'acceptance_deliverables' => 'Five workshops and activity report',
+            'acceptance_status' => 'accepted_without_reservations',
+        ]);
+
+        $this->assertTrue($expense->hasCompleteAcceptanceData());
     }
 }

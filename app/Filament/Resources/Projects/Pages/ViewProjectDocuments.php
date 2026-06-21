@@ -126,6 +126,11 @@ class ViewProjectDocuments extends Page
             'rights_duration' => 'For the full legal term of protection',
             'rights_territory' => 'Worldwide',
             'right_to_sublicense' => true,
+            'acceptance_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
+            'acceptance_place' => '',
+            'acceptance_deliverables' => $expense->description,
+            'acceptance_status' => 'accepted_without_reservations',
+            'acceptance_notes' => '',
         ], $saved);
         $this->resetValidation('conventionData');
         $this->showConventionModal = true;
@@ -181,6 +186,11 @@ class ViewProjectDocuments extends Page
             'conventionData.rights_duration' => ['nullable', 'string', 'max:255'],
             'conventionData.rights_territory' => ['nullable', 'string', 'max:255'],
             'conventionData.right_to_sublicense' => ['boolean'],
+            'conventionData.acceptance_date' => ['nullable', 'date'],
+            'conventionData.acceptance_place' => ['nullable', 'string', 'max:255'],
+            'conventionData.acceptance_deliverables' => ['nullable', 'string', 'max:5000'],
+            'conventionData.acceptance_status' => ['nullable', 'in:'.implode(',', array_keys(Expense::ACCEPTANCE_STATUSES))],
+            'conventionData.acceptance_notes' => ['nullable', 'string', 'max:5000'],
         ]);
 
         $expense->update(['convention_data' => $this->conventionData]);

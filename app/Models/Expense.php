@@ -21,6 +21,11 @@ class Expense extends Model
         'copyright_assignment' => 'Copyright assignment agreement',
     ];
 
+    public const ACCEPTANCE_STATUSES = [
+        'accepted_without_reservations' => 'Accepted without reservations',
+        'accepted_with_reservations' => 'Accepted with reservations',
+    ];
+
     protected $fillable = [
         'budget_line_id', 'reference_nr', 'description', 'expense_date',
         'amount', 'currency', 'exchange_rate', 'amount_eur',
@@ -62,6 +67,14 @@ class Expense extends Model
         });
 
         return collect($required)
+            ->every(fn (string $field) => filled($data[$field] ?? null));
+    }
+
+    public function hasCompleteAcceptanceData(): bool
+    {
+        $data = $this->convention_data ?? [];
+
+        return collect(['acceptance_date', 'acceptance_deliverables', 'acceptance_status'])
             ->every(fn (string $field) => filled($data[$field] ?? null));
     }
 
