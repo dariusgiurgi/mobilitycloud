@@ -72,6 +72,39 @@ class WriteApplication extends Page
             ->exists();
     }
 
+    public function getApplicationSummary(): array
+    {
+        $sections = $this->getSections();
+        $completed = 0;
+        $overLimit = 0;
+        $words = 0;
+
+        foreach ($sections as $section) {
+            $text = trim(strip_tags($this->content[$section->id] ?? (string) $section->content));
+            $characters = mb_strlen($text);
+
+            if ($text !== '') {
+                $completed++;
+                $words += count(preg_split('/\s+/', $text));
+            }
+
+            if ($section->char_limit && $characters > $section->char_limit) {
+                $overLimit++;
+            }
+        }
+
+        $total = $sections->count();
+
+        return [
+            'total' => $total,
+            'completed' => $completed,
+            'remaining' => $total - $completed,
+            'over_limit' => $overLimit,
+            'words' => $words,
+            'progress' => $total > 0 ? (int) round($completed / $total * 100) : 0,
+        ];
+    }
+
     /** Mirror the DB rows into the bound arrays (mount + after structural changes). */
     protected function loadState(): void
     {
