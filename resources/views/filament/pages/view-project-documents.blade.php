@@ -38,9 +38,9 @@
         @else
             <div style="display:flex;flex-direction:column;gap:.6rem;">
                 @foreach($civilConventions as $expense)
-                    <button type="button" wire:click="openConvention({{ $expense->id }})"
+                    <div
                             class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-                            style="width:100%;padding:.9rem 1.1rem;display:flex;align-items:center;gap:1rem;text-align:left;cursor:pointer;border:0;">
+                            style="width:100%;padding:.9rem 1.1rem;display:flex;align-items:center;gap:1rem;text-align:left;">
                         <div style="font-size:22px;">📝</div>
                         <div style="flex:1;min-width:180px;">
                             <div class="text-gray-950 dark:text-white" style="font-size:13px;font-weight:700;">{{ $expense->description ?: 'Untitled civil convention' }}</div>
@@ -51,8 +51,19 @@
                         <span style="padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700;background:{{ $expense->hasCompleteConventionData() ? '#dcfce7' : '#fef3c7' }};color:{{ $expense->hasCompleteConventionData() ? '#166534' : '#92400e' }};">
                             {{ $expense->hasCompleteConventionData() ? 'READY' : 'DETAILS NEEDED' }}
                         </span>
-                        <span class="text-gray-400" style="font-size:16px;">›</span>
-                    </button>
+                        @if($expense->hasCompleteConventionData())
+                            <a href="{{ route('project-documents.civil-convention', [$record, $expense]) }}"
+                               style="padding:7px 11px;border-radius:7px;border:1px solid rgba(79,70,229,.3);color:#4338ca;text-decoration:none;font-size:12px;font-weight:600;">
+                                Generate PDF
+                            </a>
+                        @endif
+                        @if($record->canBeManagedBy(auth()->user()))
+                            <button type="button" wire:click="openConvention({{ $expense->id }})"
+                                    style="padding:7px 11px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:12px;">
+                                {{ $expense->hasCompleteConventionData() ? 'Edit details' : 'Complete details' }}
+                            </button>
+                        @endif
+                    </div>
                 @endforeach
             </div>
         @endif
@@ -152,6 +163,13 @@
                     $labelStyle = 'display:block;font-size:10px;font-weight:700;color:#71717a;margin-bottom:4px;text-transform:uppercase;';
                 @endphp
 
+                <label style="{{ $labelStyle }}">Agreement type *</label>
+                <select wire:model.live="conventionData.agreement_type" style="{{ $fieldStyle }}margin-bottom:1.2rem;">
+                    @foreach(\App\Models\Expense::CONVENTION_TYPES as $key => $label)
+                        <option value="{{ $key }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+
                 <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:0 0 .7rem;text-transform:uppercase;">Contract</h3>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin-bottom:1.2rem;">
                     <div><label style="{{ $labelStyle }}">Number *</label><input wire:model="conventionData.convention_number" style="{{ $fieldStyle }}"></div>
@@ -181,17 +199,30 @@
                     <div><label style="{{ $labelStyle }}">IBAN</label><input wire:model="conventionData.provider_iban" style="{{ $fieldStyle }}"></div>
                 </div>
 
-                <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:0 0 .7rem;text-transform:uppercase;">Services and payment</h3>
+                <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:0 0 .7rem;text-transform:uppercase;">{{ ($conventionData['agreement_type'] ?? 'service_agreement') === 'copyright_assignment' ? 'Work and rights' : 'Services and payment' }}</h3>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
-                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Service description *</label><textarea rows="3" wire:model="conventionData.service_description" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
-                    <div><label style="{{ $labelStyle }}">Start date *</label><input type="date" wire:model="conventionData.service_start_date" style="{{ $fieldStyle }}"></div>
-                    <div><label style="{{ $labelStyle }}">End date *</label><input type="date" wire:model="conventionData.service_end_date" style="{{ $fieldStyle }}"></div>
-                    <div><label style="{{ $labelStyle }}">Service location</label><input wire:model="conventionData.service_location" style="{{ $fieldStyle }}"></div>
+                    @if(($conventionData['agreement_type'] ?? 'service_agreement') === 'copyright_assignment')
+                        <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Work description *</label><textarea rows="3" wire:model="conventionData.work_description" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                        <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Economic rights assigned *</label><textarea rows="3" wire:model="conventionData.rights_scope" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                        <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Permitted methods of use *</label><textarea rows="2" wire:model="conventionData.use_methods" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                        <div><label style="{{ $labelStyle }}">Duration *</label><input wire:model="conventionData.rights_duration" style="{{ $fieldStyle }}"></div>
+                        <div><label style="{{ $labelStyle }}">Territory *</label><input wire:model="conventionData.rights_territory" style="{{ $fieldStyle }}"></div>
+                        <label style="display:flex;align-items:center;gap:7px;font-size:12px;"><input type="checkbox" wire:model="conventionData.rights_exclusive"> Exclusive assignment</label>
+                        <label style="display:flex;align-items:center;gap:7px;font-size:12px;"><input type="checkbox" wire:model="conventionData.right_to_sublicense"> Right to sublicense</label>
+                    @else
+                        <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Service description *</label><textarea rows="3" wire:model="conventionData.service_description" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                        <div><label style="{{ $labelStyle }}">Start date *</label><input type="date" wire:model="conventionData.service_start_date" style="{{ $fieldStyle }}"></div>
+                        <div><label style="{{ $labelStyle }}">End date *</label><input type="date" wire:model="conventionData.service_end_date" style="{{ $fieldStyle }}"></div>
+                        <div><label style="{{ $labelStyle }}">Service location</label><input wire:model="conventionData.service_location" style="{{ $fieldStyle }}"></div>
+                    @endif
                     <div style="display:grid;grid-template-columns:1fr .7fr;gap:.5rem;">
                         <div><label style="{{ $labelStyle }}">Gross amount *</label><input type="number" step="0.01" wire:model="conventionData.gross_amount" style="{{ $fieldStyle }}"></div>
                         <div><label style="{{ $labelStyle }}">Currency *</label><input wire:model="conventionData.currency" style="{{ $fieldStyle }}"></div>
                     </div>
-                    <div><label style="{{ $labelStyle }}">Withholding tax (%)</label><input type="number" step="0.01" wire:model="conventionData.tax_rate" style="{{ $fieldStyle }}"></div>
+                    <div>
+                        <label style="{{ $labelStyle }}">Withholding tax</label>
+                        <div class="text-gray-700 dark:text-gray-200" style="{{ $fieldStyle }}background:rgba(100,116,139,.06);">{{ number_format((float) $record->withholding_tax_rate, 2) }}% · configured in Project Settings</div>
+                    </div>
                     <div><label style="{{ $labelStyle }}">Payment due (days)</label><input type="number" wire:model="conventionData.payment_due_days" style="{{ $fieldStyle }}"></div>
                 </div>
 

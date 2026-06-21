@@ -11,10 +11,14 @@ class Expense extends Model
 {
     use SoftDeletes;
 
-    public const CONVENTION_REQUIRED_FIELDS = [
+    public const CONVENTION_BASE_REQUIRED_FIELDS = [
         'convention_number', 'contract_date', 'provider_name', 'provider_address',
-        'provider_id_number', 'service_description', 'service_start_date',
-        'service_end_date', 'gross_amount', 'currency',
+        'provider_id_number', 'gross_amount', 'currency',
+    ];
+
+    public const CONVENTION_TYPES = [
+        'service_agreement' => 'Service agreement',
+        'copyright_assignment' => 'Copyright assignment agreement',
     ];
 
     protected $fillable = [
@@ -49,7 +53,15 @@ class Expense extends Model
     {
         $data = $this->convention_data ?? [];
 
-        return collect(self::CONVENTION_REQUIRED_FIELDS)
+        $required = array_merge(self::CONVENTION_BASE_REQUIRED_FIELDS, match ($data['agreement_type'] ?? 'service_agreement') {
+            'copyright_assignment' => [
+                'work_description', 'rights_scope', 'use_methods',
+                'rights_duration', 'rights_territory',
+            ],
+            default => ['service_description', 'service_start_date', 'service_end_date'],
+        });
+
+        return collect($required)
             ->every(fn (string $field) => filled($data[$field] ?? null));
     }
 

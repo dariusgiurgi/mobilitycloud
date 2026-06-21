@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Expense;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -54,6 +55,57 @@ class ProjectDocumentController extends Controller
             $document->file_path,
             $document->file_name ?: basename($document->file_path)
         );
+    }
+
+    public function civilConvention(Project $project, Expense $expense)
+    {
+        abort_unless(
+            $expense->is_civil_convention
+            && $expense->budgetLine()->where('project_id', $project->id)->exists(),
+            404
+        );
+        abort_unless(auth()->user()->workspaces()->whereKey($project->workspace_id)->exists(), 403);
+        abort_unless($expense->hasCompleteConventionData(), 422);
+
+        $expense->load('budgetLine');
+        $project->load('workspace');
+        $data = array_merge([
+            'agreement_type' => 'service_agreement',
+            'contract_place' => null,
+            'beneficiary_name' => $project->workspace->billing_name ?: $project->workspace->name,
+            'beneficiary_vat' => $project->workspace->billing_vat,
+            'beneficiary_address' => $project->workspace->billing_address,
+            'beneficiary_representative' => null,
+            'beneficiary_representative_role' => null,
+            'provider_nationality' => null,
+            'provider_id_type' => 'identity document',
+            'provider_personal_number' => null,
+            'provider_bank_name' => null,
+            'provider_iban' => null,
+            'service_location' => null,
+            'payment_due_days' => 10,
+            'rights_exclusive' => true,
+            'right_to_sublicense' => true,
+        ], $expense->convention_data ?? []);
+        $gross = (float) ($data['gross_amount'] ?? 0);
+        $taxRate = (float) ($project->withholding_tax_rate ?? 0);
+        $taxAmount = round($gross * $taxRate / 100, 2);
+        $netAmount = round($gross - $taxAmount, 2);
+        $type = $data['agreement_type'] ?? 'service_agreement';
+        $providerName = $data['provider_name'] ?? $expense->description ?? 'provider';
+        $filename = ($type === 'copyright_assignment' ? 'copyright-assignment-' : 'service-agreement-')
+            .Str::slug($providerName).'.pdf';
+
+        return Pdf::loadView('pdf.civil-convention', [
+            'project' => $project,
+            'expense' => $expense,
+            'data' => $data,
+            'gross' => $gross,
+            'taxRate' => $taxRate,
+            'taxAmount' => $taxAmount,
+            'netAmount' => $netAmount,
+            'type' => $type,
+        ])->setPaper('a4', 'portrait')->download($filename);
     }
 
     private function authorizeDocument(Project $project, ProjectDocument $document): void

@@ -94,6 +94,7 @@ class ViewProjectDocuments extends Page
         $saved = $expense->convention_data ?? [];
         $this->conventionExpenseId = $expense->id;
         $this->conventionData = array_merge([
+            'agreement_type' => 'service_agreement',
             'convention_number' => $expense->reference_nr ?: $this->expenseCode($expense),
             'contract_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
             'contract_place' => '',
@@ -117,8 +118,14 @@ class ViewProjectDocuments extends Page
             'service_location' => '',
             'gross_amount' => (string) $expense->amount,
             'currency' => $expense->currency,
-            'tax_rate' => (string) ($this->record->withholding_tax_rate ?? 0),
             'payment_due_days' => '10',
+            'work_description' => '',
+            'rights_exclusive' => true,
+            'rights_scope' => 'Reproduction; distribution; public display and communication; adaptation; translation; and digital publication.',
+            'use_methods' => 'Print, digital, online, social media, project reporting, dissemination and archival use.',
+            'rights_duration' => 'For the full legal term of protection',
+            'rights_territory' => 'Worldwide',
+            'right_to_sublicense' => true,
         ], $saved);
         $this->resetValidation('conventionData');
         $this->showConventionModal = true;
@@ -142,6 +149,7 @@ class ViewProjectDocuments extends Page
         }
 
         $this->validate([
+            'conventionData.agreement_type' => ['required', 'in:'.implode(',', array_keys(Expense::CONVENTION_TYPES))],
             'conventionData.convention_number' => ['nullable', 'string', 'max:100'],
             'conventionData.contract_date' => ['nullable', 'date'],
             'conventionData.contract_place' => ['nullable', 'string', 'max:255'],
@@ -165,8 +173,14 @@ class ViewProjectDocuments extends Page
             'conventionData.service_location' => ['nullable', 'string', 'max:255'],
             'conventionData.gross_amount' => ['nullable', 'numeric', 'min:0'],
             'conventionData.currency' => ['nullable', 'string', 'max:10'],
-            'conventionData.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'conventionData.payment_due_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'conventionData.work_description' => ['nullable', 'string', 'max:5000'],
+            'conventionData.rights_exclusive' => ['boolean'],
+            'conventionData.rights_scope' => ['nullable', 'string', 'max:5000'],
+            'conventionData.use_methods' => ['nullable', 'string', 'max:5000'],
+            'conventionData.rights_duration' => ['nullable', 'string', 'max:255'],
+            'conventionData.rights_territory' => ['nullable', 'string', 'max:255'],
+            'conventionData.right_to_sublicense' => ['boolean'],
         ]);
 
         $expense->update(['convention_data' => $this->conventionData]);
