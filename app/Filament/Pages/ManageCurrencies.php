@@ -37,36 +37,51 @@ class ManageCurrencies extends Page
         foreach ($currencies as $code => $rate) {
             // accepta format scalar {"RON":5.07} sau array {"RON":{"rate":5.07}}
             $r = is_array($rate) ? ($rate['rate'] ?? 1) : $rate;
+            $code = strtoupper((string) $code);
+
+            if ($code === 'EUR' || ! is_numeric($r) || (float) $r <= 0) {
+                continue;
+            }
+
             $this->rows[] = ['code' => $code, 'rate' => (float) $r];
         }
+
+        $this->sortRows();
     }
 
     public function addCurrency(): void
     {
         $this->authorizeWorkspaceManagement();
-        $code = strtoupper(trim($this->newCode));
-        $rate = (float) $this->newRate;
+        $this->resetErrorBag();
 
-        if (strlen($code) < 2 || strlen($code) > 5 || $rate <= 0) {
+        $data = $this->validate([
+            'newCode' => ['required', 'string', 'size:3', 'regex:/^[A-Za-z]{3}$/'],
+            'newRate' => ['required', 'numeric', 'gt:0', 'lte:1000000'],
+        ], [
+            'newCode.size' => 'Use the 3-letter currency code, for example RON or USD.',
+            'newCode.regex' => 'The currency code may contain letters only.',
+            'newRate.gt' => 'The exchange rate must be greater than zero.',
+        ]);
+
+        $code = strtoupper(trim($data['newCode']));
+        $rate = (float) $data['newRate'];
+
+        if ($code === 'EUR') {
+            $this->addError('newCode', 'EUR is already the workspace base currency.');
+
             return;
         }
-        if ($code === 'EUR') {
-            $this->newCode = '';
-            $this->newRate = null;
 
-            return; // EUR e moneda de baza, rate 1 implicit
-        }
-        // evita duplicat
         foreach ($this->rows as $row) {
             if ($row['code'] === $code) {
-                $this->newCode = '';
-                $this->newRate = null;
+                $this->addError('newCode', $code.' is already configured.');
 
                 return;
             }
         }
 
         $this->rows[] = ['code' => $code, 'rate' => $rate];
+        $this->sortRows();
         $this->newCode = '';
         $this->newRate = null;
         $this->persist();
@@ -75,10 +90,21 @@ class ManageCurrencies extends Page
     public function updateRate(int $index, $value): void
     {
         $this->authorizeWorkspaceManagement();
-        if (isset($this->rows[$index])) {
-            $this->rows[$index]['rate'] = (float) $value;
-            $this->persist();
+        $errorKey = 'rows.'.$index.'.rate';
+        $this->resetErrorBag($errorKey);
+
+        if (! isset($this->rows[$index])) {
+            return;
         }
+
+        if (! is_numeric($value) || (float) $value <= 0 || (float) $value > 1000000) {
+            $this->addError($errorKey, 'Enter a rate greater than zero.');
+
+            return;
+        }
+
+        $this->rows[$index]['rate'] = (float) $value;
+        $this->persist();
     }
 
     public function removeCurrency(int $index): void
@@ -100,7 +126,21 @@ class ManageCurrencies extends Page
             }
         }
         $tenant = Filament::getTenant();
+        if (! $tenant) {
+            return;
+        }
+
         $tenant->currencies = $currencies;
         $tenant->save();
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Manual exchange rates used to convert project expenses into EUR.';
+    }
+
+    private function sortRows(): void
+    {
+        usort($this->rows, fn (array $a, array $b): int => $a['code'] <=> $b['code']);
     }
 }
