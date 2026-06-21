@@ -3,6 +3,7 @@
         $documents = $this->getDocuments();
         $documentCategories = $this->getDocumentCategories();
         $civilConventions = $this->getCivilConventionExpenses();
+        $checklist = $this->getDocumentChecklist();
     @endphp
 
     <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
@@ -25,6 +26,38 @@
         @endif
     </div>
 
+    <details open class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="margin-bottom:1.5rem;overflow:hidden;">
+        <summary style="padding:1rem 1.1rem;cursor:pointer;display:flex;align-items:center;gap:.75rem;list-style:none;flex-wrap:wrap;">
+            <div>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Project file checklist</h2>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin:2px 0 0;">Recommended file completeness overview</p>
+            </div>
+            <div style="flex:1;"></div>
+            <span style="font-size:11px;color:#15803d;font-weight:700;">{{ $checklist['complete'] }} complete</span>
+            @if($checklist['attention'])<span style="font-size:11px;color:#b45309;font-weight:700;">{{ $checklist['attention'] }} need attention</span>@endif
+            @if($checklist['missing'])<span style="font-size:11px;color:#dc2626;font-weight:700;">{{ $checklist['missing'] }} missing</span>@endif
+        </summary>
+        <div style="padding:0 1.1rem 1.1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.6rem;">
+            @foreach($checklist['items'] as $item)
+                @php
+                    $checklistStyle = match($item['status']) {
+                        'complete' => ['#dcfce7', '#166534', '✓'],
+                        'attention' => ['#fef3c7', '#92400e', '!'],
+                        'missing' => ['#fee2e2', '#991b1b', '×'],
+                        default => ['#f1f5f9', '#64748b', '–'],
+                    };
+                @endphp
+                <div style="padding:.75rem;border:1px solid rgba(148,163,184,.25);border-radius:9px;display:flex;gap:.65rem;align-items:flex-start;">
+                    <span style="width:21px;height:21px;flex:none;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:{{ $checklistStyle[0] }};color:{{ $checklistStyle[1] }};font-size:11px;font-weight:800;">{{ $checklistStyle[2] }}</span>
+                    <div>
+                        <div class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;">{{ $item['label'] }}</div>
+                        <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;margin-top:2px;line-height:1.35;">{{ $item['detail'] }}</div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </details>
+
     <div style="margin:0 0 1.5rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.65rem;">
             <div>
@@ -42,19 +75,27 @@
         @else
             <div style="display:flex;flex-direction:column;gap:.6rem;">
                 @foreach($civilConventions as $expense)
-                    <div
-                            class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-                            style="width:100%;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.75rem;text-align:left;flex-wrap:wrap;">
-                        <div style="font-size:22px;">📝</div>
-                        <div style="flex:1;min-width:180px;">
-                            <div class="text-gray-950 dark:text-white" style="font-size:13px;font-weight:700;">{{ $expense->description ?: 'Untitled civil convention' }}</div>
-                            <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
-                                {{ $this->expenseCode($expense) }} · {{ $expense->budgetLine?->title }} · {{ number_format((float) $expense->amount, 2) }} {{ $expense->currency }}
+                    <details class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="width:100%;overflow:hidden;">
+                        <summary style="padding:.85rem 1.1rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;list-style:none;flex-wrap:wrap;">
+                            <div style="font-size:20px;">📝</div>
+                            <div style="flex:1;min-width:180px;">
+                                <div class="text-gray-950 dark:text-white" style="font-size:13px;font-weight:700;">{{ $expense->description ?: 'Untitled civil convention' }}</div>
+                                <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
+                                    {{ $this->expenseCode($expense) }} · {{ $expense->budgetLine?->title }} · {{ number_format((float) $expense->amount, 2) }} {{ $expense->currency }}
+                                </div>
                             </div>
-                        </div>
-                        <span style="padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700;background:{{ $expense->hasCompleteConventionData() ? '#dcfce7' : '#fef3c7' }};color:{{ $expense->hasCompleteConventionData() ? '#166534' : '#92400e' }};">
-                            {{ $expense->hasCompleteConventionData() ? 'READY' : 'DETAILS NEEDED' }}
-                        </span>
+                            @if($expense->hasConventionSignedCopy('agreement'))
+                                <span style="font-size:10px;color:#15803d;font-weight:700;">AGREEMENT SIGNED</span>
+                            @endif
+                            @if($expense->hasConventionSignedCopy('payment'))
+                                <span style="font-size:10px;color:#15803d;font-weight:700;">PAYMENT SIGNED</span>
+                            @endif
+                            <span style="padding:4px 9px;border-radius:999px;font-size:10px;font-weight:700;background:{{ $expense->hasCompleteConventionData() ? '#dcfce7' : '#fef3c7' }};color:{{ $expense->hasCompleteConventionData() ? '#166534' : '#92400e' }};">
+                                {{ $expense->hasCompleteConventionData() ? 'READY' : 'DETAILS NEEDED' }}
+                            </span>
+                            <span class="text-gray-400" style="font-size:12px;">⌄</span>
+                        </summary>
+                        <div style="padding:.75rem 1.1rem 1rem;border-top:1px solid rgba(148,163,184,.18);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
                         @if($expense->hasCompleteConventionData())
                             <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
                                 <a href="{{ route('project-documents.civil-convention', [$record, $expense]) }}"
@@ -105,20 +146,32 @@
                                 {{ $expense->hasCompleteConventionData() ? 'Edit details' : 'Complete details' }}
                             </button>
                         @endif
-                    </div>
+                        </div>
+                    </details>
                 @endforeach
             </div>
         @endif
     </div>
 
-    <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0 0 .65rem;">Project files and generated documents</h2>
+    <div style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin-bottom:.65rem;">
+        <h2 class="text-gray-950 dark:text-white" style="font-size:15px;font-weight:700;margin:0;">Project files and generated documents</h2>
+        <div style="flex:1;"></div>
+        <input type="search" wire:model.live.debounce.300ms="documentSearch" placeholder="Search documents..."
+               style="width:min(220px,100%);padding:7px 10px;border:1px solid rgba(100,116,139,.3);border-radius:8px;background:transparent;font-size:12px;">
+        @foreach(['all' => 'All', 'generated' => 'Generated', 'uploaded' => 'Uploaded', 'signed' => 'Signed'] as $key => $label)
+            <button type="button" wire:click="setDocumentFilter('{{ $key }}')"
+                    style="padding:6px 10px;border-radius:999px;border:1px solid {{ $documentFilter === $key ? '#4f46e5' : 'rgba(100,116,139,.25)' }};background:{{ $documentFilter === $key ? '#eef2ff' : 'transparent' }};color:{{ $documentFilter === $key ? '#4338ca' : '#64748b' }};font-size:11px;font-weight:600;cursor:pointer;">
+                {{ $label }}
+            </button>
+        @endforeach
+    </div>
 
     @if($documents->isEmpty())
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
              style="padding:2.5rem;text-align:center;">
             <div style="font-size:34px;margin-bottom:.6rem;">📄</div>
-            <h3 class="text-gray-950 dark:text-white" style="font-size:16px;font-weight:700;margin:0 0 .35rem;">No project documents yet</h3>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:0;">Upload a project file or generate the first attendance list.</p>
+            <h3 class="text-gray-950 dark:text-white" style="font-size:16px;font-weight:700;margin:0 0 .35rem;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'No matching documents' : 'No project documents yet' }}</h3>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:0;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'Try another filter or search term.' : 'Upload a project file or generate the first attendance list.' }}</p>
         </div>
     @else
         <div style="display:flex;flex-direction:column;gap:.75rem;">

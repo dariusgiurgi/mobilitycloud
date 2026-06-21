@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Expense;
 use App\Models\ProjectDocument;
 use App\Services\ExpenseReportSnapshot;
+use App\Services\ProjectDocumentChecklist;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
 use Carbon\Carbon;
@@ -81,6 +82,10 @@ class ViewProjectDocuments extends Page
 
     public $conventionSignedUpload = null;
 
+    public string $documentFilter = 'all';
+
+    public string $documentSearch = '';
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -93,9 +98,36 @@ class ViewProjectDocuments extends Page
 
     public function getDocuments()
     {
-        return ProjectDocument::where('project_id', $this->record->id)
+        return ProjectDocument::query()
+            ->where('project_id', $this->record->id)
+            ->when($this->documentFilter === 'generated', fn ($query) => $query->whereIn('type', [
+                ProjectDocument::TYPE_ATTENDANCE,
+                ProjectDocument::TYPE_EXPENSE_REPORT,
+            ]))
+            ->when($this->documentFilter === 'uploaded', fn ($query) => $query->where('type', ProjectDocument::TYPE_UPLOAD))
+            ->when($this->documentFilter === 'signed', fn ($query) => $query->whereNotNull('signed_path'))
+            ->when(filled($this->documentSearch), function ($query): void {
+                $search = '%'.trim($this->documentSearch).'%';
+                $query->where(function ($query) use ($search): void {
+                    $query->where('title', 'like', $search)
+                        ->orWhere('file_name', 'like', $search)
+                        ->orWhere('notes', 'like', $search);
+                });
+            })
             ->latest('id')
             ->get();
+    }
+
+    public function getDocumentChecklist(): array
+    {
+        return app(ProjectDocumentChecklist::class)->build($this->record);
+    }
+
+    public function setDocumentFilter(string $filter): void
+    {
+        $this->documentFilter = in_array($filter, ['all', 'generated', 'uploaded', 'signed'], true)
+            ? $filter
+            : 'all';
     }
 
     public function getDocumentCategories(): array

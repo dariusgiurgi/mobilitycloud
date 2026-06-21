@@ -8,6 +8,7 @@ use App\Models\ProjectDocument;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\ExpenseReportSnapshot;
+use App\Services\ProjectDocumentChecklist;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -226,6 +227,73 @@ class ProjectDocumentsTest extends TestCase
         $response->assertHeader('content-type', 'application/pdf');
         $this->assertStringStartsWith('%PDF-', $response->getContent());
         $this->assertStringContainsString('841.890 595.280', $response->getContent());
+    }
+
+    public function test_document_checklist_reports_file_and_signature_readiness(): void
+    {
+        Storage::fake('local');
+        [, $project] = $this->workspaceAndProject();
+        $project->update(['partner_orgs' => [
+            ['name' => 'Partner Association', 'country' => 'IT', 'oid' => null],
+        ]]);
+
+        $grantPath = 'project-documents/'.$project->id.'/grant.pdf';
+        Storage::disk('local')->put($grantPath, 'grant');
+        ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => 'grant_agreement',
+            'title' => 'Grant agreement',
+            'file_path' => $grantPath,
+            'file_disk' => 'local',
+            'file_name' => 'grant.pdf',
+        ]);
+
+        $attendance = $this->attendanceDocument($project);
+        $attendancePath = 'project-documents/'.$project->id.'/attendance-signed.pdf';
+        Storage::disk('local')->put($attendancePath, 'signed');
+        $attendance->update(['signed_path' => $attendancePath, 'signed_disk' => 'local']);
+
+        $agreementPath = 'project-documents/'.$project->id.'/agreement-signed.pdf';
+        $paymentPath = 'project-documents/'.$project->id.'/payment-signed.pdf';
+        Storage::disk('local')->put($agreementPath, 'signed');
+        Storage::disk('local')->put($paymentPath, 'signed');
+        $project->budgetLines()->first()->expenses()->create([
+            'description' => 'Facilitation',
+            'amount' => 1000,
+            'currency' => 'EUR',
+            'amount_eur' => 1000,
+            'is_civil_convention' => true,
+            'convention_data' => [
+                'convention_number' => 'CC-001',
+                'contract_date' => '2026-06-20',
+                'provider_name' => 'Alex Example',
+                'provider_address' => 'Bucharest',
+                'provider_id_number' => 'AB123456',
+                'service_description' => 'Facilitation',
+                'service_start_date' => '2026-06-20',
+                'service_end_date' => '2026-06-21',
+                'gross_amount' => 1000,
+                'currency' => 'EUR',
+                'payment_date' => '2026-06-22',
+                'payment_method' => 'bank_transfer',
+                'payment_status' => 'paid',
+                'agreement_signed_path' => $agreementPath,
+                'agreement_signed_disk' => 'local',
+                'payment_signed_path' => $paymentPath,
+                'payment_signed_disk' => 'local',
+            ],
+        ]);
+
+        $checklist = app(ProjectDocumentChecklist::class)->build($project->fresh());
+        $items = collect($checklist['items'])->keyBy('label');
+
+        $this->assertSame('complete', $items['Grant agreement']['status']);
+        $this->assertSame('complete', $items['Attendance records']['status']);
+        $this->assertSame('complete', $items['Civil conventions']['status']);
+        $this->assertSame('missing', $items['Partner documents']['status']);
+        $this->assertSame('missing', $items['Expense reports']['status']);
+        $this->assertSame(3, $checklist['complete']);
     }
 
     private function workspaceAndProject(): array
