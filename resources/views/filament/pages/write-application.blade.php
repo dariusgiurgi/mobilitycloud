@@ -168,7 +168,7 @@
                         </div>
                     @empty
                         <div class="text-gray-500 dark:text-gray-400" style="text-align:center;padding:2rem 0;font-size:13px;">
-                            No blocks found. Add some in <strong>Tools → Content Library</strong>.
+                            No blocks found. Add some in <strong>Planning tools → Content Library</strong>.
                         </div>
                     @endforelse
                 </div>

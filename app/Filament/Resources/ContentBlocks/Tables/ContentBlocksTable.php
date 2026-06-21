@@ -5,10 +5,10 @@ namespace App\Filament\Resources\ContentBlocks\Tables;
 use App\Models\ContentBlock;
 use App\Models\PublicContentBlock;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Actions\ReplicateAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -17,6 +17,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 class ContentBlocksTable
 {
@@ -25,10 +26,12 @@ class ContentBlocksTable
         return $table
             ->columns([
                 TextColumn::make('title')
+                    ->label('Content')
                     ->searchable()
                     ->wrap()
                     ->weight('medium')
-                    ->limit(60),
+                    ->limit(60)
+                    ->description(fn (ContentBlock $record): string => Str::limit(strip_tags($record->body), 110)),
 
                 TextColumn::make('category')
                     ->badge()
@@ -36,9 +39,9 @@ class ContentBlocksTable
                     ->sortable(),
 
                 TextColumn::make('ka_action')
-                    ->label('Action')
+                    ->label('Compatibility')
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => strtoupper($state))
+                    ->formatStateUsing(fn (string $state) => $state === 'any' ? 'Any action' : strtoupper($state))
                     ->color('gray'),
 
                 TextColumn::make('language')
@@ -48,7 +51,15 @@ class ContentBlocksTable
 
                 IconColumn::make('is_proven')
                     ->label('Proven')
-                    ->boolean(),
+                    ->boolean()
+                    ->trueColor('success')
+                    ->falseColor('gray'),
+
+                TextColumn::make('imported_from_public_id')
+                    ->label('Origin')
+                    ->getStateUsing(fn (ContentBlock $record): string => $record->imported_from_public_id ? 'Public library' : 'Workspace')
+                    ->badge()
+                    ->color(fn (string $state): string => $state === 'Public library' ? 'info' : 'gray'),
 
                 TextColumn::make('usage_count')
                     ->label('Used')
@@ -57,70 +68,82 @@ class ContentBlocksTable
                     ->alignEnd(),
 
                 TextColumn::make('updated_at')
+                    ->label('Updated')
                     ->dateTime('d M Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                SelectFilter::make('category')->options(ContentBlock::CATEGORIES),
-                SelectFilter::make('ka_action')->label('Action')->options(ContentBlock::KA_ACTIONS),
-                SelectFilter::make('language')->options(ContentBlock::LANGUAGES),
-                TernaryFilter::make('is_proven')->label('Proven only'),
+                SelectFilter::make('category')
+                    ->options(ContentBlock::CATEGORIES),
+                SelectFilter::make('ka_action')
+                    ->label('Compatibility')
+                    ->options(ContentBlock::KA_ACTIONS),
+                SelectFilter::make('language')
+                    ->options(ContentBlock::LANGUAGES),
+                TernaryFilter::make('is_proven')
+                    ->label('Proven content'),
             ])
             ->recordActions([
-                // Publish — ascuns pe blocurile importate din biblioteca publica.
-                Action::make('publish')
-                    ->label('Publish')
-                    ->icon('heroicon-o-globe-alt')
-                    ->color('success')
-                    ->visible(fn (ContentBlock $record) => blank($record->imported_from_public_id))
-                    ->modalHeading('Publish to public library')
-                    ->modalDescription('A public copy will be shared with all users. You stay the author and can edit or remove it later from the Public Library.')
-                    ->form(function (ContentBlock $record) {
-                        if ($record->is_proven && blank($record->source_note)) {
-                            return [
-                                TextInput::make('source_note')
-                                    ->label('Source')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->placeholder('e.g. Approved KA152 youth exchange, 2025')
-                                    ->helperText('Required because this block is marked as proven.'),
-                            ];
-                        }
-                        return [];
-                    })
-                    ->action(function (ContentBlock $record, array $data): void {
-                        $sourceNote = $record->source_note ?: ($data['source_note'] ?? null);
+                ActionGroup::make([
+                    Action::make('publish')
+                        ->label('Publish to community')
+                        ->icon('heroicon-o-globe-alt')
+                        ->color('success')
+                        ->visible(fn (ContentBlock $record) => blank($record->imported_from_public_id))
+                        ->modalHeading('Publish to public library')
+                        ->modalDescription('A public copy will be shared with all users. You stay the author and can edit or remove it later from the Public Library.')
+                        ->form(function (ContentBlock $record) {
+                            if ($record->is_proven && blank($record->source_note)) {
+                                return [
+                                    TextInput::make('source_note')
+                                        ->label('Source')
+                                        ->required()
+                                        ->maxLength(255)
+                                        ->placeholder('e.g. Approved KA152 youth exchange, 2025')
+                                        ->helperText('Required because this block is marked as proven.'),
+                                ];
+                            }
 
-                        PublicContentBlock::create([
-                            'user_id'             => auth()->id(),
-                            'origin_workspace_id' => $record->workspace_id,
-                            'title'               => $record->title,
-                            'category'            => $record->category,
-                            'ka_action'           => $record->ka_action,
-                            'language'            => $record->language,
-                            'body'                => $record->body,
-                            'tags'                => $record->tags,
-                            'is_proven'           => $record->is_proven,
-                            'source_note'         => $sourceNote,
-                            'import_count'        => 0,
-                        ]);
+                            return [];
+                        })
+                        ->action(function (ContentBlock $record, array $data): void {
+                            $sourceNote = $record->source_note ?: ($data['source_note'] ?? null);
 
-                        Notification::make()
-                            ->title('Published to public library')
-                            ->body('Other users can now find and import this block.')
-                            ->success()
-                            ->send();
-                    }),
+                            PublicContentBlock::create([
+                                'user_id' => auth()->id(),
+                                'origin_workspace_id' => $record->workspace_id,
+                                'title' => $record->title,
+                                'category' => $record->category,
+                                'ka_action' => $record->ka_action,
+                                'language' => $record->language,
+                                'body' => $record->body,
+                                'tags' => $record->tags,
+                                'is_proven' => $record->is_proven,
+                                'source_note' => $sourceNote,
+                                'import_count' => 0,
+                            ]);
 
-                EditAction::make(),
-                ReplicateAction::make()
-                    ->excludeAttributes(['usage_count'])
-                    ->beforeReplicaSaved(function (ContentBlock $replica): void {
-                        $replica->title = $replica->title . ' (copy)';
-                        $replica->usage_count = 0;
-                        $replica->imported_from_public_id = null;
-                    }),
-                DeleteAction::make(),
+                            Notification::make()
+                                ->title('Published to public library')
+                                ->body('Other users can now find and import this block.')
+                                ->success()
+                                ->send();
+                        }),
+
+                    ReplicateAction::make()
+                        ->label('Duplicate')
+                        ->excludeAttributes(['usage_count'])
+                        ->beforeReplicaSaved(function (ContentBlock $replica): void {
+                            $replica->title = $replica->title.' (copy)';
+                            $replica->usage_count = 0;
+                            $replica->imported_from_public_id = null;
+                        }),
+
+                    DeleteAction::make(),
+                ])
+                    ->label('Actions')
+                    ->icon('heroicon-m-ellipsis-horizontal'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
@@ -129,6 +152,6 @@ class ContentBlocksTable
             ])
             ->defaultSort('updated_at', 'desc')
             ->emptyStateHeading('No content blocks yet')
-            ->emptyStateDescription('Save paragraphs you reuse across applications — organisation background, methodology, safety, dissemination — and insert them while writing.');
+            ->emptyStateDescription('Create reusable paragraphs here, or import a proven example from the Public Library.');
     }
 }
