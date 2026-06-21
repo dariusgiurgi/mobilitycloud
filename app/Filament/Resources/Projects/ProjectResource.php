@@ -6,8 +6,8 @@ use App\Filament\Resources\Projects\Pages\CreateProject;
 use App\Filament\Resources\Projects\Pages\EditProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectBoard;
-use App\Filament\Resources\Projects\Pages\ViewProjectEstimate;
 use App\Filament\Resources\Projects\Pages\ViewProjectDocuments;
+use App\Filament\Resources\Projects\Pages\ViewProjectEstimate;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Filament\Resources\Projects\Pages\ViewProjectParticipants;
 use App\Filament\Resources\Projects\Pages\WriteApplication;
@@ -28,12 +28,24 @@ use Illuminate\Database\Eloquent\SoftDeletingScope;
 class ProjectResource extends Resource
 {
     protected static ?string $model = Project::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
-    protected static string|\UnitEnum|null $navigationGroup = 'Manage';
+
+    protected static ?string $navigationLabel = 'Projects';
+
+    protected static ?int $navigationSort = -1;
+
     protected static ?string $recordTitleAttribute = 'name';
 
-    public static function form(Schema $schema): Schema { return ProjectForm::configure($schema); }
-    public static function table(Table $table): Table { return ProjectsTable::configure($table); }
+    public static function form(Schema $schema): Schema
+    {
+        return ProjectForm::configure($schema);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return ProjectsTable::configure($table);
+    }
 
     // Budget baskets live in the Budget module, not in Settings.
     public static function getRelations(): array
@@ -44,15 +56,15 @@ class ProjectResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'    => ListProjects::route('/'),
-            'create'   => CreateProject::route('/create'),
+            'index' => ListProjects::route('/'),
+            'create' => CreateProject::route('/create'),
             'overview' => ViewProjectOverview::route('/{record}'),
-            'write'    => WriteApplication::route('/{record}/write'),
+            'write' => WriteApplication::route('/{record}/write'),
             'estimate' => ViewProjectEstimate::route('/{record}/estimate'),
-            'board'    => ViewProjectBoard::route('/{record}/board'),
+            'board' => ViewProjectBoard::route('/{record}/board'),
             'participants' => ViewProjectParticipants::route('/{record}/participants'),
             'documents' => ViewProjectDocuments::route('/{record}/documents'),
-            'edit'     => EditProject::route('/{record}/edit'),
+            'edit' => EditProject::route('/{record}/edit'),
         ];
     }
 
@@ -106,6 +118,6 @@ class ProjectResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
-            ->withoutGlobalScopes([ SoftDeletingScope::class ]);
+            ->withoutGlobalScopes([SoftDeletingScope::class]);
     }
 }

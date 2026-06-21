@@ -16,9 +16,11 @@ class IndividualSupportCalculator extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static ?string $navigationLabel = 'IS Calculator';
+    protected static ?string $navigationLabel = 'Individual Support Calculator';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Tools';
+    protected static string|\UnitEnum|null $navigationGroup = 'Planning tools';
+
+    protected static ?int $navigationSort = 20;
 
     protected static ?string $title = 'Individual Support Calculator';
 

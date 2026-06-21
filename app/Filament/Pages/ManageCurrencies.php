@@ -16,7 +16,9 @@ class ManageCurrencies extends Page
 
     protected static ?string $navigationLabel = 'Currencies';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Workspace settings';
+
+    protected static ?int $navigationSort = 10;
 
     protected static ?string $title = 'Currencies';
 

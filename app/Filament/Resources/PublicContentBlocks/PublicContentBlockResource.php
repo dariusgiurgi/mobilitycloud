@@ -25,6 +25,8 @@ class PublicContentBlockResource extends Resource
 
     protected static ?string $navigationLabel = 'Public Library';
 
+    protected static ?int $navigationSort = 10;
+
     protected static ?string $modelLabel = 'public block';
 
     protected static ?string $pluralModelLabel = 'public blocks';

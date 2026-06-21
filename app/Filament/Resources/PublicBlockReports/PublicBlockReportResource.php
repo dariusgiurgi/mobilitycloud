@@ -14,11 +14,17 @@ use Filament\Tables\Table;
 class PublicBlockReportResource extends Resource
 {
     protected static ?string $model = PublicBlockReport::class;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFlag;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Community';
-    protected static ?string $navigationLabel = 'Reports';
-    protected static ?int $navigationSort = 2;
+
+    protected static ?string $navigationLabel = 'Moderation reports';
+
+    protected static ?int $navigationSort = 20;
+
     protected static ?string $modelLabel = 'report';
+
     protected static ?string $pluralModelLabel = 'reports';
 
     // Nu e tenant-scoped: raportarile sunt globale.
@@ -43,6 +49,7 @@ class PublicBlockReportResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = PublicBlockReport::where('status', PublicBlockReport::STATUS_PENDING)->count();
+
         return $count > 0 ? (string) $count : null;
     }
 

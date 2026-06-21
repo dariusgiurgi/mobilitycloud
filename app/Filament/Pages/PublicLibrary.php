@@ -27,7 +27,7 @@ class PublicLibrary extends Page
 
     protected static ?string $title = 'Public Library';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 10;
 
     protected string $view = 'filament.pages.public-library';
 

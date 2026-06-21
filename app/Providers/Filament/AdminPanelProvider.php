@@ -2,11 +2,15 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Tenancy\EditWorkspaceProfile;
+use App\Filament\Pages\Tenancy\RegisterWorkspace;
+use App\Filament\Widgets\ProjectStatsOverview;
 use App\Models\Workspace;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -33,9 +37,17 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Indigo,
             ])
             ->sidebarCollapsibleOnDesktop()
+            ->navigationGroups([
+                NavigationGroup::make('Planning tools')
+                    ->collapsible(false),
+                NavigationGroup::make('Community')
+                    ->collapsible(false),
+                NavigationGroup::make('Workspace settings')
+                    ->collapsible(false),
+            ])
             ->tenant(Workspace::class, slugAttribute: 'slug')
-            ->tenantRegistration(\App\Filament\Pages\Tenancy\RegisterWorkspace::class)
-            ->tenantProfile(\App\Filament\Pages\Tenancy\EditWorkspaceProfile::class)
+            ->tenantRegistration(RegisterWorkspace::class)
+            ->tenantProfile(EditWorkspaceProfile::class)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
@@ -43,7 +55,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([
-                \App\Filament\Widgets\ProjectStatsOverview::class,
+                ProjectStatsOverview::class,
             ])
             ->middleware([
                 EncryptCookies::class,
