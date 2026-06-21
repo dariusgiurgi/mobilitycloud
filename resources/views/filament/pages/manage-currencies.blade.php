@@ -33,10 +33,10 @@
                 <x-filament::icon icon="heroicon-o-information-circle" style="width:1rem;height:1rem;flex:none;margin-top:.1rem;" />
                 <span>
                     Rates are entered manually and are not updated from an external exchange-rate service.
-                    Changing a rate affects newly entered or edited conversions; existing expense values are not recalculated automatically.
+                    Changing a rate immediately recalculates every current workspace expense recorded in that currency.
                 </span>
                 <x-help-tip id="currency-rate-application" title="When rates are applied">
-                    MobilityCloud stores the EUR amount on each expense. After changing a workspace rate, edit an existing expense amount or currency if you intentionally want to recalculate that expense.
+                    Live project budgets and future expense reports use the recalculated EUR values. Official reports already generated remain historical snapshots and are not silently rewritten.
                 </x-help-tip>
             </div>
         </x-filament::section>

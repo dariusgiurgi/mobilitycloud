@@ -2,11 +2,14 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Expense;
 use App\Support\AuthorizesWorkspaceManagement;
 use BackedEnum;
 use Filament\Facades\Filament;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\DB;
 
 class ManageCurrencies extends Page
 {
@@ -85,6 +88,13 @@ class ManageCurrencies extends Page
         $this->newCode = '';
         $this->newRate = null;
         $this->persist();
+        $updated = $this->recalculateExpenses($code, $rate);
+
+        Notification::make()
+            ->title($code.' added')
+            ->body($this->recalculationMessage($updated))
+            ->success()
+            ->send();
     }
 
     public function updateRate(int $index, $value): void
@@ -105,6 +115,13 @@ class ManageCurrencies extends Page
 
         $this->rows[$index]['rate'] = (float) $value;
         $this->persist();
+        $updated = $this->recalculateExpenses($this->rows[$index]['code'], (float) $value);
+
+        Notification::make()
+            ->title($this->rows[$index]['code'].' rate updated')
+            ->body($this->recalculationMessage($updated))
+            ->success()
+            ->send();
     }
 
     public function removeCurrency(int $index): void
@@ -142,5 +159,37 @@ class ManageCurrencies extends Page
     private function sortRows(): void
     {
         usort($this->rows, fn (array $a, array $b): int => $a['code'] <=> $b['code']);
+    }
+
+    private function recalculateExpenses(string $currency, float $rate): int
+    {
+        $workspaceId = Filament::getTenant()?->id;
+        if (! $workspaceId || $rate <= 0) {
+            return 0;
+        }
+
+        $expenses = Expense::query()
+            ->where('currency', $currency)
+            ->whereHas('budgetLine.project', fn ($query) => $query->where('workspace_id', $workspaceId))
+            ->get();
+
+        DB::transaction(function () use ($expenses, $rate): void {
+            foreach ($expenses as $expense) {
+                $expense->exchange_rate = $rate;
+                $expense->amount_eur = round((float) $expense->amount / $rate, 2);
+                $expense->saveQuietly();
+            }
+        });
+
+        return $expenses->count();
+    }
+
+    private function recalculationMessage(int $updated): string
+    {
+        if ($updated === 0) {
+            return 'No existing expenses use this currency.';
+        }
+
+        return $updated.' existing '.str('expense')->plural($updated).' recalculated.';
     }
 }

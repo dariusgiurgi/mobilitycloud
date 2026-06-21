@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\ManageCurrencies;
+use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use Filament\Facades\Filament;
@@ -65,6 +66,50 @@ class ManageCurrenciesTest extends TestCase
             ->assertHasErrors(['rows.0.rate']);
 
         $this->assertSame(5.07, $workspace->fresh()->currencies['RON']);
+    }
+
+    public function test_rate_change_recalculates_all_matching_workspace_expenses(): void
+    {
+        [$workspace, $user] = $this->workspaceAndUser();
+        $workspace->update(['currencies' => ['RON' => 5.07]]);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Exchange Project',
+            'status' => 'active',
+        ]);
+        $expense = $project->budgetLines()->first()->expenses()->create([
+            'description' => 'Venue',
+            'amount' => 507,
+            'currency' => 'RON',
+            'exchange_rate' => 5.07,
+            'amount_eur' => 100,
+        ]);
+
+        $otherWorkspace = Workspace::create(['name' => 'Other Workspace']);
+        $otherProject = Project::create([
+            'workspace_id' => $otherWorkspace->id,
+            'name' => 'Other Project',
+            'status' => 'active',
+        ]);
+        $otherExpense = $otherProject->budgetLines()->first()->expenses()->create([
+            'description' => 'Unrelated venue',
+            'amount' => 507,
+            'currency' => 'RON',
+            'exchange_rate' => 5.07,
+            'amount_eur' => 100,
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace->fresh());
+
+        Livewire::test(ManageCurrencies::class)
+            ->call('updateRate', 0, 5)
+            ->assertSee('Changing a rate immediately recalculates');
+
+        $this->assertSame('5.000000', $expense->fresh()->exchange_rate);
+        $this->assertSame('101.40', $expense->fresh()->amount_eur);
+        $this->assertSame('5.070000', $otherExpense->fresh()->exchange_rate);
+        $this->assertSame('100.00', $otherExpense->fresh()->amount_eur);
     }
 
     public function test_viewer_can_read_rates_but_not_manage_them(): void
