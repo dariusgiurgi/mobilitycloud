@@ -77,28 +77,6 @@
                                 @endif
                             </div>
                         @endif
-                        @if($expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData())
-                            <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
-                                <a href="{{ route('project-documents.acceptance-certificate', [$record, $expense]) }}"
-                                   style="padding:7px 11px;border-radius:7px;border:1px solid rgba(15,118,110,.3);color:#0f766e;text-decoration:none;font-size:12px;font-weight:600;">
-                                    Acceptance PDF
-                                </a>
-                                @if($expense->hasConventionSignedCopy('acceptance'))
-                                    <a href="{{ route('project-documents.convention-signed', [$record, $expense, 'acceptance']) }}"
-                                       style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">Signed acceptance</a>
-                                @endif
-                                @if($record->canBeManagedBy(auth()->user()))
-                                    <button type="button" wire:click="openConventionSignedUpload({{ $expense->id }}, 'acceptance')"
-                                            style="padding:7px 10px;border-radius:7px;border:none;background:#ecfdf5;color:#0f766e;cursor:pointer;font-size:11px;">
-                                        {{ $expense->hasConventionSignedCopy('acceptance') ? 'Replace signed' : 'Upload signed' }}
-                                    </button>
-                                    @if($expense->hasConventionSignedCopy('acceptance'))
-                                        <button type="button" wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'acceptance')" wire:confirm="Remove the signed acceptance certificate?"
-                                                style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:11px;">Remove</button>
-                                    @endif
-                                @endif
-                            </div>
-                        @endif
                         @if($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData())
                             <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
                                 <a href="{{ route('project-documents.payment-statement', [$record, $expense]) }}"
@@ -228,7 +206,7 @@
              wire:click.self="closeConventionSignedUpload">
             <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
                  style="width:min(480px,100%);padding:1.4rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed {{ match($conventionSignedKind) { 'acceptance' => 'acceptance certificate', 'payment' => 'payment statement', default => 'agreement' } }}</h2>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed {{ $conventionSignedKind === 'payment' ? 'payment statement' : 'agreement' }}</h2>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:0 0 1rem;">PDF, JPG or PNG, maximum 20 MB. The file is private and linked to this civil convention.</p>
                 <input type="file" wire:model="conventionSignedUpload" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;font-size:13px;">
                 @error('conventionSignedUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
@@ -379,15 +357,6 @@
                         <div class="text-gray-700 dark:text-gray-200" style="{{ $fieldStyle }}background:rgba(100,116,139,.06);">{{ number_format((float) $record->withholding_tax_rate, 2) }}% · configured in Project Settings</div>
                     </div>
                     <div><label style="{{ $labelStyle }}">Payment due (days)</label><input type="number" wire:model="conventionData.payment_due_days" style="{{ $fieldStyle }}"></div>
-                </div>
-
-                <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:1.3rem 0 .7rem;text-transform:uppercase;">Acceptance record</h3>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
-                    <div><label style="{{ $labelStyle }}">Acceptance date</label><input type="date" wire:model="conventionData.acceptance_date" style="{{ $fieldStyle }}"></div>
-                    <div><label style="{{ $labelStyle }}">Acceptance place</label><input wire:model="conventionData.acceptance_place" style="{{ $fieldStyle }}"></div>
-                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Delivered services / work</label><textarea rows="3" wire:model="conventionData.acceptance_deliverables" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
-                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Acceptance status</label><select wire:model="conventionData.acceptance_status" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::ACCEPTANCE_STATUSES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
-                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Observations / reservations</label><textarea rows="2" wire:model="conventionData.acceptance_notes" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
                 </div>
 
                 <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:1.3rem 0 .7rem;text-transform:uppercase;">Payment record</h3>

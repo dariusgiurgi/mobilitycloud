@@ -106,23 +106,6 @@ class ProjectDocumentController extends Controller
         ])->setPaper('a4', 'portrait')->download($filename);
     }
 
-    public function acceptanceCertificate(Project $project, Expense $expense)
-    {
-        $this->authorizeConventionExpense($project, $expense);
-        abort_unless($expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(), 422);
-
-        $project->load('workspace');
-        $data = $this->conventionData($project, $expense);
-        $filename = 'service-acceptance-'.Str::slug($data['provider_name'] ?? 'provider').'.pdf';
-
-        return Pdf::loadView('pdf.service-acceptance-certificate', [
-            'project' => $project,
-            'expense' => $expense,
-            'data' => $data,
-            'statusLabel' => Expense::ACCEPTANCE_STATUSES[$data['acceptance_status']] ?? 'Accepted',
-        ])->setPaper('a4', 'portrait')->download($filename);
-    }
-
     public function paymentStatement(Project $project, Expense $expense)
     {
         $this->authorizeConventionExpense($project, $expense);
@@ -151,7 +134,7 @@ class ProjectDocumentController extends Controller
 
     public function signedConvention(Project $project, Expense $expense, string $kind)
     {
-        abort_unless(in_array($kind, ['agreement', 'acceptance', 'payment'], true), 404);
+        abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $this->authorizeConventionExpense($project, $expense);
         abort_unless($expense->hasConventionSignedCopy($kind), 404);
         $copy = $expense->conventionSignedCopy($kind);
@@ -191,8 +174,6 @@ class ProjectDocumentController extends Controller
             'payment_due_days' => 10,
             'rights_exclusive' => true,
             'right_to_sublicense' => true,
-            'acceptance_place' => null,
-            'acceptance_notes' => null,
         ], $expense->convention_data ?? []);
     }
 

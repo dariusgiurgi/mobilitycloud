@@ -220,11 +220,6 @@ class ViewProjectDocuments extends Page
             'rights_duration' => 'For the full legal term of protection',
             'rights_territory' => 'Worldwide',
             'right_to_sublicense' => true,
-            'acceptance_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
-            'acceptance_place' => '',
-            'acceptance_deliverables' => $expense->description,
-            'acceptance_status' => 'accepted_without_reservations',
-            'acceptance_notes' => '',
             'payment_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
             'payment_method' => 'bank_transfer',
             'payment_status' => 'paid',
@@ -285,11 +280,6 @@ class ViewProjectDocuments extends Page
             'conventionData.rights_duration' => ['nullable', 'string', 'max:255'],
             'conventionData.rights_territory' => ['nullable', 'string', 'max:255'],
             'conventionData.right_to_sublicense' => ['boolean'],
-            'conventionData.acceptance_date' => ['nullable', 'date'],
-            'conventionData.acceptance_place' => ['nullable', 'string', 'max:255'],
-            'conventionData.acceptance_deliverables' => ['nullable', 'string', 'max:5000'],
-            'conventionData.acceptance_status' => ['nullable', 'in:'.implode(',', array_keys(Expense::ACCEPTANCE_STATUSES))],
-            'conventionData.acceptance_notes' => ['nullable', 'string', 'max:5000'],
             'conventionData.payment_date' => ['nullable', 'date'],
             'conventionData.payment_method' => ['nullable', 'in:'.implode(',', array_keys(Expense::PAYMENT_METHODS))],
             'conventionData.payment_status' => ['nullable', 'in:'.implode(',', array_keys(Expense::PAYMENT_STATUSES))],
@@ -325,7 +315,7 @@ class ViewProjectDocuments extends Page
     public function openConventionSignedUpload(int $expenseId, string $kind): void
     {
         $this->authorizeProjectManagement();
-        abort_unless(in_array($kind, ['agreement', 'acceptance', 'payment'], true), 404);
+        abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;
@@ -334,7 +324,6 @@ class ViewProjectDocuments extends Page
         abort_unless(
             match ($kind) {
                 'agreement' => $expense->hasCompleteConventionData(),
-                'acceptance' => $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
                 'payment' => $expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(),
             },
             422
@@ -359,7 +348,7 @@ class ViewProjectDocuments extends Page
     {
         $this->authorizeProjectManagement();
         $this->validate([
-            'conventionSignedKind' => ['required', 'in:agreement,acceptance,payment'],
+            'conventionSignedKind' => ['required', 'in:agreement,payment'],
             'conventionSignedUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png'],
         ]);
 
@@ -374,7 +363,6 @@ class ViewProjectDocuments extends Page
         abort_unless(
             match ($kind) {
                 'agreement' => $expense->hasCompleteConventionData(),
-                'acceptance' => $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
                 'payment' => $expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(),
             },
             422
@@ -406,7 +394,7 @@ class ViewProjectDocuments extends Page
     public function deleteConventionSignedCopy(int $expenseId, string $kind): void
     {
         $this->authorizeProjectManagement();
-        abort_unless(in_array($kind, ['agreement', 'acceptance', 'payment'], true), 404);
+        abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;

@@ -28,11 +28,9 @@ Route::middleware('auth')->group(function () {
         ->name('project-documents.file');
     Route::get('/projects/{project}/expenses/{expense}/civil-convention', [ProjectDocumentController::class, 'civilConvention'])
         ->name('project-documents.civil-convention');
-    Route::get('/projects/{project}/expenses/{expense}/acceptance-certificate', [ProjectDocumentController::class, 'acceptanceCertificate'])
-        ->name('project-documents.acceptance-certificate');
     Route::get('/projects/{project}/expenses/{expense}/payment-statement', [ProjectDocumentController::class, 'paymentStatement'])
         ->name('project-documents.payment-statement');
     Route::get('/projects/{project}/expenses/{expense}/signed/{kind}', [ProjectDocumentController::class, 'signedConvention'])
-        ->whereIn('kind', ['agreement', 'acceptance', 'payment'])
+        ->whereIn('kind', ['agreement', 'payment'])
         ->name('project-documents.convention-signed');
 });
