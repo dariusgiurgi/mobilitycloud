@@ -11,6 +11,12 @@ class Expense extends Model
 {
     use SoftDeletes;
 
+    public const CONVENTION_REQUIRED_FIELDS = [
+        'convention_number', 'contract_date', 'provider_name', 'provider_address',
+        'provider_id_number', 'service_description', 'service_start_date',
+        'service_end_date', 'gross_amount', 'currency',
+    ];
+
     protected $fillable = [
         'budget_line_id', 'reference_nr', 'description', 'expense_date',
         'amount', 'currency', 'exchange_rate', 'amount_eur',
@@ -37,6 +43,14 @@ class Expense extends Model
     {
         return $this->attachment_path
             && Storage::disk($this->attachment_disk ?: 'local')->exists($this->attachment_path);
+    }
+
+    public function hasCompleteConventionData(): bool
+    {
+        $data = $this->convention_data ?? [];
+
+        return collect(self::CONVENTION_REQUIRED_FIELDS)
+            ->every(fn (string $field) => filled($data[$field] ?? null));
     }
 
     protected static function booted(): void

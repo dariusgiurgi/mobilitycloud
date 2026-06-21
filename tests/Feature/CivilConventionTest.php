@@ -1,0 +1,49 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Expense;
+use App\Models\Project;
+use App\Models\Workspace;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class CivilConventionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_convention_is_ready_only_when_required_details_are_present(): void
+    {
+        $workspace = Workspace::create(['name' => 'Convention Workspace']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Youth Exchange',
+            'status' => 'active',
+        ]);
+        $expense = Expense::create([
+            'budget_line_id' => $project->budgetLines()->first()->id,
+            'description' => 'Facilitation services',
+            'amount' => 1000,
+            'currency' => 'EUR',
+            'amount_eur' => 1000,
+            'is_civil_convention' => true,
+        ]);
+
+        $this->assertFalse($expense->hasCompleteConventionData());
+
+        $expense->update(['convention_data' => [
+            'convention_number' => 'CC-001',
+            'contract_date' => '2026-06-20',
+            'provider_name' => 'Alex Example',
+            'provider_address' => 'Bucharest',
+            'provider_id_number' => 'AB123456',
+            'service_description' => 'Facilitation services',
+            'service_start_date' => '2026-07-01',
+            'service_end_date' => '2026-07-07',
+            'gross_amount' => '1000.00',
+            'currency' => 'EUR',
+        ]]);
+
+        $this->assertTrue($expense->fresh()->hasCompleteConventionData());
+    }
+}

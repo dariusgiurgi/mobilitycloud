@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Models\Expense;
 use App\Models\ProjectDocument;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
@@ -42,6 +43,12 @@ class ViewProjectDocuments extends Page
 
     public $documentUpload = null;
 
+    public bool $showConventionModal = false;
+
+    public ?int $conventionExpenseId = null;
+
+    public array $conventionData = [];
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -62,6 +69,129 @@ class ViewProjectDocuments extends Page
     public function getDocumentCategories(): array
     {
         return ProjectDocument::CATEGORIES;
+    }
+
+    public function getCivilConventionExpenses()
+    {
+        return Expense::query()
+            ->where('is_civil_convention', true)
+            ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
+            ->with('budgetLine')
+            ->orderByDesc('expense_date')
+            ->orderByDesc('id')
+            ->get();
+    }
+
+    public function openConvention(int $expenseId): void
+    {
+        $this->authorizeProjectManagement();
+        $expense = $this->findConventionExpense($expenseId);
+        if (! $expense) {
+            return;
+        }
+
+        $workspace = $this->record->workspace;
+        $saved = $expense->convention_data ?? [];
+        $this->conventionExpenseId = $expense->id;
+        $this->conventionData = array_merge([
+            'convention_number' => $expense->reference_nr ?: $this->expenseCode($expense),
+            'contract_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
+            'contract_place' => '',
+            'beneficiary_name' => $workspace?->billing_name ?: $workspace?->name,
+            'beneficiary_vat' => $workspace?->billing_vat,
+            'beneficiary_address' => $workspace?->billing_address,
+            'beneficiary_representative' => '',
+            'beneficiary_representative_role' => '',
+            'provider_name' => '',
+            'provider_nationality' => '',
+            'provider_id_type' => 'Passport',
+            'provider_id_number' => '',
+            'provider_personal_number' => '',
+            'provider_address' => '',
+            'provider_email' => '',
+            'provider_bank_name' => '',
+            'provider_iban' => '',
+            'service_description' => $expense->description,
+            'service_start_date' => $this->record->mobility_start_date?->format('Y-m-d'),
+            'service_end_date' => $this->record->mobility_end_date?->format('Y-m-d'),
+            'service_location' => '',
+            'gross_amount' => (string) $expense->amount,
+            'currency' => $expense->currency,
+            'tax_rate' => (string) ($this->record->withholding_tax_rate ?? 0),
+            'payment_due_days' => '10',
+        ], $saved);
+        $this->resetValidation('conventionData');
+        $this->showConventionModal = true;
+    }
+
+    public function closeConvention(): void
+    {
+        $this->showConventionModal = false;
+        $this->conventionExpenseId = null;
+        $this->conventionData = [];
+    }
+
+    public function saveConventionDetails(): void
+    {
+        $this->authorizeProjectManagement();
+        $expense = $this->findConventionExpense($this->conventionExpenseId);
+        if (! $expense) {
+            $this->closeConvention();
+
+            return;
+        }
+
+        $this->validate([
+            'conventionData.convention_number' => ['nullable', 'string', 'max:100'],
+            'conventionData.contract_date' => ['nullable', 'date'],
+            'conventionData.contract_place' => ['nullable', 'string', 'max:255'],
+            'conventionData.beneficiary_name' => ['nullable', 'string', 'max:255'],
+            'conventionData.beneficiary_vat' => ['nullable', 'string', 'max:100'],
+            'conventionData.beneficiary_address' => ['nullable', 'string', 'max:500'],
+            'conventionData.beneficiary_representative' => ['nullable', 'string', 'max:255'],
+            'conventionData.beneficiary_representative_role' => ['nullable', 'string', 'max:255'],
+            'conventionData.provider_name' => ['nullable', 'string', 'max:255'],
+            'conventionData.provider_nationality' => ['nullable', 'string', 'max:100'],
+            'conventionData.provider_id_type' => ['nullable', 'string', 'max:100'],
+            'conventionData.provider_id_number' => ['nullable', 'string', 'max:100'],
+            'conventionData.provider_personal_number' => ['nullable', 'string', 'max:100'],
+            'conventionData.provider_address' => ['nullable', 'string', 'max:500'],
+            'conventionData.provider_email' => ['nullable', 'email', 'max:255'],
+            'conventionData.provider_bank_name' => ['nullable', 'string', 'max:255'],
+            'conventionData.provider_iban' => ['nullable', 'string', 'max:100'],
+            'conventionData.service_description' => ['nullable', 'string', 'max:2000'],
+            'conventionData.service_start_date' => ['nullable', 'date'],
+            'conventionData.service_end_date' => ['nullable', 'date', 'after_or_equal:conventionData.service_start_date'],
+            'conventionData.service_location' => ['nullable', 'string', 'max:255'],
+            'conventionData.gross_amount' => ['nullable', 'numeric', 'min:0'],
+            'conventionData.currency' => ['nullable', 'string', 'max:10'],
+            'conventionData.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'conventionData.payment_due_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+        ]);
+
+        $expense->update(['convention_data' => $this->conventionData]);
+        $this->closeConvention();
+        Notification::make()->title('Civil convention details saved')->success()->send();
+    }
+
+    public function expenseCode(Expense $expense): string
+    {
+        $prefix = $this->record->expense_prefix ?: 'EXP';
+        $pad = (int) ($this->record->expense_pad_length ?: 3);
+
+        return $prefix.'-'.str_pad((string) $expense->id, $pad, '0', STR_PAD_LEFT);
+    }
+
+    private function findConventionExpense(?int $expenseId): ?Expense
+    {
+        if (! $expenseId) {
+            return null;
+        }
+
+        return Expense::query()
+            ->where('is_civil_convention', true)
+            ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
+            ->find($expenseId);
     }
 
     public function openDocumentUpload(): void
