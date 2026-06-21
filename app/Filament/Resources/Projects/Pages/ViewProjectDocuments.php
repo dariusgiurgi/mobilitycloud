@@ -225,6 +225,11 @@ class ViewProjectDocuments extends Page
             'acceptance_deliverables' => $expense->description,
             'acceptance_status' => 'accepted_without_reservations',
             'acceptance_notes' => '',
+            'payment_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
+            'payment_method' => 'bank_transfer',
+            'payment_status' => 'paid',
+            'payment_reference' => '',
+            'payment_notes' => '',
         ], $saved);
         $this->resetValidation('conventionData');
         $this->showConventionModal = true;
@@ -285,6 +290,11 @@ class ViewProjectDocuments extends Page
             'conventionData.acceptance_deliverables' => ['nullable', 'string', 'max:5000'],
             'conventionData.acceptance_status' => ['nullable', 'in:'.implode(',', array_keys(Expense::ACCEPTANCE_STATUSES))],
             'conventionData.acceptance_notes' => ['nullable', 'string', 'max:5000'],
+            'conventionData.payment_date' => ['nullable', 'date'],
+            'conventionData.payment_method' => ['nullable', 'in:'.implode(',', array_keys(Expense::PAYMENT_METHODS))],
+            'conventionData.payment_status' => ['nullable', 'in:'.implode(',', array_keys(Expense::PAYMENT_STATUSES))],
+            'conventionData.payment_reference' => ['nullable', 'string', 'max:255'],
+            'conventionData.payment_notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $expense->update(['convention_data' => $this->conventionData]);
@@ -315,16 +325,18 @@ class ViewProjectDocuments extends Page
     public function openConventionSignedUpload(int $expenseId, string $kind): void
     {
         $this->authorizeProjectManagement();
-        abort_unless(in_array($kind, ['agreement', 'acceptance'], true), 404);
+        abort_unless(in_array($kind, ['agreement', 'acceptance', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;
         }
 
         abort_unless(
-            $kind === 'agreement'
-                ? $expense->hasCompleteConventionData()
-                : $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
+            match ($kind) {
+                'agreement' => $expense->hasCompleteConventionData(),
+                'acceptance' => $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
+                'payment' => $expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(),
+            },
             422
         );
 
@@ -347,7 +359,7 @@ class ViewProjectDocuments extends Page
     {
         $this->authorizeProjectManagement();
         $this->validate([
-            'conventionSignedKind' => ['required', 'in:agreement,acceptance'],
+            'conventionSignedKind' => ['required', 'in:agreement,acceptance,payment'],
             'conventionSignedUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png'],
         ]);
 
@@ -360,9 +372,11 @@ class ViewProjectDocuments extends Page
 
         $kind = $this->conventionSignedKind;
         abort_unless(
-            $kind === 'agreement'
-                ? $expense->hasCompleteConventionData()
-                : $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
+            match ($kind) {
+                'agreement' => $expense->hasCompleteConventionData(),
+                'acceptance' => $expense->hasCompleteConventionData() && $expense->hasCompleteAcceptanceData(),
+                'payment' => $expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(),
+            },
             422
         );
         $existing = $expense->conventionSignedCopy($kind);
@@ -392,7 +406,7 @@ class ViewProjectDocuments extends Page
     public function deleteConventionSignedCopy(int $expenseId, string $kind): void
     {
         $this->authorizeProjectManagement();
-        abort_unless(in_array($kind, ['agreement', 'acceptance'], true), 404);
+        abort_unless(in_array($kind, ['agreement', 'acceptance', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;

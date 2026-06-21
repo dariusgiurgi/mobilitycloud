@@ -99,6 +99,28 @@
                                 @endif
                             </div>
                         @endif
+                        @if($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData())
+                            <div style="display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;">
+                                <a href="{{ route('project-documents.payment-statement', [$record, $expense]) }}"
+                                   style="padding:7px 11px;border-radius:7px;border:1px solid rgba(180,83,9,.3);color:#b45309;text-decoration:none;font-size:12px;font-weight:600;">
+                                    Payment statement
+                                </a>
+                                @if($expense->hasConventionSignedCopy('payment'))
+                                    <a href="{{ route('project-documents.convention-signed', [$record, $expense, 'payment']) }}"
+                                       style="padding:7px 11px;border-radius:7px;border:1px solid rgba(34,197,94,.35);color:#15803d;text-decoration:none;font-size:12px;font-weight:600;">Signed payment</a>
+                                @endif
+                                @if($record->canBeManagedBy(auth()->user()))
+                                    <button type="button" wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')"
+                                            style="padding:7px 10px;border-radius:7px;border:none;background:#fff7ed;color:#b45309;cursor:pointer;font-size:11px;">
+                                        {{ $expense->hasConventionSignedCopy('payment') ? 'Replace signed' : 'Upload signed' }}
+                                    </button>
+                                    @if($expense->hasConventionSignedCopy('payment'))
+                                        <button type="button" wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'payment')" wire:confirm="Remove the signed payment statement?"
+                                                style="border:none;background:transparent;color:#dc2626;cursor:pointer;font-size:11px;">Remove</button>
+                                    @endif
+                                @endif
+                            </div>
+                        @endif
                         @if($record->canBeManagedBy(auth()->user()))
                             <button type="button" wire:click="openConvention({{ $expense->id }})"
                                     style="padding:7px 11px;border-radius:7px;border:none;background:#eef2ff;color:#4338ca;cursor:pointer;font-size:12px;">
@@ -206,7 +228,7 @@
              wire:click.self="closeConventionSignedUpload">
             <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
                  style="width:min(480px,100%);padding:1.4rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed {{ $conventionSignedKind === 'acceptance' ? 'acceptance certificate' : 'agreement' }}</h2>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed {{ match($conventionSignedKind) { 'acceptance' => 'acceptance certificate', 'payment' => 'payment statement', default => 'agreement' } }}</h2>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:0 0 1rem;">PDF, JPG or PNG, maximum 20 MB. The file is private and linked to this civil convention.</p>
                 <input type="file" wire:model="conventionSignedUpload" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;font-size:13px;">
                 @error('conventionSignedUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
@@ -366,6 +388,15 @@
                     <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Delivered services / work</label><textarea rows="3" wire:model="conventionData.acceptance_deliverables" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
                     <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Acceptance status</label><select wire:model="conventionData.acceptance_status" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::ACCEPTANCE_STATUSES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
                     <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Observations / reservations</label><textarea rows="2" wire:model="conventionData.acceptance_notes" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                </div>
+
+                <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:1.3rem 0 .7rem;text-transform:uppercase;">Payment record</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+                    <div><label style="{{ $labelStyle }}">Payment date</label><input type="date" wire:model="conventionData.payment_date" style="{{ $fieldStyle }}"></div>
+                    <div><label style="{{ $labelStyle }}">Payment reference</label><input wire:model="conventionData.payment_reference" style="{{ $fieldStyle }}"></div>
+                    <div><label style="{{ $labelStyle }}">Payment method</label><select wire:model="conventionData.payment_method" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::PAYMENT_METHODS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
+                    <div><label style="{{ $labelStyle }}">Payment status</label><select wire:model="conventionData.payment_status" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::PAYMENT_STATUSES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
+                    <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Payment notes</label><textarea rows="2" wire:model="conventionData.payment_notes" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
                 </div>
 
                 @error('conventionData.*') <span style="display:block;color:#dc2626;font-size:11px;margin-top:.7rem;">{{ $message }}</span> @enderror

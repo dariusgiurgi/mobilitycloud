@@ -86,6 +86,10 @@ class CivilConventionTest extends TestCase
                 'acceptance_date' => '2026-07-08',
                 'acceptance_deliverables' => 'Facilitation services and activity report',
                 'acceptance_status' => 'accepted_without_reservations',
+                'payment_date' => '2026-07-09',
+                'payment_method' => 'bank_transfer',
+                'payment_status' => 'paid',
+                'payment_reference' => 'TRX-001',
             ],
         ]);
 
@@ -101,6 +105,12 @@ class CivilConventionTest extends TestCase
         $acceptance->assertOk();
         $acceptance->assertHeader('content-type', 'application/pdf');
         $this->assertStringStartsWith('%PDF-', $acceptance->getContent());
+
+        $payment = $this->actingAs($member)
+            ->get(route('project-documents.payment-statement', [$project, $expense]));
+        $payment->assertOk();
+        $payment->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $payment->getContent());
     }
 
     public function test_copyright_assignment_requires_rights_details(): void
@@ -155,7 +165,21 @@ class CivilConventionTest extends TestCase
         $this->assertTrue($expense->hasCompleteAcceptanceData());
     }
 
-    public function test_signed_agreement_and_acceptance_are_private_and_removed_with_expense(): void
+    public function test_payment_statement_requires_payment_details(): void
+    {
+        $expense = new Expense(['convention_data' => []]);
+        $this->assertFalse($expense->hasCompletePaymentData());
+
+        $expense->convention_data = [
+            'payment_date' => '2026-07-09',
+            'payment_method' => 'bank_transfer',
+            'payment_status' => 'paid',
+        ];
+
+        $this->assertTrue($expense->hasCompletePaymentData());
+    }
+
+    public function test_signed_convention_documents_are_private_and_removed_with_expense(): void
     {
         Storage::fake('local');
         $workspace = Workspace::create(['name' => 'Convention Workspace']);
@@ -169,8 +193,10 @@ class CivilConventionTest extends TestCase
         $workspace->users()->attach($member, ['role' => 'viewer']);
         $agreementPath = 'project-documents/'.$project->id.'/civil-conventions/1/agreement.pdf';
         $acceptancePath = 'project-documents/'.$project->id.'/civil-conventions/1/acceptance.pdf';
+        $paymentPath = 'project-documents/'.$project->id.'/civil-conventions/1/payment.pdf';
         Storage::disk('local')->put($agreementPath, 'signed agreement');
         Storage::disk('local')->put($acceptancePath, 'signed acceptance');
+        Storage::disk('local')->put($paymentPath, 'signed payment statement');
         $expense = Expense::create([
             'budget_line_id' => $project->budgetLines()->first()->id,
             'description' => 'Facilitation services',
@@ -185,11 +211,15 @@ class CivilConventionTest extends TestCase
                 'acceptance_signed_path' => $acceptancePath,
                 'acceptance_signed_disk' => 'local',
                 'acceptance_signed_name' => 'Signed Acceptance.pdf',
+                'payment_signed_path' => $paymentPath,
+                'payment_signed_disk' => 'local',
+                'payment_signed_name' => 'Signed Payment Statement.pdf',
             ],
         ]);
 
         $this->assertTrue($expense->hasConventionSignedCopy('agreement'));
         $this->assertTrue($expense->hasConventionSignedCopy('acceptance'));
+        $this->assertTrue($expense->hasConventionSignedCopy('payment'));
 
         $this->actingAs($outsider)
             ->get(route('project-documents.convention-signed', [$project, $expense, 'agreement']))
@@ -203,9 +233,14 @@ class CivilConventionTest extends TestCase
             ->get(route('project-documents.convention-signed', [$project, $expense, 'acceptance']))
             ->assertOk()
             ->assertDownload('Signed Acceptance.pdf');
+        $this->actingAs($member)
+            ->get(route('project-documents.convention-signed', [$project, $expense, 'payment']))
+            ->assertOk()
+            ->assertDownload('Signed Payment Statement.pdf');
 
         $expense->delete();
         Storage::disk('local')->assertMissing($agreementPath);
         Storage::disk('local')->assertMissing($acceptancePath);
+        Storage::disk('local')->assertMissing($paymentPath);
     }
 }

@@ -26,6 +26,17 @@ class Expense extends Model
         'accepted_with_reservations' => 'Accepted with reservations',
     ];
 
+    public const PAYMENT_STATUSES = [
+        'scheduled' => 'Scheduled for payment',
+        'paid' => 'Paid',
+    ];
+
+    public const PAYMENT_METHODS = [
+        'bank_transfer' => 'Bank transfer',
+        'cash' => 'Cash',
+        'other' => 'Other',
+    ];
+
     protected $fillable = [
         'budget_line_id', 'reference_nr', 'description', 'expense_date',
         'amount', 'currency', 'exchange_rate', 'amount_eur',
@@ -78,9 +89,17 @@ class Expense extends Model
             ->every(fn (string $field) => filled($data[$field] ?? null));
     }
 
+    public function hasCompletePaymentData(): bool
+    {
+        $data = $this->convention_data ?? [];
+
+        return collect(['payment_date', 'payment_method', 'payment_status'])
+            ->every(fn (string $field) => filled($data[$field] ?? null));
+    }
+
     public function conventionSignedCopy(string $kind): array
     {
-        $kind = in_array($kind, ['agreement', 'acceptance'], true) ? $kind : 'agreement';
+        $kind = in_array($kind, ['agreement', 'acceptance', 'payment'], true) ? $kind : 'agreement';
         $data = $this->convention_data ?? [];
 
         return [
@@ -106,7 +125,7 @@ class Expense extends Model
                 Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
             }
 
-            foreach (['agreement', 'acceptance'] as $kind) {
+            foreach (['agreement', 'acceptance', 'payment'] as $kind) {
                 if ($expense->hasConventionSignedCopy($kind)) {
                     $copy = $expense->conventionSignedCopy($kind);
                     Storage::disk($copy['disk'])->delete($copy['path']);

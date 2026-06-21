@@ -123,9 +123,35 @@ class ProjectDocumentController extends Controller
         ])->setPaper('a4', 'portrait')->download($filename);
     }
 
+    public function paymentStatement(Project $project, Expense $expense)
+    {
+        $this->authorizeConventionExpense($project, $expense);
+        abort_unless($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(), 422);
+
+        $project->load('workspace');
+        $data = $this->conventionData($project, $expense);
+        $gross = (float) ($data['gross_amount'] ?? 0);
+        $taxRate = (float) ($project->withholding_tax_rate ?? 0);
+        $taxAmount = round($gross * $taxRate / 100, 2);
+        $netAmount = round($gross - $taxAmount, 2);
+        $filename = 'payment-statement-'.Str::slug($data['provider_name'] ?? 'provider').'.pdf';
+
+        return Pdf::loadView('pdf.payment-statement', [
+            'project' => $project,
+            'expense' => $expense,
+            'data' => $data,
+            'gross' => $gross,
+            'taxRate' => $taxRate,
+            'taxAmount' => $taxAmount,
+            'netAmount' => $netAmount,
+            'paymentMethod' => Expense::PAYMENT_METHODS[$data['payment_method']] ?? 'Other',
+            'paymentStatus' => Expense::PAYMENT_STATUSES[$data['payment_status']] ?? 'Paid',
+        ])->setPaper('a4', 'portrait')->download($filename);
+    }
+
     public function signedConvention(Project $project, Expense $expense, string $kind)
     {
-        abort_unless(in_array($kind, ['agreement', 'acceptance'], true), 404);
+        abort_unless(in_array($kind, ['agreement', 'acceptance', 'payment'], true), 404);
         $this->authorizeConventionExpense($project, $expense);
         abort_unless($expense->hasConventionSignedCopy($kind), 404);
         $copy = $expense->conventionSignedCopy($kind);
