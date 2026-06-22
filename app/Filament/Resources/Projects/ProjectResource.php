@@ -111,6 +111,7 @@ class ProjectResource extends Resource
             NavigationItem::make('Settings')
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->url(static::getUrl('edit', ['record' => $record]))
+                ->visible(fn (): bool => $record->canBeManagedBy(auth()->user()))
                 ->isActiveWhen(fn () => $page instanceof EditProject),
         ];
     }

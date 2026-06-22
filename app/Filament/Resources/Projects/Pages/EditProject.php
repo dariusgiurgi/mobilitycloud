@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ForceDeleteAction;
 use Filament\Actions\RestoreAction;
@@ -20,9 +21,15 @@ class EditProject extends EditRecord
             // though the header sits outside the <form> element.
             $this->getSaveFormAction()->formId('form'),
             $this->getCancelFormAction(),
-            DeleteAction::make(),
-            ForceDeleteAction::make(),
-            RestoreAction::make(),
+            ActionGroup::make([
+                DeleteAction::make(),
+                ForceDeleteAction::make(),
+                RestoreAction::make(),
+            ])
+                ->label('More actions')
+                ->icon('heroicon-m-ellipsis-horizontal')
+                ->button()
+                ->color('gray'),
         ];
     }
 
