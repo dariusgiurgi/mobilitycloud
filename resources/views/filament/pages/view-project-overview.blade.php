@@ -5,6 +5,7 @@
         $application = $this->getApplicationSummary();
         $participants = $this->getParticipantSummary();
         $documents = $this->getDocumentSummary();
+        $activity = $this->getRecentActivity();
         $nextStep = $this->getNextStep();
         $urls = $this->getModuleUrls();
         $partners = $this->record->partners;
@@ -22,6 +23,9 @@
         .mc-overview-card:hover { transform:translateY(-2px);border-color:rgba(99,102,241,.45);box-shadow:0 10px 28px rgba(15,23,42,.08); }
         .mc-overview-muted { color:#64748b; }
         .mc-overview-detail-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem 1.5rem; }
+        .mc-activity-row { position:relative;display:flex;gap:.8rem;padding:0 0 1rem; }
+        .mc-activity-row:not(:last-child)::after { content:'';position:absolute;left:14px;top:30px;bottom:0;width:1px;background:rgba(148,163,184,.25); }
+        .mc-activity-icon { width:29px;height:29px;display:flex;align-items:center;justify-content:center;flex:none;border-radius:9999px;background:color-mix(in srgb,var(--activity-color) 11%,transparent);color:var(--activity-color); }
         .dark .mc-overview-card { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
         .dark .mc-overview-card:hover { box-shadow:0 10px 28px rgba(0,0,0,.22); }
         .dark .mc-overview-muted { color:#94a3b8; }
@@ -189,5 +193,29 @@
                 @endif
             </div>
         </div>
+    </x-filament::section>
+
+    <x-filament::section style="margin-top:1rem;">
+        <x-slot name="heading">Recent activity</x-slot>
+        <x-slot name="description">The latest recorded changes across this project.</x-slot>
+
+        @forelse($activity as $entry)
+            <div class="mc-activity-row">
+                <span class="mc-activity-icon" style="--activity-color:{{ $entry->color() }};">
+                    <x-filament::icon :icon="$entry->icon()" style="width:.9rem;height:.9rem;" />
+                </span>
+                <div style="min-width:0;padding-top:.15rem;">
+                    <p class="text-gray-950 dark:text-white" style="font-size:.78rem;line-height:1.4;">
+                        <strong>{{ $entry->user?->name ?? 'System' }}</strong> {{ $entry->description }}
+                    </p>
+                    <p class="mc-overview-muted" title="{{ $entry->created_at->format('d M Y, H:i:s') }}" style="font-size:.68rem;margin-top:.15rem;">{{ $entry->created_at->diffForHumans() }}</p>
+                </div>
+            </div>
+        @empty
+            <div style="padding:1rem 0;text-align:center;">
+                <x-filament::icon icon="heroicon-o-clock" class="mx-auto h-7 w-7 text-gray-400" />
+                <p class="mc-overview-muted" style="font-size:.76rem;margin-top:.4rem;">New changes will appear here automatically.</p>
+            </div>
+        @endforelse
     </x-filament::section>
 </x-filament-panels::page>

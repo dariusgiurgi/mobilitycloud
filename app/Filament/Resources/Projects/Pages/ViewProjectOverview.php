@@ -92,6 +92,15 @@ class ViewProjectOverview extends Page
         ];
     }
 
+    public function getRecentActivity()
+    {
+        return $this->record->activityLogs()
+            ->with('user')
+            ->latest()
+            ->limit(12)
+            ->get();
+    }
+
     public function getModuleUrls(): array
     {
         return [
