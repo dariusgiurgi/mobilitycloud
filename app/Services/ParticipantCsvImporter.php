@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Participant;
 use App\Models\Project;
+use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -102,7 +103,7 @@ class ParticipantCsvImporter
             'partner_organisation' => $this->nullable($row['organisation'] ?? null),
             'role' => $role,
             'country' => $this->nullable($row['country'] ?? null),
-            'birth_date' => $this->nullable($row['birth date'] ?? null),
+            'birth_date' => $this->date($row['birth date'] ?? null),
             'nationality' => $this->nullable($row['nationality'] ?? null),
             'gender' => $this->nullable($row['gender'] ?? null),
             'email' => $this->nullable($row['email'] ?? null),
@@ -115,7 +116,7 @@ class ParticipantCsvImporter
             'fewer_opportunities' => $this->boolean($row['fewer opportunities'] ?? null),
             'guardian_name' => $this->nullable($row['guardian name'] ?? null),
             'guardian_contact' => $this->nullable($row['guardian contact'] ?? null),
-            'gdpr_consented_at' => $this->nullable($row['gdpr consent date'] ?? null),
+            'gdpr_consented_at' => $this->date($row['gdpr consent date'] ?? null),
         ];
 
         $validator = Validator::make($data, [
@@ -138,6 +139,9 @@ class ParticipantCsvImporter
             'guardian_name' => ['nullable', 'string', 'max:255'],
             'guardian_contact' => ['nullable', 'string', 'max:255'],
             'gdpr_consented_at' => ['nullable', 'date_format:Y-m-d'],
+        ], [
+            'birth_date.date_format' => 'Birth date must use YYYY-MM-DD, DD.MM.YYYY or DD/MM/YYYY.',
+            'gdpr_consented_at.date_format' => 'GDPR consent date must use YYYY-MM-DD, DD.MM.YYYY or DD/MM/YYYY.',
         ]);
 
         if ($validator->fails()) {
@@ -168,6 +172,34 @@ class ParticipantCsvImporter
     private function boolean(?string $value): bool
     {
         return in_array(mb_strtolower(trim((string) $value)), ['1', 'yes', 'true', 'da'], true);
+    }
+
+    private function date(?string $value): ?string
+    {
+        $value = $this->nullable($value);
+        if ($value === null) {
+            return null;
+        }
+
+        if (preg_match('/^\d{1,5}$/', $value)) {
+            $serial = (int) $value;
+            if ($serial > 0) {
+                return (new DateTimeImmutable('1899-12-30'))
+                    ->modify('+'.$serial.' days')
+                    ->format('Y-m-d');
+            }
+        }
+
+        foreach (['Y-m-d', 'd.m.Y', 'd/m/Y', 'd-m-Y', 'm/d/Y'] as $format) {
+            $date = DateTimeImmutable::createFromFormat('!'.$format, $value);
+            $errors = DateTimeImmutable::getLastErrors();
+
+            if ($date && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0))) {
+                return $date->format('Y-m-d');
+            }
+        }
+
+        return $value;
     }
 
     private function nullable(?string $value): ?string

@@ -60,6 +60,29 @@ class ParticipantCsvImporterTest extends TestCase
         $this->assertDatabaseCount('participants', 0);
     }
 
+    public function test_it_normalises_dates_reformatted_by_excel(): void
+    {
+        $project = $this->project();
+        $path = $this->csv(implode("\n", [
+            'Last name;First name;Birth date;GDPR consent date',
+            'Pop;Ana;12.04.2000;20/06/2026',
+            'Marin;Daria;45292;',
+        ]));
+
+        $count = app(ParticipantCsvImporter::class)->import($project, $path);
+
+        $this->assertSame(2, $count);
+        $this->assertDatabaseHas('participants', [
+            'last_name' => 'Pop',
+            'birth_date' => '2000-04-12 00:00:00',
+            'gdpr_consented_at' => '2026-06-20 00:00:00',
+        ]);
+        $this->assertDatabaseHas('participants', [
+            'last_name' => 'Marin',
+            'birth_date' => '2024-01-01 00:00:00',
+        ]);
+    }
+
     private function project(): Project
     {
         $workspace = Workspace::create(['name' => 'Import Workspace']);
