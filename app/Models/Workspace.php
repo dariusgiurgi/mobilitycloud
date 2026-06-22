@@ -56,6 +56,11 @@ class Workspace extends Model
         return $this->hasMany(ContentBlock::class);
     }
 
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(WorkspaceInvitation::class);
+    }
+
     public function roleFor(User $user): ?string
     {
         $member = $this->users()->where('user_id', $user->id)->first();
@@ -70,5 +75,14 @@ class Workspace extends Model
         }
 
         return in_array($this->roleFor($user), ['owner', 'admin', 'member'], true);
+    }
+
+    public function canManageMembersBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return in_array($this->roleFor($user), ['owner', 'admin'], true);
     }
 }

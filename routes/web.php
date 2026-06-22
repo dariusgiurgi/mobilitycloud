@@ -1,8 +1,9 @@
 <?php
 
 use App\Http\Controllers\AttachmentDownloadController;
-use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectDocumentController;
+use App\Http\Controllers\ProjectExportController;
+use App\Http\Controllers\WorkspaceInvitationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -10,6 +11,8 @@ Route::get('/', function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('/workspace-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
+        ->name('workspace-invitations.accept');
     Route::get('/projects/{project}/export', [ProjectExportController::class, 'report'])->name('projects.export');
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
     Route::get('/projects/{project}/export-participants', [ProjectExportController::class, 'participantsCsv'])->name('projects.export-participants');
