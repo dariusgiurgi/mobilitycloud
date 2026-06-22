@@ -4,8 +4,14 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Services\ProjectDuplicator;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 
 class ListProjects extends ListRecords
@@ -17,6 +23,55 @@ class ListProjects extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('duplicateProject')
+                ->label('Duplicate project')
+                ->icon('heroicon-o-document-duplicate')
+                ->color('gray')
+                ->modalHeading('Create a reusable project copy')
+                ->modalDescription('The new project starts in Writing. Participants, expenses, uploaded files, signed documents, dates and the old grant reference are never copied.')
+                ->form([
+                    Select::make('source_id')
+                        ->label('Source project')
+                        ->options(fn (): array => Project::query()
+                            ->where('workspace_id', Filament::getTenant()?->id)
+                            ->orderBy('name')
+                            ->pluck('name', 'id')
+                            ->all())
+                        ->searchable()
+                        ->required(),
+                    TextInput::make('name')
+                        ->label('New project name')
+                        ->required()
+                        ->maxLength(255)
+                        ->placeholder('e.g. Youth Mobility Lab 2027'),
+                    Toggle::make('copy_application')
+                        ->label('Copy application sections and text')
+                        ->default(true),
+                    Toggle::make('copy_budget')
+                        ->label('Copy estimate and budget basket structure')
+                        ->default(true),
+                    Toggle::make('copy_partners')
+                        ->label('Copy partner organisations')
+                        ->default(true),
+                ])
+                ->action(function (array $data, ProjectDuplicator $duplicator): void {
+                    $workspace = Filament::getTenant();
+                    abort_unless($workspace?->canBeManagedBy(auth()->user()), 403);
+                    $source = Project::query()
+                        ->where('workspace_id', $workspace->id)
+                        ->findOrFail($data['source_id']);
+                    $copy = $duplicator->duplicate($source, $data);
+
+                    Notification::make()
+                        ->title('Project copy created')
+                        ->body('Review the new dates, acronym and funding details before using it.')
+                        ->success()
+                        ->send();
+
+                    $this->redirect(ProjectResource::getUrl('overview', ['record' => $copy]));
+                })
+                ->visible(fn (): bool => (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
+                    && Project::query()->where('workspace_id', Filament::getTenant()?->id)->exists()),
             CreateAction::make()
                 ->label('New project'),
         ];
