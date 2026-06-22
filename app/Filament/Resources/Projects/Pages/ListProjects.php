@@ -34,6 +34,7 @@ class ListProjects extends ListRecords
                 ->action(fn () => $this->archived = ! $this->archived)
                 ->visible(fn (): bool => $this->archived || Project::onlyTrashed()
                     ->where('workspace_id', Filament::getTenant()?->id)
+                    ->accessibleTo(auth()->user(), Filament::getTenant())
                     ->exists()),
             Action::make('duplicateProject')
                 ->label('Duplicate project')
@@ -46,6 +47,7 @@ class ListProjects extends ListRecords
                         ->label('Source project')
                         ->options(fn (): array => Project::query()
                             ->where('workspace_id', Filament::getTenant()?->id)
+                            ->accessibleTo(auth()->user(), Filament::getTenant())
                             ->orderBy('name')
                             ->pluck('name', 'id')
                             ->all())
@@ -71,6 +73,7 @@ class ListProjects extends ListRecords
                     abort_unless($workspace?->canBeManagedBy(auth()->user()), 403);
                     $source = Project::query()
                         ->where('workspace_id', $workspace->id)
+                        ->accessibleTo(auth()->user(), $workspace)
                         ->findOrFail($data['source_id']);
                     $copy = $duplicator->duplicate($source, $data);
 
@@ -84,7 +87,8 @@ class ListProjects extends ListRecords
                 })
                 ->visible(fn (): bool => ! $this->archived
                     && (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
-                    && Project::query()->where('workspace_id', Filament::getTenant()?->id)->exists()),
+                    && Project::query()->where('workspace_id', Filament::getTenant()?->id)
+                        ->accessibleTo(auth()->user(), Filament::getTenant())->exists()),
             CreateAction::make()
                 ->label('New project')
                 ->visible(fn (): bool => ! $this->archived),
@@ -95,6 +99,7 @@ class ListProjects extends ListRecords
     {
         $query = Project::query()
             ->where('workspace_id', Filament::getTenant()?->id)
+            ->accessibleTo(auth()->user(), Filament::getTenant())
             ->withCount('participants')
             ->with('budgetLines.expenses');
 
@@ -124,6 +129,7 @@ class ListProjects extends ListRecords
         abort_unless($workspace?->canBeManagedBy(auth()->user()), 403);
         $project = Project::onlyTrashed()
             ->where('workspace_id', $workspace->id)
+            ->accessibleTo(auth()->user(), $workspace)
             ->findOrFail($projectId);
         $project->restore();
 

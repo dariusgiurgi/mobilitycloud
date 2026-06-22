@@ -12,7 +12,7 @@ class TaskNotificationService
     public function sendAssignment(ProjectTask $task): bool
     {
         $task->loadMissing(['assignee', 'project.workspace']);
-        if (! $this->canNotifyAssignee($task)) {
+        if (! $this->canNotifyAssignee($task, 'task_assigned')) {
             return false;
         }
 
@@ -29,7 +29,7 @@ class TaskNotificationService
     public function sendDueSoon(ProjectTask $task): bool
     {
         $task->loadMissing(['assignee', 'project.workspace']);
-        if (! $this->canNotifyAssignee($task)) {
+        if (! $this->canNotifyAssignee($task, 'task_due_soon')) {
             return false;
         }
 
@@ -46,7 +46,7 @@ class TaskNotificationService
     public function sendOverdue(ProjectTask $task): bool
     {
         $task->loadMissing(['assignee', 'project.workspace']);
-        if (! $this->canNotifyAssignee($task)) {
+        if (! $this->canNotifyAssignee($task, 'task_overdue')) {
             return false;
         }
 
@@ -60,10 +60,11 @@ class TaskNotificationService
         return true;
     }
 
-    private function canNotifyAssignee(ProjectTask $task): bool
+    private function canNotifyAssignee(ProjectTask $task, string $preference): bool
     {
         return $task->assignee !== null
-            && $task->project?->workspace?->users()->whereKey($task->assignee->id)->exists();
+            && $task->project?->canBeAccessedBy($task->assignee) === true
+            && $task->assignee->wantsNotification($preference);
     }
 
     private function viewAction(ProjectTask $task): Action

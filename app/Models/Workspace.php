@@ -51,6 +51,11 @@ class Workspace extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function accessibleProjectsFor(?User $user)
+    {
+        return $this->projects()->accessibleTo($user, $this);
+    }
+
     public function contentBlocks(): HasMany
     {
         return $this->hasMany(ContentBlock::class);

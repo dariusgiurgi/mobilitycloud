@@ -2,13 +2,13 @@
 
 namespace App\Filament\Resources\Projects\Tables;
 
-use Filament\Tables\Table;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Actions\EditAction;
-use Filament\Actions\DeleteAction;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use Filament\Tables\Table;
 
 class ProjectsTable
 {
@@ -26,13 +26,13 @@ class ProjectsTable
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'draft'     => 'gray',
+                        'draft' => 'gray',
                         'submitted' => 'warning',
-                        'approved'  => 'info',
+                        'approved' => 'info',
                         'activated' => 'success',
                         'completed' => 'primary',
-                        'archived'  => 'gray',
-                        default     => 'gray',
+                        'archived' => 'gray',
+                        default => 'gray',
                     })
                     ->sortable(),
 
@@ -60,12 +60,12 @@ class ProjectsTable
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'draft'     => 'Draft',
+                        'draft' => 'Draft',
                         'submitted' => 'Submitted',
-                        'approved'  => 'Approved',
+                        'approved' => 'Approved',
                         'activated' => 'Activated',
                         'completed' => 'Completed',
-                        'archived'  => 'Archived',
+                        'archived' => 'Archived',
                     ]),
             ])
             ->recordActions([

@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\ManageCurrencies;
+use App\Filament\Pages\NotificationPreferences;
 use App\Filament\Pages\PublicLibrary;
+use App\Filament\Pages\WorkspaceData;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
@@ -19,6 +22,8 @@ class NavigationStructureTest extends TestCase
         $this->assertNull(ProjectResource::getNavigationGroup());
         $this->assertSame('Projects', ProjectResource::getNavigationLabel());
         $this->assertSame(-1, ProjectResource::getNavigationSort());
+        $this->assertNull(GlobalSearch::getNavigationGroup());
+        $this->assertSame(1, GlobalSearch::getNavigationSort());
 
         $this->assertSame('Planning tools', ContentBlockResource::getNavigationGroup());
         $this->assertSame(10, ContentBlockResource::getNavigationSort());
@@ -33,6 +38,10 @@ class NavigationStructureTest extends TestCase
 
         $this->assertSame('Workspace settings', ManageCurrencies::getNavigationGroup());
         $this->assertSame(10, ManageCurrencies::getNavigationSort());
+        $this->assertSame('Workspace settings', WorkspaceData::getNavigationGroup());
+        $this->assertSame(30, WorkspaceData::getNavigationSort());
+        $this->assertSame('Workspace settings', NotificationPreferences::getNavigationGroup());
+        $this->assertSame(40, NotificationPreferences::getNavigationSort());
     }
 
     public function test_technical_public_library_resource_stays_out_of_the_sidebar(): void

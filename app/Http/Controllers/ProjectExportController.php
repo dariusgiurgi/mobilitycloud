@@ -15,7 +15,7 @@ class ProjectExportController extends Controller
     public function participantsCsv(Project $project): StreamedResponse
     {
         abort_unless(
-            Auth::check() && Auth::user()->workspaces()->whereKey($project->workspace_id)->exists(),
+            Auth::check() && $project->canBeAccessedBy(Auth::user()),
             403
         );
 
@@ -79,7 +79,7 @@ class ProjectExportController extends Controller
     public function report(Project $project)
     {
         abort_unless(
-            Auth::check() && Auth::user()->workspaces()->whereKey($project->workspace_id)->exists(),
+            Auth::check() && $project->canBeAccessedBy(Auth::user()),
             403
         );
 
@@ -147,7 +147,7 @@ class ProjectExportController extends Controller
     public function exportApplication(Project $project)
     {
         abort_unless(
-            Auth::check() && Auth::user()->workspaces()->whereKey($project->workspace_id)->exists(),
+            Auth::check() && $project->canBeAccessedBy(Auth::user()),
             403
         );
 

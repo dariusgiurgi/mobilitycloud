@@ -12,7 +12,7 @@ class SavedCalculation extends Model
     ];
 
     protected $casts = [
-        'inputs'  => 'array',
+        'inputs' => 'array',
         'results' => 'array',
     ];
 

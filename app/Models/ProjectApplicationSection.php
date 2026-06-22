@@ -24,6 +24,7 @@ class ProjectApplicationSection extends Model
     public function getWordCountAttribute(): int
     {
         $text = trim(strip_tags($this->content ?? ''));
+
         return $text === '' ? 0 : count(preg_split('/\s+/', $text));
     }
 }

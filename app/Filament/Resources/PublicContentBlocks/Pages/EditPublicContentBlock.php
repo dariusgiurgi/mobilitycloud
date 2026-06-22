@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\PublicContentBlocks\Pages;
 
+use App\Filament\Pages\PublicLibrary;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use Filament\Actions\DeleteAction;
+use Filament\Facades\Filament;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -26,12 +28,12 @@ class EditPublicContentBlock extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->successRedirectUrl(fn () => \App\Filament\Pages\PublicLibrary::getUrl(['tenant' => \Filament\Facades\Filament::getTenant()])),
+                ->successRedirectUrl(fn () => PublicLibrary::getUrl(['tenant' => Filament::getTenant()])),
         ];
     }
 
     protected function getRedirectUrl(): string
     {
-        return \App\Filament\Pages\PublicLibrary::getUrl(['tenant' => \Filament\Facades\Filament::getTenant()]);
+        return PublicLibrary::getUrl(['tenant' => Filament::getTenant()]);
     }
 }

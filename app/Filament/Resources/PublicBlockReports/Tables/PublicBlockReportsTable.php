@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\PublicBlockReports\Tables;
 
 use App\Models\PublicBlockReport;
-use App\Models\PublicContentBlock;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
@@ -23,7 +22,7 @@ class PublicBlockReportsTable
                     ->limit(50)
                     ->weight('medium')
                     ->description(fn (PublicBlockReport $r) => $r->block?->author?->name
-                        ? 'by ' . $r->block->author->name : null),
+                        ? 'by '.$r->block->author->name : null),
 
                 TextColumn::make('reason')
                     ->badge()
@@ -50,10 +49,10 @@ class PublicBlockReportsTable
                     ->badge()
                     ->formatStateUsing(fn (string $state) => ucfirst($state))
                     ->color(fn (string $state) => match ($state) {
-                        'pending'   => 'warning',
-                        'reviewed'  => 'success',
+                        'pending' => 'warning',
+                        'reviewed' => 'success',
                         'dismissed' => 'gray',
-                        default     => 'gray',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('created_at')
@@ -64,8 +63,8 @@ class PublicBlockReportsTable
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'pending'   => 'Pending',
-                        'reviewed'  => 'Reviewed',
+                        'pending' => 'Pending',
+                        'reviewed' => 'Reviewed',
                         'dismissed' => 'Dismissed',
                     ])
                     ->default('pending'),

@@ -13,33 +13,33 @@ class ContentBlock extends Model
     ];
 
     protected $casts = [
-        'tags'        => 'array',
-        'is_proven'   => 'boolean',
+        'tags' => 'array',
+        'is_proven' => 'boolean',
         'usage_count' => 'integer',
     ];
 
     public const CATEGORIES = [
-        'organisation'   => 'Organisation background',
-        'partners'       => 'Partners',
-        'needs'          => 'Needs & objectives',
-        'impact'         => 'Impact',
-        'methodology'    => 'Methodology & activities',
-        'inclusion'      => 'Inclusion (fewer opportunities)',
-        'safety'         => 'Safety & protection',
-        'evaluation'     => 'Evaluation',
-        'dissemination'  => 'Dissemination',
+        'organisation' => 'Organisation background',
+        'partners' => 'Partners',
+        'needs' => 'Needs & objectives',
+        'impact' => 'Impact',
+        'methodology' => 'Methodology & activities',
+        'inclusion' => 'Inclusion (fewer opportunities)',
+        'safety' => 'Safety & protection',
+        'evaluation' => 'Evaluation',
+        'dissemination' => 'Dissemination',
         'sustainability' => 'Sustainability',
-        'environment'    => 'Green practices',
-        'recognition'    => 'Recognition (Youthpass)',
-        'communication'  => 'Communication',
-        'virtual'        => 'Virtual / blended',
-        'other'          => 'Other',
+        'environment' => 'Green practices',
+        'recognition' => 'Recognition (Youthpass)',
+        'communication' => 'Communication',
+        'virtual' => 'Virtual / blended',
+        'other' => 'Other',
     ];
 
     // Keys match the ApplicationTemplates keys (lowercase) so the picker can
     // filter library blocks by the project's action.
     public const KA_ACTIONS = [
-        'any'   => 'Any action',
+        'any' => 'Any action',
         'ka122' => 'KA122 — Short-term mobility',
         'ka152' => 'KA152 — Youth exchanges',
         'ka210' => 'KA210 — Small-scale partnerships',

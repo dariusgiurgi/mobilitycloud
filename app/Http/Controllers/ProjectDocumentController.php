@@ -79,7 +79,7 @@ class ProjectDocumentController extends Controller
             && $expense->budgetLine()->where('project_id', $project->id)->exists(),
             404
         );
-        abort_unless(auth()->user()->workspaces()->whereKey($project->workspace_id)->exists(), 403);
+        abort_unless($project->canBeAccessedBy(auth()->user()), 403);
         abort_unless($expense->hasCompleteConventionData(), 422);
 
         $expense->load('budgetLine');
@@ -152,7 +152,7 @@ class ProjectDocumentController extends Controller
             && $expense->budgetLine()->where('project_id', $project->id)->exists(),
             404
         );
-        abort_unless(auth()->user()->workspaces()->whereKey($project->workspace_id)->exists(), 403);
+        abort_unless($project->canBeAccessedBy(auth()->user()), 403);
     }
 
     private function conventionData(Project $project, Expense $expense): array
@@ -180,6 +180,6 @@ class ProjectDocumentController extends Controller
     private function authorizeDocument(Project $project, ProjectDocument $document): void
     {
         abort_unless($document->project_id === $project->id, 404);
-        abort_unless(auth()->user()->workspaces()->whereKey($project->workspace_id)->exists(), 403);
+        abort_unless($project->canBeAccessedBy(auth()->user()), 403);
     }
 }

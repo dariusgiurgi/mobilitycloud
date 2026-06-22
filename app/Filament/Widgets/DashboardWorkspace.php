@@ -27,6 +27,7 @@ class DashboardWorkspace extends Widget
 
         $projects = Project::query()
             ->where('workspace_id', Filament::getTenant()?->id)
+            ->accessibleTo(auth()->user(), Filament::getTenant())
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
             ->with(['budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
             ->latest('updated_at')

@@ -6,10 +6,12 @@ use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ProjectApplicationSection;
+use App\Models\User;
 use App\Services\ProjectDocumentChecklist;
 use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -52,6 +54,50 @@ class ViewProjectOverview extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('manageAccess')
+                ->label('Project access')
+                ->icon('heroicon-o-lock-closed')
+                ->color('gray')
+                ->modalHeading('Control project access')
+                ->modalDescription('Workspace owners and admins always retain access. Choose whether other collaborators see this project.')
+                ->fillForm(fn (): array => [
+                    'access_mode' => $this->record->access_mode ?: 'workspace',
+                    'member_ids' => $this->record->members()->pluck('users.id')->all(),
+                ])
+                ->form([
+                    Select::make('access_mode')
+                        ->label('Visibility')
+                        ->options([
+                            'workspace' => 'Everyone in this workspace',
+                            'restricted' => 'Only selected collaborators',
+                        ])
+                        ->required()
+                        ->native(false),
+                    Select::make('member_ids')
+                        ->label('Selected collaborators')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn (): array => $this->record->workspace->users()
+                            ->wherePivotIn('role', ['member', 'viewer'])
+                            ->orderBy('name')
+                            ->pluck('name', 'users.id')
+                            ->all())
+                        ->helperText('Owners and admins are included automatically.'),
+                ])
+                ->action(function (array $data): void {
+                    abort_unless($this->record->workspace->canManageMembersBy(auth()->user()), 403);
+                    abort_unless(in_array($data['access_mode'], ['workspace', 'restricted'], true), 422);
+                    $allowedIds = $this->record->workspace->users()
+                        ->wherePivotIn('role', ['member', 'viewer'])
+                        ->whereKey($data['member_ids'] ?? [])
+                        ->pluck('users.id')
+                        ->all();
+                    $this->record->update(['access_mode' => $data['access_mode']]);
+                    $this->record->members()->sync($data['access_mode'] === 'restricted' ? $allowedIds : []);
+                    Notification::make()->title('Project access updated')->success()->send();
+                })
+                ->visible(fn (): bool => $this->record->workspace->canManageMembersBy(auth()->user())),
             Action::make('addTask')
                 ->label('Add task')
                 ->icon('heroicon-o-plus')
@@ -159,7 +205,18 @@ class ViewProjectOverview extends Page
 
     public function getTaskAssignees()
     {
-        return $this->record->workspace->users()->orderBy('name')->get();
+        $query = $this->record->workspace->users()->orderBy('name');
+
+        if ($this->record->access_mode === 'restricted') {
+            $allowedIds = $this->record->workspace->users()
+                ->wherePivotIn('role', ['owner', 'admin'])
+                ->pluck('users.id')
+                ->merge($this->record->members()->pluck('users.id'))
+                ->unique();
+            $query->whereKey($allowedIds);
+        }
+
+        return $query->get();
     }
 
     public function openTaskCreate(): void
@@ -194,8 +251,8 @@ class ViewProjectOverview extends Page
             'taskPriority' => ['required', 'in:low,normal,high'],
         ]);
 
-        if ($data['taskAssignedTo'] && ! $this->record->workspace->users()->whereKey($data['taskAssignedTo'])->exists()) {
-            $this->addError('taskAssignedTo', 'Choose a member of this workspace.');
+        if ($data['taskAssignedTo'] && ! $this->record->canBeAccessedBy(User::find($data['taskAssignedTo']))) {
+            $this->addError('taskAssignedTo', 'Choose a collaborator with access to this project.');
 
             return;
         }

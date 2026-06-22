@@ -133,6 +133,8 @@ class MyTasks extends Page
     {
         return ProjectTask::query()
             ->where('assigned_to', auth()->id())
-            ->whereHas('project', fn (Builder $query) => $query->where('workspace_id', Filament::getTenant()?->id));
+            ->whereHas('project', fn (Builder $query) => $query
+                ->where('workspace_id', Filament::getTenant()?->id)
+                ->accessibleTo(auth()->user(), Filament::getTenant()));
     }
 }

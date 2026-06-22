@@ -18,6 +18,7 @@ class ProjectStatsOverview extends BaseWidget
 
         $projects = Project::query()
             ->where('workspace_id', $workspaceId)
+            ->accessibleTo(auth()->user(), Filament::getTenant())
             ->whereIn('status', [ProjectStatus::Approved->value, ProjectStatus::Active->value])
             ->with('budgetLines.expenses')
             ->get();

@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\ProjectStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -21,7 +23,7 @@ class Project extends Model
     ];
 
     protected $fillable = [
-        'workspace_id', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
+        'workspace_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
         'total_budget', 'approved_budget', 'first_tranche_pct', 'withholding_tax_rate',
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
         'expense_prefix', 'expense_pad_length',
@@ -70,6 +72,44 @@ class Project extends Model
         return $this->belongsTo(Workspace::class);
     }
 
+    public function members(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class)->withTimestamps();
+    }
+
+    public function scopeAccessibleTo(Builder $query, ?User $user, ?Workspace $workspace = null): Builder
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $workspace ??= $this->workspace;
+        $role = $workspace?->roleFor($user);
+
+        if (in_array($role, ['owner', 'admin'], true)) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $query) use ($user): void {
+            $query->where('access_mode', 'workspace')
+                ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
+        });
+    }
+
+    public function canBeAccessedBy(?User $user): bool
+    {
+        if (! $user || ! $this->workspace?->users()->whereKey($user->id)->exists()) {
+            return false;
+        }
+
+        if (in_array($this->workspace->roleFor($user), ['owner', 'admin'], true)) {
+            return true;
+        }
+
+        return ($this->access_mode ?: 'workspace') === 'workspace'
+            || $this->members()->whereKey($user->id)->exists();
+    }
+
     public function budgetLines(): HasMany
     {
         return $this->hasMany(BudgetLine::class);
@@ -106,7 +146,8 @@ class Project extends Model
             return false;
         }
 
-        return $this->workspace?->canBeManagedBy($user) ?? false;
+        return $this->canBeAccessedBy($user)
+            && ($this->workspace?->canBeManagedBy($user) ?? false);
     }
 
     /**

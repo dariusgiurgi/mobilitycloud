@@ -13,7 +13,7 @@ class BudgetTransfer extends Model
     ];
 
     protected $casts = [
-        'amount'      => 'decimal:2',
+        'amount' => 'decimal:2',
         'reversed_at' => 'datetime',
     ];
 

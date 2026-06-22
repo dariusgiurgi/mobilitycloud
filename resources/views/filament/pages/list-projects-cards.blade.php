@@ -57,7 +57,12 @@
                 @if($archived)<div class="mc-project-list-card">@else<a href="{{ $this->getProjectUrl($project) }}" class="mc-project-list-card">@endif
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;">
                         <div style="min-width:0;">
-                            <h2 class="text-gray-950 dark:text-white" style="font-size:.96rem;font-weight:650;line-height:1.35;overflow-wrap:anywhere;">{{ $project->name }}</h2>
+                            <div style="display:flex;align-items:center;gap:.35rem;">
+                                <h2 class="text-gray-950 dark:text-white" style="font-size:.96rem;font-weight:650;line-height:1.35;overflow-wrap:anywhere;">{{ $project->name }}</h2>
+                                @if($project->access_mode === 'restricted')
+                                    <x-filament::icon icon="heroicon-o-lock-closed" class="text-gray-400" style="width:.85rem;height:.85rem;flex:none;" title="Restricted project access" />
+                                @endif
+                            </div>
                             @if ($project->acronym || $project->grant_ref)
                                 <p class="mc-project-muted" style="font-size:.7rem;margin-top:.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                                     {{ collect([$project->acronym, $project->grant_ref])->filter()->join(' · ') }}

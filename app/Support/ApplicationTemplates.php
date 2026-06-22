@@ -76,6 +76,7 @@ class ApplicationTemplates
         foreach (self::TEMPLATES as $key => $tpl) {
             $out[$key] = $tpl['label'];
         }
+
         return $out;
     }
 

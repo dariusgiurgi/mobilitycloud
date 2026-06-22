@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PublicContentBlocks\Pages;
 
+use App\Filament\Pages\PublicLibrary;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use Filament\Facades\Filament;
 use Filament\Resources\Pages\CreateRecord;
@@ -18,8 +19,8 @@ class CreatePublicContentBlock extends CreateRecord
         return $data;
     }
 
-  protected function getRedirectUrl(): string
+    protected function getRedirectUrl(): string
     {
-        return \App\Filament\Pages\PublicLibrary::getUrl(['tenant' => \Filament\Facades\Filament::getTenant()]);
+        return PublicLibrary::getUrl(['tenant' => Filament::getTenant()]);
     }
 }

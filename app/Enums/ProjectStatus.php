@@ -5,38 +5,38 @@ namespace App\Enums;
 use Filament\Support\Contracts\HasColor;
 use Filament\Support\Contracts\HasLabel;
 
-enum ProjectStatus: string implements HasLabel, HasColor
+enum ProjectStatus: string implements HasColor, HasLabel
 {
-    case Writing    = 'writing';
-    case Submitted  = 'submitted';
-    case Rejected   = 'rejected';
-    case Revise     = 'revise';
-    case Approved   = 'approved';
-    case Active     = 'active';
-    case Completed  = 'completed';
+    case Writing = 'writing';
+    case Submitted = 'submitted';
+    case Rejected = 'rejected';
+    case Revise = 'revise';
+    case Approved = 'approved';
+    case Active = 'active';
+    case Completed = 'completed';
 
     public function getLabel(): string
     {
         return match ($this) {
-            self::Writing   => 'Writing',
+            self::Writing => 'Writing',
             self::Submitted => 'Submitted',
-            self::Rejected  => 'Rejected',
-            self::Revise    => 'Revising',
-            self::Approved  => 'Approved',
-            self::Active    => 'Active',
+            self::Rejected => 'Rejected',
+            self::Revise => 'Revising',
+            self::Approved => 'Approved',
+            self::Active => 'Active',
             self::Completed => 'Completed',
         };
     }
 
-    public function getColor(): string | array | null
+    public function getColor(): string|array|null
     {
         return match ($this) {
-            self::Writing   => 'gray',
+            self::Writing => 'gray',
             self::Submitted => 'info',
-            self::Rejected  => 'danger',
-            self::Revise    => 'warning',
-            self::Approved  => 'success',
-            self::Active    => 'primary',
+            self::Rejected => 'danger',
+            self::Revise => 'warning',
+            self::Approved => 'success',
+            self::Active => 'primary',
             self::Completed => 'success',
         };
     }
@@ -68,12 +68,12 @@ enum ProjectStatus: string implements HasLabel, HasColor
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Writing   => [self::Submitted],
+            self::Writing => [self::Submitted],
             self::Submitted => [self::Approved, self::Rejected],
-            self::Rejected  => [self::Revise],
-            self::Revise    => [self::Submitted],
-            self::Approved  => [self::Active],
-            self::Active    => [self::Completed],
+            self::Rejected => [self::Revise],
+            self::Revise => [self::Submitted],
+            self::Approved => [self::Active],
+            self::Active => [self::Completed],
             self::Completed => [],
         };
     }
