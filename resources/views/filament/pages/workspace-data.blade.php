@@ -14,5 +14,24 @@
                 </div>
             </div>
         </x-filament::section>
+
+        <x-filament::section heading="Restore a backup" description="Import a MobilityCloud ZIP as new records without overwriting existing projects." icon="heroicon-o-arrow-up-tray">
+            <div style="display:grid;gap:.9rem;">
+                <div class="text-gray-600 dark:text-gray-300" style="font-size:.8rem;line-height:1.65;">
+                    Projects, participants, expenses, documents, tasks, calculations and content blocks are recreated. Existing records are preserved, collaborator assignments are cleared, and restricted projects return with workspace-wide visibility so nobody is locked out.
+                </div>
+                <input type="file" wire:model="restoreFile" accept=".zip,application/zip" class="text-gray-700 dark:text-gray-200" style="font-size:.78rem;">
+                @error('restoreFile') <p style="color:#dc2626;font-size:.72rem;">{{ $message }}</p> @enderror
+                <div wire:loading wire:target="restoreFile" class="text-gray-500" style="font-size:.72rem;">Reading archive…</div>
+                <div>
+                    <x-filament::button wire:click="restore" wire:confirm="Restore this backup into the current workspace? Existing data will not be overwritten." wire:loading.attr="disabled" wire:target="restore" :disabled="!$restoreFile" icon="heroicon-o-arrow-up-tray">Restore backup</x-filament::button>
+                </div>
+                @if($restoreResult)
+                    <div style="padding:.75rem;border-radius:.65rem;background:rgba(16,185,129,.08);color:#047857;font-size:.73rem;line-height:1.5;">
+                        Restored {{ $restoreResult['projects'] }} project(s), {{ $restoreResult['participants'] }} participant(s), {{ $restoreResult['expenses'] }} expense(s), {{ $restoreResult['documents'] }} document(s), {{ $restoreResult['files'] }} file(s), and {{ $restoreResult['content_blocks'] }} content block(s).
+                    </div>
+                @endif
+            </div>
+        </x-filament::section>
     </div>
 </x-filament-panels::page>

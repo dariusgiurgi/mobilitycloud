@@ -37,7 +37,7 @@ class WorkspaceBackupService
 
         $payload = [
             'exported_at' => now()->toIso8601String(),
-            'format_version' => 1,
+            'format_version' => 2,
             'workspace' => $workspace->toArray(),
             'team' => $workspace->users()->orderBy('name')->get()->map(fn ($user): array => [
                 'id' => $user->id,
@@ -67,42 +67,66 @@ class WorkspaceBackupService
             ])->all(),
         ];
 
-        $zip->addFromString('workspace-data.json', json_encode(
-            $payload,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
-        ));
-        $zip->addFromString('README.txt', "MobilityCloud workspace backup\n\nThe workspace-data.json file contains the structured records.\nThe files directory contains uploaded evidence and documents, grouped by project.\nGenerated PDFs can be regenerated from the structured data after restoration.\n");
+        $fileIndex = [];
 
         foreach ($projects as $project) {
             $projectDir = 'files/'.$project->id.'-'.$this->safeName($project->name);
 
             foreach ($project->participants as $participant) {
                 foreach ($participant->attachments as $attachment) {
-                    $this->addStoredFile($zip, $attachment->disk, $attachment->path, $projectDir.'/participants/'.$participant->id.'-'.$this->safeName($participant->fullName()).'/'.$attachment->id.'-'.$this->safeFilename($attachment->original_name));
+                    $this->addStoredFile($zip, $fileIndex, 'participant_attachment', $attachment->id, 'file', $attachment->disk, $attachment->path, $projectDir.'/participants/'.$participant->id.'-'.$this->safeName($participant->fullName()).'/'.$attachment->id.'-'.$this->safeFilename($attachment->original_name), $attachment->original_name);
                 }
             }
 
             foreach ($project->budgetLines->flatMap->expenses as $expense) {
-                $this->addStoredFile($zip, $expense->attachment_disk, $expense->attachment_path, $projectDir.'/expenses/'.$expense->id.'-'.$this->safeFilename($expense->attachment_name));
+                $this->addStoredFile($zip, $fileIndex, 'expense', $expense->id, 'evidence', $expense->attachment_disk, $expense->attachment_path, $projectDir.'/expenses/'.$expense->id.'-'.$this->safeFilename($expense->attachment_name), $expense->attachment_name);
                 foreach (['agreement', 'acceptance', 'payment'] as $kind) {
                     $copy = $expense->conventionSignedCopy($kind);
-                    $this->addStoredFile($zip, $copy['disk'], $copy['path'], $projectDir.'/civil-conventions/'.$expense->id.'-'.$kind.'-'.$this->safeFilename($copy['name']));
+                    $this->addStoredFile($zip, $fileIndex, 'expense', $expense->id, $kind, $copy['disk'], $copy['path'], $projectDir.'/civil-conventions/'.$expense->id.'-'.$kind.'-'.$this->safeFilename($copy['name']), $copy['name']);
                 }
             }
 
             foreach ($project->documents as $document) {
-                $this->addStoredFile($zip, $document->file_disk, $document->file_path, $projectDir.'/documents/'.$document->id.'-original-'.$this->safeFilename($document->file_name));
-                $this->addStoredFile($zip, $document->signed_disk, $document->signed_path, $projectDir.'/documents/'.$document->id.'-signed-'.$this->safeFilename($document->signed_name));
+                $this->addStoredFile($zip, $fileIndex, 'project_document', $document->id, 'original', $document->file_disk, $document->file_path, $projectDir.'/documents/'.$document->id.'-original-'.$this->safeFilename($document->file_name), $document->file_name);
+                $this->addStoredFile($zip, $fileIndex, 'project_document', $document->id, 'signed', $document->signed_disk, $document->signed_path, $projectDir.'/documents/'.$document->id.'-signed-'.$this->safeFilename($document->signed_name), $document->signed_name);
             }
         }
+
+        $this->addStoredFile(
+            $zip,
+            $fileIndex,
+            'workspace',
+            $workspace->id,
+            'document_logo',
+            'local',
+            $workspace->document_logo_path,
+            'files/workspace/document-logo-'.$this->safeFilename($workspace->document_logo_path),
+            $workspace->document_logo_path ? basename($workspace->document_logo_path) : null,
+        );
+
+        $payload['file_index'] = $fileIndex;
+        $zip->addFromString('workspace-data.json', json_encode(
+            $payload,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
+        ));
+        $zip->addFromString('README.txt', "MobilityCloud workspace backup\n\nThe workspace-data.json file contains the structured records and a verified file index.\nThe files directory contains uploaded evidence and documents, grouped by project.\nUse Workspace settings > Data & backup to restore this archive safely.\n");
 
         $zip->close();
 
         return $path;
     }
 
-    private function addStoredFile(ZipArchive $zip, ?string $disk, ?string $path, string $archivePath): void
-    {
+    private function addStoredFile(
+        ZipArchive $zip,
+        array &$fileIndex,
+        string $entity,
+        int $recordId,
+        string $slot,
+        ?string $disk,
+        ?string $path,
+        string $archivePath,
+        ?string $originalName,
+    ): void {
         if (! filled($path)) {
             return;
         }
@@ -121,6 +145,15 @@ class WorkspaceBackupService
         fclose($stream);
         if ($contents !== false) {
             $zip->addFromString($archivePath, $contents);
+            $fileIndex[] = [
+                'entity' => $entity,
+                'record_id' => $recordId,
+                'slot' => $slot,
+                'archive_path' => $archivePath,
+                'original_name' => $originalName,
+                'size' => strlen($contents),
+                'sha256' => hash('sha256', $contents),
+            ];
         }
     }
 

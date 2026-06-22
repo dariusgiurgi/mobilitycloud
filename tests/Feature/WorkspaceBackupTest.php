@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\WorkspaceBackupService;
+use App\Services\WorkspaceRestoreService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -47,12 +48,65 @@ class WorkspaceBackupTest extends TestCase
         $payload = json_decode($zip->getFromName('workspace-data.json'), true, flags: JSON_THROW_ON_ERROR);
 
         $this->assertSame('Backup Workspace', $payload['workspace']['name']);
+        $this->assertSame(2, $payload['format_version']);
+        $this->assertSame('participant_attachment', $payload['file_index'][0]['entity']);
         $this->assertSame('Backup Project', $payload['projects'][0]['project']['name']);
         $this->assertSame('Ana', $payload['projects'][0]['participants'][0]['first_name']);
         $this->assertNotFalse($zip->locateName('files/'.$project->id.'-backup-project/participants/'.$participant->id.'-ana-pop/1-consent.pdf'));
 
         $zip->close();
         unlink($path);
+    }
+
+    public function test_backup_can_be_restored_non_destructively_with_files(): void
+    {
+        Storage::fake('local');
+        $source = Workspace::create(['name' => 'Source Workspace']);
+        $project = Project::create([
+            'workspace_id' => $source->id,
+            'name' => 'Restorable Project',
+            'status' => 'active',
+        ]);
+        $participant = Participant::create([
+            'project_id' => $project->id,
+            'first_name' => 'Mara',
+            'last_name' => 'Ionescu',
+        ]);
+        Storage::disk('local')->put('source/passport.pdf', 'passport-copy');
+        ParticipantAttachment::create([
+            'participant_id' => $participant->id,
+            'type' => 'id_copy',
+            'path' => 'source/passport.pdf',
+            'disk' => 'local',
+            'original_name' => 'passport.pdf',
+            'size' => 13,
+        ]);
+        $line = $project->budgetLines()->firstOrFail();
+        $line->expenses()->create([
+            'description' => 'Venue rental',
+            'amount' => 500,
+            'currency' => 'EUR',
+            'exchange_rate' => 1,
+            'amount_eur' => 500,
+        ]);
+        $archive = app(WorkspaceBackupService::class)->create($source);
+
+        $target = Workspace::create(['name' => 'Target Workspace']);
+        $admin = User::factory()->create();
+        $target->users()->attach($admin, ['role' => 'admin']);
+        $this->actingAs($admin);
+        $result = app(WorkspaceRestoreService::class)->restore($target, $archive);
+
+        $restored = $target->projects()->where('name', 'Restorable Project')->firstOrFail();
+        $this->assertSame(1, $result['projects']);
+        $this->assertSame(1, $result['files']);
+        $this->assertSame('workspace', $restored->access_mode);
+        $this->assertSame('Venue rental', $restored->budgetLines()->firstOrFail()->expenses()->firstOrFail()->description);
+        $attachment = $restored->participants()->firstOrFail()->attachments()->firstOrFail();
+        Storage::disk('local')->assertExists($attachment->path);
+        $this->assertSame('passport-copy', Storage::disk('local')->get($attachment->path));
+
+        unlink($archive);
     }
 
     public function test_only_workspace_admins_can_download_a_backup(): void
@@ -64,5 +118,34 @@ class WorkspaceBackupTest extends TestCase
         $this->actingAs($viewer)
             ->get(route('workspaces.backup', $workspace))
             ->assertForbidden();
+    }
+
+    public function test_legacy_version_one_backup_remains_restorable(): void
+    {
+        Storage::fake('local');
+        $source = Workspace::create(['name' => 'Legacy Source']);
+        Project::create([
+            'workspace_id' => $source->id,
+            'name' => 'Legacy Project',
+            'status' => 'writing',
+        ]);
+        $archive = app(WorkspaceBackupService::class)->create($source);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($archive) === true);
+        $payload = json_decode($zip->getFromName('workspace-data.json'), true, flags: JSON_THROW_ON_ERROR);
+        $payload['format_version'] = 1;
+        unset($payload['file_index']);
+        $zip->addFromString('workspace-data.json', json_encode($payload, JSON_THROW_ON_ERROR));
+        $zip->close();
+
+        $target = Workspace::create(['name' => 'Legacy Target']);
+        $admin = User::factory()->create();
+        $target->users()->attach($admin, ['role' => 'admin']);
+        $this->actingAs($admin);
+
+        $result = app(WorkspaceRestoreService::class)->restore($target, $archive);
+        $this->assertSame(1, $result['projects']);
+        $this->assertTrue($target->projects()->where('name', 'Legacy Project')->exists());
+        unlink($archive);
     }
 }

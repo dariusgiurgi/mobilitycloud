@@ -13,14 +13,7 @@
     @include('pdf.partials.document-theme')
 </style></head><body>
 
-<div class="mc-doc-header">
-    <span class="mc-doc-brand">MobilityCloud</span>
-    <span class="mc-doc-context">Application document</span>
-</div>
-<div class="mc-doc-footer">
-    <span class="mc-doc-footer-left">{{ $project->name }} · Powered by Xeotype</span>
-    <span class="mc-doc-footer-right">Page <span class="mc-doc-page"></span></span>
-</div>
+@include('pdf.partials.document-header', ['workspace' => $project->workspace, 'context' => 'Application document', 'footerLeft' => $project->name.' · '.($project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud'))])
 
 <div class="mc-doc-title">
     <h1>Project Application</h1>

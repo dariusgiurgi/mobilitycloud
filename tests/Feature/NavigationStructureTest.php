@@ -2,12 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\ManageCurrencies;
 use App\Filament\Pages\NotificationPreferences;
 use App\Filament\Pages\PublicLibrary;
+use App\Filament\Pages\WorkspaceCalendar;
 use App\Filament\Pages\WorkspaceData;
+use App\Filament\Pages\WorkspaceReports;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
@@ -24,6 +27,10 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(-1, ProjectResource::getNavigationSort());
         $this->assertNull(GlobalSearch::getNavigationGroup());
         $this->assertSame(1, GlobalSearch::getNavigationSort());
+        $this->assertNull(WorkspaceCalendar::getNavigationGroup());
+        $this->assertSame(2, WorkspaceCalendar::getNavigationSort());
+        $this->assertNull(WorkspaceReports::getNavigationGroup());
+        $this->assertSame(3, WorkspaceReports::getNavigationSort());
 
         $this->assertSame('Planning tools', ContentBlockResource::getNavigationGroup());
         $this->assertSame(10, ContentBlockResource::getNavigationSort());
@@ -40,6 +47,8 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(10, ManageCurrencies::getNavigationSort());
         $this->assertSame('Workspace settings', WorkspaceData::getNavigationGroup());
         $this->assertSame(30, WorkspaceData::getNavigationSort());
+        $this->assertSame('Workspace settings', DocumentTemplates::getNavigationGroup());
+        $this->assertSame(35, DocumentTemplates::getNavigationSort());
         $this->assertSame('Workspace settings', NotificationPreferences::getNavigationGroup());
         $this->assertSame(40, NotificationPreferences::getNavigationSort());
     }

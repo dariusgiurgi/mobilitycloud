@@ -1,3 +1,4 @@
+@php($docAccent = ($workspace ?? $project->workspace ?? null)?->documentSetting('accent_color', '#4f46e5') ?: '#4f46e5')
 @page { margin: 72px 38px 54px; }
 .mc-doc-header {
     position: fixed;
@@ -5,18 +6,19 @@
     left: 0;
     right: 0;
     height: 42px;
-    border-bottom: 2px solid #4f46e5;
+    border-bottom: 2px solid {{ $docAccent }};
 }
 .mc-doc-brand {
     position: absolute;
     top: 0;
     left: 0;
-    color: #312e81;
+    color: {{ $docAccent }};
     font-size: 10px;
     font-weight: bold;
     letter-spacing: .08em;
     text-transform: uppercase;
 }
+.mc-doc-logo { max-height: 30px; max-width: 130px; }
 .mc-doc-context {
     position: absolute;
     top: 0;

@@ -14,14 +14,7 @@
     @include('pdf.partials.document-theme')
 </style></head><body>
 
-<div class="mc-doc-header">
-    <span class="mc-doc-brand">MobilityCloud</span>
-    <span class="mc-doc-context">Planning document</span>
-</div>
-<div class="mc-doc-footer">
-    <span class="mc-doc-footer-left">Individual support estimate · Erasmus+ rates</span>
-    <span class="mc-doc-footer-right">Page <span class="mc-doc-page"></span></span>
-</div>
+@include('pdf.partials.document-header', ['workspace' => $workspace, 'context' => 'Planning document', 'footerLeft' => 'Individual support estimate · Erasmus+ rates'])
 
 <div class="mc-doc-title">
     <h1>Individual Support Calculation</h1>
