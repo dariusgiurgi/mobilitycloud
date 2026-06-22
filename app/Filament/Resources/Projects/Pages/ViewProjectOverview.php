@@ -21,6 +21,22 @@ class ViewProjectOverview extends Page
 
     protected string $view = 'filament.pages.view-project-overview';
 
+    public bool $showTaskModal = false;
+
+    public ?int $editingTaskId = null;
+
+    public string $taskTitle = '';
+
+    public string $taskDescription = '';
+
+    public ?string $taskDueDate = null;
+
+    public ?int $taskAssignedTo = null;
+
+    public string $taskPriority = 'normal';
+
+    public string $taskFilter = 'open';
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -99,6 +115,115 @@ class ViewProjectOverview extends Page
             ->latest()
             ->limit(12)
             ->get();
+    }
+
+    public function getProjectTasks()
+    {
+        return $this->record->tasks()
+            ->with('assignee')
+            ->when($this->taskFilter === 'open', fn ($query) => $query->where('status', 'open'))
+            ->when($this->taskFilter === 'completed', fn ($query) => $query->where('status', 'completed'))
+            ->orderByRaw("CASE priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END")
+            ->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('due_date')
+            ->latest('id')
+            ->get();
+    }
+
+    public function getTaskAssignees()
+    {
+        return $this->record->workspace->users()->orderBy('name')->get();
+    }
+
+    public function openTaskCreate(): void
+    {
+        $this->authorizeProjectManagement();
+        $this->resetTaskForm();
+        $this->showTaskModal = true;
+    }
+
+    public function openTaskEdit(int $taskId): void
+    {
+        $this->authorizeProjectManagement();
+        $task = $this->record->tasks()->findOrFail($taskId);
+        $this->editingTaskId = $task->id;
+        $this->taskTitle = $task->title;
+        $this->taskDescription = $task->description ?? '';
+        $this->taskDueDate = $task->due_date?->format('Y-m-d');
+        $this->taskAssignedTo = $task->assigned_to;
+        $this->taskPriority = $task->priority;
+        $this->resetErrorBag();
+        $this->showTaskModal = true;
+    }
+
+    public function saveTask(): void
+    {
+        $this->authorizeProjectManagement();
+        $data = $this->validate([
+            'taskTitle' => ['required', 'string', 'max:255'],
+            'taskDescription' => ['nullable', 'string', 'max:2000'],
+            'taskDueDate' => ['nullable', 'date'],
+            'taskAssignedTo' => ['nullable', 'integer'],
+            'taskPriority' => ['required', 'in:low,normal,high'],
+        ]);
+
+        if ($data['taskAssignedTo'] && ! $this->record->workspace->users()->whereKey($data['taskAssignedTo'])->exists()) {
+            $this->addError('taskAssignedTo', 'Choose a member of this workspace.');
+
+            return;
+        }
+
+        $attributes = [
+            'title' => trim($data['taskTitle']),
+            'description' => filled($data['taskDescription']) ? trim($data['taskDescription']) : null,
+            'due_date' => $data['taskDueDate'],
+            'assigned_to' => $data['taskAssignedTo'],
+            'priority' => $data['taskPriority'],
+        ];
+
+        $wasEditing = $this->editingTaskId !== null;
+        if ($wasEditing) {
+            $this->record->tasks()->findOrFail($this->editingTaskId)->update($attributes);
+        } else {
+            $this->record->tasks()->create([
+                ...$attributes,
+                'created_by' => auth()->id(),
+            ]);
+        }
+
+        $this->showTaskModal = false;
+        $this->resetTaskForm();
+        Notification::make()->title($wasEditing ? 'Task updated' : 'Task added')->success()->send();
+    }
+
+    public function toggleTask(int $taskId): void
+    {
+        $this->authorizeProjectManagement();
+        $task = $this->record->tasks()->findOrFail($taskId);
+        $completed = ! $task->isCompleted();
+        $task->update([
+            'status' => $completed ? 'completed' : 'open',
+            'completed_at' => $completed ? now() : null,
+            'completed_by' => $completed ? auth()->id() : null,
+        ]);
+    }
+
+    public function deleteTask(int $taskId): void
+    {
+        $this->authorizeProjectManagement();
+        $this->record->tasks()->findOrFail($taskId)->delete();
+        Notification::make()->title('Task deleted')->success()->send();
+    }
+
+    private function resetTaskForm(): void
+    {
+        $this->editingTaskId = null;
+        $this->taskTitle = '';
+        $this->taskDescription = '';
+        $this->taskDueDate = null;
+        $this->taskAssignedTo = null;
+        $this->taskPriority = 'normal';
+        $this->resetErrorBag();
     }
 
     public function getModuleUrls(): array

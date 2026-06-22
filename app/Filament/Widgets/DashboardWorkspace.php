@@ -25,7 +25,7 @@ class DashboardWorkspace extends Widget
         $projects = Project::query()
             ->where('workspace_id', Filament::getTenant()?->id)
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
-            ->with(['budgetLines.expenses', 'participants.attachments', 'documents'])
+            ->with(['budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
             ->latest('updated_at')
             ->get();
 
@@ -150,6 +150,27 @@ class DashboardWorkspace extends Widget
                     'documents',
                 ));
             }
+
+            foreach ($project->tasks->where('status', 'open')->whereNotNull('due_date') as $task) {
+                $days = (int) $today->diffInDays($task->due_date, false);
+                if ($days < 0) {
+                    $items->push($this->attentionItem(
+                        $project,
+                        'Overdue task: '.$task->title,
+                        ($task->assignee?->name ?? 'Unassigned').' · due '.$task->due_date->format('d M Y'),
+                        'danger',
+                        'overview',
+                    ));
+                } elseif ($days <= 7) {
+                    $items->push($this->attentionItem(
+                        $project,
+                        'Task due '.$this->relativeDays($days).': '.$task->title,
+                        $task->assignee?->name ?? 'Unassigned',
+                        $days <= 2 ? 'danger' : 'warning',
+                        'overview',
+                    ));
+                }
+            }
         }
 
         return $items
@@ -187,6 +208,20 @@ class DashboardWorkspace extends Widget
                     $items[] = [
                         'date' => $date,
                         'label' => $label,
+                        'project' => $project->name,
+                        'url' => ProjectResource::getUrl('overview', ['record' => $project]),
+                    ];
+                }
+
+                foreach ($project->tasks->where('status', 'open') as $task) {
+                    $date = $task->due_date;
+                    if (! $date || $date->isBefore($today) || $date->isAfter($until)) {
+                        continue;
+                    }
+
+                    $items[] = [
+                        'date' => $date,
+                        'label' => 'Task: '.$task->title,
                         'project' => $project->name,
                         'url' => ProjectResource::getUrl('overview', ['record' => $project]),
                     ];

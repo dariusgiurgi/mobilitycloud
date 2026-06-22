@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectDocument;
+use App\Models\ProjectTask;
 use Illuminate\Database\Eloquent\Model;
 
 class ProjectActivityObserver
@@ -71,6 +72,7 @@ class ProjectActivityObserver
             $subject instanceof Participant,
             $subject instanceof ProjectApplicationSection,
             $subject instanceof ProjectDocument => $subject->project,
+            $subject instanceof ProjectTask => $subject->project,
             default => null,
         };
     }
@@ -96,6 +98,7 @@ class ProjectActivityObserver
             $subject instanceof ProjectApplicationSection => $verb.' application section “'.$subject->title.'”',
             $subject instanceof BudgetLine => $verb.' budget basket “'.$subject->title.'”',
             $subject instanceof BudgetTransfer => $event === 'created' ? 'recorded a budget transfer' : $verb.' a budget transfer',
+            $subject instanceof ProjectTask => $verb.' task “'.$subject->title.'”',
             default => $verb.' project data',
         };
     }

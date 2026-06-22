@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-ui-polish />
     @php
         $status = $this->getStatusEnum();
         $transitions = $status->allowedTransitions();
@@ -6,6 +7,8 @@
         $participants = $this->getParticipantSummary();
         $documents = $this->getDocumentSummary();
         $activity = $this->getRecentActivity();
+        $tasks = $this->getProjectTasks();
+        $taskAssignees = $this->getTaskAssignees();
         $nextStep = $this->getNextStep();
         $urls = $this->getModuleUrls();
         $partners = $this->record->partners;
@@ -26,11 +29,17 @@
         .mc-activity-row { position:relative;display:flex;gap:.8rem;padding:0 0 1rem; }
         .mc-activity-row:not(:last-child)::after { content:'';position:absolute;left:14px;top:30px;bottom:0;width:1px;background:rgba(148,163,184,.25); }
         .mc-activity-icon { width:29px;height:29px;display:flex;align-items:center;justify-content:center;flex:none;border-radius:9999px;background:color-mix(in srgb,var(--activity-color) 11%,transparent);color:var(--activity-color); }
+        .mc-task-row { display:flex;align-items:flex-start;gap:.75rem;padding:.8rem 0; }
+        .mc-task-row + .mc-task-row { border-top:1px solid rgba(148,163,184,.16); }
+        .mc-task-check { width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex:none;border:1px solid rgba(100,116,139,.35);border-radius:9999px;background:transparent;color:#fff;cursor:pointer; }
+        .mc-task-check.is-done { border-color:#10b981;background:#10b981; }
+        .mc-task-field { width:100%;padding:.58rem .7rem;border:1px solid rgba(100,116,139,.3);border-radius:.55rem;background:transparent;font-size:.82rem; }
+        .mc-task-form-grid { display:grid;grid-template-columns:1fr 1fr;gap:.85rem; }
         .dark .mc-overview-card { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
         .dark .mc-overview-card:hover { box-shadow:0 10px 28px rgba(0,0,0,.22); }
         .dark .mc-overview-muted { color:#94a3b8; }
         @media (max-width:1100px) { .mc-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-        @media (max-width:700px) { .mc-overview-grid,.mc-overview-detail-grid { grid-template-columns:1fr; } }
+        @media (max-width:700px) { .mc-overview-grid,.mc-overview-detail-grid,.mc-task-form-grid { grid-template-columns:1fr; } }
     </style>
 
     <x-filament::section>
@@ -196,6 +205,68 @@
     </x-filament::section>
 
     <x-filament::section style="margin-top:1rem;">
+        <x-slot name="heading">Project tasks</x-slot>
+        <x-slot name="description">Operational actions, owners and deadlines for this project.</x-slot>
+        <x-slot name="headerEnd">
+            <div style="display:flex;align-items:center;gap:.5rem;">
+                <select wire:model.live="taskFilter" class="mc-task-field text-gray-950 dark:text-white" style="width:auto;padding:.4rem 1.8rem .4rem .55rem;font-size:.72rem;">
+                    <option value="open">Open</option>
+                    <option value="completed">Completed</option>
+                    <option value="all">All</option>
+                </select>
+                @if($canManage)
+                    <x-filament::button wire:click="openTaskCreate" size="sm" icon="heroicon-o-plus">Add task</x-filament::button>
+                @endif
+            </div>
+        </x-slot>
+
+        @forelse($tasks as $task)
+            <div class="mc-task-row" wire:key="project-task-{{ $task->id }}">
+                @if($canManage)
+                    <button type="button" wire:click="toggleTask({{ $task->id }})" class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="{{ $task->isCompleted() ? 'Reopen' : 'Complete' }} {{ $task->title }}">
+                        @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
+                    </button>
+                @else
+                    <span class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}">
+                        @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
+                    </span>
+                @endif
+
+                <div style="min-width:0;flex:1;">
+                    <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;">
+                        <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:620;{{ $task->isCompleted() ? 'text-decoration:line-through;opacity:.65;' : '' }}">{{ $task->title }}</p>
+                        @if($task->priority === 'high')<x-filament::badge color="danger" size="sm">High</x-filament::badge>@endif
+                        @if($task->isOverdue())<x-filament::badge color="danger" size="sm">Overdue</x-filament::badge>@endif
+                    </div>
+                    @if($task->description)
+                        <p class="mc-overview-muted" style="font-size:.72rem;line-height:1.45;margin-top:.2rem;">{{ $task->description }}</p>
+                    @endif
+                    <div class="mc-overview-muted" style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;font-size:.68rem;margin-top:.35rem;">
+                        <span>{{ $task->assignee?->name ?? 'Unassigned' }}</span>
+                        <span>{{ $task->due_date ? 'Due '.$task->due_date->format('d M Y') : 'No deadline' }}</span>
+                        @if($task->isCompleted() && $task->completed_at)<span>Completed {{ $task->completed_at->diffForHumans() }}</span>@endif
+                    </div>
+                </div>
+
+                @if($canManage)
+                    <x-filament::dropdown placement="bottom-end">
+                        <x-slot name="trigger"><x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" size="sm" label="Task actions" /></x-slot>
+                        <x-filament::dropdown.list>
+                            <x-filament::dropdown.list.item wire:click="openTaskEdit({{ $task->id }})" icon="heroicon-m-pencil-square">Edit</x-filament::dropdown.list.item>
+                            <x-filament::dropdown.list.item wire:click="deleteTask({{ $task->id }})" wire:confirm="Delete this task?" icon="heroicon-m-trash" color="danger">Delete</x-filament::dropdown.list.item>
+                        </x-filament::dropdown.list>
+                    </x-filament::dropdown>
+                @endif
+            </div>
+        @empty
+            <div style="padding:1.2rem 0;text-align:center;">
+                <x-filament::icon icon="heroicon-o-check-circle" class="mx-auto h-7 w-7 text-gray-400" />
+                <p class="mc-overview-muted" style="font-size:.76rem;margin-top:.4rem;">{{ $this->taskFilter === 'open' ? 'No open tasks.' : 'No tasks in this view.' }}</p>
+            </div>
+        @endforelse
+    </x-filament::section>
+
+    <x-filament::section style="margin-top:1rem;">
         <x-slot name="heading">Recent activity</x-slot>
         <x-slot name="description">The latest recorded changes across this project.</x-slot>
 
@@ -218,4 +289,49 @@
             </div>
         @endforelse
     </x-filament::section>
+
+    @if($showTaskModal)
+        <div class="mc-modal-backdrop" wire:click.self="$set('showTaskModal', false)">
+            <div class="mc-modal-panel">
+                <div class="mc-modal-body">
+                    <h3 class="mc-modal-heading">{{ $editingTaskId ? 'Edit task' : 'Add project task' }}</h3>
+                    <p class="mc-modal-description">Keep the title actionable and assign a deadline only when it is meaningful.</p>
+
+                    <label for="task-title" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin-bottom:.35rem;">Title</label>
+                    <input id="task-title" type="text" wire:model="taskTitle" class="mc-task-field text-gray-950 dark:text-white" placeholder="e.g. Collect partner mandates">
+                    @error('taskTitle')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+
+                    <label for="task-description" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin:1rem 0 .35rem;">Notes</label>
+                    <textarea id="task-description" wire:model="taskDescription" rows="3" class="mc-task-field text-gray-950 dark:text-white" placeholder="Optional context or expected result"></textarea>
+                    @error('taskDescription')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+
+                    <div class="mc-task-form-grid" style="margin-top:1rem;">
+                        <div>
+                            <label for="task-assignee" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin-bottom:.35rem;">Assignee</label>
+                            <select id="task-assignee" wire:model="taskAssignedTo" class="mc-task-field text-gray-950 dark:text-white">
+                                <option value="">Unassigned</option>
+                                @foreach($taskAssignees as $assignee)<option value="{{ $assignee->id }}">{{ $assignee->name }}</option>@endforeach
+                            </select>
+                            @error('taskAssignedTo')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label for="task-due" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin-bottom:.35rem;">Deadline</label>
+                            <input id="task-due" type="date" wire:model="taskDueDate" class="mc-task-field text-gray-950 dark:text-white">
+                            @error('taskDueDate')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+                        </div>
+                    </div>
+
+                    <label for="task-priority" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin:1rem 0 .35rem;">Priority</label>
+                    <select id="task-priority" wire:model="taskPriority" class="mc-task-field text-gray-950 dark:text-white">
+                        @foreach(\App\Models\ProjectTask::PRIORITIES as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                    </select>
+
+                    <div class="mc-modal-actions">
+                        <x-filament::button wire:click="$set('showTaskModal', false)" color="gray" size="sm">Cancel</x-filament::button>
+                        <x-filament::button wire:click="saveTask" wire:loading.attr="disabled" wire:target="saveTask" size="sm">{{ $editingTaskId ? 'Save changes' : 'Add task' }}</x-filament::button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 </x-filament-panels::page>

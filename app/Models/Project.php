@@ -95,6 +95,11 @@ class Project extends Model
         return $this->hasMany(ProjectActivityLog::class);
     }
 
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(ProjectTask::class);
+    }
+
     public function canBeManagedBy(?User $user): bool
     {
         if (! $user) {

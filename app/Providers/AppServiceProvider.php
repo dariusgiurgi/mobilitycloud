@@ -10,6 +10,7 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectDocument;
+use App\Models\ProjectTask;
 use App\Observers\ProjectActivityObserver;
 use App\Policies\ContentBlockPolicy;
 use App\Policies\ProjectPolicy;
@@ -42,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
             Expense::class,
             Participant::class,
             ProjectDocument::class,
+            ProjectTask::class,
         ] as $model) {
             $model::observe(ProjectActivityObserver::class);
         }
