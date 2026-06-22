@@ -58,4 +58,13 @@ class ProjectTask extends Model
     {
         return ! $this->isCompleted() && $this->due_date?->isBefore(today());
     }
+
+    public function canBeCompletedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->assigned_to === $user->id || $this->project?->canBeManagedBy($user) === true;
+    }
 }

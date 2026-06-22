@@ -204,7 +204,7 @@
         </div>
     </x-filament::section>
 
-    <x-filament::section style="margin-top:1rem;">
+    <x-filament::section id="project-tasks" style="margin-top:1rem;">
         <x-slot name="heading">Project tasks</x-slot>
         <x-slot name="description">Operational actions, owners and deadlines for this project.</x-slot>
         <x-slot name="headerEnd">
@@ -221,8 +221,9 @@
         </x-slot>
 
         @forelse($tasks as $task)
+            @php $canToggleTask = $task->canBeCompletedBy(auth()->user()); @endphp
             <div class="mc-task-row" wire:key="project-task-{{ $task->id }}">
-                @if($canManage)
+                @if($canToggleTask)
                     <button type="button" wire:click="toggleTask({{ $task->id }})" class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="{{ $task->isCompleted() ? 'Reopen' : 'Complete' }} {{ $task->title }}">
                         @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
                     </button>

@@ -226,8 +226,8 @@ class ViewProjectOverview extends Page
 
     public function toggleTask(int $taskId): void
     {
-        $this->authorizeProjectManagement();
         $task = $this->record->tasks()->findOrFail($taskId);
+        abort_unless($task->canBeCompletedBy(auth()->user()), 403);
         $completed = ! $task->isCompleted();
         $task->update([
             'status' => $completed ? 'completed' : 'open',
