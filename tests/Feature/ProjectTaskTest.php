@@ -57,6 +57,19 @@ class ProjectTaskTest extends TestCase
         $this->assertTrue(ProjectActivityLog::query()->where('project_id', $project->id)->where('description', 'like', '%task%')->exists());
     }
 
+    public function test_manager_can_open_task_form_from_the_page_header(): void
+    {
+        [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($member);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertActionVisible('addTask')
+            ->callAction('addTask')
+            ->assertSet('showTaskModal', true)
+            ->assertSee('Add project task');
+    }
+
     public function test_task_assignee_must_belong_to_the_workspace(): void
     {
         [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');

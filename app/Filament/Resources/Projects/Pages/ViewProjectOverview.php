@@ -9,6 +9,7 @@ use App\Models\ProjectApplicationSection;
 use App\Services\ProjectDocumentChecklist;
 use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -46,6 +47,17 @@ class ViewProjectOverview extends Page
     public function getTitle(): string
     {
         return $this->record->name;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('addTask')
+                ->label('Add task')
+                ->icon('heroicon-o-plus')
+                ->action(fn () => $this->openTaskCreate())
+                ->visible(fn (): bool => $this->record->canBeManagedBy(auth()->user())),
+        ];
     }
 
     public function getStatusEnum(): ProjectStatus
