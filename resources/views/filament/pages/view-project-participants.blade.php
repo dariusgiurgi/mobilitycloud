@@ -7,64 +7,69 @@
         $countriesInUse = $this->getCountriesInUse();
         $orgsInUse = $this->getOrgsInUse();
         $activeFilters = $this->activeParticipantFilters();
+        $canManage = $record->canBeManagedBy(auth()->user());
     @endphp
+
+    <style>
+        .mc-part-header { display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap; }
+        .mc-part-actions { display:flex;align-items:center;gap:.5rem;flex-wrap:wrap; }
+        .mc-part-stats { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem;margin:1rem 0; }
+        .mc-part-stat { padding:1rem 1.1rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;background:#fff; }
+        .mc-part-stat-label { color:#64748b;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em; }
+        .mc-part-stat-value { color:#18181b;font-size:1.3rem;font-weight:700;margin-top:.25rem; }
+        .dark .mc-part-stat { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
+        .dark .mc-part-stat-label { color:#94a3b8; }
+        .dark .mc-part-stat-value { color:#f4f4f5; }
+        @media (max-width:900px) { .mc-part-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width:550px) { .mc-part-stats { grid-template-columns:1fr; } }
+    </style>
 
     <div class="mc-part">
 
-    {{-- Toolbar --}}
-    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
-        <a href="{{ \App\Filament\Resources\Projects\ProjectResource::getUrl('overview', ['record' => $record]) }}"
-           class="text-gray-700 dark:text-gray-200"
-           style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;border:1px solid rgba(100,116,139,.3);text-decoration:none;font-size:13px;">
-            ← Overview
-        </a>
-        <div style="flex:1;"></div>
-        <span class="text-gray-500 dark:text-gray-400" style="font-size:13px;">{{ $participants->count() }} participants</span>
-        <a href="{{ route('projects.export-participants', $record) }}"
-           style="padding:8px 14px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;font-weight:600;text-decoration:none;"
-           class="text-gray-700 dark:text-gray-200">
-            Export CSV
-        </a>
-        @if($record->canBeManagedBy(auth()->user()))
-            <button type="button" wire:click="openImport"
-                    style="padding:8px 14px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;color:inherit;cursor:pointer;font-size:13px;font-weight:600;"
-                    class="text-gray-700 dark:text-gray-200">
-                Import CSV
-            </button>
+    <x-filament::section>
+        <div class="mc-part-header">
+            <div>
+                <div style="display:flex;align-items:center;gap:.45rem;">
+                    <h2 class="text-gray-950 dark:text-white" style="font-size:.95rem;font-weight:650;">Participant register</h2>
+                    <x-help-tip id="participant-register" title="Participant readiness">
+                        A participant is ready when all required documents are uploaded. GDPR consent and the participant agreement are always required; minors also require parental consent.
+                    </x-help-tip>
+                </div>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;margin-top:.2rem;">{{ $stats['organisations'] }} organisations · {{ $stats['fo'] }} participants with fewer opportunities @if(!$canManage) · Read-only access @endif</p>
+            </div>
+            <div class="mc-part-actions">
+                <x-filament::button tag="a" :href="route('projects.export-participants', $record)" color="gray" icon="heroicon-o-arrow-down-tray" size="sm">Export CSV</x-filament::button>
+                @if($canManage)
+                    <x-filament::button wire:click="openImport" color="gray" icon="heroicon-o-arrow-up-tray" size="sm">Import CSV</x-filament::button>
             <span style="display:inline-flex;align-items:center;gap:.35rem;">
-                <button type="button" wire:click="openAttendanceGenerator"
-                        style="padding:8px 14px;border-radius:8px;border:1px solid rgba(99,102,241,.35);background:transparent;color:#4f46e5;cursor:pointer;font-size:13px;font-weight:600;">
-                    Attendance list
-                </button>
+                <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list" size="sm">Attendance list</x-filament::button>
                 <x-help-tip id="participant-attendance-list" title="Attendance list">
                     Generates one landscape PDF grouped by partner organisation. Every organisation starts on a new page; signed copies are stored later in the Documents section.
                 </x-help-tip>
             </span>
-            <button type="button" wire:click="openCreate"
-                    style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
-                + Add participant
-            </button>
-        @endif
-    </div>
+                    <x-filament::button wire:click="openCreate" icon="heroicon-o-plus" size="sm">Add participant</x-filament::button>
+                @endif
+            </div>
+        </div>
+    </x-filament::section>
 
 {{-- Stats --}}
-    <div style="display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
-            <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Total</div>
-            <div class="text-gray-950 dark:text-white" style="font-size:22px;font-weight:700;">{{ $stats['total'] }}</div>
+    <div class="mc-part-stats">
+        <div class="mc-part-stat">
+            <div class="mc-part-stat-label">Total participants</div>
+            <div class="mc-part-stat-value">{{ $stats['total'] }}</div>
         </div>
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
-            <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Minors</div>
-            <div style="font-size:22px;font-weight:700;color:#d97706;">{{ $stats['minors'] }}</div>
+        <div class="mc-part-stat">
+            <div class="mc-part-stat-label">Documents ready</div>
+            <div class="mc-part-stat-value" style="color:#16a34a;">{{ $stats['complete'] }}</div>
         </div>
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.85rem 1.1rem;min-width:120px;">
-            <div style="display:flex;align-items:center;gap:.3rem;">
-                <span class="text-gray-500 dark:text-gray-400" style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Fewer opp.</span>
-                <x-help-tip id="fewer-opportunities" title="Fewer opportunities">
-                    Participants who may face economic, social, geographic, health, disability or other barriers. This flag supports planning; eligibility must follow the applicable programme guide.
-                </x-help-tip>
-            </div>
-            <div style="font-size:22px;font-weight:700;color:#6366f1;">{{ $stats['fo'] }}</div>
+        <div class="mc-part-stat">
+            <div class="mc-part-stat-label">Documents incomplete</div>
+            <div class="mc-part-stat-value" style="color:{{ $stats['incomplete'] > 0 ? '#d97706' : '#16a34a' }};">{{ $stats['incomplete'] }}</div>
+        </div>
+        <div class="mc-part-stat">
+            <div class="mc-part-stat-label">Minors</div>
+            <div class="mc-part-stat-value" style="color:{{ $stats['minors'] > 0 ? '#d97706' : 'inherit' }};">{{ $stats['minors'] }}</div>
         </div>
     </div>
 
@@ -174,8 +179,10 @@
     {{-- List --}}
     @if($participants->isEmpty())
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;margin:0 0 1rem;">No participants yet.</p>
-            <button type="button" wire:click="openCreate" style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">+ Add the first one</button>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;margin:0 0 {{ $canManage ? '1rem' : '0' }};">{{ $activeFilters > 0 ? 'No participants match the active filters.' : 'No participants have been added yet.' }}</p>
+            @if($canManage && $activeFilters === 0)
+                <button type="button" wire:click="openCreate" style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">+ Add the first participant</button>
+            @endif
         </div>
     @else
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="overflow:hidden;">
@@ -185,6 +192,7 @@
                         <tr class="text-gray-500 dark:text-gray-400" style="background:rgba(100,116,139,.06);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">
                             <th style="padding:10px 12px;text-align:left;">Name</th>
                             <th style="padding:10px 12px;text-align:left;">Role</th>
+                            <th style="padding:10px 12px;text-align:left;">Organisation</th>
                             <th style="padding:10px 12px;text-align:left;">Country</th>
                             <th style="padding:10px 12px;text-align:center;">Age</th>
                             <th style="padding:10px 12px;text-align:center;">Flags</th>
@@ -195,8 +203,12 @@
                     <tbody>
                         @foreach($participants as $p)
                         <tr wire:key="part-{{ $p->id }}" class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);">
-                            <td style="padding:9px 12px;font-weight:600;">{{ $p->fullName() }}</td>
+                            <td style="padding:9px 12px;">
+                                <div style="font-weight:600;">{{ $p->fullName() }}</div>
+                                @if($p->email)<div class="text-gray-400" style="font-size:11px;margin-top:1px;">{{ $p->email }}</div>@endif
+                            </td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->roleLabel() }}</td>
+                            <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->partner_organisation ?: '—' }}</td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->country ?: '—' }}</td>
                             <td style="padding:9px 12px;text-align:center;">
                                 {{ $p->ageAtReference() ?? '—' }}
@@ -226,18 +238,24 @@
                                 @endif
                             </td>
                             <td style="padding:9px 12px;text-align:center;">
-                                <button type="button" wire:click="openEdit({{ $p->id }})" title="Edit"
+                                <button type="button" wire:click="openEdit({{ $p->id }})" title="{{ $canManage ? 'Edit' : 'View' }}"
                                         style="width:28px;height:28px;border:none;background:transparent;cursor:pointer;color:#9ca3af;border-radius:6px;"
                                         onmouseover="this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';"
                                         onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                                    @if($canManage)
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+                                    @else
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.06 12.35a1 1 0 0 1 0-.7C3.42 8.26 7.14 6 12 6s8.58 2.26 9.94 5.65a1 1 0 0 1 0 .7C20.58 15.74 16.86 18 12 18s-8.58-2.26-9.94-5.65Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    @endif
                                 </button>
+                                @if($canManage)
                                 <button type="button" wire:click="deleteParticipant({{ $p->id }})" wire:confirm="Remove this participant?" title="Remove"
                                         style="width:28px;height:28px;border:none;background:transparent;cursor:pointer;color:#9ca3af;border-radius:6px;"
                                         onmouseover="this.style.background='rgba(239,68,68,.1)';this.style.color='#dc2626';"
                                         onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                 </button>
+                                @endif
                             </td>
                         </tr>
                         @endforeach
@@ -256,8 +274,9 @@
         <div class="mc-part-modal"
              style="width:100%;max-width:640px;max-height:86vh;overflow-y:auto;border-radius:14px;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.4);background:#ffffff;color:#18181b;">
 
-            <h3 style="font-size:17px;font-weight:600;margin:0 0 1.25rem;">{{ $editingId ? 'Edit participant' : 'Add participant' }}</h3>
+            <h3 style="font-size:17px;font-weight:600;margin:0 0 1.25rem;">{{ !$canManage ? 'View participant' : ($editingId ? 'Edit participant' : 'Add participant') }}</h3>
 
+            <fieldset @disabled(!$canManage) style="border:0;padding:0;margin:0;min-width:0;">
             {{-- Identity --}}
             <p class="mc-part-sec">Identity</p>
             <div class="mc-part-grid">
@@ -379,6 +398,7 @@
                     <input type="text" wire:model="data.guardian_contact" class="mc-part-in">
                 </div>
             </div>
+            </fieldset>
 
             {{-- Documents (doar la editare, cand participantul exista) --}}
             @if($editingId)
@@ -403,9 +423,11 @@
                                    title="{{ $att->original_name }}">
                                     📄 {{ \Illuminate\Support\Str::afterLast($att->path, '/') }} <span style="opacity:.6;">({{ $att->humanSize() }})</span>
                                 </a>
+                                @if($canManage)
                                 <button type="button" wire:click="deleteAttachment({{ $att->id }})"
                                         title="Remove" style="border:none;background:transparent;cursor:pointer;color:#9ca3af;font-size:14px;"
                                         onmouseover="this.style.color='#dc2626';" onmouseout="this.style.color='#9ca3af';">✕</button>
+                                @endif
                             @else
                                 <span class="text-gray-400" style="font-size:12px;flex:1;">— not uploaded</span>
                             @endif
@@ -413,6 +435,7 @@
                     @endforeach
                 </div>
 
+                @if($canManage)
                 {{-- Upload row --}}
                 <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:10px 11px;border:1px dashed rgba(100,116,139,.35);border-radius:8px;margin-bottom:.5rem;"
                      wire:key="upload-row-{{ $editingId }}">
@@ -434,6 +457,7 @@
                 </div>
                 @error('uploadFile') <span class="mc-part-err" style="margin-bottom:.5rem;">{{ $message }}</span> @enderror
                 <p class="text-gray-400" style="font-size:11px;margin:0 0 .5rem;">PDF, JPG, PNG, DOC or DOCX; max 10 MB. Uploading the same type replaces the previous file.</p>
+                @endif
             @else
                 <p class="mc-part-sec">Documents</p>
                 <p class="text-gray-400" style="font-size:12px;margin-bottom:1rem;">Save the participant first, then reopen to attach documents.</p>
@@ -441,9 +465,11 @@
 
             <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.5rem;">
                 <button type="button" wire:click="closeModal"
-                        style="padding:9px 18px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
+                        style="padding:9px 18px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">{{ $canManage ? 'Cancel' : 'Close' }}</button>
+                @if($canManage)
                 <button type="button" wire:click="save"
                         style="padding:9px 18px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Save</button>
+                @endif
             </div>
         </div>
     </div>

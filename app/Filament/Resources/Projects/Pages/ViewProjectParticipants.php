@@ -114,11 +114,15 @@ class ViewProjectParticipants extends Page
     public function getStats(): array
     {
         $all = Participant::where('project_id', $this->record->id)->with('attachments')->get();
+        $complete = $all->filter->hasCompleteDocs()->count();
 
         return [
             'total' => $all->count(),
+            'complete' => $complete,
+            'incomplete' => $all->count() - $complete,
             'minors' => $all->filter(fn ($p) => $p->isMinor())->count(),
             'fo' => $all->where('fewer_opportunities', true)->count(),
+            'organisations' => $all->pluck('partner_organisation')->filter()->unique()->count(),
         ];
     }
 
@@ -210,6 +214,7 @@ class ViewProjectParticipants extends Page
 
     public function openCreate(): void
     {
+        $this->authorizeProjectManagement();
         $this->editingId = null;
         $this->data = $this->blankData();
         $this->showModal = true;
