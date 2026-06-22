@@ -4,7 +4,6 @@
     * { font-family: DejaVu Sans, sans-serif; }
     body { font-size: 12px; color: #18181b; margin: 0; }
     h1 { font-size: 20px; margin: 0 0 2px; color: #1f2937; }
-    .header { border-bottom: 2px solid #18181b; padding-bottom: 10px; margin-bottom: 16px; }
     .meta { font-size: 10px; color: #6b7280; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     td, th { padding: 8px 10px; border-bottom: 1px solid #e4e4e7; text-align: left; }
@@ -12,10 +11,19 @@
     .right { text-align: right; }
     .cat { font-weight: bold; }
     .total td { font-weight: bold; font-size: 14px; background: #f4f4f5; border-top: 2px solid #18181b; }
-    .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e4e4e7; font-size: 9px; color: #9ca3af; text-align: center; }
+    @include('pdf.partials.document-theme')
 </style></head><body>
 
-<div class="header">
+<div class="mc-doc-header">
+    <span class="mc-doc-brand">MobilityCloud</span>
+    <span class="mc-doc-context">Planning document</span>
+</div>
+<div class="mc-doc-footer">
+    <span class="mc-doc-footer-left">Individual support estimate · Erasmus+ rates</span>
+    <span class="mc-doc-footer-right">Page <span class="mc-doc-page"></span></span>
+</div>
+
+<div class="mc-doc-title">
     <h1>Individual Support Calculation</h1>
     <div class="meta">
         {{ $workspace->name ?? '' }} · Generated {{ now()->format('d M Y, H:i') }}<br>
@@ -51,7 +59,5 @@
         </tr>
     </tbody>
 </table>
-
-<div class="footer">MobilityCloud · Powered by Xeotype · Travel rates: Erasmus+ Call 2024/2025</div>
 
 </body></html>

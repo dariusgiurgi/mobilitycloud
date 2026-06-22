@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-ui-polish />
     @php
         $sections = $this->getSections();
         $summary = $this->getApplicationSummary();
@@ -110,7 +111,7 @@
         <main style="min-width:0;">
 
     @if($sections->isEmpty())
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
+        <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
             <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;margin:0 0 1rem;">No sections yet. Load a template (KA1/KA2) or add a free section.</p>
             @if($canManage)
                 <button type="button" wire:click="addSection" style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">+ Add section</button>
@@ -203,10 +204,9 @@
 
     {{-- ── Library picker modal ── --}}
     @if($showLibrary)
-        <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:3.5rem 1rem;background:rgba(0,0,0,.5);"
+        <div class="mc-modal-backdrop mc-modal-top"
              wire:click.self="closeLibrary">
-<div class="mc-lib-modal"
-                 style="width:100%;max-width:740px;max-height:82vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;background:#ffffff;color:#18181b;">
+<div class="mc-lib-modal mc-modal-panel mc-modal-panel-wide" style="display:flex;flex-direction:column;overflow:hidden;">
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.25rem;border-bottom:1px solid rgba(100,116,139,.2);">
                     <div style="font-size:15px;font-weight:600;">Insert from library</div>
                     <button type="button" wire:click="closeLibrary" class="mc-iconbtn" style="color:#9ca3af;">

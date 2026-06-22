@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-ui-polish />
     @php
         $band = $this::TRAVEL_BANDS[$travelBandIndex] ?? $this::TRAVEL_BANDS[0];
         $canManage = \Filament\Facades\Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
@@ -203,7 +204,7 @@
 
     @if ($this->saved->count() > 0)
         <x-filament::section heading="Saved calculations" description="Load a previous scenario without changing the project budget." style="margin-top:1.5rem;">
-            <div style="overflow-x:auto;">
+            <div class="mc-table-scroll" style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:.78rem;min-width:600px;">
                     <thead>
                         <tr class="text-gray-500 dark:text-gray-400" style="background:rgba(100,116,139,.06);font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">
@@ -234,15 +235,18 @@
     @endif
 
     @if ($showSaveModal)
-        <div style="position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem;" wire:click.self="$set('showSaveModal', false)">
-            <div class="bg-white dark:bg-gray-900 text-gray-950 dark:text-white" style="width:100%;max-width:400px;border-radius:.85rem;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.4);">
-                <h3 style="font-size:1rem;font-weight:650;margin-bottom:1rem;">Save calculation</h3>
-                <label for="calc-save-name" class="mc-lbl text-gray-500 dark:text-gray-400">Name</label>
-                <input id="calc-save-name" type="text" wire:model="saveName" placeholder="e.g. Youth Exchange Italy 2026" class="mc-inp text-gray-950 dark:text-white" style="margin-top:.35rem;">
-                @error('saveName') <p style="color:#dc2626;font-size:.75rem;margin-top:.35rem;">{{ $message }}</p> @enderror
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;">
-                    <x-filament::button wire:click="$set('showSaveModal', false)" color="gray" size="sm">Cancel</x-filament::button>
-                    <x-filament::button wire:click="saveCalculation" size="sm">Save</x-filament::button>
+        <div class="mc-modal-backdrop" wire:click.self="$set('showSaveModal', false)">
+            <div class="mc-modal-panel" style="max-width:400px;">
+                <div class="mc-modal-body">
+                    <h3 class="mc-modal-heading">Save calculation</h3>
+                    <p class="mc-modal-description">Give this scenario a clear name so your team can recognise and reuse it later.</p>
+                    <label for="calc-save-name" class="mc-lbl text-gray-500 dark:text-gray-400">Name</label>
+                    <input id="calc-save-name" type="text" wire:model="saveName" placeholder="e.g. Youth Exchange Italy 2026" class="mc-inp text-gray-950 dark:text-white" style="margin-top:.35rem;">
+                    @error('saveName') <p style="color:#dc2626;font-size:.75rem;margin-top:.35rem;">{{ $message }}</p> @enderror
+                    <div class="mc-modal-actions">
+                        <x-filament::button wire:click="$set('showSaveModal', false)" color="gray" size="sm">Cancel</x-filament::button>
+                        <x-filament::button wire:click="saveCalculation" size="sm">Save</x-filament::button>
+                    </div>
                 </div>
             </div>
         </div>

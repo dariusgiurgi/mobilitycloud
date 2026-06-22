@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-ui-polish />
     @php
         $blocks = $this->getBlocks();
         $official = \App\Models\PublicContentBlock::OFFICIAL_EMAIL;
@@ -124,7 +125,7 @@
 
     {{-- ── Cards grid ── --}}
     @if($blocks->isEmpty())
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
+        <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
             <x-filament::icon icon="heroicon-o-magnifying-glass" class="mx-auto h-8 w-8 text-gray-400" />
             <p class="text-gray-950 dark:text-white" style="font-size:.9rem;font-weight:600;margin-top:.65rem;">No matching content</p>
             <p class="text-gray-500 dark:text-gray-400" style="font-size:.78rem;margin-top:.2rem;">Try a broader search or clear the active filters.</p>
@@ -242,10 +243,9 @@
     {{-- ── Preview modal ── --}}
     @php $preview = $this->getPreviewBlock(); @endphp
     @if($preview)
-        <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:3.5rem 1rem;background:rgba(0,0,0,.55);"
+        <div class="mc-modal-backdrop mc-modal-top"
              wire:click.self="closePreview">
-            <div class="mc-pub-modal"
-                 style="width:100%;max-width:680px;max-height:82vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.45);overflow:hidden;background:#ffffff;color:#18181b;">
+            <div class="mc-pub-modal mc-modal-panel mc-modal-panel-wide">
 
                 <div style="display:flex;align-items:center;justify-content:space-between;padding:1.1rem 1.25rem;border-bottom:1px solid rgba(100,116,139,.2);">
                     <div style="font-size:15px;font-weight:600;">{{ $preview->title }}</div>
@@ -262,13 +262,13 @@
                     <span style="margin-left:auto;font-size:11px;color:#9ca3af;">by {{ $preview->author->name ?? 'Unknown' }}</span>
                 </div>
 
-                <div style="overflow:auto;padding:1.25rem;font-size:13px;line-height:1.6;white-space:pre-wrap;">{{ $preview->body }}</div>
+                <div class="mc-modal-body" style="font-size:13px;line-height:1.6;white-space:pre-wrap;">{{ $preview->body }}</div>
 
                 @if($preview->source_note)
                     <div style="padding:.5rem 1.25rem;font-size:11px;color:#9ca3af;border-top:1px solid rgba(100,116,139,.12);">Source: {{ $preview->source_note }}</div>
                 @endif
 
-                <div style="padding:.85rem 1.25rem;border-top:1px solid rgba(100,116,139,.2);display:flex;justify-content:flex-end;gap:.5rem;">
+                <div class="mc-modal-actions">
                     <button type="button" wire:click="closePreview"
                             style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Close</button>
                     @if ($previewLocal = $importedBlocks->get($preview->id))
@@ -288,12 +288,13 @@
     {{-- ── Report modal ── --}}
     @if($reportingId)
         @php $reportReasons = $this->getReportReasons(); @endphp
-        <div style="position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(0,0,0,.55);"
+        <div class="mc-modal-backdrop"
              wire:click.self="closeReport">
-            <div class="mc-pub-modal"
-                 style="width:100%;max-width:440px;border-radius:14px;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.4);background:#ffffff;color:#18181b;">
+            <div class="mc-pub-modal mc-modal-panel" style="max-width:440px;">
+                <div class="mc-modal-body">
 
-                <h3 style="font-size:16px;font-weight:600;margin:0 0 1rem;">Report this block</h3>
+                <h3 class="mc-modal-heading">Report this block</h3>
+                <p class="mc-modal-description">Tell us what should be reviewed. Your report helps keep the shared library reliable.</p>
 
                 <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:6px;color:#71717a;">Reason</label>
                 <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:1rem;">
@@ -311,11 +312,12 @@
                           class="mc-pub-input"
                           style="width:100%;padding:9px 12px;border:1px solid rgba(100,116,139,.3);border-radius:8px;font-size:13px;resize:vertical;margin-bottom:1.25rem;background:#fafafa;color:#18181b;"></textarea>
 
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;">
+                <div class="mc-modal-actions">
                     <button type="button" wire:click="closeReport"
                             style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
                     <button type="button" wire:click="submitReport"
                             style="padding:8px 16px;border-radius:8px;border:none;background:#dc2626;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Submit report</button>
+                </div>
                 </div>
             </div>
         </div>

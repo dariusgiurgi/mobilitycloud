@@ -7,7 +7,6 @@
     body { font-size: 11px; color: #18181b; margin: 0; }
     h1 { font-size: 20px; margin: 0 0 2px; color: #1f2937; }
     .muted { color: #6b7280; }
-    .header { border-bottom: 2px solid #18181b; padding-bottom: 10px; margin-bottom: 16px; }
     .meta { font-size: 10px; color: #6b7280; }
     .summary { width: 100%; margin-bottom: 18px; border-collapse: collapse; }
     .summary td { width: 33.33%; border: 1px solid #e4e4e7; padding: 10px 12px; }
@@ -25,13 +24,22 @@
     .code { font-family: DejaVu Sans Mono, monospace; color: #6b7280; }
     .subtotal td { font-weight: bold; background: #fafafa; padding: 5px 8px; }
     .empty { padding: 8px 10px; font-style: italic; color: #9ca3af; font-size: 10px; }
-    .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e4e4e7; font-size: 9px; color: #9ca3af; text-align: center; }
     .pos { color: #16a34a; } .neg { color: #dc2626; }
+    @include('pdf.partials.document-theme')
 </style>
 </head>
 <body>
 
-<div class="header">
+<div class="mc-doc-header">
+    <span class="mc-doc-brand">MobilityCloud</span>
+    <span class="mc-doc-context">Financial overview</span>
+</div>
+<div class="mc-doc-footer">
+    <span class="mc-doc-footer-left">{{ $project->name }} · Powered by Xeotype</span>
+    <span class="mc-doc-footer-right">Page <span class="mc-doc-page"></span></span>
+</div>
+
+<div class="mc-doc-title">
     <h1>Expense Report</h1>
     <div class="meta">
         <strong>{{ $project->name }}</strong>@if($project->acronym) · {{ $project->acronym }}@endif
@@ -118,10 +126,6 @@
         @endif
     </div>
 @endforeach
-
-<div class="footer">
-    MobilityCloud · Powered by Xeotype · {{ $project->name }}
-</div>
 
 </body>
 </html>

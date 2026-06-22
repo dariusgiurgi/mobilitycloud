@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-ui-polish />
     @php
         $documents = $this->getDocuments();
         $documentCategories = $this->getDocumentCategories();
@@ -101,7 +102,7 @@
         </div>
 
         @if($civilConventions->isEmpty())
-            <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 text-gray-500 dark:text-gray-400"
+            <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 text-gray-500 dark:text-gray-400"
                  style="padding:1rem 1.1rem;font-size:12px;">
                 No expenses are marked for a civil convention.
             </div>
@@ -197,7 +198,7 @@
         </div>
 
     @if($documents->isEmpty())
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+        <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
              style="padding:2.5rem;text-align:center;">
             <x-filament::icon icon="heroicon-o-folder-open" class="mx-auto h-10 w-10 text-gray-400" />
             <h3 class="text-gray-950 dark:text-white" style="font-size:16px;font-weight:700;margin:0 0 .35rem;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'No matching documents' : 'No project documents yet' }}</h3>
@@ -280,15 +281,14 @@
     @include('filament.partials.attendance-generator-modal')
 
     @if($showConventionSignedUploadModal)
-        <div style="position:fixed;inset:0;z-index:80;background:rgba(15,23,42,.6);display:flex;align-items:center;justify-content:center;padding:1rem;"
+        <div class="mc-modal-backdrop"
              wire:click.self="closeConventionSignedUpload">
-            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
-                 style="width:min(480px,100%);padding:1.4rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed {{ $conventionSignedKind === 'payment' ? 'payment statement' : 'agreement' }}</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:0 0 1rem;">PDF, JPG or PNG, maximum 20 MB. The file is private and linked to this civil convention.</p>
+            <div class="mc-modal-panel"><div class="mc-modal-body">
+                <h2 class="mc-modal-heading">Upload signed {{ $conventionSignedKind === 'payment' ? 'payment statement' : 'agreement' }}</h2>
+                <p class="mc-modal-description">PDF, JPG or PNG, maximum 20 MB. The file is private and linked to this civil convention.</p>
                 <input type="file" wire:model="conventionSignedUpload" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;font-size:13px;">
                 @error('conventionSignedUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+                <div class="mc-modal-actions">
                     <button type="button" wire:click="closeConventionSignedUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                     <button type="button" wire:click="uploadConventionSignedCopy" wire:loading.attr="disabled" wire:target="uploadConventionSignedCopy,conventionSignedUpload"
                             style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">
@@ -296,17 +296,16 @@
                         <span wire:loading wire:target="uploadConventionSignedCopy,conventionSignedUpload">Uploading...</span>
                     </button>
                 </div>
-            </div>
+            </div></div>
         </div>
     @endif
 
     @if($showExpenseReportModal)
-        <div style="position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.6);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;"
+        <div class="mc-modal-backdrop mc-modal-top"
              wire:click.self="closeExpenseReportGenerator">
-            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
-                 style="width:min(680px,100%);padding:1.5rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0;">Generate official expense report</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:.3rem 0 1.2rem;">The selected expenses and totals are saved as an immutable snapshot. You can then download, sign and upload the signed report.</p>
+            <div class="mc-modal-panel mc-modal-panel-wide"><div class="mc-modal-body">
+                <h2 class="mc-modal-heading">Generate official expense report</h2>
+                <p class="mc-modal-description">The selected expenses and totals are saved as an immutable snapshot. You can then download, sign and upload the signed report.</p>
 
                 @php
                     $reportFieldStyle = 'width:100%;padding:8px 10px;border:1px solid rgba(100,116,139,.3);border-radius:7px;background:transparent;';
@@ -349,7 +348,7 @@
                 <label style="{{ $reportLabelStyle }}">Notes / reporting context</label>
                 <textarea rows="3" wire:model="reportNotes" style="{{ $reportFieldStyle }}resize:vertical;"></textarea>
 
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+                <div class="mc-modal-actions">
                     <button type="button" wire:click="closeExpenseReportGenerator" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                     <button type="button" wire:click="generateExpenseReport" wire:loading.attr="disabled" wire:target="generateExpenseReport"
                             style="padding:8px 14px;border-radius:7px;border:none;background:#0f766e;color:#fff;cursor:pointer;font-weight:600;">
@@ -357,17 +356,16 @@
                         <span wire:loading wire:target="generateExpenseReport">Generating...</span>
                     </button>
                 </div>
-            </div>
+            </div></div>
         </div>
     @endif
 
     @if($showConventionModal)
-        <div style="position:fixed;inset:0;z-index:70;background:rgba(15,23,42,.6);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;"
+        <div class="mc-modal-backdrop mc-modal-top"
              wire:click.self="closeConvention">
-            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
-                 style="width:min(760px,100%);padding:1.5rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0;">Civil convention details</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:.3rem 0 1.2rem;">Save a draft at any time. All required fields must be completed before generation.</p>
+            <div class="mc-modal-panel mc-modal-panel-wide"><div class="mc-modal-body">
+                <h2 class="mc-modal-heading">Civil convention details</h2>
+                <p class="mc-modal-description">Save a draft at any time. All required fields must be completed before generation.</p>
 
                 @php
                     $fieldStyle = 'width:100%;padding:8px 10px;border:1px solid rgba(100,116,139,.3);border-radius:7px;background:transparent;';
@@ -447,20 +445,19 @@
                 </div>
 
                 @error('conventionData.*') <span style="display:block;color:#dc2626;font-size:11px;margin-top:.7rem;">{{ $message }}</span> @enderror
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.4rem;">
+                <div class="mc-modal-actions" style="margin-top:1.4rem;">
                     <button type="button" wire:click="closeConvention" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                     <button type="button" wire:click="saveConventionDetails" style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">Save details</button>
                 </div>
-            </div>
+            </div></div>
         </div>
     @endif
 
     @if($showDocumentUploadModal)
-        <div style="position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:1rem;"
+        <div class="mc-modal-backdrop"
              wire:click.self="closeDocumentUpload">
-            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
-                 style="width:min(520px,100%);padding:1.4rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 1rem;">Upload project document</h2>
+            <div class="mc-modal-panel"><div class="mc-modal-body">
+                <h2 class="mc-modal-heading" style="margin-bottom:1rem;">Upload project document</h2>
 
                 <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">TITLE *</label>
                 <input type="text" wire:model="documentTitle" style="width:100%;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;margin-bottom:.8rem;background:transparent;">
@@ -488,7 +485,7 @@
                 @error('documentUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin:.5rem 0 0;">PDF, image, Word or Excel; maximum 20 MB. Files are stored privately.</p>
 
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+                <div class="mc-modal-actions">
                     <button type="button" wire:click="closeDocumentUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                     <button type="button" wire:click="uploadProjectDocument" wire:loading.attr="disabled" wire:target="uploadProjectDocument,documentUpload"
                             style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">
@@ -496,25 +493,24 @@
                         <span wire:loading wire:target="uploadProjectDocument,documentUpload">Uploading...</span>
                     </button>
                 </div>
-            </div>
+            </div></div>
         </div>
     @endif
 
     @if($showSignedUploadModal)
-        <div style="position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:1rem;"
+        <div class="mc-modal-backdrop"
              wire:click.self="closeSignedUpload">
-            <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
-                 style="width:min(460px,100%);padding:1.4rem;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .4rem;">Upload signed copy</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:0 0 1rem;">PDF, JPG or PNG, maximum 20 MB. A previous signed copy will be replaced.</p>
+            <div class="mc-modal-panel"><div class="mc-modal-body">
+                <h2 class="mc-modal-heading">Upload signed copy</h2>
+                <p class="mc-modal-description">PDF, JPG or PNG, maximum 20 MB. A previous signed copy will be replaced.</p>
                 <input type="file" wire:model="signedUpload" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;font-size:13px;">
                 @error('signedUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
-                <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+                <div class="mc-modal-actions">
                     <button type="button" wire:click="closeSignedUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                     <button type="button" wire:click="uploadSignedCopy" wire:loading.attr="disabled"
                             style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">Upload</button>
                 </div>
-            </div>
+            </div></div>
         </div>
     @endif
 </x-filament-panels::page>

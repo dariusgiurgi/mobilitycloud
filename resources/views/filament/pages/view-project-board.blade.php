@@ -1,4 +1,5 @@
 <x-filament-panels::page>
+    <x-ui-polish />
 
     @php
         $currencies = array_keys($this->getCurrencies());
@@ -134,7 +135,7 @@
             </div>
 
             @if($line->expenses->count() > 0)
-            <div style="overflow-x:auto;">
+            <div class="mc-table-scroll" style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;">
                     <thead>
                         <tr class="text-gray-500 dark:text-gray-400" style="background:rgba(100,116,139,.06);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">
@@ -240,7 +241,7 @@
                 </table>
             </div>
             @else
-            <div class="text-gray-400" style="padding:.75rem 1.1rem;font-size:12px;font-style:italic;">No expenses yet.</div>
+            <div class="mc-empty-state text-gray-400" style="padding:.75rem 1.1rem;font-size:12px;font-style:italic;">No expenses yet.</div>
             @endif
         </div>
     @endforeach
@@ -255,11 +256,10 @@
 
     {{-- ═══════════ BASKET MODAL ═══════════ --}}
     @if($showBasketModal)
-    <div style="position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem;"
+    <div class="mc-modal-backdrop"
          wire:click.self="$set('showBasketModal', false)">
-        <div style="width:100%;max-width:380px;border-radius:14px;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.4);"
-             class="mc-modal">
-            <h3 style="font-size:16px;font-weight:600;margin:0 0 1rem;" class="mc-modal-title">{{ $editingBasketId ? 'Edit basket' : 'Add basket' }}</h3>
+        <div class="mc-modal mc-modal-panel"><div class="mc-modal-body">
+            <h3 class="mc-modal-title mc-modal-heading" style="margin-bottom:1rem;">{{ $editingBasketId ? 'Edit basket' : 'Add basket' }}</h3>
 
             <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:4px;" class="mc-modal-label">Title</label>
             <input type="text" wire:model="basketTitle"
@@ -288,28 +288,28 @@
                 @endforeach
             </div>
 
-            <div style="display:flex;justify-content:flex-end;gap:.5rem;">
+            <div class="mc-modal-actions">
                 <button type="button" wire:click="$set('showBasketModal', false)"
                         class="mc-modal-cancel"
                         style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
                 <button type="button" wire:click="saveBasket"
                         style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">Save</button>
             </div>
-        </div>
+        </div></div>
     </div>
     @endif
 
     {{-- ═══════════ NOTES MODAL ═══════════ --}}
     @if($showNotesModal)
-    <div style="position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem;"
+    <div class="mc-modal-backdrop"
          wire:click.self="$set('showNotesModal', false)">
-        <div style="width:100%;max-width:440px;border-radius:14px;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.4);" class="mc-modal">
-            <h3 style="font-size:16px;font-weight:600;margin:0 0 1rem;" class="mc-modal-title">Notes</h3>
+        <div class="mc-modal mc-modal-panel"><div class="mc-modal-body">
+            <h3 class="mc-modal-title mc-modal-heading" style="margin-bottom:1rem;">Notes</h3>
             <textarea wire:model="notesText" rows="6" placeholder="Add observations about this expense…"
                       @readonly(!$canManage)
                       class="mc-modal-input"
                       style="width:100%;padding:10px 12px;border:1px solid rgba(100,116,139,.3);border-radius:6px;font-size:14px;resize:vertical;"></textarea>
-            <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;">
+            <div class="mc-modal-actions" style="margin-top:1rem;">
                 <button type="button" wire:click="$set('showNotesModal', false)"
                         class="mc-modal-cancel"
                         style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
@@ -318,7 +318,7 @@
                         style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">Save notes</button>
                 @endif
             </div>
-        </div>
+        </div></div>
     </div>
     @endif
 
@@ -329,7 +329,7 @@
         <div style="padding:.85rem 1.1rem;border-bottom:1px solid rgba(100,116,139,.12);">
             <span class="text-gray-950 dark:text-white" style="font-weight:600;font-size:14px;">Budget transfers</span>
         </div>
-        <div style="overflow-x:auto;">
+        <div class="mc-table-scroll" style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:700px;">
                 <thead>
                     <tr class="text-gray-500 dark:text-gray-400" style="background:rgba(100,116,139,.06);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">
@@ -375,10 +375,10 @@
 
     {{-- ═══════════ TRANSFER MODAL ═══════════ --}}
     @if($showTransferModal)
-    <div style="position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:1rem;"
+    <div class="mc-modal-backdrop"
          wire:click.self="$set('showTransferModal', false)">
-        <div style="width:100%;max-width:420px;border-radius:14px;padding:1.5rem;box-shadow:0 20px 50px rgba(0,0,0,.4);" class="mc-modal">
-            <h3 style="font-size:16px;font-weight:600;margin:0 0 1rem;" class="mc-modal-title">Transfer budget</h3>
+        <div class="mc-modal mc-modal-panel"><div class="mc-modal-body">
+            <h3 class="mc-modal-title mc-modal-heading" style="margin-bottom:1rem;">Transfer budget</h3>
 
             <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:4px;" class="mc-modal-label">From basket</label>
             <select wire:model="transferFromId" class="mc-modal-input" style="width:100%;padding:8px 12px;border:1px solid rgba(100,116,139,.3);border-radius:6px;margin-bottom:1rem;font-size:14px;">
@@ -410,11 +410,11 @@
             @error('transferFromId') <p style="color:#dc2626;font-size:12px;margin:-8px 0 12px;">{{ $message }}</p> @enderror
             @error('transferAmount') <p style="color:#dc2626;font-size:12px;margin:-8px 0 12px;">{{ $message }}</p> @enderror
 
-            <div style="display:flex;justify-content:flex-end;gap:.5rem;">
+            <div class="mc-modal-actions">
                 <button type="button" wire:click="$set('showTransferModal', false)" class="mc-modal-cancel" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
                 <button type="button" wire:click="saveTransfer" style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">Transfer</button>
             </div>
-        </div>
+        </div></div>
     </div>
     @endif
 

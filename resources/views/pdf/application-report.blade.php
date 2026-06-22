@@ -4,17 +4,25 @@
     * { font-family: DejaVu Sans, sans-serif; }
     body { font-size: 11px; color: #18181b; margin: 0; line-height: 1.6; }
     h1 { font-size: 19px; margin: 0 0 2px; color: #1f2937; }
-    .header { border-bottom: 2px solid #18181b; padding-bottom: 10px; margin-bottom: 18px; }
     .meta { font-size: 10px; color: #6b7280; }
     .cat { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: .05em; color: #6366f1; margin: 18px 0 6px; }
     .q-title { font-weight: bold; font-size: 12px; margin: 12px 0 4px; color: #1f2937; }
     .q-content { font-size: 11px; white-space: pre-wrap; margin-bottom: 4px; }
     .q-meta { font-size: 9px; color: #9ca3af; margin-bottom: 8px; }
     .empty { font-style: italic; color: #9ca3af; }
-    .footer { margin-top: 24px; padding-top: 10px; border-top: 1px solid #e4e4e7; font-size: 9px; color: #9ca3af; text-align: center; }
+    @include('pdf.partials.document-theme')
 </style></head><body>
 
-<div class="header">
+<div class="mc-doc-header">
+    <span class="mc-doc-brand">MobilityCloud</span>
+    <span class="mc-doc-context">Application document</span>
+</div>
+<div class="mc-doc-footer">
+    <span class="mc-doc-footer-left">{{ $project->name }} · Powered by Xeotype</span>
+    <span class="mc-doc-footer-right">Page <span class="mc-doc-page"></span></span>
+</div>
+
+<div class="mc-doc-title">
     <h1>Project Application</h1>
     <div class="meta">
         <strong>{{ $project->name }}</strong>@if($project->acronym) · {{ $project->acronym }}@endif<br>
@@ -38,7 +46,5 @@
 @empty
     <p class="empty">No application sections.</p>
 @endforelse
-
-<div class="footer">MobilityCloud · Powered by Xeotype · {{ $project->name }}</div>
 
 </body></html>

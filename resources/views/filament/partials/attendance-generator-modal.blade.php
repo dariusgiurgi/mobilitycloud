@@ -5,12 +5,11 @@
         .dark .mc-att-label { color:#a1a1aa; }
         .dark .mc-att-input { background:#27303f;color:#f4f4f5;border-color:rgba(148,163,184,.3); }
     </style>
-    <div style="position:fixed;inset:0;z-index:60;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:1rem;"
+    <div class="mc-modal-backdrop"
          wire:click.self="closeAttendanceGenerator">
-        <div class="fi-section rounded-xl bg-white shadow-xl ring-1 ring-gray-950/10 dark:bg-gray-900 dark:ring-white/10"
-             style="width:min(520px,100%);padding:1.4rem;">
-            <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:700;margin:0 0 .35rem;">Generate attendance list</h2>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;margin:0 0 1.2rem;">One landscape PDF will be generated. Every organisation starts on a new page.</p>
+        <div class="mc-modal-panel"><div class="mc-modal-body">
+            <h2 class="mc-modal-heading">Generate attendance list</h2>
+            <p class="mc-modal-description">One landscape PDF will be generated. Every organisation starts on a new page.</p>
 
             <div style="display:flex;flex-direction:column;gap:.85rem;">
                 <div>
@@ -32,7 +31,7 @@
                 </div>
             </div>
 
-            <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1.25rem;">
+            <div class="mc-modal-actions">
                 <button type="button" wire:click="closeAttendanceGenerator"
                         style="padding:9px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                 <button type="button" wire:click="generateAttendanceSheet" wire:loading.attr="disabled"
@@ -40,6 +39,6 @@
                     Generate PDF
                 </button>
             </div>
-        </div>
+        </div></div>
     </div>
 @endif

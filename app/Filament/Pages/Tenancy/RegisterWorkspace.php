@@ -4,8 +4,9 @@ namespace App\Filament\Pages\Tenancy;
 
 use App\Models\Workspace;
 use Filament\Forms\Components\TextInput;
-use Filament\Schemas\Schema;
 use Filament\Pages\Tenancy\RegisterTenant;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 
 class RegisterWorkspace extends RegisterTenant
 {
@@ -18,10 +19,16 @@ class RegisterWorkspace extends RegisterTenant
     {
         return $schema
             ->components([
-                TextInput::make('name')
-                    ->label('Workspace name')
-                    ->required()
-                    ->maxLength(255),
+                Section::make('Your organisation workspace')
+                    ->description('A workspace keeps one organisation\'s projects, participants, documents and reusable content together. You can complete the legal details later.')
+                    ->schema([
+                        TextInput::make('name')
+                            ->label('Workspace name')
+                            ->required()
+                            ->maxLength(255)
+                            ->autofocus()
+                            ->placeholder('e.g. Roots in Motion'),
+                    ]),
             ]);
     }
 
@@ -30,7 +37,7 @@ class RegisterWorkspace extends RegisterTenant
         $workspace = Workspace::create($data);
 
         $workspace->users()->attach(auth()->id(), [
-            'role'      => 'owner',
+            'role' => 'owner',
             'joined_at' => now(),
         ]);
 
