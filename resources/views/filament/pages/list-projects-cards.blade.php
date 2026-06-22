@@ -1,6 +1,7 @@
 <x-filament-panels::page>
     @php
         $projects = $this->getProjects();
+        $canManage = \Filament\Facades\Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
     @endphp
 
     <style>
@@ -20,20 +21,24 @@
                 <span style="display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:.8rem;background:rgba(99,102,241,.1);color:#6366f1;margin-bottom:.9rem;">
                     <x-filament::icon icon="heroicon-o-rectangle-stack" style="width:1.5rem;height:1.5rem;" />
                 </span>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">Create your first project</h2>
-                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">Keep the application, budget, participants and documents together from the beginning.</p>
-                <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl('create')" icon="heroicon-o-plus">
-                    New project
-                </x-filament::button>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : 'Create your first project' }}</h2>
+                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Projects archived from this workspace will be kept here for restoration.' : 'Keep the application, budget, participants and documents together from the beginning.' }}</p>
+                @if($archived)
+                    <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to active projects</x-filament::button>
+                @else
+                    <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
+                @endif
             </div>
         </x-filament::section>
     @else
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.2rem;">
             <div style="display:flex;align-items:center;gap:.35rem;">
-                <p class="mc-project-muted" style="font-size:.8rem;">{{ $projects->count() }} {{ str('project')->plural($projects->count()) }} · current work is shown first</p>
-                <x-help-tip id="project-card-order" title="Project order and progress">
-                    Active and approved projects appear first, followed by applications and completed work. Each progress bar compares recorded expenses with the approved grant, or with the requested budget before approval.
-                </x-help-tip>
+                <p class="mc-project-muted" style="font-size:.8rem;">{{ $projects->count() }} {{ str('project')->plural($projects->count()) }} · {{ $archived ? 'archived projects remain restorable' : 'current work is shown first' }}</p>
+                @unless($archived)
+                    <x-help-tip id="project-card-order" title="Project order and progress">
+                        Active and approved projects appear first, followed by applications and completed work. Each progress bar compares recorded expenses with the approved grant, or with the requested budget before approval.
+                    </x-help-tip>
+                @endunless
             </div>
         </div>
 
@@ -49,7 +54,7 @@
                     $end = $project->mobility_end_date ?? $project->end_date;
                 @endphp
 
-                <a href="{{ $this->getProjectUrl($project) }}" class="mc-project-list-card">
+                @if($archived)<div class="mc-project-list-card">@else<a href="{{ $this->getProjectUrl($project) }}" class="mc-project-list-card">@endif
                     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;">
                         <div style="min-width:0;">
                             <h2 class="text-gray-950 dark:text-white" style="font-size:.96rem;font-weight:650;line-height:1.35;overflow-wrap:anywhere;">{{ $project->name }}</h2>
@@ -59,7 +64,7 @@
                                 </p>
                             @endif
                         </div>
-                        <x-filament::badge :color="$status->getColor()" size="sm">{{ $status->getLabel() }}</x-filament::badge>
+                        <x-filament::badge :color="$archived ? 'gray' : $status->getColor()" size="sm">{{ $archived ? 'Archived' : $status->getLabel() }}</x-filament::badge>
                     </div>
 
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1.15rem;padding:.8rem 0;border-top:1px solid rgba(148,163,184,.18);border-bottom:1px solid rgba(148,163,184,.18);">
@@ -93,11 +98,20 @@
                         </div>
                     </div>
 
-                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:.25rem;margin-top:auto;padding-top:1rem;color:#6366f1;font-size:.76rem;font-weight:600;">
-                        Open project
-                        <x-filament::icon icon="heroicon-m-arrow-right" style="width:.9rem;height:.9rem;" />
-                    </div>
-                </a>
+                    @if($archived)
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:auto;padding-top:1rem;">
+                            <span class="mc-project-muted" style="font-size:.7rem;">Archived {{ $project->deleted_at?->diffForHumans() }}</span>
+                            @if($canManage)
+                                <x-filament::button wire:click="restoreProject({{ $project->id }})" wire:confirm="Restore {{ $project->name }} to active projects?" color="gray" size="sm" icon="heroicon-o-arrow-uturn-left">Restore</x-filament::button>
+                            @endif
+                        </div>
+                    @else
+                        <div style="display:flex;align-items:center;justify-content:flex-end;gap:.25rem;margin-top:auto;padding-top:1rem;color:#6366f1;font-size:.76rem;font-weight:600;">
+                            Open project
+                            <x-filament::icon icon="heroicon-m-arrow-right" style="width:.9rem;height:.9rem;" />
+                        </div>
+                    @endif
+                @if($archived)</div>@else</a>@endif
             @endforeach
         </div>
     @endif

@@ -5,8 +5,6 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
-use Filament\Actions\ForceDeleteAction;
-use Filament\Actions\RestoreAction;
 use Filament\Resources\Pages\EditRecord;
 
 class EditProject extends EditRecord
@@ -22,9 +20,12 @@ class EditProject extends EditRecord
             $this->getSaveFormAction()->formId('form'),
             $this->getCancelFormAction(),
             ActionGroup::make([
-                DeleteAction::make(),
-                ForceDeleteAction::make(),
-                RestoreAction::make(),
+                DeleteAction::make()
+                    ->label('Archive project')
+                    ->icon('heroicon-o-archive-box')
+                    ->modalHeading('Archive this project?')
+                    ->modalDescription('The project will be removed from active views but can be restored later.')
+                    ->successNotificationTitle('Project archived'),
             ])
                 ->label('More actions')
                 ->icon('heroicon-m-ellipsis-horizontal')

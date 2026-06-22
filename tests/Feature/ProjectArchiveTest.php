@@ -1,0 +1,107 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Filament\Resources\Projects\Pages\ListProjects;
+use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
+use App\Models\Project;
+use App\Models\ProjectActivityLog;
+use App\Models\User;
+use App\Models\Workspace;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+class ProjectArchiveTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_manager_can_archive_and_restore_a_project(): void
+    {
+        [$workspace, $project, $manager] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($manager);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertActionVisible('archiveProject')
+            ->callAction('archiveProject');
+
+        $this->assertSoftDeleted($project);
+        $this->assertDatabaseHas('project_activity_logs', [
+            'project_id' => $project->id,
+            'event' => 'deleted',
+            'description' => 'archived the project',
+        ]);
+
+        Livewire::test(ListProjects::class)
+            ->set('archived', true)
+            ->assertSee('Archive Candidate')
+            ->assertSee('Restore')
+            ->call('restoreProject', $project->id)
+            ->assertDontSee('Archive Candidate');
+
+        $this->assertNotSoftDeleted($project);
+        $this->assertTrue(ProjectActivityLog::query()
+            ->where('project_id', $project->id)
+            ->where('event', 'restored')
+            ->where('description', 'restored the project')
+            ->exists());
+    }
+
+    public function test_archive_is_read_only_for_viewers(): void
+    {
+        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        $project->delete();
+        $this->actingAs($viewer);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ListProjects::class)
+            ->set('archived', true)
+            ->assertSee('Archive Candidate')
+            ->assertDontSee('Restore');
+    }
+
+    public function test_archived_projects_are_isolated_from_active_and_other_workspace_lists(): void
+    {
+        [$workspace, $project, $manager] = $this->workspaceProjectAndUser('member');
+        $project->delete();
+        Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Active Project',
+            'status' => 'writing',
+        ]);
+        $otherWorkspace = Workspace::create(['name' => 'Other Workspace']);
+        $otherProject = Project::create([
+            'workspace_id' => $otherWorkspace->id,
+            'name' => 'Other Archived Project',
+            'status' => 'writing',
+        ]);
+        $otherProject->delete();
+
+        $this->actingAs($manager);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ListProjects::class)
+            ->assertSee('Active Project')
+            ->assertDontSee('Archive Candidate')
+            ->set('archived', true)
+            ->assertSee('Archive Candidate')
+            ->assertDontSee('Active Project')
+            ->assertDontSee('Other Archived Project');
+    }
+
+    private function workspaceProjectAndUser(string $role): array
+    {
+        $workspace = Workspace::create(['name' => 'Archive Workspace']);
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => $role]);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Archive Candidate',
+            'status' => 'writing',
+        ]);
+
+        return [$workspace, $project, $user];
+    }
+}

@@ -32,6 +32,7 @@ class ProjectActivityLog extends Model
         return match ($this->event) {
             'created' => 'heroicon-o-plus',
             'deleted' => 'heroicon-o-trash',
+            'restored' => 'heroicon-o-arrow-uturn-left',
             'status_changed' => 'heroicon-o-arrow-path',
             default => 'heroicon-o-pencil-square',
         };
@@ -42,6 +43,7 @@ class ProjectActivityLog extends Model
         return match ($this->event) {
             'created' => '#059669',
             'deleted' => '#dc2626',
+            'restored' => '#059669',
             'status_changed' => '#7c3aed',
             default => '#4f46e5',
         };

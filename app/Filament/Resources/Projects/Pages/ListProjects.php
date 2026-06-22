@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Livewire\Attributes\Url;
 
 class ListProjects extends ListRecords
 {
@@ -20,9 +21,20 @@ class ListProjects extends ListRecords
 
     protected string $view = 'filament.pages.list-projects-cards';
 
+    #[Url]
+    public bool $archived = false;
+
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('toggleArchive')
+                ->label(fn (): string => $this->archived ? 'Active projects' : 'Archived projects')
+                ->icon(fn (): string => $this->archived ? 'heroicon-o-arrow-left' : 'heroicon-o-archive-box')
+                ->color('gray')
+                ->action(fn () => $this->archived = ! $this->archived)
+                ->visible(fn (): bool => $this->archived || Project::onlyTrashed()
+                    ->where('workspace_id', Filament::getTenant()?->id)
+                    ->exists()),
             Action::make('duplicateProject')
                 ->label('Duplicate project')
                 ->icon('heroicon-o-document-duplicate')
@@ -70,19 +82,29 @@ class ListProjects extends ListRecords
 
                     $this->redirect(ProjectResource::getUrl('overview', ['record' => $copy]));
                 })
-                ->visible(fn (): bool => (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
+                ->visible(fn (): bool => ! $this->archived
+                    && (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
                     && Project::query()->where('workspace_id', Filament::getTenant()?->id)->exists()),
             CreateAction::make()
-                ->label('New project'),
+                ->label('New project')
+                ->visible(fn (): bool => ! $this->archived),
         ];
     }
 
     public function getProjects()
     {
-        return Project::query()
+        $query = Project::query()
             ->where('workspace_id', Filament::getTenant()?->id)
             ->withCount('participants')
-            ->with('budgetLines.expenses')
+            ->with('budgetLines.expenses');
+
+        if ($this->archived) {
+            return $query->onlyTrashed()
+                ->latest('deleted_at')
+                ->get();
+        }
+
+        return $query
             ->orderByRaw("CASE status
                 WHEN 'active' THEN 0
                 WHEN 'approved' THEN 1
@@ -94,6 +116,21 @@ class ListProjects extends ListRecords
                 ELSE 7 END")
             ->latest('updated_at')
             ->get();
+    }
+
+    public function restoreProject(int $projectId): void
+    {
+        $workspace = Filament::getTenant();
+        abort_unless($workspace?->canBeManagedBy(auth()->user()), 403);
+        $project = Project::onlyTrashed()
+            ->where('workspace_id', $workspace->id)
+            ->findOrFail($projectId);
+        $project->restore();
+
+        Notification::make()
+            ->title($project->name.' restored')
+            ->success()
+            ->send();
     }
 
     public function getProjectUrl(Project $project): string

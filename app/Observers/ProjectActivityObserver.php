@@ -38,6 +38,11 @@ class ProjectActivityObserver
         $this->record($subject, 'deleted');
     }
 
+    public function restored(Model $subject): void
+    {
+        $this->record($subject, 'restored');
+    }
+
     private function record(Model $subject, string $event): void
     {
         $project = $this->projectFor($subject);
@@ -82,6 +87,7 @@ class ProjectActivityObserver
         $verb = match ($event) {
             'created' => 'added',
             'deleted' => 'removed',
+            'restored' => 'restored',
             'status_changed' => 'changed the project status',
             default => 'updated',
         };
@@ -91,7 +97,12 @@ class ProjectActivityObserver
         }
 
         return match (true) {
-            $subject instanceof Project => $event === 'created' ? 'created the project' : $verb.' project settings',
+            $subject instanceof Project => match ($event) {
+                'created' => 'created the project',
+                'deleted' => 'archived the project',
+                'restored' => 'restored the project',
+                default => $verb.' project settings',
+            },
             $subject instanceof Expense => $verb.' expense “'.($subject->description ?: '#'.$subject->id).'”',
             $subject instanceof Participant => $verb.' participant “'.($subject->fullName() ?: '#'.$subject->id).'”',
             $subject instanceof ProjectDocument => $verb.' document “'.($subject->title ?: '#'.$subject->id).'”',
