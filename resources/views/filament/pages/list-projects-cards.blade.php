@@ -101,4 +101,8 @@
             @endforeach
         </div>
     @endif
+
+    {{-- This ListRecords page replaces Filament's table with cards, so it must
+         render the action modal host explicitly. --}}
+    <x-filament-actions::modals />
 </x-filament-panels::page>

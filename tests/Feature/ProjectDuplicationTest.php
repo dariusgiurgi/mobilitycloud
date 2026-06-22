@@ -136,6 +136,18 @@ class ProjectDuplicationTest extends TestCase
         $this->assertSame($workspace->id, $copy->workspace_id);
     }
 
+    public function test_duplicate_button_can_mount_its_modal(): void
+    {
+        [$workspace, $member] = $this->workspaceUserAndProject('member');
+        $this->actingAs($member);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ListProjects::class)
+            ->assertSeeHtml('wire:partial="action-modals"')
+            ->mountAction('duplicateProject')
+            ->assertActionMounted('duplicateProject');
+    }
+
     private function sourceProject(): array
     {
         [$workspace, $user, $project] = $this->workspaceUserAndProject('member');
