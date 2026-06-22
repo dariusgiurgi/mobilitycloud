@@ -17,8 +17,8 @@ class ParticipantCsvImporterTest extends TestCase
     {
         $project = $this->project();
         $path = $this->csv(implode("\n", [
-            "\xEF\xBB\xBF\"Last name\",\"First name\",Organisation,Role,Country,\"Birth date\",Age,Nationality,Gender,Email,Phone,\"Fewer opportunities\",\"GDPR consent date\",\"Documents complete\"",
-            'Pop,Ana,Association A,"Group leader",Romania,2000-04-12,26,Romanian,female,ana@example.test,+40123,Yes,2026-06-20,No',
+            "\xEF\xBB\xBF\"Last name\";\"First name\";Organisation;Role;Country;\"Birth date\";Age;Nationality;Gender;Email;Phone;Address;\"Medical conditions\";Allergies;\"Dietary restrictions\";\"Special needs\";\"Fewer opportunities\";\"Guardian name\";\"Guardian contact\";\"GDPR consent date\";\"Documents complete\"",
+            "Pop;Ana;Association A;\"Group leader\";Romania;2000-04-12;26;Romanian;female;ana@example.test;'+40123;\"Main Street 10\";Asthma;Pollen;Vegetarian;\"Wheelchair access\";Yes;\"Maria Pop\";'+40999;2026-06-20;No",
         ]));
 
         $count = app(ParticipantCsvImporter::class)->import($project, $path);
@@ -30,6 +30,14 @@ class ParticipantCsvImporterTest extends TestCase
             'last_name' => 'Pop',
             'role' => 'group_leader',
             'fewer_opportunities' => true,
+            'phone' => '+40123',
+            'address' => 'Main Street 10',
+            'medical_conditions' => 'Asthma',
+            'allergies' => 'Pollen',
+            'dietary_restrictions' => 'Vegetarian',
+            'special_needs' => 'Wheelchair access',
+            'guardian_name' => 'Maria Pop',
+            'guardian_contact' => '+40999',
         ]);
     }
 

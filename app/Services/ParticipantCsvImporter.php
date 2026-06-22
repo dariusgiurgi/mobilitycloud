@@ -21,8 +21,8 @@ class ParticipantCsvImporter
         }
 
         try {
-            $headers = $this->readHeaders($handle);
-            $rows = $this->readRows($handle, $headers);
+            [$headers, $delimiter] = $this->readHeaders($handle);
+            $rows = $this->readRows($handle, $headers, $delimiter);
         } finally {
             fclose($handle);
         }
@@ -38,10 +38,15 @@ class ParticipantCsvImporter
 
     private function readHeaders($handle): array
     {
-        $row = fgetcsv($handle);
-        if (! is_array($row)) {
+        $line = fgets($handle);
+        if ($line === false) {
             throw ValidationException::withMessages(['importFile' => 'The CSV file is empty.']);
         }
+
+        $commaRow = str_getcsv($line, ',');
+        $semicolonRow = str_getcsv($line, ';');
+        $delimiter = count($semicolonRow) > count($commaRow) ? ';' : ',';
+        $row = $delimiter === ';' ? $semicolonRow : $commaRow;
 
         $headers = array_map(function ($value): string {
             $value = preg_replace('/^\xEF\xBB\xBF/', '', (string) $value);
@@ -57,15 +62,15 @@ class ParticipantCsvImporter
             }
         }
 
-        return $headers;
+        return [$headers, $delimiter];
     }
 
-    private function readRows($handle, array $headers): array
+    private function readRows($handle, array $headers, string $delimiter): array
     {
         $rows = [];
         $line = 1;
 
-        while (($values = fgetcsv($handle)) !== false) {
+        while (($values = fgetcsv($handle, null, $delimiter)) !== false) {
             $line++;
             if ($this->isBlankRow($values)) {
                 continue;
@@ -102,7 +107,14 @@ class ParticipantCsvImporter
             'gender' => $this->nullable($row['gender'] ?? null),
             'email' => $this->nullable($row['email'] ?? null),
             'phone' => $this->nullable($row['phone'] ?? null),
+            'address' => $this->nullable($row['address'] ?? null),
+            'medical_conditions' => $this->nullable($row['medical conditions'] ?? null),
+            'allergies' => $this->nullable($row['allergies'] ?? null),
+            'dietary_restrictions' => $this->nullable($row['dietary restrictions'] ?? null),
+            'special_needs' => $this->nullable($row['special needs'] ?? null),
             'fewer_opportunities' => $this->boolean($row['fewer opportunities'] ?? null),
+            'guardian_name' => $this->nullable($row['guardian name'] ?? null),
+            'guardian_contact' => $this->nullable($row['guardian contact'] ?? null),
             'gdpr_consented_at' => $this->nullable($row['gdpr consent date'] ?? null),
         ];
 
@@ -117,7 +129,14 @@ class ParticipantCsvImporter
             'gender' => ['nullable', Rule::in(['female', 'male', 'other', 'undisclosed'])],
             'email' => ['nullable', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string', 'max:1000'],
+            'medical_conditions' => ['nullable', 'string', 'max:1000'],
+            'allergies' => ['nullable', 'string', 'max:1000'],
+            'dietary_restrictions' => ['nullable', 'string', 'max:1000'],
+            'special_needs' => ['nullable', 'string', 'max:1000'],
             'fewer_opportunities' => ['boolean'],
+            'guardian_name' => ['nullable', 'string', 'max:255'],
+            'guardian_contact' => ['nullable', 'string', 'max:255'],
             'gdpr_consented_at' => ['nullable', 'date_format:Y-m-d'],
         ]);
 
@@ -154,6 +173,10 @@ class ParticipantCsvImporter
     private function nullable(?string $value): ?string
     {
         $value = trim((string) $value);
+
+        if (preg_match('/^\'[=+\-@]/', $value)) {
+            $value = substr($value, 1);
+        }
 
         return $value === '' ? null : $value;
     }

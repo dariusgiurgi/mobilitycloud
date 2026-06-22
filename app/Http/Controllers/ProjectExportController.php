@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectApplicationSection;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectExportController extends Controller
@@ -23,7 +25,7 @@ class ProjectExportController extends Controller
             ->orderBy('first_name')
             ->get();
 
-        $filename = 'participants-'.\Illuminate\Support\Str::slug($project->name).'.csv';
+        $filename = 'participants-'.Str::slug($project->name).'.csv';
 
         return response()->streamDownload(function () use ($participants): void {
             $output = fopen('php://output', 'wb');
@@ -32,8 +34,10 @@ class ProjectExportController extends Controller
             fputcsv($output, [
                 'Last name', 'First name', 'Organisation', 'Role', 'Country',
                 'Birth date', 'Age', 'Nationality', 'Gender', 'Email', 'Phone',
-                'Fewer opportunities', 'GDPR consent date', 'Documents complete',
-            ]);
+                'Address', 'Medical conditions', 'Allergies', 'Dietary restrictions',
+                'Special needs', 'Fewer opportunities', 'Guardian name', 'Guardian contact',
+                'GDPR consent date', 'Documents complete',
+            ], ';');
 
             foreach ($participants as $participant) {
                 fputcsv($output, array_map($this->csvValue(...), [
@@ -48,10 +52,17 @@ class ProjectExportController extends Controller
                     $participant->gender,
                     $participant->email,
                     $participant->phone,
+                    $participant->address,
+                    $participant->medical_conditions,
+                    $participant->allergies,
+                    $participant->dietary_restrictions,
+                    $participant->special_needs,
                     $participant->fewer_opportunities ? 'Yes' : 'No',
+                    $participant->guardian_name,
+                    $participant->guardian_contact,
                     $participant->gdpr_consented_at?->format('Y-m-d'),
                     $participant->hasCompleteDocs() ? 'Yes' : 'No',
-                ]));
+                ]), ';');
             }
 
             fclose($output);
@@ -75,17 +86,17 @@ class ProjectExportController extends Controller
         $project->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses', 'workspace']);
 
         $totalBudget = (float) $project->budgetLines->sum('allocated_budget');
-        $totalSpent  = (float) $project->budgetLines->sum(fn ($bl) => $bl->expenses->sum('amount_eur'));
+        $totalSpent = (float) $project->budgetLines->sum(fn ($bl) => $bl->expenses->sum('amount_eur'));
         $totalRemaining = $totalBudget - $totalSpent;
 
         $pdf = Pdf::loadView('pdf.project-report', [
-            'project'        => $project,
-            'totalBudget'    => $totalBudget,
-            'totalSpent'     => $totalSpent,
+            'project' => $project,
+            'totalBudget' => $totalBudget,
+            'totalSpent' => $totalSpent,
             'totalRemaining' => $totalRemaining,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download('report-' . \Illuminate\Support\Str::slug($project->name) . '.pdf');
+        return $pdf->download('report-'.Str::slug($project->name).'.pdf');
     }
 
     public function calcExport(Request $request, string $type)
@@ -140,15 +151,14 @@ class ProjectExportController extends Controller
             403
         );
 
-        $sections = \App\Models\ProjectApplicationSection::where('project_id', $project->id)
+        $sections = ProjectApplicationSection::where('project_id', $project->id)
             ->orderBy('sort_order')->orderBy('id')->get();
 
         $pdf = Pdf::loadView('pdf.application-report', [
-            'project'  => $project,
+            'project' => $project,
             'sections' => $sections,
         ])->setPaper('a4', 'portrait');
 
-        return $pdf->download('application-' . \Illuminate\Support\Str::slug($project->name) . '.pdf');
+        return $pdf->download('application-'.Str::slug($project->name).'.pdf');
     }
-
 }

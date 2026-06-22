@@ -29,6 +29,9 @@ class ParticipantExportTest extends TestCase
             'first_name' => 'Zoe',
             'last_name' => 'Zimmer',
             'email' => '=HYPERLINK("https://example.test")',
+            'address' => 'Main Street 10',
+            'dietary_restrictions' => 'Vegetarian',
+            'guardian_name' => 'Alex Zimmer',
             'role' => 'participant',
         ]);
         Participant::create([
@@ -45,9 +48,12 @@ class ParticipantExportTest extends TestCase
         $response->assertDownload('participants-youth-exchange.csv');
         $content = $response->streamedContent();
 
-        $this->assertStringStartsWith("\xEF\xBB\xBF\"Last name\",\"First name\"", $content);
-        $this->assertLessThan(strpos($content, 'Zimmer,Zoe'), strpos($content, 'Adams,Ana'));
+        $this->assertStringStartsWith("\xEF\xBB\xBF\"Last name\";\"First name\"", $content);
+        $this->assertLessThan(strpos($content, 'Zimmer;Zoe'), strpos($content, 'Adams;Ana'));
         $this->assertStringContainsString("'=HYPERLINK", $content);
+        $this->assertStringContainsString('Main Street 10', $content);
+        $this->assertStringContainsString('Vegetarian', $content);
+        $this->assertStringContainsString('Alex Zimmer', $content);
     }
 
     public function test_outsider_cannot_export_participants(): void
