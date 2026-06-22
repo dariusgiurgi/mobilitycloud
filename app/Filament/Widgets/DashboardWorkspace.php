@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Services\TaskReminderService;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
@@ -22,6 +23,8 @@ class DashboardWorkspace extends Widget
 
     protected function getViewData(): array
     {
+        app(TaskReminderService::class)->dispatch(Filament::getTenant()?->id);
+
         $projects = Project::query()
             ->where('workspace_id', Filament::getTenant()?->id)
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])

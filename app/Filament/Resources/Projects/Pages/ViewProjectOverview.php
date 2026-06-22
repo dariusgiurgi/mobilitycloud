@@ -7,6 +7,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ProjectApplicationSection;
 use App\Services\ProjectDocumentChecklist;
+use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
@@ -156,7 +157,7 @@ class ViewProjectOverview extends Page
         $this->showTaskModal = true;
     }
 
-    public function saveTask(): void
+    public function saveTask(TaskNotificationService $notifications): void
     {
         $this->authorizeProjectManagement();
         $data = $this->validate([
@@ -183,12 +184,27 @@ class ViewProjectOverview extends Page
 
         $wasEditing = $this->editingTaskId !== null;
         if ($wasEditing) {
-            $this->record->tasks()->findOrFail($this->editingTaskId)->update($attributes);
+            $task = $this->record->tasks()->findOrFail($this->editingTaskId);
+            $previousAssignee = $task->assigned_to;
+            $previousDueDate = $task->due_date?->format('Y-m-d');
+            if ($previousDueDate !== $data['taskDueDate'] || $previousAssignee !== $data['taskAssignedTo']) {
+                $attributes['reminder_sent_at'] = null;
+                $attributes['overdue_notified_at'] = null;
+            }
+            $task->update($attributes);
+
+            if ($task->status === 'open' && $task->assigned_to && $previousAssignee !== $task->assigned_to) {
+                $notifications->sendAssignment($task);
+            }
         } else {
-            $this->record->tasks()->create([
+            $task = $this->record->tasks()->create([
                 ...$attributes,
                 'created_by' => auth()->id(),
             ]);
+
+            if ($task->assigned_to) {
+                $notifications->sendAssignment($task);
+            }
         }
 
         $this->showTaskModal = false;
@@ -205,6 +221,8 @@ class ViewProjectOverview extends Page
             'status' => $completed ? 'completed' : 'open',
             'completed_at' => $completed ? now() : null,
             'completed_by' => $completed ? auth()->id() : null,
+            'reminder_sent_at' => $completed ? $task->reminder_sent_at : null,
+            'overdue_notified_at' => $completed ? $task->overdue_notified_at : null,
         ]);
     }
 

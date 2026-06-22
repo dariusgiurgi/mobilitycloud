@@ -16,6 +16,7 @@ class ProjectTask extends Model
     protected $fillable = [
         'project_id', 'title', 'description', 'due_date', 'assigned_to',
         'created_by', 'completed_by', 'priority', 'status', 'completed_at', 'sort_order',
+        'reminder_sent_at', 'overdue_notified_at',
     ];
 
     protected function casts(): array
@@ -23,6 +24,8 @@ class ProjectTask extends Model
         return [
             'due_date' => 'date',
             'completed_at' => 'datetime',
+            'reminder_sent_at' => 'datetime',
+            'overdue_notified_at' => 'datetime',
         ];
     }
 
