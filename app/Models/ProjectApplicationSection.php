@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProjectApplicationSection extends Model
 {
     protected $fillable = [
-        'project_id', 'title', 'content', 'char_limit', 'category', 'sort_order',
+        'project_id', 'question_key', 'title', 'content', 'review_status',
+        'internal_notes', 'char_limit', 'category', 'sort_order',
     ];
 
     public function project(): BelongsTo

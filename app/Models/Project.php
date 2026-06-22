@@ -120,6 +120,11 @@ class Project extends Model
         return $this->hasMany(ProjectApplicationSection::class);
     }
 
+    public function applicationVersions(): HasMany
+    {
+        return $this->hasMany(ProjectApplicationVersion::class);
+    }
+
     public function participants(): HasMany
     {
         return $this->hasMany(Participant::class);

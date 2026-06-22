@@ -2,6 +2,7 @@
     <x-ui-polish />
     @php
         $sections = $this->getSections();
+        $visibleSections = $this->getVisibleSections();
         $summary = $this->getApplicationSummary();
         $canManage = $record->canBeManagedBy(auth()->user());
         $categories = $sections->groupBy(fn ($section) => $section->category ?: 'Custom sections');
@@ -25,6 +26,10 @@
         .mc-wa-section { scroll-margin-top:1rem; }
         .mc-wa-card-actions { display:flex;align-items:center;gap:.1rem; }
         .mc-wa-progress { height:7px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden; }
+        .mc-wa-guidance { margin:.15rem 0 .75rem;padding:.65rem .75rem;border-left:3px solid #818cf8;border-radius:.35rem;background:rgba(99,102,241,.07);font-size:.72rem;line-height:1.55;color:#64748b; }
+        .mc-wa-filter { width:auto;padding:7px 10px;border:1px solid rgba(100,116,139,.25);border-radius:7px;background:transparent;font-size:12px;color:inherit; }
+        .mc-wa-review { display:grid;grid-template-columns:150px minmax(0,1fr);gap:.65rem;margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(148,163,184,.18); }
+        .mc-wa-note { width:100%;padding:7px 9px;border:1px solid rgba(100,116,139,.22);border-radius:7px;background:transparent;font-size:11px;color:inherit; }
         .dark .mc-wa-outline { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
         @media (max-width:1000px) { .mc-wa-summary { grid-template-columns:repeat(3,minmax(0,1fr)); }.mc-wa-summary-main { grid-column:1/-1; }.mc-wa-layout { grid-template-columns:1fr; }.mc-wa-outline { position:static; }.mc-wa-outline-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr)); } }
         @media (max-width:650px) { .mc-wa-summary { grid-template-columns:1fr 1fr; }.mc-wa-outline-list { grid-template-columns:1fr; } }
@@ -43,7 +48,7 @@
                 </div>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;margin-top:.18rem;">
                     @if($canManage)
-                        <span wire:loading.remove wire:target="content,titles">Changes are saved automatically</span>
+                        <span wire:loading.remove wire:target="content,titles,reviewStatuses,internalNotes">Changes are saved automatically @if($lastSavedAt) · saved at {{ $lastSavedAt }} @endif</span>
                         <span wire:loading wire:target="content,titles" style="color:#6366f1;">Saving changes…</span>
                     @else
                         Read-only access
@@ -58,10 +63,10 @@
                         <option value="{{ $key }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <x-filament::button wire:click="loadTemplate" color="gray" size="sm"
-                    wire:confirm="Loading a template will replace all existing sections and permanently remove any text already written. Continue?">
-                    Load template
+                <x-filament::button wire:click="openTemplateDetails" color="gray" size="sm" icon="heroicon-o-squares-2x2">
+                    Review template
                 </x-filament::button>
+                <x-filament::button wire:click="$set('showVersions', true)" color="gray" size="sm" icon="heroicon-o-clock">Versions</x-filament::button>
             @endif
             <x-filament::button tag="a" :href="route('projects.export-application', $record)" target="_blank" icon="heroicon-o-arrow-down-tray" size="sm">
                 Export PDF
@@ -78,7 +83,7 @@
                 </div>
                 <div class="mc-wa-progress"><div style="height:100%;width:{{ $summary['progress'] }}%;background:#6366f1;border-radius:9999px;"></div></div>
             </div>
-            <div><p class="text-gray-500 dark:text-gray-400" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Remaining</p><p class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $summary['remaining'] }}</p></div>
+            <div><p class="text-gray-500 dark:text-gray-400" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Ready / review</p><p class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $summary['ready'] }} / {{ $summary['in_review'] }}</p></div>
             <div><p class="text-gray-500 dark:text-gray-400" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Total words</p><p class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ number_format($summary['words']) }}</p></div>
             <div><p class="text-gray-500 dark:text-gray-400" style="font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;">Over limit</p><p style="font-size:1rem;font-weight:650;color:{{ $summary['over_limit'] > 0 ? '#dc2626' : 'inherit' }};">{{ $summary['over_limit'] }}</p></div>
         </div>
@@ -110,6 +115,20 @@
 
         <main style="min-width:0;">
 
+    @if($sections->isNotEmpty())
+        <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
+            <input class="mc-wa-filter" style="min-width:230px;flex:1;" wire:model.live.debounce.300ms="sectionSearch" placeholder="Search questions or answers…">
+            <select class="mc-wa-filter" wire:model.live="sectionFilter">
+                <option value="all">All questions</option>
+                <option value="empty">Unanswered</option>
+                <option value="over-limit">Over character limit</option>
+                <option value="review">Needs review</option>
+                <option value="ready">Ready</option>
+            </select>
+            <span class="text-gray-400" style="font-size:.7rem;">{{ $visibleSections->count() }} shown</span>
+        </div>
+    @endif
+
     @if($sections->isEmpty())
         <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
             <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;margin:0 0 1rem;">No sections yet. Load a template (KA1/KA2) or add a free section.</p>
@@ -119,7 +138,7 @@
         </div>
     @else
         @php $currentCat = null; @endphp
-        @foreach($sections as $sec)
+        @forelse($visibleSections as $sec)
             @if($sec->category && $sec->category !== $currentCat)
                 @php $currentCat = $sec->category; @endphp
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:1.5rem 0 .5rem;">{{ $currentCat }}</p>
@@ -133,6 +152,8 @@
                 $limit = $sec->char_limit;
                 $over  = $limit && $count > $limit;
             @endphp
+
+            @php $guidance = $this->getQuestionGuidance($sec); @endphp
 
             <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" class="mc-wa-section fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:1.1rem 1.25rem;margin-bottom:1rem;">
                 <div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;">
@@ -176,6 +197,10 @@
                     @endif
                 </div>
 
+                @if($guidance)
+                    <div class="mc-wa-guidance"><strong style="color:#6366f1;">Writing guidance:</strong> {{ $guidance }}</div>
+                @endif
+
                 <textarea rows="6" wire:key="content-{{ $sec->id }}"
                           wire:model.live.debounce.800ms="content.{{ $sec->id }}"
                           placeholder="Write your answer here…" @readonly(!$canManage)></textarea>
@@ -186,8 +211,21 @@
                         {{ $count }}@if($limit) / {{ $limit }}@endif characters
                     </span>
                 </div>
+
+                <div class="mc-wa-review">
+                    <select class="mc-wa-filter" wire:model.live="reviewStatuses.{{ $sec->id }}" @disabled(!$canManage)>
+                        <option value="draft">Draft</option>
+                        <option value="review">Needs review</option>
+                        <option value="ready">Ready</option>
+                    </select>
+                    <input class="mc-wa-note" wire:model.blur="internalNotes.{{ $sec->id }}" placeholder="Internal reviewer note (not included in export)…" @readonly(!$canManage)>
+                </div>
             </div>
-        @endforeach
+        @empty
+            <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 text-gray-500 dark:text-gray-400" style="padding:2rem;text-align:center;font-size:.8rem;">
+                No questions match this filter.
+            </div>
+        @endforelse
 
         @if($canManage)
             <button type="button" wire:click="addSection"
@@ -196,6 +234,63 @@
                 + Add section
             </button>
         @endif
+    @endif
+
+    @if($showTemplateDetails)
+        @php $templateInfo = $this->getSelectedTemplateInfo(); @endphp
+        <div class="mc-modal-backdrop mc-modal-top" wire:click.self="closeTemplateDetails">
+            <div class="mc-lib-modal mc-modal-panel mc-modal-panel-wide" style="padding:1.35rem;max-height:82vh;overflow:auto;">
+                <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;">
+                    <div>
+                        <p style="font-size:1rem;font-weight:700;">{{ $templateInfo['label'] ?? 'Application template' }}</p>
+                        <p class="text-gray-500 dark:text-gray-400" style="font-size:.76rem;margin-top:.25rem;">{{ $templateInfo['description'] ?? '' }}</p>
+                    </div>
+                    <button class="mc-iconbtn" wire:click="closeTemplateDetails">✕</button>
+                </div>
+                <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin:.9rem 0;">
+                    <x-filament::badge color="primary">Call {{ $templateInfo['call_year'] ?? '—' }}</x-filament::badge>
+                    <x-filament::badge color="gray">{{ count($templateInfo['sections'] ?? []) }} writing questions</x-filament::badge>
+                    <x-filament::badge color="gray">{{ $templateInfo['form_id'] ?? '' }}</x-filament::badge>
+                </div>
+                <div style="padding:.75rem;border-radius:.55rem;background:rgba(34,197,94,.08);color:#15803d;font-size:.74rem;line-height:1.5;margin-bottom:1rem;">
+                    Safe sync: matching questions are updated, missing questions are added, and existing answers or custom sections are never deleted. A restorable backup is created automatically.
+                </div>
+                <ol style="margin:0 0 1rem 1.25rem;font-size:.73rem;line-height:1.6;">
+                    @foreach($templateInfo['sections'] ?? [] as $question)
+                        <li style="margin-bottom:.3rem;"><span class="text-gray-400">{{ $question['category'] }}</span> · {{ $question['title'] }}</li>
+                    @endforeach
+                </ol>
+                <div style="display:flex;justify-content:space-between;gap:.75rem;align-items:center;">
+                    <a href="{{ $templateInfo['source_url'] ?? '#' }}" target="_blank" rel="noopener" style="font-size:.72rem;color:#6366f1;">Open official form ↗</a>
+                    <x-filament::button wire:click="loadTemplate" icon="heroicon-o-arrow-path">Synchronise template</x-filament::button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($showVersions)
+        <div class="mc-modal-backdrop mc-modal-top" wire:click.self="$set('showVersions', false)">
+            <div class="mc-lib-modal mc-modal-panel mc-modal-panel-wide" style="padding:1.35rem;max-height:82vh;overflow:auto;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                    <div><p style="font-size:1rem;font-weight:700;">Application versions</p><p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;">Create named checkpoints and safely restore previous drafts.</p></div>
+                    <button class="mc-iconbtn" wire:click="$set('showVersions', false)">✕</button>
+                </div>
+                @if($canManage)
+                    <div style="display:flex;gap:.55rem;margin-bottom:1rem;">
+                        <input class="mc-wa-filter" style="flex:1;" wire:model="versionLabel" placeholder="Version label, e.g. Before partner review">
+                        <x-filament::button wire:click="saveVersion" size="sm">Save current version</x-filament::button>
+                    </div>
+                @endif
+                @forelse($this->getVersions() as $version)
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 0;border-top:1px solid rgba(148,163,184,.18);">
+                        <div><p style="font-size:.78rem;font-weight:650;">{{ $version->label }}</p><p class="text-gray-400" style="font-size:.68rem;">{{ $version->created_at->format('d M Y, H:i') }} · {{ count($version->snapshot) }} sections @if($version->creator) · {{ $version->creator->name }} @endif</p></div>
+                        @if($canManage)<x-filament::button wire:click="restoreVersion({{ $version->id }})" wire:confirm="Restore this version? The current draft will be backed up first." color="gray" size="sm">Restore</x-filament::button>@endif
+                    </div>
+                @empty
+                    <p class="text-gray-500 dark:text-gray-400" style="font-size:.78rem;text-align:center;padding:1.5rem;">No saved versions yet.</p>
+                @endforelse
+            </div>
+        </div>
     @endif
         </main>
     </div>

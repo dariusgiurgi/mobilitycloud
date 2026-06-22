@@ -41,7 +41,12 @@ class ContentBlock extends Model
     public const KA_ACTIONS = [
         'any' => 'Any action',
         'ka122' => 'KA122 — Short-term mobility',
-        'ka152' => 'KA152 — Youth exchanges',
+        'ka151-you' => 'KA151-YOU — Accredited youth mobility',
+        'ka152' => 'KA152 — Youth exchanges (legacy)',
+        'ka152-you' => 'KA152-YOU — Youth exchanges',
+        'ka153-you' => 'KA153-YOU — Mobility of youth workers',
+        'ka154-you' => 'KA154-YOU — Youth participation activities',
+        'ka155-you' => 'KA155-YOU — DiscoverEU Inclusion Action',
         'ka210' => 'KA210 — Small-scale partnerships',
         'ka220' => 'KA220 — Cooperation partnerships',
     ];

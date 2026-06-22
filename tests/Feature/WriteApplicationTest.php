@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Filament\Resources\Projects\Pages\WriteApplication;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Models\ProjectApplicationVersion;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\ApplicationTemplates;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -64,6 +66,55 @@ class WriteApplicationTest extends TestCase
             ->assertDontSee('Load template')
             ->assertDontSee('Add section')
             ->assertDontSee('Insert from library');
+    }
+
+    public function test_official_youth_templates_are_versioned_and_action_specific(): void
+    {
+        $this->assertSame(2026, ApplicationTemplates::get('ka152')['call_year']);
+        $this->assertSame('KA153-YOU', ApplicationTemplates::get('ka153-you')['action']);
+        $this->assertArrayHasKey('ka154-you', ApplicationTemplates::list());
+        $this->assertArrayHasKey('ka155-you', ApplicationTemplates::list());
+        $this->assertGreaterThan(15, count(ApplicationTemplates::sections('ka152-you')));
+    }
+
+    public function test_template_sync_preserves_existing_answers_and_creates_backup(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $legacy = $this->createSection($project, 'My custom answer', 'Do not delete this text.', 1000, 'Custom', 0);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->set('selectedTemplate', 'ka152-you')
+            ->call('loadTemplate')
+            ->assertSee('Writing guidance');
+
+        $this->assertSame('Do not delete this text.', $legacy->fresh()->content);
+        $this->assertSame('ka152-you', $project->fresh()->ka_action);
+        $this->assertGreaterThan(15, $project->applicationSections()->count());
+        $this->assertSame(1, ProjectApplicationVersion::where('project_id', $project->id)->count());
+    }
+
+    public function test_named_version_can_restore_a_previous_draft(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $section = $this->createSection($project, 'Objectives', 'Original draft', 1000, 'Context', 0);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->set('versionLabel', 'Partner review')
+            ->call('saveVersion');
+
+        $version = ProjectApplicationVersion::where('project_id', $project->id)->firstOrFail();
+        $section->update(['content' => 'Changed later']);
+
+        $component->call('restoreVersion', $version->id);
+
+        $this->assertSame('Original draft', $project->applicationSections()->sole()->content);
+        $this->assertSame(2, ProjectApplicationVersion::where('project_id', $project->id)->count());
     }
 
     private function workspaceProjectAndUser(string $role): array
