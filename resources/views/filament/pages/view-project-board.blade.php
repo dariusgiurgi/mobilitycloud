@@ -146,7 +146,7 @@
                                 <span style="display:inline-flex;align-items:center;gap:.25rem;">
                                     CC
                                     <x-help-tip id="budget-civil-convention-{{ $line->id }}" title="Civil convention">
-                                        Select CC when this expense must generate a civil agreement and payment statement. The expense will then appear automatically in Documents → Civil conventions.
+                                        Select CC when this expense must generate a civil agreement. The expense will then appear automatically in Documents → Civil conventions, where optional payment evidence can also be prepared.
                                     </x-help-tip>
                                 </span>
                             </th>

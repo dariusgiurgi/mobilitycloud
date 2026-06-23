@@ -146,6 +146,7 @@
                     ['label' => 'Complete', 'value' => $civilSummary['complete'], 'color' => '#059669'],
                     ['label' => 'Details missing', 'value' => $civilSummary['details_missing'], 'color' => '#d97706'],
                     ['label' => 'Awaiting signatures', 'value' => $civilSummary['awaiting_signatures'], 'color' => '#4f46e5'],
+                    ['label' => 'Payment evidence', 'value' => $civilSummary['payment_evidence_ready'], 'color' => '#0f766e'],
                 ] as $stat)
                     <div class="bg-white dark:bg-gray-900" style="padding:.7rem .8rem;border:1px solid rgba(148,163,184,.22);border-radius:.75rem;">
                         <p class="text-gray-400" style="font-size:.58rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">{{ $stat['label'] }}</p>
@@ -162,7 +163,7 @@
                         $paymentReady = $expense->hasCompletePaymentData();
                         $agreementSigned = $expense->hasConventionSignedCopy('agreement');
                         $paymentSigned = $expense->hasConventionSignedCopy('payment');
-                        $conventionComplete = $detailsReady && $paymentReady && $agreementSigned && $paymentSigned;
+                        $conventionComplete = $detailsReady && $agreementSigned;
                     @endphp
                     <details class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="width:100%;overflow:hidden;">
                         <summary style="padding:.85rem 1.1rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;list-style:none;flex-wrap:wrap;">
@@ -220,11 +221,11 @@
                                 @endif
                                 @if($detailsReady && $paymentReady)
                                     <x-filament::button tag="a" :href="route('project-documents.payment-statement', [$record, $expense])" color="gray" size="sm" icon="heroicon-m-banknotes">
-                                        Download payment statement
+                                        Download payment evidence
                                     </x-filament::button>
                                     @if($record->canBeManagedBy(auth()->user()) && ! $paymentSigned)
-                                        <x-filament::button wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" color="warning" size="sm" icon="heroicon-m-arrow-up-tray">
-                                            Upload signed payment
+                                        <x-filament::button wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" color="gray" size="sm" icon="heroicon-m-arrow-up-tray">
+                                            Upload signed payment evidence
                                         </x-filament::button>
                                     @endif
                                 @endif
@@ -247,14 +248,14 @@
                                         @endif
                                     @endif
                                     @if($detailsReady && $paymentReady)
-                                        <x-filament::dropdown.list.item tag="a" :href="route('project-documents.payment-statement', [$record, $expense])" icon="heroicon-m-banknotes">Download payment statement</x-filament::dropdown.list.item>
+                                        <x-filament::dropdown.list.item tag="a" :href="route('project-documents.payment-statement', [$record, $expense])" icon="heroicon-m-banknotes">Download payment evidence</x-filament::dropdown.list.item>
                                         @if($paymentSigned)
-                                            <x-filament::dropdown.list.item tag="a" :href="route('project-documents.convention-signed', [$record, $expense, 'payment'])" icon="heroicon-m-check-badge">Download signed payment</x-filament::dropdown.list.item>
+                                            <x-filament::dropdown.list.item tag="a" :href="route('project-documents.convention-signed', [$record, $expense, 'payment'])" icon="heroicon-m-check-badge">Download signed payment evidence</x-filament::dropdown.list.item>
                                         @endif
                                         @if($record->canBeManagedBy(auth()->user()))
-                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" icon="heroicon-m-arrow-up-tray">{{ $paymentSigned ? 'Replace signed payment' : 'Upload signed payment' }}</x-filament::dropdown.list.item>
+                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" icon="heroicon-m-arrow-up-tray">{{ $paymentSigned ? 'Replace signed payment evidence' : 'Upload signed payment evidence' }}</x-filament::dropdown.list.item>
                                             @if($paymentSigned)
-                                                <x-filament::dropdown.list.item wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'payment')" wire:confirm="Remove the signed payment statement?" color="danger" icon="heroicon-m-trash">Remove signed payment</x-filament::dropdown.list.item>
+                                                <x-filament::dropdown.list.item wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'payment')" wire:confirm="Remove the signed payment evidence?" color="danger" icon="heroicon-m-trash">Remove signed payment evidence</x-filament::dropdown.list.item>
                                             @endif
                                         @endif
                                     @endif

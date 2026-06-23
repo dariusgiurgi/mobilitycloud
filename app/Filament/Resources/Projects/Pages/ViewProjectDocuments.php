@@ -199,15 +199,14 @@ class ViewProjectDocuments extends Page
         $signedAgreements = $expenses->filter(fn (Expense $expense): bool => $expense->hasConventionSignedCopy('agreement'))->count();
         $signedPayments = $expenses->filter(fn (Expense $expense): bool => $expense->hasConventionSignedCopy('payment'))->count();
         $complete = $expenses->filter(fn (Expense $expense): bool => $expense->hasCompleteConventionData()
-            && $expense->hasCompletePaymentData()
-            && $expense->hasConventionSignedCopy('agreement')
-            && $expense->hasConventionSignedCopy('payment'))->count();
+            && $expense->hasConventionSignedCopy('agreement'))->count();
 
         return [
             'total' => $expenses->count(),
             'complete' => $complete,
             'details_missing' => $expenses->count() - $detailsComplete,
-            'awaiting_signatures' => max(0, ($detailsComplete - $signedAgreements) + ($paymentComplete - $signedPayments)),
+            'awaiting_signatures' => max(0, $detailsComplete - $signedAgreements),
+            'payment_evidence_ready' => $paymentComplete,
             'signed_agreements' => $signedAgreements,
             'signed_payments' => $signedPayments,
         ];
@@ -238,16 +237,12 @@ class ViewProjectDocuments extends Page
                 'detail' => $expense->hasConventionSignedCopy('agreement') ? 'Uploaded' : 'Waiting for signed copy',
             ],
             [
-                'label' => 'Payment statement',
+                'label' => 'Payment evidence',
                 'complete' => $detailsReady && $paymentReady,
                 'available' => $detailsReady && $paymentReady,
-                'detail' => $paymentReady ? 'Ready to download' : 'Payment data missing',
-            ],
-            [
-                'label' => 'Signed payment',
-                'complete' => $expense->hasConventionSignedCopy('payment'),
-                'available' => $detailsReady && $paymentReady,
-                'detail' => $expense->hasConventionSignedCopy('payment') ? 'Uploaded' : 'Waiting for signed copy',
+                'detail' => $paymentReady
+                    ? ($expense->hasConventionSignedCopy('payment') ? 'Signed evidence uploaded' : 'Recommended, not blocking')
+                    : 'Optional after payment',
             ],
         ];
     }

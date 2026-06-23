@@ -295,6 +295,7 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame('complete', $items['Grant agreement']['status']);
         $this->assertSame('complete', $items['Attendance records']['status']);
         $this->assertSame('complete', $items['Civil conventions']['status']);
+        $this->assertSame('1/1 ready, 1 signed agreement(s); 1 payment evidence record(s), 1 signed', $items['Civil conventions']['detail']);
         $this->assertSame('missing', $items['Partner documents']['status']);
         $this->assertSame('0 partner files for 1 external partner', $items['Partner documents']['detail']);
         $this->assertSame('missing', $items['Expense reports']['status']);
@@ -364,19 +365,63 @@ class ProjectDocumentsTest extends TestCase
             ->assertSee('Details')
             ->assertSee('Agreement PDF')
             ->assertSee('Signed agreement')
-            ->assertSee('Payment statement')
-            ->assertSee('Signed payment')
+            ->assertSee('Payment evidence')
             ->assertSee('Download agreement')
             ->assertSee('Upload signed agreement')
-            ->assertSee('Download payment statement')
-            ->assertSee('Upload signed payment');
+            ->assertSee('Download payment evidence')
+            ->assertSee('Upload signed payment evidence');
 
         $summary = $component->instance()->getCivilConventionSummary();
         $this->assertSame(1, $summary['total']);
         $this->assertSame(0, $summary['complete']);
         $this->assertSame(0, $summary['details_missing']);
-        $this->assertSame(2, $summary['awaiting_signatures']);
+        $this->assertSame(1, $summary['awaiting_signatures']);
+        $this->assertSame(1, $summary['payment_evidence_ready']);
         $this->assertTrue($expense->fresh()->hasCompleteConventionData());
+    }
+
+    public function test_civil_convention_is_complete_with_signed_agreement_only(): void
+    {
+        Storage::fake('local');
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'member']);
+        $agreementPath = 'project-documents/'.$project->id.'/agreement-signed.pdf';
+        Storage::disk('local')->put($agreementPath, 'signed');
+        $project->budgetLines()->first()->expenses()->create([
+            'description' => 'Facilitation services',
+            'amount' => 1200,
+            'currency' => 'EUR',
+            'amount_eur' => 1200,
+            'is_civil_convention' => true,
+            'convention_data' => [
+                'convention_number' => 'CC-001',
+                'contract_date' => '2026-06-20',
+                'provider_name' => 'Alex Example',
+                'provider_address' => 'Bucharest',
+                'provider_id_number' => 'AB123456',
+                'service_description' => 'Facilitation',
+                'service_start_date' => '2026-06-20',
+                'service_end_date' => '2026-06-21',
+                'gross_amount' => 1200,
+                'currency' => 'EUR',
+                'agreement_signed_path' => $agreementPath,
+                'agreement_signed_disk' => 'local',
+            ],
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->call('setDocumentTab', 'conventions')
+            ->assertSee('COMPLETE')
+            ->assertSee('Optional after payment');
+
+        $summary = $component->instance()->getCivilConventionSummary();
+        $this->assertSame(1, $summary['complete']);
+        $this->assertSame(0, $summary['awaiting_signatures']);
+        $this->assertSame(0, $summary['payment_evidence_ready']);
     }
 
     public function test_document_command_center_summarises_readiness_and_awaiting_signatures(): void

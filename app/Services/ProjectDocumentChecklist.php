@@ -63,9 +63,9 @@ class ProjectDocumentChecklist
                 ? $this->item('Civil conventions', 'optional', 'No civil convention expenses')
                 : $this->item(
                     'Civil conventions',
-                    $signedAgreements === $conventionCount && $signedPayments === $conventionCount ? 'complete' : 'attention',
-                    $readyConventions.'/'.$conventionCount.' ready, '.$signedAgreements.' signed; '
-                    .$readyPayments.' payment record(s), '.$signedPayments.' signed'
+                    $readyConventions === $conventionCount && $signedAgreements === $conventionCount ? 'complete' : 'attention',
+                    $readyConventions.'/'.$conventionCount.' ready, '.$signedAgreements.' signed agreement(s); '
+                    .$readyPayments.' payment evidence record(s), '.$signedPayments.' signed'
                 ),
         ];
 
