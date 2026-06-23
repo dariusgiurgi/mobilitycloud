@@ -351,6 +351,8 @@ class ProjectDocumentsTest extends TestCase
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSee('Document readiness')
             ->assertSee('Awaiting')
+            ->assertSee('View pending signatures')
+            ->assertSee('Upload signed copy')
             ->set('documentFilter', 'unsigned')
             ->assertSet('documentFilter', 'unsigned');
 

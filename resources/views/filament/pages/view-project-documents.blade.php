@@ -43,7 +43,7 @@
             <span>·</span>
             <span>{{ $command['awaiting_signature'] }} awaiting signature</span>
             @if($record->canBeManagedBy(auth()->user()) && $command['awaiting_signature'] > 0)
-                <x-filament::button wire:click="$set('documentFilter', 'unsigned')" color="gray" size="sm">Show</x-filament::button>
+                <x-filament::button wire:click="$set('documentFilter', 'unsigned')" color="gray" size="sm">View pending signatures</x-filament::button>
             @endif
         </div>
     </div>
@@ -279,6 +279,12 @@
                         <x-filament::badge :color="$document->hasSignedCopy() ? 'success' : 'warning'">{{ $document->statusLabel() }}</x-filament::badge>
                     @else
                         <x-filament::badge color="gray">{{ $document->categoryLabel() }}</x-filament::badge>
+                    @endif
+
+                    @if($record->canBeManagedBy(auth()->user()) && in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true))
+                        <x-filament::button wire:click="openSignedUpload({{ $document->id }})" color="{{ $document->hasSignedCopy() ? 'gray' : 'warning' }}" size="sm" icon="heroicon-m-arrow-up-tray">
+                            {{ $document->hasSignedCopy() ? 'Replace signed copy' : 'Upload signed copy' }}
+                        </x-filament::button>
                     @endif
 
                     <x-filament::dropdown placement="bottom-end" width="xs">
