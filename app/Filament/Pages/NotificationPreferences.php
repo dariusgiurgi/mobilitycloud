@@ -21,6 +21,11 @@ class NotificationPreferences extends Page
 
     protected string $view = 'filament.pages.notification-preferences';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public bool $taskAssigned = true;
 
     public bool $taskDueSoon = true;

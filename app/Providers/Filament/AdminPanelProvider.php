@@ -45,6 +45,8 @@ class AdminPanelProvider extends PanelProvider
                     ->collapsible(false),
                 NavigationGroup::make('Workspace settings')
                     ->collapsible(false),
+                NavigationGroup::make('Account')
+                    ->collapsible(false),
             ])
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)

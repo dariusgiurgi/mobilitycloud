@@ -7,6 +7,7 @@ use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\ManageCurrencies;
 use App\Filament\Pages\NotificationPreferences;
+use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\PublicLibrary;
 use App\Filament\Pages\WorkspaceCalendar;
 use App\Filament\Pages\WorkspaceData;
@@ -49,8 +50,11 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(30, WorkspaceData::getNavigationSort());
         $this->assertSame('Workspace settings', DocumentTemplates::getNavigationGroup());
         $this->assertSame(35, DocumentTemplates::getNavigationSort());
-        $this->assertSame('Workspace settings', NotificationPreferences::getNavigationGroup());
-        $this->assertSame(40, NotificationPreferences::getNavigationSort());
+        $this->assertFalse(NotificationPreferences::shouldRegisterNavigation());
+
+        $this->assertSame('Account', AccountSettings::getNavigationGroup());
+        $this->assertSame('My account', AccountSettings::getNavigationLabel());
+        $this->assertSame(10, AccountSettings::getNavigationSort());
     }
 
     public function test_technical_public_library_resource_stays_out_of_the_sidebar(): void
@@ -63,7 +67,7 @@ class NavigationStructureTest extends TestCase
         $groups = Filament::getPanel('admin')->getNavigationGroups();
 
         $this->assertSame(
-            ['Planning tools', 'Community', 'Workspace settings'],
+            ['Planning tools', 'Community', 'Workspace settings', 'Account'],
             array_map(fn ($group) => $group->getLabel(), $groups),
         );
 
