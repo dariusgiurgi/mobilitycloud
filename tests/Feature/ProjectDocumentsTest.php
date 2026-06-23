@@ -325,6 +325,60 @@ class ProjectDocumentsTest extends TestCase
             ->assertSee('Automatic checklist');
     }
 
+    public function test_civil_conventions_show_step_workflow_and_direct_actions(): void
+    {
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'member']);
+        $expense = $project->budgetLines()->first()->expenses()->create([
+            'description' => 'Facilitation services',
+            'amount' => 1200,
+            'currency' => 'EUR',
+            'amount_eur' => 1200,
+            'is_civil_convention' => true,
+            'convention_data' => [
+                'convention_number' => 'CC-001',
+                'contract_date' => '2026-06-20',
+                'provider_name' => 'Alex Example',
+                'provider_address' => 'Bucharest',
+                'provider_id_number' => 'AB123456',
+                'service_description' => 'Facilitation',
+                'service_start_date' => '2026-06-20',
+                'service_end_date' => '2026-06-21',
+                'gross_amount' => 1200,
+                'currency' => 'EUR',
+                'payment_date' => '2026-06-22',
+                'payment_method' => 'bank_transfer',
+                'payment_status' => 'paid',
+            ],
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->call('setDocumentTab', 'conventions')
+            ->assertSee('Complete')
+            ->assertSee('Details missing')
+            ->assertSee('Awaiting signatures')
+            ->assertSee('Details')
+            ->assertSee('Agreement PDF')
+            ->assertSee('Signed agreement')
+            ->assertSee('Payment statement')
+            ->assertSee('Signed payment')
+            ->assertSee('Download agreement')
+            ->assertSee('Upload signed agreement')
+            ->assertSee('Download payment statement')
+            ->assertSee('Upload signed payment');
+
+        $summary = $component->instance()->getCivilConventionSummary();
+        $this->assertSame(1, $summary['total']);
+        $this->assertSame(0, $summary['complete']);
+        $this->assertSame(0, $summary['details_missing']);
+        $this->assertSame(2, $summary['awaiting_signatures']);
+        $this->assertTrue($expense->fresh()->hasCompleteConventionData());
+    }
+
     public function test_document_command_center_summarises_readiness_and_awaiting_signatures(): void
     {
         [$workspace, $project] = $this->workspaceAndProject();

@@ -4,6 +4,7 @@
         $documents = $this->getDocuments();
         $documentCategories = $this->getDocumentCategories();
         $civilConventions = $this->getCivilConventionExpenses();
+        $civilSummary = $this->getCivilConventionSummary();
         $checklist = $this->getDocumentChecklist();
         $command = $this->getDocumentCommandCenter();
         $documentCount = $record->documents()->count();
@@ -140,8 +141,29 @@
                 No expenses are marked for a civil convention.
             </div>
         @else
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem;margin-bottom:.75rem;">
+                @foreach([
+                    ['label' => 'Complete', 'value' => $civilSummary['complete'], 'color' => '#059669'],
+                    ['label' => 'Details missing', 'value' => $civilSummary['details_missing'], 'color' => '#d97706'],
+                    ['label' => 'Awaiting signatures', 'value' => $civilSummary['awaiting_signatures'], 'color' => '#4f46e5'],
+                ] as $stat)
+                    <div class="bg-white dark:bg-gray-900" style="padding:.7rem .8rem;border:1px solid rgba(148,163,184,.22);border-radius:.75rem;">
+                        <p class="text-gray-400" style="font-size:.58rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">{{ $stat['label'] }}</p>
+                        <p style="font-size:1.05rem;font-weight:850;margin-top:.2rem;color:{{ $stat['color'] }};">{{ $stat['value'] }}</p>
+                    </div>
+                @endforeach
+            </div>
+
             <div style="display:flex;flex-direction:column;gap:.6rem;">
                 @foreach($civilConventions as $expense)
+                    @php
+                        $workflowSteps = $this->conventionWorkflowSteps($expense);
+                        $detailsReady = $expense->hasCompleteConventionData();
+                        $paymentReady = $expense->hasCompletePaymentData();
+                        $agreementSigned = $expense->hasConventionSignedCopy('agreement');
+                        $paymentSigned = $expense->hasConventionSignedCopy('payment');
+                        $conventionComplete = $detailsReady && $paymentReady && $agreementSigned && $paymentSigned;
+                    @endphp
                     <details class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="width:100%;overflow:hidden;">
                         <summary style="padding:.85rem 1.1rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;list-style:none;flex-wrap:wrap;">
                             <x-filament::icon icon="heroicon-m-document-text" class="h-5 w-5 text-gray-400" />
@@ -151,57 +173,94 @@
                                     {{ $this->expenseCode($expense) }} · {{ $expense->budgetLine?->title }} · {{ number_format((float) $expense->amount, 2) }} {{ $expense->currency }}
                                 </div>
                             </div>
-                            @if($expense->hasConventionSignedCopy('agreement'))
+                            @if($agreementSigned)
                                 <x-filament::badge color="success" size="sm">Agreement signed</x-filament::badge>
                             @endif
-                            @if($expense->hasConventionSignedCopy('payment'))
+                            @if($paymentSigned)
                                 <x-filament::badge color="success" size="sm">Payment signed</x-filament::badge>
                             @endif
-                            <x-filament::badge :color="$expense->hasCompleteConventionData() ? 'success' : 'warning'" size="sm">
-                                {{ $expense->hasCompleteConventionData() ? 'READY' : 'DETAILS NEEDED' }}
+                            <x-filament::badge :color="$conventionComplete ? 'success' : ($detailsReady ? 'warning' : 'danger')" size="sm">
+                                {{ $conventionComplete ? 'COMPLETE' : ($detailsReady ? 'IN PROGRESS' : 'DETAILS NEEDED') }}
                             </x-filament::badge>
                             <x-filament::icon icon="heroicon-m-chevron-down" class="h-4 w-4 text-gray-400" />
                         </summary>
-                        <div style="padding:.75rem 1.1rem 1rem;border-top:1px solid rgba(148,163,184,.18);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
-                            <div class="text-gray-500 dark:text-gray-400" style="flex:1;font-size:.75rem;min-width:220px;">
-                                Complete the details, generate the official records, then store the signed copies in this private file.
+                        <div style="padding:.85rem 1.1rem 1rem;border-top:1px solid rgba(148,163,184,.18);">
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.45rem;margin-bottom:.8rem;">
+                                @foreach($workflowSteps as $step)
+                                    @php
+                                        $stepBg = $step['complete'] ? 'rgba(34,197,94,.1)' : ($step['available'] ? 'rgba(245,158,11,.1)' : 'rgba(148,163,184,.08)');
+                                        $stepColor = $step['complete'] ? '#15803d' : ($step['available'] ? '#b45309' : '#64748b');
+                                        $stepIcon = $step['complete'] ? '✓' : ($step['available'] ? '!' : '–');
+                                    @endphp
+                                    <div style="border:1px solid rgba(148,163,184,.18);border-radius:.65rem;padding:.55rem .6rem;background:{{ $stepBg }};">
+                                        <div style="display:flex;align-items:center;gap:.38rem;">
+                                            <span style="width:18px;height:18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:white;color:{{ $stepColor }};font-size:.62rem;font-weight:850;">{{ $stepIcon }}</span>
+                                            <p class="text-gray-950 dark:text-white" style="font-size:.68rem;font-weight:800;line-height:1.2;">{{ $step['label'] }}</p>
+                                        </div>
+                                        <p class="text-gray-500 dark:text-gray-400" style="font-size:.6rem;line-height:1.25;margin-top:.28rem;">{{ $step['detail'] }}</p>
+                                    </div>
+                                @endforeach
                             </div>
-                        @if($record->canBeManagedBy(auth()->user()))
-                            <x-filament::button wire:click="openConvention({{ $expense->id }})" color="gray" size="sm" icon="heroicon-m-pencil-square">
-                                {{ $expense->hasCompleteConventionData() ? 'Edit details' : 'Complete details' }}
-                            </x-filament::button>
-                        @endif
+
+                            <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;">
+                                @if($record->canBeManagedBy(auth()->user()))
+                                    <x-filament::button wire:click="openConvention({{ $expense->id }})" color="{{ $detailsReady ? 'gray' : 'warning' }}" size="sm" icon="heroicon-m-pencil-square">
+                                        {{ $detailsReady ? 'Edit details' : 'Complete details' }}
+                                    </x-filament::button>
+                                @endif
+                                @if($detailsReady)
+                                    <x-filament::button tag="a" :href="route('project-documents.civil-convention', [$record, $expense])" color="gray" size="sm" icon="heroicon-m-arrow-down-tray">
+                                        Download agreement
+                                    </x-filament::button>
+                                    @if($record->canBeManagedBy(auth()->user()) && ! $agreementSigned)
+                                        <x-filament::button wire:click="openConventionSignedUpload({{ $expense->id }}, 'agreement')" color="warning" size="sm" icon="heroicon-m-arrow-up-tray">
+                                            Upload signed agreement
+                                        </x-filament::button>
+                                    @endif
+                                @endif
+                                @if($detailsReady && $paymentReady)
+                                    <x-filament::button tag="a" :href="route('project-documents.payment-statement', [$record, $expense])" color="gray" size="sm" icon="heroicon-m-banknotes">
+                                        Download payment statement
+                                    </x-filament::button>
+                                    @if($record->canBeManagedBy(auth()->user()) && ! $paymentSigned)
+                                        <x-filament::button wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" color="warning" size="sm" icon="heroicon-m-arrow-up-tray">
+                                            Upload signed payment
+                                        </x-filament::button>
+                                    @endif
+                                @endif
+
                             <x-filament::dropdown placement="bottom-end" width="sm">
                                 <x-slot name="trigger">
-                                    <x-filament::button color="gray" size="sm" icon="heroicon-m-ellipsis-horizontal">Documents</x-filament::button>
+                                    <x-filament::button color="gray" size="sm" icon="heroicon-m-ellipsis-horizontal">More</x-filament::button>
                                 </x-slot>
                                 <x-filament::dropdown.list>
-                                    @if($expense->hasCompleteConventionData())
+                                    @if($detailsReady)
                                         <x-filament::dropdown.list.item tag="a" :href="route('project-documents.civil-convention', [$record, $expense])" icon="heroicon-m-arrow-down-tray">Download agreement PDF</x-filament::dropdown.list.item>
-                                        @if($expense->hasConventionSignedCopy('agreement'))
+                                        @if($agreementSigned)
                                             <x-filament::dropdown.list.item tag="a" :href="route('project-documents.convention-signed', [$record, $expense, 'agreement'])" icon="heroicon-m-check-badge">Download signed agreement</x-filament::dropdown.list.item>
                                         @endif
                                         @if($record->canBeManagedBy(auth()->user()))
-                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'agreement')" icon="heroicon-m-arrow-up-tray">{{ $expense->hasConventionSignedCopy('agreement') ? 'Replace signed agreement' : 'Upload signed agreement' }}</x-filament::dropdown.list.item>
-                                            @if($expense->hasConventionSignedCopy('agreement'))
+                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'agreement')" icon="heroicon-m-arrow-up-tray">{{ $agreementSigned ? 'Replace signed agreement' : 'Upload signed agreement' }}</x-filament::dropdown.list.item>
+                                            @if($agreementSigned)
                                                 <x-filament::dropdown.list.item wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'agreement')" wire:confirm="Remove the signed agreement?" color="danger" icon="heroicon-m-trash">Remove signed agreement</x-filament::dropdown.list.item>
                                             @endif
                                         @endif
                                     @endif
-                                    @if($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData())
+                                    @if($detailsReady && $paymentReady)
                                         <x-filament::dropdown.list.item tag="a" :href="route('project-documents.payment-statement', [$record, $expense])" icon="heroicon-m-banknotes">Download payment statement</x-filament::dropdown.list.item>
-                                        @if($expense->hasConventionSignedCopy('payment'))
+                                        @if($paymentSigned)
                                             <x-filament::dropdown.list.item tag="a" :href="route('project-documents.convention-signed', [$record, $expense, 'payment'])" icon="heroicon-m-check-badge">Download signed payment</x-filament::dropdown.list.item>
                                         @endif
                                         @if($record->canBeManagedBy(auth()->user()))
-                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" icon="heroicon-m-arrow-up-tray">{{ $expense->hasConventionSignedCopy('payment') ? 'Replace signed payment' : 'Upload signed payment' }}</x-filament::dropdown.list.item>
-                                            @if($expense->hasConventionSignedCopy('payment'))
+                                            <x-filament::dropdown.list.item wire:click="openConventionSignedUpload({{ $expense->id }}, 'payment')" icon="heroicon-m-arrow-up-tray">{{ $paymentSigned ? 'Replace signed payment' : 'Upload signed payment' }}</x-filament::dropdown.list.item>
+                                            @if($paymentSigned)
                                                 <x-filament::dropdown.list.item wire:click="deleteConventionSignedCopy({{ $expense->id }}, 'payment')" wire:confirm="Remove the signed payment statement?" color="danger" icon="heroicon-m-trash">Remove signed payment</x-filament::dropdown.list.item>
                                             @endif
                                         @endif
                                     @endif
                                 </x-filament::dropdown.list>
                             </x-filament::dropdown>
+                            </div>
                         </div>
                     </details>
                 @endforeach

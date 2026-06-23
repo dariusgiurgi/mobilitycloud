@@ -190,6 +190,68 @@ class ViewProjectDocuments extends Page
             ->get();
     }
 
+    public function getCivilConventionSummary(): array
+    {
+        $expenses = $this->getCivilConventionExpenses();
+
+        $detailsComplete = $expenses->filter->hasCompleteConventionData()->count();
+        $paymentComplete = $expenses->filter->hasCompletePaymentData()->count();
+        $signedAgreements = $expenses->filter(fn (Expense $expense): bool => $expense->hasConventionSignedCopy('agreement'))->count();
+        $signedPayments = $expenses->filter(fn (Expense $expense): bool => $expense->hasConventionSignedCopy('payment'))->count();
+        $complete = $expenses->filter(fn (Expense $expense): bool => $expense->hasCompleteConventionData()
+            && $expense->hasCompletePaymentData()
+            && $expense->hasConventionSignedCopy('agreement')
+            && $expense->hasConventionSignedCopy('payment'))->count();
+
+        return [
+            'total' => $expenses->count(),
+            'complete' => $complete,
+            'details_missing' => $expenses->count() - $detailsComplete,
+            'awaiting_signatures' => max(0, ($detailsComplete - $signedAgreements) + ($paymentComplete - $signedPayments)),
+            'signed_agreements' => $signedAgreements,
+            'signed_payments' => $signedPayments,
+        ];
+    }
+
+    public function conventionWorkflowSteps(Expense $expense): array
+    {
+        $detailsReady = $expense->hasCompleteConventionData();
+        $paymentReady = $expense->hasCompletePaymentData();
+
+        return [
+            [
+                'label' => 'Details',
+                'complete' => $detailsReady,
+                'available' => true,
+                'detail' => $detailsReady ? 'Contract data ready' : 'Required details missing',
+            ],
+            [
+                'label' => 'Agreement PDF',
+                'complete' => $detailsReady,
+                'available' => $detailsReady,
+                'detail' => $detailsReady ? 'Ready to download' : 'Complete details first',
+            ],
+            [
+                'label' => 'Signed agreement',
+                'complete' => $expense->hasConventionSignedCopy('agreement'),
+                'available' => $detailsReady,
+                'detail' => $expense->hasConventionSignedCopy('agreement') ? 'Uploaded' : 'Waiting for signed copy',
+            ],
+            [
+                'label' => 'Payment statement',
+                'complete' => $detailsReady && $paymentReady,
+                'available' => $detailsReady && $paymentReady,
+                'detail' => $paymentReady ? 'Ready to download' : 'Payment data missing',
+            ],
+            [
+                'label' => 'Signed payment',
+                'complete' => $expense->hasConventionSignedCopy('payment'),
+                'available' => $detailsReady && $paymentReady,
+                'detail' => $expense->hasConventionSignedCopy('payment') ? 'Uploaded' : 'Waiting for signed copy',
+            ],
+        ];
+    }
+
     public function openExpenseReportGenerator(): void
     {
         $this->authorizeProjectManagement();
