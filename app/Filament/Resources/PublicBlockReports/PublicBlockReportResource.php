@@ -33,16 +33,16 @@ class PublicBlockReportResource extends Resource
         return false;
     }
 
-    // Vizibila in sidebar DOAR pentru moderatori.
+    // Vizibila in sidebar DOAR pentru conturile globale de admin platforma.
     public static function shouldRegisterNavigation(): bool
     {
-        return Filament::auth()->user()?->canModerate() ?? false;
+        return Filament::auth()->user()?->isPlatformAdmin() ?? false;
     }
 
-    // Blocheaza accesul direct la URL pentru non-moderatori.
+    // Blocheaza accesul direct la URL pentru conturile care nu sunt admin platforma.
     public static function canViewAny(): bool
     {
-        return Filament::auth()->user()?->canModerate() ?? false;
+        return Filament::auth()->user()?->isPlatformAdmin() ?? false;
     }
 
     // Badge cu numarul de raportari in asteptare.

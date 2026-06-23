@@ -82,6 +82,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return $this->role === self::ROLE_ADMIN;
     }
 
+    public function isPlatformAdmin(): bool
+    {
+        return $this->isAdmin();
+    }
+
     public function isSupervisor(): bool
     {
         return $this->role === self::ROLE_SUPERVISOR;
