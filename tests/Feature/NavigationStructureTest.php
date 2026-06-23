@@ -52,9 +52,8 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(35, DocumentTemplates::getNavigationSort());
         $this->assertFalse(NotificationPreferences::shouldRegisterNavigation());
 
-        $this->assertSame('Account', AccountSettings::getNavigationGroup());
+        $this->assertFalse(AccountSettings::shouldRegisterNavigation());
         $this->assertSame('My account', AccountSettings::getNavigationLabel());
-        $this->assertSame(10, AccountSettings::getNavigationSort());
     }
 
     public function test_technical_public_library_resource_stays_out_of_the_sidebar(): void
@@ -67,7 +66,7 @@ class NavigationStructureTest extends TestCase
         $groups = Filament::getPanel('admin')->getNavigationGroups();
 
         $this->assertSame(
-            ['Planning tools', 'Community', 'Workspace settings', 'Account'],
+            ['Planning tools', 'Community', 'Workspace settings'],
             array_map(fn ($group) => $group->getLabel(), $groups),
         );
 

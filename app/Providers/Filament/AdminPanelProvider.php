@@ -2,10 +2,12 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Tenancy\EditWorkspaceProfile;
 use App\Filament\Pages\Tenancy\RegisterWorkspace;
 use App\Models\Workspace;
+use Filament\Actions\Action;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -14,6 +16,7 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -45,8 +48,13 @@ class AdminPanelProvider extends PanelProvider
                     ->collapsible(false),
                 NavigationGroup::make('Workspace settings')
                     ->collapsible(false),
-                NavigationGroup::make('Account')
-                    ->collapsible(false),
+            ])
+            ->userMenuItems([
+                Action::make('accountSettings')
+                    ->label('My account')
+                    ->icon(Heroicon::OutlinedUserCircle)
+                    ->url(fn (): string => AccountSettings::getUrl())
+                    ->sort(5),
             ])
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)

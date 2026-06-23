@@ -33,6 +33,20 @@ class AccountSettingsTest extends TestCase
         $this->assertSame('darius@example.test', $user->email);
     }
 
+    public function test_account_center_is_available_from_the_user_menu_not_the_sidebar(): void
+    {
+        [$workspace, $user] = $this->workspaceAndUser('member');
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $items = Filament::getPanel('admin')->getUserMenuItems();
+
+        $this->assertFalse(AccountSettings::shouldRegisterNavigation());
+        $this->assertArrayHasKey('accountSettings', $items);
+        $this->assertSame('My account', $items['accountSettings']->getLabel());
+        $this->assertSame(AccountSettings::getUrl(), $items['accountSettings']->getUrl());
+    }
+
     public function test_user_can_update_password_from_account_center(): void
     {
         [$workspace, $user] = $this->workspaceAndUser('member');

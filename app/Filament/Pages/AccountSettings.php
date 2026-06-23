@@ -26,6 +26,11 @@ class AccountSettings extends Page
 
     protected string $view = 'filament.pages.account-settings';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public string $name = '';
 
     public string $email = '';
