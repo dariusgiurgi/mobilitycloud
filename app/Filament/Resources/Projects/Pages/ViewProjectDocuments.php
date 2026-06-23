@@ -108,6 +108,12 @@ class ViewProjectDocuments extends Page
             ]))
             ->when($this->documentFilter === 'uploaded', fn ($query) => $query->where('type', ProjectDocument::TYPE_UPLOAD))
             ->when($this->documentFilter === 'signed', fn ($query) => $query->whereNotNull('signed_path'))
+            ->when($this->documentFilter === 'unsigned', fn ($query) => $query
+                ->whereIn('type', [
+                    ProjectDocument::TYPE_ATTENDANCE,
+                    ProjectDocument::TYPE_EXPENSE_REPORT,
+                ])
+                ->whereNull('signed_path'))
             ->when(filled($this->documentSearch), function ($query): void {
                 $search = '%'.trim($this->documentSearch).'%';
                 $query->where(function ($query) use ($search): void {
@@ -125,6 +131,35 @@ class ViewProjectDocuments extends Page
         return app(ProjectDocumentChecklist::class)->build($this->record);
     }
 
+    public function getDocumentCommandCenter(): array
+    {
+        $checklist = $this->getDocumentChecklist();
+        $requiredTotal = max(1, count($checklist['items']) - $checklist['optional']);
+        $readiness = (int) round($checklist['complete'] / $requiredTotal * 100);
+        $nextItem = collect($checklist['items'])
+            ->first(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true));
+        $documents = $this->record->documents()->get();
+        $generated = $documents->whereIn('type', [
+            ProjectDocument::TYPE_ATTENDANCE,
+            ProjectDocument::TYPE_EXPENSE_REPORT,
+        ]);
+        $awaitingSignature = $generated->filter(fn (ProjectDocument $document): bool => ! $document->hasSignedCopy())->count();
+
+        return [
+            'readiness' => min(100, $readiness),
+            'status' => $checklist['missing'] > 0
+                ? 'Required files are still missing'
+                : ($checklist['attention'] > 0 ? 'Some generated records need signed copies' : 'Document file looks complete'),
+            'next_label' => $nextItem['label'] ?? 'Final review',
+            'next_detail' => $nextItem['detail'] ?? 'All required checklist items are complete.',
+            'next_status' => $nextItem['status'] ?? 'complete',
+            'files' => $documents->count(),
+            'generated' => $generated->count(),
+            'awaiting_signature' => $awaitingSignature,
+            'uploaded' => $documents->where('type', ProjectDocument::TYPE_UPLOAD)->count(),
+        ];
+    }
+
     public function setDocumentTab(string $tab): void
     {
         $this->activeDocumentTab = in_array($tab, ['files', 'conventions', 'checklist'], true)
@@ -134,7 +169,7 @@ class ViewProjectDocuments extends Page
 
     public function updatedDocumentFilter(string $filter): void
     {
-        if (! in_array($filter, ['all', 'generated', 'uploaded', 'signed'], true)) {
+        if (! in_array($filter, ['all', 'generated', 'uploaded', 'signed', 'unsigned'], true)) {
             $this->documentFilter = 'all';
         }
     }

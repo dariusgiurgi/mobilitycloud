@@ -312,6 +312,9 @@ class ProjectDocumentsTest extends TestCase
         Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSet('activeDocumentTab', 'files')
             ->assertSee('Project document centre')
+            ->assertSee('Document readiness')
+            ->assertSee('Next:')
+            ->assertSee('Upload missing file')
             ->assertSee('Add document')
             ->call('setDocumentTab', 'conventions')
             ->assertSet('activeDocumentTab', 'conventions')
@@ -321,6 +324,42 @@ class ProjectDocumentsTest extends TestCase
             ->assertSet('activeDocumentTab', 'checklist')
             ->assertSee('Project file checklist')
             ->assertSee('Automatic checklist');
+    }
+
+    public function test_document_command_center_summarises_readiness_and_awaiting_signatures(): void
+    {
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'member']);
+        $signed = $this->attendanceDocument($project);
+        $unsigned = ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_EXPENSE_REPORT,
+            'category' => 'report',
+            'title' => 'Official expense report',
+            'metadata' => ['expense_count' => 0, 'total_eur' => 0],
+            'generated_at' => now(),
+        ]);
+
+        Storage::fake('local');
+        $signedPath = 'project-documents/'.$project->id.'/'.$signed->id.'/signed.pdf';
+        Storage::disk('local')->put($signedPath, 'signed');
+        $signed->update(['signed_path' => $signedPath, 'signed_disk' => 'local']);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->assertSee('Document readiness')
+            ->assertSee('Awaiting')
+            ->assertSee('Show awaiting signatures')
+            ->set('documentFilter', 'unsigned')
+            ->assertSet('documentFilter', 'unsigned');
+
+        $summary = $component->instance()->getDocumentCommandCenter();
+        $this->assertSame(2, $summary['generated']);
+        $this->assertSame(1, $summary['awaiting_signature']);
+        $this->assertSame([$unsigned->id], $component->instance()->getDocuments()->pluck('id')->all());
     }
 
     private function workspaceAndProject(): array

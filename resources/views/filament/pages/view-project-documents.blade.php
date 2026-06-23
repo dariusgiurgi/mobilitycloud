@@ -5,6 +5,7 @@
         $documentCategories = $this->getDocumentCategories();
         $civilConventions = $this->getCivilConventionExpenses();
         $checklist = $this->getDocumentChecklist();
+        $command = $this->getDocumentCommandCenter();
         $documentCount = $record->documents()->count();
         $checklistIssues = $checklist['attention'] + $checklist['missing'];
     @endphp
@@ -33,6 +34,49 @@
                     </x-filament::dropdown.list>
                 </x-filament::dropdown>
             @endif
+        </div>
+    </x-filament::section>
+
+    <x-filament::section style="margin-top:1rem;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem;align-items:stretch;">
+            <div style="grid-column:span 2;min-width:min(100%,300px);padding:.95rem;border-radius:.85rem;background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(14,165,233,.08));border:1px solid rgba(99,102,241,.18);">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;">
+                    <div>
+                        <p class="text-gray-500 dark:text-gray-400" style="font-size:.65rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">Document readiness</p>
+                        <p class="text-gray-950 dark:text-white" style="font-size:1.35rem;font-weight:850;margin-top:.15rem;">{{ $command['readiness'] }}%</p>
+                    </div>
+                    <x-filament::badge :color="$command['next_status'] === 'missing' ? 'danger' : ($command['next_status'] === 'attention' ? 'warning' : 'success')">
+                        {{ $command['status'] }}
+                    </x-filament::badge>
+                </div>
+                <div style="height:7px;border-radius:999px;background:rgba(148,163,184,.25);overflow:hidden;margin:.7rem 0 .65rem;">
+                    <div style="height:100%;width:{{ $command['readiness'] }}%;border-radius:999px;background:#6366f1;"></div>
+                </div>
+                <p class="text-gray-950 dark:text-white" style="font-size:.78rem;font-weight:750;">Next: {{ $command['next_label'] }}</p>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.7rem;line-height:1.45;margin-top:.15rem;">{{ $command['next_detail'] }}</p>
+                <div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.75rem;">
+                    <x-filament::button wire:click="setDocumentTab('checklist')" color="gray" size="sm">Open checklist</x-filament::button>
+                    @if($record->canBeManagedBy(auth()->user()) && $command['next_status'] === 'missing')
+                        <x-filament::button wire:click="openDocumentUpload" size="sm" icon="heroicon-m-arrow-up-tray">Upload missing file</x-filament::button>
+                    @endif
+                    @if($record->canBeManagedBy(auth()->user()) && $command['awaiting_signature'] > 0)
+                        <x-filament::button wire:click="$set('documentFilter', 'unsigned')" color="gray" size="sm">Show awaiting signatures</x-filament::button>
+                    @endif
+                </div>
+            </div>
+
+            @foreach([
+                ['label' => 'Files', 'value' => $command['files'], 'hint' => 'stored records'],
+                ['label' => 'Generated', 'value' => $command['generated'], 'hint' => 'PDF snapshots'],
+                ['label' => 'Awaiting', 'value' => $command['awaiting_signature'], 'hint' => 'signatures'],
+                ['label' => 'Uploaded', 'value' => $command['uploaded'], 'hint' => 'private files'],
+            ] as $stat)
+                <div class="bg-white dark:bg-gray-900" style="padding:.85rem;border:1px solid rgba(148,163,184,.22);border-radius:.8rem;">
+                    <p class="text-gray-400" style="font-size:.6rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">{{ $stat['label'] }}</p>
+                    <p class="text-gray-950 dark:text-white" style="font-size:1.25rem;font-weight:850;margin-top:.25rem;">{{ $stat['value'] }}</p>
+                    <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.08rem;">{{ $stat['hint'] }}</p>
+                </div>
+            @endforeach
         </div>
     </x-filament::section>
 
@@ -192,6 +236,7 @@
                         <option value="generated">Generated</option>
                         <option value="uploaded">Uploaded</option>
                         <option value="signed">Signed</option>
+                        <option value="unsigned">Awaiting signature</option>
                     </x-filament::input.select>
                 </x-filament::input.wrapper>
             </div>
