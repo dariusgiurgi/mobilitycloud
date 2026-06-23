@@ -9,6 +9,7 @@ use App\Models\PublicBlockReport;
 use App\Models\PublicContentBlock;
 use App\Models\User;
 use App\Support\AuthorizesWorkspaceManagement;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -34,6 +35,11 @@ class PublicLibrary extends Page
 
     // Filtre / sortare (legate in blade).
     public string $search = '';
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public string $sort = 'relevant';     // relevant | new | imports
 

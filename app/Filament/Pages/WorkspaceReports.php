@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Services\WorkspaceReportService;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
@@ -21,6 +22,11 @@ class WorkspaceReports extends Page
     protected string $view = 'filament.pages.workspace-reports';
 
     public string $status = 'all';
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public ?string $startDate = null;
 

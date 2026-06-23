@@ -8,6 +8,7 @@ use App\Filament\Resources\PublicContentBlocks\Pages\ListPublicContentBlocks;
 use App\Filament\Resources\PublicContentBlocks\Schemas\PublicContentBlockForm;
 use App\Filament\Resources\PublicContentBlocks\Tables\PublicContentBlocksTable;
 use App\Models\PublicContentBlock;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Resources\Resource;
@@ -38,6 +39,11 @@ class PublicContentBlockResource extends Resource
         return false;
     }
 
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
+
     // NU e tenant-scoped: biblioteca publica e comuna tuturor workspace-urilor.
     public static function isScopedToTenant(): bool
     {
@@ -46,7 +52,8 @@ class PublicContentBlockResource extends Resource
 
     public static function canCreate(): bool
     {
-        return Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
+        return PlatformAccess::usesWorkspaceInterface()
+            && (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false);
     }
 
     public static function form(Schema $schema): Schema

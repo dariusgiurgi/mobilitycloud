@@ -10,6 +10,6 @@ trait AuthorizesWorkspaceManagement
     {
         $workspace = Filament::getTenant();
 
-        abort_unless($workspace && $workspace->canBeManagedBy(auth()->user()), 403);
+        abort_unless(PlatformAccess::usesWorkspaceInterface() && $workspace && $workspace->canBeManagedBy(auth()->user()), 403);
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
@@ -26,6 +27,11 @@ class GlobalSearch extends Page
     protected string $view = 'filament.pages.global-search';
 
     public string $search = '';
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public function getSubheading(): ?string
     {

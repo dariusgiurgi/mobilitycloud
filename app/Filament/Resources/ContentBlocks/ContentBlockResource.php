@@ -8,6 +8,7 @@ use App\Filament\Resources\ContentBlocks\Pages\ListContentBlocks;
 use App\Filament\Resources\ContentBlocks\Schemas\ContentBlockForm;
 use App\Filament\Resources\ContentBlocks\Tables\ContentBlocksTable;
 use App\Models\ContentBlock;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -34,6 +35,16 @@ class ContentBlockResource extends Resource
 
     // Scope every query to the active workspace via this relationship.
     protected static ?string $tenantOwnershipRelationshipName = 'workspace';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public static function form(Schema $schema): Schema
     {

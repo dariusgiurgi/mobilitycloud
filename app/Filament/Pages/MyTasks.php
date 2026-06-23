@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectTask;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -27,6 +28,11 @@ class MyTasks extends Page
     protected string $view = 'filament.pages.my-tasks';
 
     public string $statusFilter = 'open';
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public string $dueFilter = 'all';
 

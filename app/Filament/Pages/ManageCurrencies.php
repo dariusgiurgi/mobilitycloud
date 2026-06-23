@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Expense;
 use App\Support\AuthorizesWorkspaceManagement;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -28,6 +29,11 @@ class ManageCurrencies extends Page
     protected string $view = 'filament.pages.manage-currencies';
 
     public array $rows = [];
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public string $newCode = '';
 

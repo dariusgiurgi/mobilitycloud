@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\SavedCalculation;
 use App\Support\AuthorizesWorkspaceManagement;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -25,6 +26,11 @@ class IndividualSupportCalculator extends Page
     protected static ?string $title = 'Individual Support Calculator';
 
     protected string $view = 'filament.pages.individual-support-calculator';
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public const TRAVEL_BANDS = [
         ['label' => '0–9 km',        'green' => 0,    'standard' => 0],

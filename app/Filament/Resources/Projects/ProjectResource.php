@@ -14,6 +14,7 @@ use App\Filament\Resources\Projects\Pages\WriteApplication;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
 use App\Models\Project;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
@@ -36,6 +37,16 @@ class ProjectResource extends Resource
     protected static ?int $navigationSort = -1;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     public static function form(Schema $schema): Schema
     {

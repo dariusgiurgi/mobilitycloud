@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Filament\Facades\Filament;
@@ -26,6 +27,11 @@ class WorkspaceCalendar extends Page
 
     #[Url]
     public string $month = '';
+
+    public static function canAccess(): bool
+    {
+        return PlatformAccess::usesWorkspaceInterface();
+    }
 
     #[Url]
     public string $type = 'all';

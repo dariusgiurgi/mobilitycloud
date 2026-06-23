@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Widgets\DashboardWorkspace;
 use App\Filament\Widgets\ProjectStatsOverview;
 use Filament\Actions\Action;
@@ -16,6 +17,10 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): ?string
     {
+        if (auth()->user()?->isPlatformAdmin()) {
+            return 'Internal platform administration for users, reports and operational controls.';
+        }
+
         $workspace = Filament::getTenant();
 
         return $workspace
@@ -25,6 +30,15 @@ class Dashboard extends BaseDashboard
 
     protected function getHeaderActions(): array
     {
+        if (auth()->user()?->isPlatformAdmin()) {
+            return [
+                Action::make('moderationReports')
+                    ->label('Moderation reports')
+                    ->icon(Heroicon::OutlinedFlag)
+                    ->url(fn (): string => PublicBlockReportResource::getUrl()),
+            ];
+        }
+
         return [
             Action::make('newProject')
                 ->label('New project')
@@ -36,9 +50,20 @@ class Dashboard extends BaseDashboard
 
     public function getWidgets(): array
     {
+        if (auth()->user()?->isPlatformAdmin()) {
+            return [];
+        }
+
         return [
             ProjectStatsOverview::class,
             DashboardWorkspace::class,
         ];
+    }
+
+    public function getTitle(): string
+    {
+        return auth()->user()?->isPlatformAdmin()
+            ? 'Platform administration'
+            : parent::getTitle();
     }
 }

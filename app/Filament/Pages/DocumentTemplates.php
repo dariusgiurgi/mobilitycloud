@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -48,7 +49,8 @@ class DocumentTemplates extends Page
 
     public static function canAccess(): bool
     {
-        return Filament::getTenant()?->canManageMembersBy(auth()->user()) ?? false;
+        return PlatformAccess::usesWorkspaceInterface()
+            && (Filament::getTenant()?->canManageMembersBy(auth()->user()) ?? false);
     }
 
     public function mount(): void
