@@ -14,8 +14,10 @@
         $partners = $this->record->partners;
         $approved = (float) $this->record->approved_budget;
         $requested = (float) $this->record->total_budget;
-        $ka = $this->record->ka_action;
-        $kaLabel = $ka ? (\App\Support\ApplicationTemplates::list()[$ka] ?? strtoupper($ka)) : null;
+        $ka = \App\Support\ApplicationTemplates::normaliseKey($this->record->ka_action);
+        $kaInfo = $ka ? \App\Support\ApplicationTemplates::get($ka) : null;
+        $kaLabel = $kaInfo ? ($kaInfo['label'].' · Call '.$kaInfo['call_year']) : null;
+        $budgetModuleLabel = $this->record->isWritingStage() ? 'Grant estimate' : 'Budget';
         $canManage = $this->record->canBeManagedBy(auth()->user());
         $eur = fn ($value) => number_format((float) $value, 2, '.', ',').' €';
     @endphp
@@ -120,7 +122,7 @@
                 </span>
                 <span class="mc-overview-muted" style="font-size:.68rem;">{{ $this->record->isWritingStage() ? 'Estimate' : $this->record->progress.'% spent' }}</span>
             </div>
-            <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Budget</h3>
+            <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">{{ $budgetModuleLabel }}</h3>
             @if ($this->record->isWritingStage())
                 <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $eur($this->record->effective_budget) }}</p>
                 <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">Requested grant currently saved</p>
@@ -128,7 +130,7 @@
                 <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $eur($this->record->remaining) }}</p>
                 <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">remaining from {{ $eur($this->record->effective_budget) }}</p>
             @endif
-            <span style="font-size:.72rem;font-weight:600;color:#6366f1;margin-top:auto;padding-top:.7rem;">Open budget →</span>
+            <span style="font-size:.72rem;font-weight:600;color:#6366f1;margin-top:auto;padding-top:.7rem;">Open {{ \Illuminate\Support\Str::lower($budgetModuleLabel) }} →</span>
         </a>
 
         <a href="{{ $urls['participants'] }}" class="mc-overview-card">

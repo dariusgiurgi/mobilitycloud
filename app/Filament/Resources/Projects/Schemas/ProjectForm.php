@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Schemas;
 
 use App\Enums\ProjectStatus;
+use App\Support\ApplicationTemplates;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -43,6 +44,22 @@ class ProjectForm
                             ->rows(3)
                             ->placeholder('Short internal description of the project')
                             ->columnSpanFull(),
+                    ]),
+
+                Section::make('Application setup')
+                    ->description('Choose the Erasmus+ action that drives the writing template, library suggestions and application exports.')
+                    ->columns(2)
+                    ->schema([
+                        Select::make('ka_action')
+                            ->label('Application template')
+                            ->options(ApplicationTemplates::list())
+                            ->default('ka152-you')
+                            ->formatStateUsing(fn (?string $state): string => ApplicationTemplates::normaliseKey($state ?: 'ka152-you'))
+                            ->dehydrateStateUsing(fn (?string $state): string => ApplicationTemplates::normaliseKey($state ?: 'ka152-you'))
+                            ->searchable()
+                            ->native(false)
+                            ->required()
+                            ->helperText('This can also be changed from Writing → Template manager.'),
                     ]),
 
                 Section::make('Timeline')

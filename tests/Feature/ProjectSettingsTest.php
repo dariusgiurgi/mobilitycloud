@@ -25,6 +25,8 @@ class ProjectSettingsTest extends TestCase
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertSee('Project identity')
+            ->assertSee('Application setup')
+            ->assertSee('Application template')
             ->assertSee('Timeline')
             ->assertSee('Involved organisations')
             ->assertSee('Funding and taxation')
@@ -68,6 +70,21 @@ class ProjectSettingsTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame('ERAS-26', $project->fresh()->expense_prefix);
+    }
+
+    public function test_application_template_is_saved_as_normalised_action_key(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(EditProject::class, ['record' => $project->id])
+            ->assertFormSet(['ka_action' => 'ka152-you'])
+            ->fillForm(['ka_action' => 'ka153-you'])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame('ka153-you', $project->fresh()->ka_action);
     }
 
     public function test_viewer_cannot_see_or_open_project_settings(): void

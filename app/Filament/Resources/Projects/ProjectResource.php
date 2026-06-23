@@ -77,10 +77,12 @@ class ProjectResource extends Resource
     {
         $record = $page->getRecord();
 
-        // Budget points to the estimator while writing, to the board once managed.
+        // While writing, this is a grant estimate. Once the project is managed,
+        // the same module becomes the implementation budget board.
         $budgetUrl = $record->isWritingStage()
             ? static::getUrl('estimate', ['record' => $record])
             : static::getUrl('board', ['record' => $record]);
+        $budgetLabel = $record->isWritingStage() ? 'Estimate' : 'Budget';
 
         return [
             NavigationItem::make('Overview')
@@ -93,7 +95,7 @@ class ProjectResource extends Resource
                 ->url(static::getUrl('write', ['record' => $record]))
                 ->isActiveWhen(fn () => $page instanceof WriteApplication),
 
-            NavigationItem::make('Budget')
+            NavigationItem::make($budgetLabel)
                 ->icon(Heroicon::OutlinedBanknotes)
                 ->url($budgetUrl)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectEstimate || $page instanceof ViewProjectBoard),

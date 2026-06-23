@@ -48,6 +48,8 @@ class ProjectOverviewTest extends TestCase
             ->assertSee('1/2 sections')
             ->assertSee('50% of sections contain text')
             ->assertSee('1 incomplete')
+            ->assertSee('Grant estimate')
+            ->assertSee('KA152-YOU - Youth Exchanges')
             ->assertSee('Project details')
             ->assertSee('Project stage');
 
