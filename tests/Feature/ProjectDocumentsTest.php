@@ -362,6 +362,26 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame([$unsigned->id], $component->instance()->getDocuments()->pluck('id')->all());
     }
 
+    public function test_primary_signed_upload_action_hides_after_document_is_signed(): void
+    {
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'member']);
+        $document = $this->attendanceDocument($project);
+        Storage::fake('local');
+        $signedPath = 'project-documents/'.$project->id.'/'.$document->id.'/signed.pdf';
+        Storage::disk('local')->put($signedPath, 'signed');
+        $document->update(['signed_path' => $signedPath, 'signed_disk' => 'local']);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->assertSee('Signed')
+            ->assertSee('Replace signed copy')
+            ->assertDontSeeHtml('<button wire:click="openSignedUpload('.$document->id.')"');
+    }
+
     private function workspaceAndProject(): array
     {
         $workspace = Workspace::create(['name' => 'Documents Workspace']);
