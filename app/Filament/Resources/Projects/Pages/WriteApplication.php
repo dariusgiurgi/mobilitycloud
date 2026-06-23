@@ -12,6 +12,8 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class WriteApplication extends Page
 {
@@ -43,6 +45,8 @@ class WriteApplication extends Page
     public bool $showTemplateDetails = false;
 
     public bool $showVersions = false;
+
+    public bool $showReviewDetails = false;
 
     public string $versionLabel = '';
 
@@ -112,6 +116,72 @@ class WriteApplication extends Page
         return ApplicationTemplates::get($this->selectedTemplate);
     }
 
+    public function getTemplateCatalog(): array
+    {
+        return ApplicationTemplates::catalog();
+    }
+
+    public function selectTemplate(string $key): void
+    {
+        $normalised = ApplicationTemplates::normaliseKey($key);
+
+        if (ApplicationTemplates::get($normalised)) {
+            $this->selectedTemplate = $normalised;
+        }
+    }
+
+    public function getTemplateAlignment(): array
+    {
+        return $this->templateAlignment($this->selectedTemplate);
+    }
+
+    protected function templateAlignment(?string $templateKey = null): array
+    {
+        $template = ApplicationTemplates::get($templateKey ?: $this->selectedTemplate);
+        $officialSections = collect($template['sections'] ?? []);
+        $officialKeys = $officialSections->pluck('key')->filter()->values();
+        $sections = $this->getSections();
+        $sectionsByKey = $sections->whereNotNull('question_key')->keyBy('question_key');
+
+        $matched = 0;
+        $needsMetadataSync = 0;
+        $missing = [];
+
+        foreach ($officialSections as $official) {
+            $existing = $sectionsByKey->get($official['key']);
+
+            if (! $existing) {
+                $missing[] = $official;
+                continue;
+            }
+
+            $matched++;
+
+            if (
+                ($existing->category !== ($official['category'] ?? null))
+                || ((int) $existing->char_limit !== (int) ($official['char_limit'] ?? 0))
+            ) {
+                $needsMetadataSync++;
+            }
+        }
+
+        $custom = $sections->filter(fn (ProjectApplicationSection $section) => ! $section->question_key || ! $officialKeys->contains($section->question_key))->values();
+        $answered = $sections->filter(fn (ProjectApplicationSection $section) => filled(trim(strip_tags($section->content ?? ''))))->count();
+        $officialCount = $officialSections->count();
+
+        return [
+            'official_count' => $officialCount,
+            'matched' => $matched,
+            'missing_count' => count($missing),
+            'missing' => $missing,
+            'metadata_sync_count' => $needsMetadataSync,
+            'custom_count' => $custom->count(),
+            'answered_count' => $answered,
+            'coverage' => $officialCount > 0 ? (int) round($matched / $officialCount * 100) : 0,
+            'is_current_project_template' => ApplicationTemplates::normaliseKey($this->record->ka_action) === ApplicationTemplates::normaliseKey($templateKey ?: $this->selectedTemplate),
+        ];
+    }
+
     public function getHasContentProperty(): bool
     {
         return $this->sectionsQuery()
@@ -158,6 +228,294 @@ class WriteApplication extends Page
             'progress' => $total > 0 ? (int) round($completed / $total * 100) : 0,
             'ready' => $ready,
             'in_review' => $inReview,
+        ];
+    }
+
+    public function getConsistencyReview(): array
+    {
+        $sections = $this->getSections();
+        $issues = [];
+        $alignment = $this->templateAlignment($this->record->ka_action ?: $this->selectedTemplate);
+
+        if ($alignment['missing_count'] > 0) {
+            $issues[] = $this->reviewIssue(
+                'critical',
+                'Template structure',
+                $alignment['missing_count'].' official template questions are missing from this draft.',
+                'Open Template manager and synchronise the selected template before final review.'
+            );
+        }
+
+        $emptyOfficial = $sections->filter(fn (ProjectApplicationSection $section) => $section->question_key && blank(trim(strip_tags($this->content[$section->id] ?? (string) $section->content))));
+        if ($emptyOfficial->isNotEmpty()) {
+            $issues[] = $this->reviewIssue(
+                'critical',
+                'Unanswered questions',
+                $emptyOfficial->count().' official questions do not have an answer yet.',
+                'Use the “Unanswered” filter and complete the missing sections.',
+                $emptyOfficial->first()?->id
+            );
+        }
+
+        $overLimit = $sections->filter(function (ProjectApplicationSection $section) {
+            $text = strip_tags($this->content[$section->id] ?? (string) $section->content);
+
+            return $section->char_limit && mb_strlen($text) > $section->char_limit;
+        });
+        if ($overLimit->isNotEmpty()) {
+            $issues[] = $this->reviewIssue(
+                'critical',
+                'Character limits',
+                $overLimit->count().' answers exceed the configured character limit.',
+                'Use the “Over character limit” filter and shorten those answers.',
+                $overLimit->first()?->id
+            );
+        }
+
+        $needsReview = $sections->filter(fn (ProjectApplicationSection $section) => ($this->reviewStatuses[$section->id] ?? $section->review_status) === 'review');
+        if ($needsReview->isNotEmpty()) {
+            $issues[] = $this->reviewIssue(
+                'warning',
+                'Internal review',
+                $needsReview->count().' sections are still marked as “Needs review”.',
+                'Resolve reviewer notes and mark the final answers as Ready.',
+                $needsReview->first()?->id
+            );
+        }
+
+        $shortAnswers = $sections->filter(function (ProjectApplicationSection $section) {
+            $text = trim(strip_tags($this->content[$section->id] ?? (string) $section->content));
+
+            return $section->question_key && $text !== '' && str_word_count($text) < 45;
+        });
+        if ($shortAnswers->isNotEmpty()) {
+            $issues[] = $this->reviewIssue(
+                'suggestion',
+                'Thin answers',
+                $shortAnswers->count().' official answers are very short.',
+                'Check whether they include context, method, responsibilities, evidence and expected results.',
+                $shortAnswers->first()?->id
+            );
+        }
+
+        $allText = $this->normalisedApplicationText($sections);
+        foreach ($this->expectedThemeChecks() as $check) {
+            if (! $this->textContainsAny($allText, $check['keywords'])) {
+                $issues[] = $this->reviewIssue(
+                    $check['severity'],
+                    $check['area'],
+                    $check['title'],
+                    $check['action']
+                );
+            }
+        }
+
+        $this->addCrossSectionIssues($issues, $sections);
+
+        if ((float) $this->record->total_budget <= 0 && (float) $this->record->approved_budget <= 0) {
+            $issues[] = $this->reviewIssue(
+                'suggestion',
+                'Budget consistency',
+                'No requested or approved budget is recorded on the project yet.',
+                'Add a budget estimate so the application narrative can be checked against the financial plan.'
+            );
+        }
+
+        $severityCounts = collect($issues)->countBy('severity');
+        $score = max(0, 100
+            - (($severityCounts->get('critical', 0) ?? 0) * 14)
+            - (($severityCounts->get('warning', 0) ?? 0) * 7)
+            - (($severityCounts->get('suggestion', 0) ?? 0) * 3)
+        );
+
+        return [
+            'score' => $score,
+            'status' => $score >= 85 ? 'Strong draft' : ($score >= 65 ? 'Needs focused review' : 'Not ready yet'),
+            'critical' => (int) ($severityCounts->get('critical', 0) ?? 0),
+            'warning' => (int) ($severityCounts->get('warning', 0) ?? 0),
+            'suggestion' => (int) ($severityCounts->get('suggestion', 0) ?? 0),
+            'issues' => collect($issues)->sortBy(fn (array $issue) => ['critical' => 0, 'warning' => 1, 'suggestion' => 2][$issue['severity']] ?? 3)->values()->all(),
+        ];
+    }
+
+    public function getQualityReview(): array
+    {
+        $sections = $this->getSections();
+        $text = $this->normalisedApplicationText($sections);
+        $summary = $this->getApplicationSummary();
+        $criteria = collect($this->qualityCriteria())->map(function (array $criterion) use ($text, $summary) {
+            return $this->scoreQualityCriterion($criterion, $text, $summary);
+        })->values();
+
+        $weighted = $criteria->sum(fn (array $criterion) => $criterion['score'] * $criterion['weight']);
+        $weightTotal = max(1, $criteria->sum('weight'));
+        $overall = (int) round($weighted / $weightTotal);
+
+        return [
+            'score' => $overall,
+            'status' => $overall >= 85 ? 'Evaluator-ready shape' : ($overall >= 70 ? 'Promising, needs polish' : ($overall >= 50 ? 'Needs stronger argumentation' : 'Early draft')),
+            'criteria' => $criteria->all(),
+        ];
+    }
+
+    protected function scoreQualityCriterion(array $criterion, string $text, array $summary): array
+    {
+        $checks = collect($criterion['checks'])->map(function (array $check) use ($text) {
+            $passed = $this->textContainsAny($text, $check['keywords']);
+
+            return [
+                'label' => $check['label'],
+                'passed' => $passed,
+                'recommendation' => $check['recommendation'],
+            ];
+        });
+
+        $passedCount = $checks->where('passed', true)->count();
+        $checkCount = max(1, $checks->count());
+        $completionBoost = min(20, (int) round(($summary['progress'] ?? 0) / 5));
+        $readinessBoost = min(10, (int) (($summary['ready'] ?? 0) * 2));
+        $score = min(100, (int) round(20 + ($passedCount / $checkCount * 70) + $completionBoost + $readinessBoost));
+        $missing = $checks->where('passed', false)->pluck('recommendation')->values()->all();
+
+        return [
+            'key' => $criterion['key'],
+            'label' => $criterion['label'],
+            'weight' => $criterion['weight'],
+            'score' => $score,
+            'status' => $score >= 85 ? 'Strong' : ($score >= 70 ? 'Good base' : ($score >= 50 ? 'Needs work' : 'Weak')),
+            'passed' => $passedCount,
+            'total' => $checkCount,
+            'missing' => array_slice($missing, 0, 2),
+            'checks' => $checks->all(),
+        ];
+    }
+
+    protected function qualityCriteria(): array
+    {
+        return [
+            [
+                'key' => 'relevance',
+                'label' => 'Relevance',
+                'weight' => 25,
+                'checks' => [
+                    ['label' => 'Needs are evidenced', 'keywords' => ['need', 'needs analysis', 'evidence', 'context', 'challenge', 'barrier'], 'recommendation' => 'Strengthen the needs analysis with concrete evidence, target-group realities or partner observations.'],
+                    ['label' => 'Objectives are clear', 'keywords' => ['objective', 'aim', 'specific goal', 'we want to achieve'], 'recommendation' => 'Make the objectives more explicit, measurable and linked to the identified needs.'],
+                    ['label' => 'Programme priorities are visible', 'keywords' => ['erasmus', 'priority', 'inclusion', 'participation', 'digital', 'green'], 'recommendation' => 'Show how the project contributes to Erasmus+ priorities through design choices, not slogans.'],
+                    ['label' => 'Target groups are defined', 'keywords' => ['target group', 'participants', 'young people', 'youth workers', 'profile'], 'recommendation' => 'Define the exact target groups, their profile and why they need this intervention.'],
+                ],
+            ],
+            [
+                'key' => 'design',
+                'label' => 'Project design',
+                'weight' => 25,
+                'checks' => [
+                    ['label' => 'Activities are concrete', 'keywords' => ['activity', 'workshop', 'mobility', 'session', 'method'], 'recommendation' => 'Describe the activities with format, methods, participant role and expected learning.'],
+                    ['label' => 'Preparation and support are planned', 'keywords' => ['preparation', 'support', 'mentoring', 'briefing', 'follow-up'], 'recommendation' => 'Clarify preparation, support during activities and follow-up after mobility.'],
+                    ['label' => 'Learning is recognised', 'keywords' => ['learning outcome', 'youthpass', 'recognition', 'reflection', 'competence'], 'recommendation' => 'Explain how learning outcomes will be reflected on, documented and recognised.'],
+                    ['label' => 'Safety and quality are addressed', 'keywords' => ['safety', 'risk', 'safeguarding', 'insurance', 'quality'], 'recommendation' => 'Add risk management, safety procedures and quality-control responsibilities.'],
+                ],
+            ],
+            [
+                'key' => 'management',
+                'label' => 'Management & partnership',
+                'weight' => 20,
+                'checks' => [
+                    ['label' => 'Roles are distributed', 'keywords' => ['role', 'responsibility', 'task', 'coordinator', 'partner'], 'recommendation' => 'Assign clear responsibilities to each partner/team member and show decision flow.'],
+                    ['label' => 'Coordination is credible', 'keywords' => ['coordination', 'communication', 'meeting', 'monitoring', 'timeline'], 'recommendation' => 'Describe communication rhythm, monitoring moments and escalation routes.'],
+                    ['label' => 'Budget/logistics are connected', 'keywords' => ['budget', 'logistics', 'travel', 'accommodation', 'venue', 'financial'], 'recommendation' => 'Connect practical arrangements and budget logic to the activities described.'],
+                    ['label' => 'Evaluation is planned', 'keywords' => ['evaluation', 'indicator', 'measure', 'assess', 'feedback'], 'recommendation' => 'Add indicators, evidence sources and timing for evaluation.'],
+                ],
+            ],
+            [
+                'key' => 'impact',
+                'label' => 'Impact',
+                'weight' => 20,
+                'checks' => [
+                    ['label' => 'Results are specific', 'keywords' => ['result', 'output', 'impact', 'outcome', 'change'], 'recommendation' => 'Define concrete results and expected changes for participants, organisations and community.'],
+                    ['label' => 'Dissemination is planned', 'keywords' => ['dissemination', 'visibility', 'share', 'audience', 'channel'], 'recommendation' => 'Specify audiences, channels, messages, owners and proof of reach.'],
+                    ['label' => 'Sustainability is credible', 'keywords' => ['sustainability', 'continue', 'follow-up', 'after the project', 'long-term'], 'recommendation' => 'Explain what continues after funding, who owns it and with what resources.'],
+                    ['label' => 'Participant transfer is visible', 'keywords' => ['transfer', 'local action', 'community', 'multiplier', 'apply'], 'recommendation' => 'Show how participants will use and transfer learning after the activity.'],
+                ],
+            ],
+            [
+                'key' => 'inclusion_sustainability',
+                'label' => 'Inclusion & sustainability',
+                'weight' => 10,
+                'checks' => [
+                    ['label' => 'Inclusion measures are concrete', 'keywords' => ['inclusion', 'fewer opportunities', 'accessibility', 'barrier', 'support needs'], 'recommendation' => 'Name barriers and practical support measures for participants with fewer opportunities.'],
+                    ['label' => 'Green/digital choices are practical', 'keywords' => ['green', 'sustainable', 'digital', 'virtual', 'environment'], 'recommendation' => 'Add practical green and digital choices that genuinely improve implementation.'],
+                    ['label' => 'Participation is meaningful', 'keywords' => ['participation', 'co-create', 'decision', 'involved', 'youth-led'], 'recommendation' => 'Show how participants are involved in planning, implementation and follow-up decisions.'],
+                ],
+            ],
+        ];
+    }
+
+    protected function addCrossSectionIssues(array &$issues, Collection $sections): void
+    {
+        $objectives = $this->textForSections($sections, ['objective', 'need', 'rationale']);
+        $impact = $this->textForSections($sections, ['impact', 'result', 'follow-up', 'sustainability']);
+        $evaluation = $this->textForSections($sections, ['evaluation', 'assess', 'indicator']);
+        $participants = $this->textForSections($sections, ['participant', 'target group', 'young people', 'youth worker']);
+        $support = $this->textForSections($sections, ['support', 'preparation', 'safety', 'inclusion']);
+
+        if ($objectives !== '' && $impact === '') {
+            $issues[] = $this->reviewIssue('warning', 'Objectives to impact', 'Objectives are drafted, but the impact/follow-up sections are still empty.', 'Make sure every objective has a visible expected result and follow-up measure.');
+        }
+
+        if ($objectives !== '' && $evaluation === '') {
+            $issues[] = $this->reviewIssue('warning', 'Evaluation logic', 'Objectives are drafted, but no evaluation or indicator section is filled yet.', 'Add indicators, evidence sources, timing and responsible persons for the main objectives.');
+        }
+
+        if ($participants !== '' && $support === '') {
+            $issues[] = $this->reviewIssue('warning', 'Participant support', 'Participant profiles are mentioned, but preparation/support/safety answers look empty.', 'Connect each participant profile to concrete support, preparation and safeguarding measures.');
+        }
+    }
+
+    protected function textForSections(Collection $sections, array $needles): string
+    {
+        return $sections
+            ->filter(function (ProjectApplicationSection $section) use ($needles) {
+                $haystack = mb_strtolower(($section->question_key ?? '').' '.($section->title ?? '').' '.($section->category ?? ''));
+
+                return collect($needles)->contains(fn (string $needle) => str_contains($haystack, $needle));
+            })
+            ->map(fn (ProjectApplicationSection $section) => trim(strip_tags($this->content[$section->id] ?? (string) $section->content)))
+            ->filter()
+            ->implode("\n\n");
+    }
+
+    protected function normalisedApplicationText(Collection $sections): string
+    {
+        return Str::of($sections->map(fn (ProjectApplicationSection $section) => $this->content[$section->id] ?? (string) $section->content)->implode("\n\n"))
+            ->lower()
+            ->ascii()
+            ->toString();
+    }
+
+    protected function textContainsAny(string $text, array $keywords): bool
+    {
+        return collect($keywords)->contains(fn (string $keyword) => str_contains($text, Str::of($keyword)->lower()->ascii()->toString()));
+    }
+
+    protected function expectedThemeChecks(): array
+    {
+        return [
+            ['severity' => 'warning', 'area' => 'Inclusion', 'title' => 'The draft does not clearly mention inclusion or fewer-opportunity barriers.', 'action' => 'Add barriers, selection/access measures and dignified support for participants with fewer opportunities.', 'keywords' => ['inclusion', 'fewer opportunities', 'barrier', 'accessibility', 'disadvantaged']],
+            ['severity' => 'warning', 'area' => 'Learning recognition', 'title' => 'The draft does not clearly mention Youthpass or learning recognition.', 'action' => 'Explain reflection, documentation and recognition of learning outcomes.', 'keywords' => ['youthpass', 'learning outcome', 'recognition', 'reflect', 'reflection']],
+            ['severity' => 'warning', 'area' => 'Visibility and dissemination', 'title' => 'The draft does not clearly mention dissemination or visibility.', 'action' => 'Define audiences, channels, outputs, timing, owners and evidence of reach.', 'keywords' => ['dissemination', 'visibility', 'share results', 'communication campaign', 'social media']],
+            ['severity' => 'warning', 'area' => 'Safety and risk', 'title' => 'The draft does not clearly mention risk, safety or safeguarding.', 'action' => 'Add safety roles, emergency procedures, insurance, consent and risk mitigation.', 'keywords' => ['risk', 'safety', 'safeguarding', 'protection', 'emergency', 'insurance']],
+            ['severity' => 'suggestion', 'area' => 'Green and digital', 'title' => 'Green travel, sustainability or digital/virtual components are not visible yet.', 'action' => 'Add practical measures only where they genuinely support the project design.', 'keywords' => ['green', 'sustainable', 'sustainability', 'digital', 'virtual', 'environment']],
+        ];
+    }
+
+    protected function reviewIssue(string $severity, string $area, string $title, string $action, ?int $sectionId = null): array
+    {
+        return [
+            'severity' => $severity,
+            'area' => $area,
+            'title' => $title,
+            'action' => $action,
+            'section_id' => $sectionId,
         ];
     }
 
@@ -283,6 +641,16 @@ class WriteApplication extends Page
         $this->showTemplateDetails = false;
     }
 
+    public function openReviewDetails(): void
+    {
+        $this->showReviewDetails = true;
+    }
+
+    public function closeReviewDetails(): void
+    {
+        $this->showReviewDetails = false;
+    }
+
     public function loadTemplate(): void
     {
         $this->authorizeProjectManagement();
@@ -329,6 +697,7 @@ class WriteApplication extends Page
 
         $this->record->ka_action = $this->selectedTemplate;
         $this->record->save();
+        $this->record->refresh();
 
         $this->loadState();
 

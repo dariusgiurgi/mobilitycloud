@@ -29,6 +29,8 @@ class WriteApplicationTest extends TestCase
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Application workspace')
+            ->assertSee('Consistency checker')
+            ->assertSee('Quality review')
             ->assertSee('50% drafted')
             ->assertSee('1 of 2 sections')
             ->assertSee('Application outline')
@@ -75,6 +77,7 @@ class WriteApplicationTest extends TestCase
         $this->assertArrayHasKey('ka154-you', ApplicationTemplates::list());
         $this->assertArrayHasKey('ka155-you', ApplicationTemplates::list());
         $this->assertGreaterThan(15, count(ApplicationTemplates::sections('ka152-you')));
+        $this->assertNotEmpty(ApplicationTemplates::catalog());
     }
 
     public function test_template_sync_preserves_existing_answers_and_creates_backup(): void
@@ -117,6 +120,110 @@ class WriteApplicationTest extends TestCase
         $this->assertSame(2, ProjectApplicationVersion::where('project_id', $project->id)->count());
     }
 
+    public function test_template_manager_reports_alignment_and_can_switch_catalog_template(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->createSection($project, 'Summary objectives', 'Existing answer', 100, 'Old category', 0, 'summary-objectives');
+        $this->createSection($project, 'Custom evaluator note', 'Keep this custom note.', 1000, 'Custom', 1, 'custom-note');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('openTemplateDetails')
+            ->assertSee('Application template manager')
+            ->assertSee('Missing official questions')
+            ->call('selectTemplate', 'ka153-you')
+            ->assertSet('selectedTemplate', 'ka153-you');
+
+        $alignment = $component->instance()->getTemplateAlignment();
+
+        $this->assertSame('ka153-you', $component->instance()->selectedTemplate);
+        $this->assertGreaterThan(0, $alignment['missing_count']);
+        $this->assertSame(1, $alignment['custom_count']);
+        $this->assertSame(1, $alignment['matched']);
+    }
+
+    public function test_consistency_checker_flags_missing_answers_and_erasmus_themes(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->createSection($project, 'Project objectives', 'We will improve youth participation.', 1000, 'Project rationale', 0, 'needs-objectives');
+        $this->createSection($project, 'Expected impact', '', 1000, 'Project management', 1, 'summary-impact');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Consistency checker')
+            ->assertSee('Unanswered questions')
+            ->assertSee('Inclusion');
+
+        $review = $component->instance()->getConsistencyReview();
+
+        $this->assertGreaterThan(0, $review['critical']);
+        $this->assertGreaterThan(0, $review['warning']);
+        $this->assertLessThan(100, $review['score']);
+        $this->assertContains('Learning recognition', collect($review['issues'])->pluck('area')->all());
+    }
+
+    public function test_quality_review_scores_evaluator_criteria(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update(['total_budget' => 25000]);
+
+        $strongAnswer = implode(' ', [
+            'The needs analysis shows concrete barriers for young people with fewer opportunities and defines clear objectives linked to Erasmus priorities.',
+            'Participants and target groups will co-create activities, workshops and mobility sessions using non-formal methods.',
+            'Preparation, mentoring, safeguarding, insurance and risk management are planned before and during the activity.',
+            'Learning outcomes will be reflected daily, documented through Youthpass recognition and transferred into local community action.',
+            'Partners have clear roles, responsibilities, communication meetings, monitoring tasks, logistics and budget coordination.',
+            'Evaluation indicators, feedback tools, dissemination audiences, visibility channels, sustainability and follow-up actions are defined.',
+            'Green travel, sustainable choices, digital tools and virtual preparation will support implementation where useful.',
+        ]);
+
+        $this->createSection($project, 'Needs and objectives', $strongAnswer, 6000, 'Project rationale', 0, 'needs-objectives');
+        $this->createSection($project, 'Impact and dissemination', $strongAnswer, 6000, 'Impact', 1, 'dissemination');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Quality review')
+            ->assertSee('Relevance')
+            ->assertSee('Project design')
+            ->assertSee('Management &amp; partnership', false)
+            ->assertSee('Impact')
+            ->assertSee('Inclusion &amp; sustainability', false);
+
+        $quality = $component->instance()->getQualityReview();
+
+        $this->assertGreaterThanOrEqual(80, $quality['score']);
+        $this->assertCount(5, $quality['criteria']);
+        $this->assertSame('Relevance', $quality['criteria'][0]['label']);
+    }
+
+    public function test_review_details_modal_shows_full_consistency_and_quality_checks(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->createSection($project, 'Project objectives', 'We will improve youth participation.', 1000, 'Project rationale', 0, 'needs-objectives');
+        $this->createSection($project, 'Expected impact', '', 1000, 'Project management', 1, 'summary-impact');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('View all checks')
+            ->call('openReviewDetails')
+            ->assertSet('showReviewDetails', true)
+            ->assertSee('Application review details')
+            ->assertSee('Consistency issues')
+            ->assertSee('Quality criteria')
+            ->assertSee('Learning recognition')
+            ->assertSee('Needs are evidenced')
+            ->call('closeReviewDetails')
+            ->assertSet('showReviewDetails', false);
+    }
+
     private function workspaceProjectAndUser(string $role): array
     {
         $workspace = Workspace::create(['name' => 'Application Workspace']);
@@ -132,10 +239,11 @@ class WriteApplicationTest extends TestCase
         return [$workspace, $project, $user];
     }
 
-    private function createSection(Project $project, string $title, string $content, int $limit, string $category, int $order): ProjectApplicationSection
+    private function createSection(Project $project, string $title, string $content, int $limit, string $category, int $order, ?string $questionKey = null): ProjectApplicationSection
     {
         return ProjectApplicationSection::create([
             'project_id' => $project->id,
+            'question_key' => $questionKey,
             'title' => $title,
             'content' => $content,
             'char_limit' => $limit,

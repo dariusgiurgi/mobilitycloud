@@ -172,6 +172,31 @@ class ApplicationTemplates
         ])->all();
     }
 
+    public static function catalog(): array
+    {
+        return collect(self::TEMPLATES)->map(function (array $template, string $key) {
+            $sections = $template['sections'] ?? [];
+            $categories = collect($sections)
+                ->pluck('category')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+
+            return [
+                'key' => $key,
+                'label' => $template['label'],
+                'action' => $template['action'],
+                'call_year' => $template['call_year'],
+                'form_id' => $template['form_id'],
+                'source_url' => $template['source_url'],
+                'description' => $template['description'],
+                'sections_count' => count($sections),
+                'categories' => $categories,
+            ];
+        })->values()->all();
+    }
+
     public static function sections(string $key): array
     {
         return self::TEMPLATES[self::normaliseKey($key)]['sections'] ?? [];
