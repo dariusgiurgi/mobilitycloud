@@ -19,15 +19,23 @@ class PlatformAdminAccessTest extends TestCase
         $this->assertFalse(PublicBlockReportResource::canAccess());
     }
 
-    public function test_moderation_reports_are_not_available_to_supervisor_accounts(): void
+    public function test_moderation_reports_are_available_to_platform_owner_accounts(): void
     {
-        $this->actingAs(User::factory()->create(['role' => User::ROLE_SUPERVISOR]));
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]));
 
-        $this->assertFalse(PublicBlockReportResource::shouldRegisterNavigation());
-        $this->assertFalse(PublicBlockReportResource::canAccess());
+        $this->assertTrue(PublicBlockReportResource::shouldRegisterNavigation());
+        $this->assertTrue(PublicBlockReportResource::canAccess());
     }
 
     public function test_moderation_reports_are_available_to_platform_admin_accounts(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]));
+
+        $this->assertTrue(PublicBlockReportResource::shouldRegisterNavigation());
+        $this->assertTrue(PublicBlockReportResource::canAccess());
+    }
+
+    public function test_legacy_global_admin_role_is_treated_as_platform_admin_until_migrated(): void
     {
         $this->actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 

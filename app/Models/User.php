@@ -73,28 +73,56 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public const ROLE_USER = 'user';
 
+    public const ROLE_PLATFORM_OWNER = 'platform_owner';
+
+    public const ROLE_PLATFORM_ADMIN = 'platform_admin';
+
+    /** @deprecated Use ROLE_PLATFORM_OWNER for global platform ownership. */
     public const ROLE_ADMIN = 'admin';
 
+    /** @deprecated Use ROLE_PLATFORM_ADMIN for global platform administration. */
     public const ROLE_SUPERVISOR = 'supervisor';
 
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return $this->isPlatformOwner();
+    }
+
+    public function isPlatformOwner(): bool
+    {
+        return in_array($this->role, [self::ROLE_PLATFORM_OWNER, self::ROLE_ADMIN], true);
     }
 
     public function isPlatformAdmin(): bool
     {
-        return $this->isAdmin();
+        return in_array($this->role, [
+            self::ROLE_PLATFORM_OWNER,
+            self::ROLE_PLATFORM_ADMIN,
+            self::ROLE_ADMIN,
+        ], true);
     }
 
     public function isSupervisor(): bool
     {
-        return $this->role === self::ROLE_SUPERVISOR;
+        return in_array($this->role, [self::ROLE_PLATFORM_ADMIN, self::ROLE_SUPERVISOR], true);
     }
 
-    /** Are drepturi de moderare (admin sau supervisor)? */
+    public function canManagePlatformAdmins(): bool
+    {
+        return $this->isPlatformOwner();
+    }
+
+    public static function platformRoleOptions(): array
+    {
+        return [
+            self::ROLE_PLATFORM_OWNER => 'Platform owner',
+            self::ROLE_PLATFORM_ADMIN => 'Platform admin',
+        ];
+    }
+
+    /** Are drepturi de administrare interna a platformei? */
     public function canModerate(): bool
     {
-        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPERVISOR], true);
+        return $this->isPlatformAdmin();
     }
 }
