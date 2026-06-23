@@ -42,6 +42,10 @@ class WriteApplication extends Page
 
     public string $sectionFilter = 'all';
 
+    public string $writingMode = 'edit';
+
+    public ?int $focusSectionId = null;
+
     public bool $showTemplateDetails = false;
 
     public bool $showVersions = false;
@@ -87,7 +91,7 @@ class WriteApplication extends Page
 
     public function getVisibleSections()
     {
-        return $this->getSections()->filter(function (ProjectApplicationSection $section) {
+        $sections = $this->getSections()->filter(function (ProjectApplicationSection $section) {
             $text = trim(strip_tags($this->content[$section->id] ?? (string) $section->content));
             $matchesSearch = $this->sectionSearch === '' || str_contains(
                 mb_strtolower($section->title.' '.$section->category.' '.$text),
@@ -104,6 +108,54 @@ class WriteApplication extends Page
 
             return $matchesSearch && $matchesFilter;
         })->values();
+
+        if ($this->writingMode !== 'focus') {
+            return $sections;
+        }
+
+        $focusId = $this->focusSectionId ?: $sections->first()?->id;
+
+        return $sections->where('id', $focusId)->values();
+    }
+
+    public function setWritingMode(string $mode): void
+    {
+        if (! in_array($mode, ['edit', 'review', 'focus'], true)) {
+            return;
+        }
+
+        $this->writingMode = $mode;
+
+        if ($mode === 'focus') {
+            $this->focusSectionId ??= $this->getSections()->first()?->id;
+        }
+    }
+
+    public function enterFocusMode(int $sectionId): void
+    {
+        if (! $this->sectionsQuery()->whereKey($sectionId)->exists()) {
+            return;
+        }
+
+        $this->focusSectionId = $sectionId;
+        $this->writingMode = 'focus';
+    }
+
+    public function moveFocus(int $direction): void
+    {
+        $sections = $this->getSections()->values();
+        if ($sections->isEmpty()) {
+            return;
+        }
+
+        $currentIndex = $sections->search(fn (ProjectApplicationSection $section) => $section->id === $this->focusSectionId);
+        if ($currentIndex === false) {
+            $currentIndex = 0;
+        }
+
+        $nextIndex = max(0, min($sections->count() - 1, $currentIndex + $direction));
+        $this->focusSectionId = $sections[$nextIndex]->id;
+        $this->writingMode = 'focus';
     }
 
     public function getTemplates(): array

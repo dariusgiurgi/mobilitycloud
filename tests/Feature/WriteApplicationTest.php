@@ -224,6 +224,42 @@ class WriteApplicationTest extends TestCase
             ->assertSet('showReviewDetails', false);
     }
 
+    public function test_application_modes_support_review_and_focus_workflows(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $first = $this->createSection($project, 'Objectives', 'Readable answer for partners.', 1000, 'Context', 0, 'objectives');
+        $second = $this->createSection($project, 'Impact', 'Second answer.', 1000, 'Impact', 1, 'impact');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Write')
+            ->assertSee('Review')
+            ->assertSee('Focus')
+            ->call('setWritingMode', 'review')
+            ->assertSet('writingMode', 'review')
+            ->assertSee('Readable answer for partners.')
+            ->call('enterFocusMode', $second->id)
+            ->assertSet('writingMode', 'focus')
+            ->assertSet('focusSectionId', $second->id)
+            ->assertSee('Focus mode');
+
+        $this->assertSame(
+            [$second->id],
+            $component->instance()->getVisibleSections()->pluck('id')->all(),
+        );
+
+        $component
+            ->call('moveFocus', -1)
+            ->assertSet('focusSectionId', $first->id);
+
+        $this->assertSame(
+            [$first->id],
+            $component->instance()->getVisibleSections()->pluck('id')->all(),
+        );
+    }
+
     private function workspaceProjectAndUser(string $role): array
     {
         $workspace = Workspace::create(['name' => 'Application Workspace']);

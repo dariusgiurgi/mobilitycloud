@@ -20,7 +20,11 @@
         .mc-libcard { border:1px solid rgba(100,116,139,.2); border-radius:10px; padding:.85rem 1rem; margin-bottom:.6rem; }
         .mc-libcard:hover { border-color:#6366f1; }
         .mc-wa-toolbar { display:flex;align-items:center;gap:.65rem;flex-wrap:wrap; }
+        .mc-wa-mode-switch { display:inline-flex;gap:.2rem;padding:.22rem;border:1px solid rgba(148,163,184,.24);border-radius:.7rem;background:rgba(148,163,184,.06); }
+        .mc-wa-mode-btn { border:none;border-radius:.52rem;background:transparent;color:#64748b;font-size:.7rem;font-weight:750;padding:.38rem .62rem;cursor:pointer; }
+        .mc-wa-mode-btn-active { background:#6366f1;color:white;box-shadow:0 6px 18px rgba(99,102,241,.22); }
         .mc-wa-layout { display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:1.25rem;align-items:start;margin-top:1rem; }
+        .mc-wa-layout-focus { grid-template-columns:minmax(0,920px);justify-content:center; }
         .mc-wa-sidebar { position:sticky;top:1rem;display:grid;gap:.75rem;max-height:calc(100vh - 2rem);overflow:auto;padding-right:.25rem;scrollbar-gutter:stable; }
         .mc-wa-sidebar::-webkit-scrollbar { width:7px; }
         .mc-wa-sidebar::-webkit-scrollbar-thumb { background:rgba(148,163,184,.45);border-radius:999px; }
@@ -33,6 +37,8 @@
         .mc-wa-card-actions { display:flex;align-items:center;gap:.1rem; }
         .mc-wa-progress { height:7px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden; }
         .mc-wa-guidance { margin:.15rem 0 .75rem;padding:.65rem .75rem;border-left:3px solid #818cf8;border-radius:.35rem;background:rgba(99,102,241,.07);font-size:.72rem;line-height:1.55;color:#64748b; }
+        .mc-wa-readable-answer { min-height:7rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;padding:1rem;background:rgba(148,163,184,.035);font-size:.86rem;line-height:1.75;white-space:pre-wrap; }
+        .mc-wa-focus-topbar { display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;padding:.75rem .9rem;border:1px solid rgba(99,102,241,.2);border-radius:.85rem;background:rgba(99,102,241,.055); }
         .mc-wa-filter { width:auto;padding:7px 10px;border:1px solid rgba(100,116,139,.25);border-radius:7px;background:transparent;font-size:12px;color:inherit; }
         .mc-wa-review { display:grid;grid-template-columns:150px minmax(0,1fr);gap:.65rem;margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(148,163,184,.18); }
         .mc-wa-note { width:100%;padding:7px 9px;border:1px solid rgba(100,116,139,.22);border-radius:7px;background:transparent;font-size:11px;color:inherit; }
@@ -91,6 +97,11 @@
             </div>
 
             @if($canManage)
+                <div class="mc-wa-mode-switch" aria-label="Writing mode">
+                    <button type="button" wire:click="setWritingMode('edit')" class="mc-wa-mode-btn {{ $writingMode === 'edit' ? 'mc-wa-mode-btn-active' : '' }}">Write</button>
+                    <button type="button" wire:click="setWritingMode('review')" class="mc-wa-mode-btn {{ $writingMode === 'review' ? 'mc-wa-mode-btn-active' : '' }}">Review</button>
+                    <button type="button" wire:click="setWritingMode('focus')" class="mc-wa-mode-btn {{ $writingMode === 'focus' ? 'mc-wa-mode-btn-active' : '' }}">Focus</button>
+                </div>
                 <select wire:model="selectedTemplate" class="text-gray-950 dark:text-white"
                         style="max-width:320px;padding:8px 12px;border:1px solid rgba(100,116,139,.3);border-radius:8px;background:transparent;font-size:12px;">
                     @foreach($this->getTemplates() as $key => $label)
@@ -108,10 +119,22 @@
         </div>
     </x-filament::section>
 
-    <div class="mc-wa-layout">
+    <div class="mc-wa-layout {{ $writingMode === 'focus' ? 'mc-wa-layout-focus' : '' }}">
         <main style="min-width:0;">
 
-    @if($sections->isNotEmpty())
+    @if($writingMode === 'focus')
+        <div class="mc-wa-focus-topbar">
+            <div>
+                <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;">Focus mode</p>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.12rem;">One question at a time. Sidebar and review noise are hidden while you write.</p>
+            </div>
+            <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
+                <x-filament::button wire:click="moveFocus(-1)" color="gray" size="sm">Previous</x-filament::button>
+                <x-filament::button wire:click="moveFocus(1)" color="gray" size="sm">Next</x-filament::button>
+                <x-filament::button wire:click="setWritingMode('edit')" size="sm">Exit focus</x-filament::button>
+            </div>
+        </div>
+    @elseif($sections->isNotEmpty())
         <div style="display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;">
             <input class="mc-wa-filter" style="min-width:230px;flex:1;" wire:model.live.debounce.300ms="sectionSearch" placeholder="Search questions or answers…">
             <select class="mc-wa-filter" wire:model.live="sectionFilter">
@@ -156,7 +179,7 @@
                     <input type="text" wire:key="title-{{ $sec->id }}" class="mc-title text-gray-950 dark:text-white"
                            wire:model.blur="titles.{{ $sec->id }}" @readonly(!$canManage)>
 
-                    @if($canManage)
+                    @if($canManage && $writingMode !== 'review')
                     <div class="mc-wa-card-actions">
                     {{-- Move up --}}
                     <button type="button" wire:click="moveSection({{ $sec->id }}, -1)" title="Move up"
@@ -182,6 +205,14 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
                     </button>
 
+                    {{-- Focus --}}
+                    <button type="button" wire:click="enterFocusMode({{ $sec->id }})" title="Focus this question"
+                            class="mc-iconbtn"
+                            onmouseover="this.style.background='rgba(14,165,233,.1)';this.style.color='#0284c7';"
+                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
+                    </button>
+
                     {{-- Delete --}}
                     <button type="button" wire:click="deleteSection({{ $sec->id }})" wire:confirm="Delete this section?"
                             class="mc-iconbtn"
@@ -197,9 +228,15 @@
                     <div class="mc-wa-guidance"><strong style="color:#6366f1;">Writing guidance:</strong> {{ $guidance }}</div>
                 @endif
 
-                <textarea rows="6" wire:key="content-{{ $sec->id }}"
-                          wire:model.live.debounce.800ms="content.{{ $sec->id }}"
-                          placeholder="Write your answer here…" @readonly(!$canManage)></textarea>
+                @if($writingMode === 'review')
+                    <div class="mc-wa-readable-answer text-gray-700 dark:text-gray-200">
+                        {{ trim(strip_tags($text)) !== '' ? trim(strip_tags($text)) : 'No answer yet.' }}
+                    </div>
+                @else
+                    <textarea rows="{{ $writingMode === 'focus' ? 14 : 6 }}" wire:key="content-{{ $sec->id }}"
+                              wire:model.live.debounce.800ms="content.{{ $sec->id }}"
+                              placeholder="Write your answer here…" @readonly(!$canManage)></textarea>
+                @endif
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;font-size:11px;">
                     <span class="text-gray-400">{{ $words }} words</span>
@@ -223,7 +260,7 @@
             </div>
         @endforelse
 
-        @if($canManage)
+        @if($canManage && $writingMode !== 'review' && $writingMode !== 'focus')
             <button type="button" wire:click="addSection"
                     class="text-gray-500 dark:text-gray-400"
                     style="width:100%;padding:12px;border:2px dashed rgba(100,116,139,.3);border-radius:12px;background:transparent;cursor:pointer;font-size:13px;font-weight:500;">
@@ -234,6 +271,7 @@
 
         </main>
 
+        @if($writingMode !== 'focus')
         <aside class="mc-wa-sidebar">
             <div class="mc-wa-sidecard">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;">
@@ -337,6 +375,7 @@
                 </div>
             @endif
         </aside>
+        @endif
     </div>
 
     @if($showReviewDetails)
