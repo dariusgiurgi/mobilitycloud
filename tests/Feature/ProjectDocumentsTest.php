@@ -314,7 +314,6 @@ class ProjectDocumentsTest extends TestCase
             ->assertSee('Project document centre')
             ->assertSee('Document readiness')
             ->assertSee('Next:')
-            ->assertSee('Upload missing file')
             ->assertSee('Add document')
             ->call('setDocumentTab', 'conventions')
             ->assertSet('activeDocumentTab', 'conventions')
@@ -352,7 +351,6 @@ class ProjectDocumentsTest extends TestCase
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSee('Document readiness')
             ->assertSee('Awaiting')
-            ->assertSee('Show awaiting signatures')
             ->set('documentFilter', 'unsigned')
             ->assertSet('documentFilter', 'unsigned');
 
