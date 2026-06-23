@@ -558,6 +558,17 @@ class ViewProjectDocuments extends Page
         $this->showDocumentUploadModal = true;
     }
 
+    public function openDocumentUploadFor(string $category): void
+    {
+        $this->openDocumentUpload();
+        if (! array_key_exists($category, ProjectDocument::CATEGORIES)) {
+            return;
+        }
+
+        $this->documentCategory = $category;
+        $this->documentTitle = ProjectDocument::CATEGORIES[$category];
+    }
+
     public function closeDocumentUpload(): void
     {
         $this->showDocumentUploadModal = false;

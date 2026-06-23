@@ -110,9 +110,34 @@
                 @endphp
                 <div style="padding:.75rem;border:1px solid rgba(148,163,184,.25);border-radius:9px;display:flex;gap:.65rem;align-items:flex-start;">
                     <span style="width:21px;height:21px;flex:none;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:{{ $checklistStyle[0] }};color:{{ $checklistStyle[1] }};font-size:11px;font-weight:800;">{{ $checklistStyle[2] }}</span>
-                    <div>
+                    <div style="min-width:0;flex:1;">
                         <div class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;">{{ $item['label'] }}</div>
                         <div class="text-gray-500 dark:text-gray-400" style="font-size:10px;margin-top:2px;line-height:1.35;">{{ $item['detail'] }}</div>
+                        @if($record->canBeManagedBy(auth()->user()) && $item['action'])
+                            <div style="margin-top:.55rem;">
+                                @if($item['action'] === 'upload')
+                                    <x-filament::button wire:click="openDocumentUploadFor('{{ $item['category'] }}')" color="gray" size="xs" icon="heroicon-m-arrow-up-tray">
+                                        Upload
+                                    </x-filament::button>
+                                @elseif($item['action'] === 'generate_attendance')
+                                    <x-filament::button wire:click="openAttendanceGenerator" color="gray" size="xs" icon="heroicon-m-clipboard-document-list">
+                                        Generate attendance
+                                    </x-filament::button>
+                                @elseif($item['action'] === 'generate_expense_report')
+                                    <x-filament::button wire:click="openExpenseReportGenerator" color="gray" size="xs" icon="heroicon-m-chart-bar-square">
+                                        Generate report
+                                    </x-filament::button>
+                                @elseif($item['action'] === 'pending_signatures')
+                                    <x-filament::button wire:click="$set('documentFilter', 'unsigned')" color="gray" size="xs" icon="heroicon-m-pencil-square">
+                                        View pending signatures
+                                    </x-filament::button>
+                                @elseif($item['action'] === 'open_conventions')
+                                    <x-filament::button wire:click="setDocumentTab('conventions')" color="gray" size="xs" icon="heroicon-m-document-text">
+                                        Open conventions
+                                    </x-filament::button>
+                                @endif
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endforeach

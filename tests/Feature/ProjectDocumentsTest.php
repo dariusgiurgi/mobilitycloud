@@ -326,6 +326,32 @@ class ProjectDocumentsTest extends TestCase
             ->assertSee('Automatic checklist');
     }
 
+    public function test_checklist_actions_open_relevant_document_workflows(): void
+    {
+        [$workspace, $project] = $this->workspaceAndProject();
+        $user = User::factory()->create();
+        $workspace->users()->attach($user, ['role' => 'member']);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->call('setDocumentTab', 'checklist')
+            ->assertSee('Upload')
+            ->assertSee('Generate attendance')
+            ->assertSee('Generate report')
+            ->call('openDocumentUploadFor', 'grant_agreement')
+            ->assertSet('showDocumentUploadModal', true)
+            ->assertSet('documentCategory', 'grant_agreement')
+            ->assertSet('documentTitle', 'Grant agreement')
+            ->call('closeDocumentUpload')
+            ->call('openAttendanceGenerator')
+            ->assertSet('showAttendanceModal', true)
+            ->call('closeAttendanceGenerator')
+            ->call('openExpenseReportGenerator')
+            ->assertSet('showExpenseReportModal', true);
+    }
+
     public function test_civil_conventions_show_step_workflow_and_direct_actions(): void
     {
         [$workspace, $project] = $this->workspaceAndProject();

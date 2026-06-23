@@ -42,22 +42,26 @@ class ProjectDocumentChecklist
                 : $this->item(
                     'Partner documents',
                     $partnerFiles >= $partnerCount ? 'complete' : ($partnerFiles > 0 ? 'attention' : 'missing'),
-                    $partnerFiles.' '.$partnerFileLabel.' for '.$partnerCount.' '.$partnerLabel
+                    $partnerFiles.' '.$partnerFileLabel.' for '.$partnerCount.' '.$partnerLabel,
+                    'upload',
+                    'mandate'
                 ),
             $this->uploadedItem($uploads, 'activity_agenda', 'Activity agenda', 'Current activity agenda uploaded'),
             $attendance->isEmpty()
-                ? $this->item('Attendance records', 'missing', 'No attendance list generated')
+                ? $this->item('Attendance records', 'missing', 'No attendance list generated', 'generate_attendance')
                 : $this->item(
                     'Attendance records',
                     $signedAttendance === $attendance->count() ? 'complete' : 'attention',
-                    $signedAttendance.'/'.$attendance->count().' signed'
+                    $signedAttendance.'/'.$attendance->count().' signed',
+                    $signedAttendance === $attendance->count() ? null : 'pending_signatures'
                 ),
             $expenseReports->isEmpty()
-                ? $this->item('Expense reports', 'missing', 'No official expense report generated')
+                ? $this->item('Expense reports', 'missing', 'No official expense report generated', 'generate_expense_report')
                 : $this->item(
                     'Expense reports',
                     $signedReports === $expenseReports->count() ? 'complete' : 'attention',
-                    $signedReports.'/'.$expenseReports->count().' signed'
+                    $signedReports.'/'.$expenseReports->count().' signed',
+                    $signedReports === $expenseReports->count() ? null : 'pending_signatures'
                 ),
             $conventionCount === 0
                 ? $this->item('Civil conventions', 'optional', 'No civil convention expenses')
@@ -65,7 +69,8 @@ class ProjectDocumentChecklist
                     'Civil conventions',
                     $readyConventions === $conventionCount && $signedAgreements === $conventionCount ? 'complete' : 'attention',
                     $readyConventions.'/'.$conventionCount.' ready, '.$signedAgreements.' signed agreement(s); '
-                    .$readyPayments.' payment evidence record(s), '.$signedPayments.' signed'
+                    .$readyPayments.' payment evidence record(s), '.$signedPayments.' signed',
+                    $signedAgreements === $conventionCount ? null : 'open_conventions'
                 ),
         ];
 
@@ -85,12 +90,14 @@ class ProjectDocumentChecklist
         return $this->item(
             $label,
             $count > 0 ? 'complete' : 'missing',
-            $count > 0 ? $completeDetail : 'Not uploaded yet'
+            $count > 0 ? $completeDetail : 'Not uploaded yet',
+            $count > 0 ? null : 'upload',
+            $category
         );
     }
 
-    private function item(string $label, string $status, string $detail): array
+    private function item(string $label, string $status, string $detail, ?string $action = null, ?string $category = null): array
     {
-        return compact('label', 'status', 'detail');
+        return compact('label', 'status', 'detail', 'action', 'category');
     }
 }
