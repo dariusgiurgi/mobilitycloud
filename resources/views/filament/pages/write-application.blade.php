@@ -41,6 +41,14 @@
         .mc-wa-focus-topbar { display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;padding:.75rem .9rem;border:1px solid rgba(99,102,241,.2);border-radius:.85rem;background:rgba(99,102,241,.055); }
         .mc-wa-filter { width:auto;padding:7px 10px;border:1px solid rgba(100,116,139,.25);border-radius:7px;background:transparent;font-size:12px;color:inherit; }
         .mc-wa-review { display:grid;grid-template-columns:150px minmax(0,1fr);gap:.65rem;margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(148,163,184,.18); }
+        .mc-wa-review-actions { grid-column:1 / -1;display:flex;gap:.35rem;flex-wrap:wrap;align-items:center; }
+        .mc-wa-review-chip { border:1px solid rgba(148,163,184,.24);border-radius:999px;background:transparent;color:#64748b;font-size:.65rem;font-weight:750;padding:.24rem .55rem;cursor:pointer; }
+        .mc-wa-review-chip:hover { border-color:#818cf8;color:#4f46e5;background:rgba(99,102,241,.06); }
+        .mc-wa-review-chip-active { border-color:transparent;background:#6366f1;color:white; }
+        .mc-wa-queue-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.45rem;margin-top:.65rem; }
+        .mc-wa-queue-btn { text-align:left;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(148,163,184,.04);padding:.6rem;cursor:pointer;color:inherit; }
+        .mc-wa-queue-btn:hover { border-color:#818cf8;background:rgba(99,102,241,.06); }
+        .mc-wa-queue-active { border-color:#6366f1;background:rgba(99,102,241,.1); }
         .mc-wa-note { width:100%;padding:7px 9px;border:1px solid rgba(100,116,139,.22);border-radius:7px;background:transparent;font-size:11px;color:inherit; }
         .mc-template-manager { display:grid;grid-template-columns:280px minmax(0,1fr);gap:1rem;align-items:start; }
         .mc-template-card { width:100%;text-align:left;border:1px solid rgba(148,163,184,.22);border-radius:.75rem;background:transparent;padding:.75rem;cursor:pointer;color:inherit; }
@@ -139,6 +147,7 @@
             <input class="mc-wa-filter" style="min-width:230px;flex:1;" wire:model.live.debounce.300ms="sectionSearch" placeholder="Search questions or answers…">
             <select class="mc-wa-filter" wire:model.live="sectionFilter">
                 <option value="all">All questions</option>
+                <option value="draft">Draft</option>
                 <option value="empty">Unanswered</option>
                 <option value="over-limit">Over character limit</option>
                 <option value="review">Needs review</option>
@@ -252,6 +261,13 @@
                         <option value="ready">Ready</option>
                     </select>
                     <input class="mc-wa-note" wire:model.blur="internalNotes.{{ $sec->id }}" placeholder="Internal reviewer note (not included in export)…" @readonly(!$canManage)>
+                    @if($canManage)
+                        <div class="mc-wa-review-actions">
+                            <button type="button" wire:click="setReviewStatus({{ $sec->id }}, 'draft')" class="mc-wa-review-chip {{ ($reviewStatuses[$sec->id] ?? $sec->review_status) === 'draft' ? 'mc-wa-review-chip-active' : '' }}">Draft</button>
+                            <button type="button" wire:click="setReviewStatus({{ $sec->id }}, 'review')" class="mc-wa-review-chip {{ ($reviewStatuses[$sec->id] ?? $sec->review_status) === 'review' ? 'mc-wa-review-chip-active' : '' }}">Needs review</button>
+                            <button type="button" wire:click="setReviewStatus({{ $sec->id }}, 'ready')" class="mc-wa-review-chip {{ ($reviewStatuses[$sec->id] ?? $sec->review_status) === 'ready' ? 'mc-wa-review-chip-active' : '' }}">Ready</button>
+                        </div>
+                    @endif
                 </div>
             </div>
         @empty
@@ -285,6 +301,37 @@
                     <div><p class="text-gray-400" style="font-size:.58rem;text-transform:uppercase;">Over</p><p style="font-size:.92rem;font-weight:750;color:{{ $summary['over_limit'] > 0 ? '#dc2626' : 'inherit' }};">{{ $summary['over_limit'] }}</p></div>
                 </div>
                 <p class="text-gray-400" style="font-size:.66rem;margin-top:.5rem;">{{ $summary['completed'] }} of {{ $summary['total'] }} sections · {{ number_format($summary['words']) }} words · {{ $summary['in_review'] }} in review</p>
+            </div>
+
+            <div class="mc-wa-sidecard">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;">
+                    <div style="display:flex;align-items:center;gap:.4rem;">
+                        <span class="text-gray-950 dark:text-white" style="font-size:.78rem;font-weight:750;">Review queue</span>
+                        <x-help-tip id="application-review-queue" title="Review queue">
+                            Use this to separate questions that are still being written from answers that need feedback and answers ready for export.
+                        </x-help-tip>
+                    </div>
+                    <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;">{{ $summary['noted'] }} with notes</span>
+                </div>
+                <div class="mc-wa-queue-grid">
+                    <button type="button" wire:click="filterReviewStatus('draft')" class="mc-wa-queue-btn {{ $sectionFilter === 'draft' ? 'mc-wa-queue-active' : '' }}">
+                        <p class="text-gray-400" style="font-size:.57rem;text-transform:uppercase;font-weight:750;">Draft</p>
+                        <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:850;">{{ $summary['draft'] }}</p>
+                    </button>
+                    <button type="button" wire:click="filterReviewStatus('review')" class="mc-wa-queue-btn {{ $sectionFilter === 'review' ? 'mc-wa-queue-active' : '' }}">
+                        <p class="text-gray-400" style="font-size:.57rem;text-transform:uppercase;font-weight:750;">Review</p>
+                        <p style="font-size:1.05rem;font-weight:850;color:{{ $summary['in_review'] > 0 ? '#d97706' : 'inherit' }};">{{ $summary['in_review'] }}</p>
+                    </button>
+                    <button type="button" wire:click="filterReviewStatus('ready')" class="mc-wa-queue-btn {{ $sectionFilter === 'ready' ? 'mc-wa-queue-active' : '' }}">
+                        <p class="text-gray-400" style="font-size:.57rem;text-transform:uppercase;font-weight:750;">Ready</p>
+                        <p style="font-size:1.05rem;font-weight:850;color:{{ $summary['ready'] > 0 ? '#059669' : 'inherit' }};">{{ $summary['ready'] }}</p>
+                    </button>
+                </div>
+                @if($sectionFilter !== 'all')
+                    <button type="button" wire:click="filterReviewStatus('all')" style="margin-top:.55rem;width:100%;border:1px solid rgba(148,163,184,.22);border-radius:.55rem;background:transparent;color:#64748b;padding:.42rem .6rem;font-size:.68rem;font-weight:750;cursor:pointer;">
+                        Show all questions
+                    </button>
+                @endif
             </div>
 
             <div class="mc-wa-sidecard">

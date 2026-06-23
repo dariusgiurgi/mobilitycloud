@@ -260,6 +260,40 @@ class WriteApplicationTest extends TestCase
         );
     }
 
+    public function test_review_queue_filters_and_updates_section_statuses(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $draft = $this->createSection($project, 'Draft answer', 'Still writing.', 1000, 'Context', 0);
+        $review = $this->createSection($project, 'Reviewer answer', 'Needs another look.', 1000, 'Context', 1);
+        $ready = $this->createSection($project, 'Ready answer', 'Final enough.', 1000, 'Impact', 2);
+
+        $review->update(['review_status' => 'review', 'internal_notes' => 'Check evidence.']);
+        $ready->update(['review_status' => 'ready']);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Review queue')
+            ->assertSee('with notes')
+            ->call('filterReviewStatus', 'review')
+            ->assertSet('writingMode', 'review')
+            ->assertSet('sectionFilter', 'review');
+
+        $this->assertSame(
+            [$review->id],
+            $component->instance()->getVisibleSections()->pluck('id')->all(),
+        );
+
+        $component
+            ->call('setReviewStatus', $draft->id, 'ready')
+            ->assertSet("reviewStatuses.{$draft->id}", 'ready');
+
+        $this->assertSame('ready', $draft->fresh()->review_status);
+        $this->assertSame(0, $component->instance()->getApplicationSummary()['draft']);
+        $this->assertSame(2, $component->instance()->getApplicationSummary()['ready']);
+    }
+
     private function workspaceProjectAndUser(string $role): array
     {
         $workspace = Workspace::create(['name' => 'Application Workspace']);

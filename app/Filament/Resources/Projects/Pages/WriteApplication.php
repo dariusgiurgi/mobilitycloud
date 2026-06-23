@@ -101,6 +101,7 @@ class WriteApplication extends Page
             $matchesFilter = match ($this->sectionFilter) {
                 'empty' => $text === '',
                 'over-limit' => $section->char_limit && mb_strlen($text) > $section->char_limit,
+                'draft' => ($this->reviewStatuses[$section->id] ?? $section->review_status) === 'draft',
                 'review' => ($this->reviewStatuses[$section->id] ?? $section->review_status) === 'review',
                 'ready' => ($this->reviewStatuses[$section->id] ?? $section->review_status) === 'ready',
                 default => true,
@@ -156,6 +157,26 @@ class WriteApplication extends Page
         $nextIndex = max(0, min($sections->count() - 1, $currentIndex + $direction));
         $this->focusSectionId = $sections[$nextIndex]->id;
         $this->writingMode = 'focus';
+    }
+
+    public function filterReviewStatus(string $status): void
+    {
+        if (! in_array($status, ['all', 'draft', 'review', 'ready'], true)) {
+            return;
+        }
+
+        $this->sectionFilter = $status;
+        $this->writingMode = 'review';
+    }
+
+    public function setReviewStatus(int $sectionId, string $status): void
+    {
+        if (! in_array($status, ['draft', 'review', 'ready'], true)) {
+            return;
+        }
+
+        $this->reviewStatuses[$sectionId] = $status;
+        $this->persistField($sectionId, 'review_status', $status);
     }
 
     public function getTemplates(): array
@@ -250,6 +271,8 @@ class WriteApplication extends Page
         $words = 0;
         $ready = 0;
         $inReview = 0;
+        $draft = 0;
+        $noted = 0;
 
         foreach ($sections as $section) {
             $text = trim(strip_tags($this->content[$section->id] ?? (string) $section->content));
@@ -267,6 +290,8 @@ class WriteApplication extends Page
             $status = $this->reviewStatuses[$section->id] ?? $section->review_status;
             $ready += $status === 'ready' ? 1 : 0;
             $inReview += $status === 'review' ? 1 : 0;
+            $draft += $status === 'draft' ? 1 : 0;
+            $noted += filled(trim($this->internalNotes[$section->id] ?? (string) $section->internal_notes)) ? 1 : 0;
         }
 
         $total = $sections->count();
@@ -278,8 +303,10 @@ class WriteApplication extends Page
             'over_limit' => $overLimit,
             'words' => $words,
             'progress' => $total > 0 ? (int) round($completed / $total * 100) : 0,
+            'draft' => $draft,
             'ready' => $ready,
             'in_review' => $inReview,
+            'noted' => $noted,
         ];
     }
 
