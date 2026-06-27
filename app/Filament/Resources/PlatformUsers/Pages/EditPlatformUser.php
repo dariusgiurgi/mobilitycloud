@@ -12,7 +12,9 @@ class EditPlatformUser extends EditRecord
 
     public function getSubheading(): ?string
     {
-        return $this->record->email.' · '.$this->record->workspaces()->count().' workspace(s)';
+        $status = $this->record->is_suspended ? 'Suspended account' : 'Active account';
+
+        return $status.' · '.$this->record->email.' · '.$this->record->workspaces()->count().' workspace(s)';
     }
 
     protected function afterSave(): void

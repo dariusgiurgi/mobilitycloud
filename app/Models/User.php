@@ -83,7 +83,15 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        if ($this->is_suspended) {
+            return false;
+        }
+
+        return match ($panel->getId()) {
+            'platform' => $this->isPlatformAdmin(),
+            'admin' => ! $this->isPlatformAdmin(),
+            default => true,
+        };
     }
 
     public const ROLE_USER = 'user';

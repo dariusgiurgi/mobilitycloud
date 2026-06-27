@@ -129,6 +129,15 @@ class PlatformUserResource extends Resource
                         User::ROLE_PLATFORM_ADMIN => 'warning',
                         default => 'gray',
                     }),
+                TextColumn::make('account_status')
+                    ->label('Status')
+                    ->getStateUsing(fn (User $record): string => $record->is_suspended ? 'Suspended' : ($record->must_change_password ? 'Password change required' : 'Active'))
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Suspended' => 'danger',
+                        'Password change required' => 'warning',
+                        default => 'success',
+                    }),
                 IconColumn::make('is_suspended')
                     ->label('Suspended')
                     ->boolean(),

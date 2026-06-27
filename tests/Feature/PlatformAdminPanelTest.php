@@ -6,6 +6,7 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\PlatformAnnouncements\Pages\CreatePlatformAnnouncement;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformAuditLogs\PlatformAuditLogResource;
+use App\Filament\Resources\PlatformUsers\Pages\ListPlatformUsers;
 use App\Filament\Resources\PlatformUsers\Pages\CreatePlatformUser;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\PlatformWorkspaces\Pages\EditPlatformWorkspace;
@@ -26,9 +27,8 @@ class PlatformAdminPanelTest extends TestCase
 
     public function test_platform_staff_can_access_internal_management_resources(): void
     {
-        [$workspace, $owner] = $this->platformUser(User::ROLE_PLATFORM_OWNER);
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
 
         $this->assertTrue(PlatformUserResource::canAccess());
         $this->assertTrue(PlatformWorkspaceResource::canAccess());
@@ -57,9 +57,9 @@ class PlatformAdminPanelTest extends TestCase
 
     public function test_platform_owner_can_create_internal_account_from_panel(): void
     {
-        [$workspace, $owner] = $this->platformUser(User::ROLE_PLATFORM_OWNER);
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
+        $this->usePlatformPanel();
 
         Livewire::test(CreatePlatformUser::class)
             ->fillForm([
@@ -84,11 +84,11 @@ class PlatformAdminPanelTest extends TestCase
 
     public function test_platform_admin_can_update_workspace_subscription_controls(): void
     {
-        [$workspace, $admin] = $this->platformUser(User::ROLE_PLATFORM_ADMIN);
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
         $clientWorkspace = Workspace::create(['name' => 'Client Org', 'plan' => 'free']);
 
         $this->actingAs($admin);
-        Filament::setTenant($workspace);
+        $this->usePlatformPanel();
 
         Livewire::test(EditPlatformWorkspace::class, ['record' => $clientWorkspace->id])
             ->fillForm([
@@ -117,11 +117,63 @@ class PlatformAdminPanelTest extends TestCase
         ]);
     }
 
+    public function test_suspended_account_is_visible_and_cannot_access_panels(): void
+    {
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $user = User::factory()->create(['role' => User::ROLE_USER, 'is_suspended' => true]);
+
+        $this->actingAs($owner);
+        $this->usePlatformPanel();
+
+        Livewire::test(\App\Filament\Resources\PlatformUsers\Pages\EditPlatformUser::class, ['record' => $user->id])
+            ->assertSee('Suspended account')
+            ->assertFormSet(['is_suspended' => true]);
+
+        $this->assertFalse($user->canAccessPanel(Filament::getPanel('admin')));
+        $this->assertFalse($user->canAccessPanel(Filament::getPanel('platform')));
+    }
+
+    public function test_suspended_platform_admin_cannot_open_platform_panel(): void
+    {
+        $admin = User::factory()->create([
+            'role' => User::ROLE_PLATFORM_ADMIN,
+            'is_suspended' => true,
+        ]);
+
+        $this->actingAs($admin);
+
+        $this->get(Dashboard::getUrl(panel: 'platform'))
+            ->assertForbidden();
+    }
+
+    public function test_admin_can_reset_user_password_from_accounts_table(): void
+    {
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $user = User::factory()->create(['role' => User::ROLE_USER]);
+
+        $this->actingAs($owner);
+        $this->usePlatformPanel();
+
+        Livewire::test(ListPlatformUsers::class)
+            ->callTableAction('resetPassword', $user, data: [
+                'password' => 'new-secure-password',
+                'must_change_password' => true,
+            ]);
+
+        $user->refresh();
+        $this->assertTrue(Hash::check('new-secure-password', $user->password));
+        $this->assertTrue($user->must_change_password);
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'action' => 'account.password_reset',
+            'subject_id' => $user->id,
+        ]);
+    }
+
     public function test_platform_admin_can_create_header_announcement_visible_in_panel(): void
     {
-        [$workspace, $admin] = $this->platformUser(User::ROLE_PLATFORM_ADMIN);
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
         $this->actingAs($admin);
-        Filament::setTenant($workspace);
+        $this->usePlatformPanel();
 
         Livewire::test(CreatePlatformAnnouncement::class)
             ->fillForm([
@@ -145,10 +197,33 @@ class PlatformAdminPanelTest extends TestCase
             'action' => 'announcement.created',
         ]);
 
-        $this->get(Dashboard::getUrl(tenant: $workspace))
+        $this->get(Dashboard::getUrl(panel: 'platform'))
             ->assertOk()
             ->assertSee('Maintenance tonight')
             ->assertSee('Document generation will be unavailable');
+    }
+
+    public function test_platform_admin_does_not_need_a_workspace_to_open_platform_panel(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
+
+        $this->actingAs($admin);
+
+        $this->assertSame(0, $admin->workspaces()->count());
+        $this->get(Dashboard::getUrl(panel: 'platform'))
+            ->assertOk()
+            ->assertSee('Platform administration');
+    }
+
+    public function test_platform_admin_is_not_sent_to_client_workspace_panel(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
+        $client = User::factory()->create(['role' => User::ROLE_USER]);
+
+        $this->assertTrue($admin->canAccessPanel(Filament::getPanel('platform')));
+        $this->assertFalse($admin->canAccessPanel(Filament::getPanel('admin')));
+        $this->assertFalse($client->canAccessPanel(Filament::getPanel('platform')));
+        $this->assertTrue($client->canAccessPanel(Filament::getPanel('admin')));
     }
 
     public function test_announcement_audience_can_target_specific_plans(): void
@@ -167,12 +242,9 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertFalse($announcement->isVisibleFor($user, Workspace::create(['name' => 'Free', 'plan' => 'free'])));
     }
 
-    private function platformUser(string $role): array
+    private function usePlatformPanel(): void
     {
-        $workspace = Workspace::create(['name' => 'Internal Admin']);
-        $user = User::factory()->create(['role' => $role]);
-        $workspace->users()->attach($user, ['role' => 'owner', 'joined_at' => now()]);
-
-        return [$workspace, $user];
+        Filament::setCurrentPanel('platform');
     }
+
 }
