@@ -40,7 +40,7 @@ class NavigationStructureTest extends TestCase
 
         $this->assertSame('Community', PublicLibrary::getNavigationGroup());
         $this->assertSame(10, PublicLibrary::getNavigationSort());
-        $this->assertSame('Community', PublicBlockReportResource::getNavigationGroup());
+        $this->assertSame('Operations', PublicBlockReportResource::getNavigationGroup());
         $this->assertSame('Moderation reports', PublicBlockReportResource::getNavigationLabel());
         $this->assertSame(20, PublicBlockReportResource::getNavigationSort());
 
@@ -66,7 +66,7 @@ class NavigationStructureTest extends TestCase
         $groups = Filament::getPanel('admin')->getNavigationGroups();
 
         $this->assertSame(
-            ['Planning tools', 'Community', 'Workspace settings'],
+            ['Platform management', 'Operations', 'Planning tools', 'Community', 'Workspace settings'],
             array_map(fn ($group) => $group->getLabel(), $groups),
         );
 

@@ -6,8 +6,10 @@ use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\Tenancy\EditWorkspaceProfile;
 use App\Filament\Pages\Tenancy\RegisterWorkspace;
+use App\Models\PlatformAnnouncement;
 use App\Models\Workspace;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -17,6 +19,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -42,6 +45,10 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->navigationGroups([
+                NavigationGroup::make('Platform management')
+                    ->collapsible(false),
+                NavigationGroup::make('Operations')
+                    ->collapsible(false),
                 NavigationGroup::make('Planning tools')
                     ->collapsible(false),
                 NavigationGroup::make('Community')
@@ -56,6 +63,20 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn (): string => AccountSettings::getUrl())
                     ->sort(5),
             ])
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.hooks.platform-announcements', [
+                    'announcements' => auth()->check()
+                        ? PlatformAnnouncement::query()
+                            ->active()
+                            ->latest('starts_at')
+                            ->latest('created_at')
+                            ->get()
+                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), Filament::getTenant()))
+                            ->take(3)
+                        : collect(),
+                ]),
+            )
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)
             ->tenantProfile(EditWorkspaceProfile::class)

@@ -11,15 +11,19 @@ use Illuminate\Support\Str;
 class Workspace extends Model
 {
     protected $fillable = [
-        'name', 'slug', 'plan',
+        'name', 'slug', 'plan', 'subscription_status',
         'billing_name', 'billing_vat', 'billing_address', 'billing_country',
         'currencies', 'document_settings', 'document_logo_path', 'trial_ends_at',
+        'subscription_ends_at', 'is_suspended', 'is_internal', 'internal_notes',
     ];
 
     protected $casts = [
         'currencies' => 'array',
         'document_settings' => 'array',
         'trial_ends_at' => 'datetime',
+        'subscription_ends_at' => 'datetime',
+        'is_suspended' => 'boolean',
+        'is_internal' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -98,6 +102,21 @@ class Workspace extends Model
         $member = $this->users()->where('user_id', $user->id)->first();
 
         return $member?->pivot->role;
+    }
+
+    public function owner(): ?User
+    {
+        return $this->users()->wherePivot('role', 'owner')->orderBy('name')->first();
+    }
+
+    public function subscriptionStatusLabel(): string
+    {
+        return match ($this->subscription_status ?: 'active') {
+            'trial' => 'Trial',
+            'expired' => 'Expired',
+            'suspended' => 'Suspended',
+            default => 'Active',
+        };
     }
 
     public function canBeManagedBy(?User $user): bool

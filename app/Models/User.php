@@ -19,6 +19,7 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     protected $fillable = [
         'name', 'email', 'password', 'current_workspace_id', 'notification_preferences', 'role',
+        'is_suspended', 'must_change_password', 'support_notes', 'last_login_at',
     ];
 
     protected $hidden = [
@@ -31,6 +32,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'notification_preferences' => 'array',
+            'is_suspended' => 'boolean',
+            'must_change_password' => 'boolean',
+            'last_login_at' => 'datetime',
         ];
     }
 
@@ -49,6 +53,17 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class)->withTimestamps();
+    }
+
+    public function getPlatformRoleLabelAttribute(): string
+    {
+        return match ($this->role) {
+            self::ROLE_PLATFORM_OWNER => 'Platform owner',
+            self::ROLE_PLATFORM_ADMIN => 'Platform admin',
+            self::ROLE_ADMIN => 'Legacy admin',
+            self::ROLE_SUPERVISOR => 'Legacy supervisor',
+            default => 'User',
+        };
     }
 
     public function wantsNotification(string $type): bool

@@ -5,6 +5,8 @@ namespace App\Filament\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Widgets\DashboardWorkspace;
+use App\Filament\Widgets\PlatformOperationsOverview;
+use App\Filament\Widgets\PlatformStatsOverview;
 use App\Filament\Widgets\ProjectStatsOverview;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -51,7 +53,10 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         if (auth()->user()?->isPlatformAdmin()) {
-            return [];
+            return [
+                PlatformStatsOverview::class,
+                PlatformOperationsOverview::class,
+            ];
         }
 
         return [
