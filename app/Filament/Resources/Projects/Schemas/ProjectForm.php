@@ -47,19 +47,19 @@ class ProjectForm
                     ]),
 
                 Section::make('Application setup')
-                    ->description('Choose the Erasmus+ action that drives the writing template, library suggestions and application exports.')
+                    ->description('Optional. Choose an official application template only when this project also needs a structured Writing workspace.')
                     ->columns(2)
                     ->schema([
                         Select::make('ka_action')
                             ->label('Application template')
                             ->options(ApplicationTemplates::list())
-                            ->default('ka152-you')
-                            ->formatStateUsing(fn (?string $state): string => ApplicationTemplates::normaliseKey($state ?: 'ka152-you'))
-                            ->dehydrateStateUsing(fn (?string $state): string => ApplicationTemplates::normaliseKey($state ?: 'ka152-you'))
+                            ->placeholder('No application template')
+                            ->formatStateUsing(fn (?string $state): ?string => filled($state) ? ApplicationTemplates::normaliseKey($state) : null)
+                            ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? ApplicationTemplates::normaliseKey($state) : null)
                             ->searchable()
                             ->native(false)
-                            ->required()
-                            ->helperText('This can also be changed from Writing → Template manager.'),
+                            ->nullable()
+                            ->helperText('Leave empty for operational/manual projects. You can choose a template later from Writing → Template manager.'),
                     ]),
 
                 Section::make('Timeline')

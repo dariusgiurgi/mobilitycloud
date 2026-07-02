@@ -8,6 +8,7 @@ use App\Filament\Resources\ContentBlocks\Pages\ListContentBlocks;
 use App\Filament\Resources\ContentBlocks\Schemas\ContentBlockForm;
 use App\Filament\Resources\ContentBlocks\Tables\ContentBlocksTable;
 use App\Models\ContentBlock;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -23,13 +24,13 @@ class ContentBlockResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Planning tools';
 
-    protected static ?string $navigationLabel = 'Content Library';
+    protected static ?string $navigationLabel = 'Writing Library';
 
     protected static ?int $navigationSort = 10;
 
-    protected static ?string $modelLabel = 'content block';
+    protected static ?string $modelLabel = 'writing block';
 
-    protected static ?string $pluralModelLabel = 'content blocks';
+    protected static ?string $pluralModelLabel = 'writing blocks';
 
     protected static ?string $recordTitleAttribute = 'title';
 
@@ -38,12 +39,12 @@ class ContentBlockResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_CONTENT_LIBRARY);
     }
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_CONTENT_LIBRARY);
     }
 
     public static function form(Schema $schema): Schema

@@ -14,12 +14,26 @@ class ProjectDocument extends Model
 
     public const TYPE_UPLOAD = 'uploaded';
 
+    public const MOBILITY_CATEGORIES = [
+        'mobility_plan' => 'Mobility plan',
+        'mobility_material' => 'Mobility material / worksheet',
+        'mobility_output' => 'Mobility output',
+        'mobility_photo_video' => 'Photo / video evidence',
+        'mobility_other' => 'Other mobility file',
+    ];
+
     public const CATEGORIES = [
         'grant_agreement' => 'Grant agreement',
         'approved_application' => 'Approved application',
         'mandate' => 'Partner mandate',
         'partnership_agreement' => 'Partnership agreement',
         'activity_agenda' => 'Activity agenda',
+        'mobility_plan' => 'Mobility plan',
+        'mobility_material' => 'Mobility material / worksheet',
+        'mobility_output' => 'Mobility output',
+        'mobility_photo_video' => 'Photo / video evidence',
+        'mobility_other' => 'Other mobility file',
+        'dissemination_evidence' => 'Dissemination evidence',
         'report' => 'Report',
         'other' => 'Other',
     ];

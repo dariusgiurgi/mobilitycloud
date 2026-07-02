@@ -180,9 +180,23 @@
     {{-- List --}}
     @if($participants->isEmpty())
         <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;margin:0 0 {{ $canManage ? '1rem' : '0' }};">{{ $activeFilters > 0 ? 'No participants match the active filters.' : 'No participants have been added yet.' }}</p>
+            <x-filament::icon icon="heroicon-o-users" class="mx-auto h-10 w-10 text-gray-400" />
+            <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.65rem 0 .25rem;">{{ $activeFilters > 0 ? 'No participants match these filters' : 'Build the participant register' }}</h3>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;line-height:1.55;margin:0 auto {{ $canManage ? '1rem' : '0' }};max-width:36rem;">
+                {{ $activeFilters > 0 ? 'Clear the filters or search by another name, organisation or status.' : 'Add people one by one, import the CSV you exported earlier, then generate attendance sheets when the activity list is ready.' }}
+            </p>
             @if($canManage && $activeFilters === 0)
-                <button type="button" wire:click="openCreate" style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:500;">+ Add the first participant</button>
+                <div style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;">
+                    <x-filament::button wire:click="openCreate" icon="heroicon-o-plus">
+                        Add participant
+                    </x-filament::button>
+                    <x-filament::button wire:click="openImport" color="gray" icon="heroicon-o-arrow-up-tray">
+                        Import CSV
+                    </x-filament::button>
+                    <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list">
+                        Generate attendance list
+                    </x-filament::button>
+                </div>
             @endif
         </div>
     @else

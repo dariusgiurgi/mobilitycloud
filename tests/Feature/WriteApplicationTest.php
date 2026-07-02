@@ -18,7 +18,7 @@ class WriteApplicationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_application_workspace_shows_progress_and_outline(): void
+    public function test_application_workspace_shows_progress_and_compact_sidebar(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
         $this->createSection($project, 'Objectives', 'A focused project answer.', 100, 'Context', 0);
@@ -33,9 +33,11 @@ class WriteApplicationTest extends TestCase
             ->assertSee('Quality review')
             ->assertSee('50% drafted')
             ->assertSee('1 of 2 sections')
-            ->assertSee('Application outline')
-            ->assertSee('Objectives')
-            ->assertSee('Impact')
+            ->assertSee('Search questions or answers')
+            ->assertSee('Review queue')
+            ->assertSee('Export full pack')
+            ->assertSee('Export Word')
+            ->assertSee('More')
             ->assertSee('Export PDF');
     }
 
@@ -74,10 +76,48 @@ class WriteApplicationTest extends TestCase
     {
         $this->assertSame(2026, ApplicationTemplates::get('ka152')['call_year']);
         $this->assertSame('KA153-YOU', ApplicationTemplates::get('ka153-you')['action']);
+        $this->assertArrayHasKey('ka151-you', ApplicationTemplates::list());
+        $this->assertArrayHasKey('ka152-you', ApplicationTemplates::list());
+        $this->assertArrayHasKey('ka153-you', ApplicationTemplates::list());
         $this->assertArrayHasKey('ka154-you', ApplicationTemplates::list());
-        $this->assertArrayHasKey('ka155-you', ApplicationTemplates::list());
-        $this->assertGreaterThan(15, count(ApplicationTemplates::sections('ka152-you')));
-        $this->assertNotEmpty(ApplicationTemplates::catalog());
+        $this->assertArrayHasKey('ka121-sch', ApplicationTemplates::list());
+        $this->assertArrayHasKey('ka122-vet', ApplicationTemplates::list());
+        $this->assertArrayHasKey('ka210-adu', ApplicationTemplates::list());
+        $this->assertArrayHasKey('ka220-vet', ApplicationTemplates::list());
+        $this->assertSame('KA121-SCH', ApplicationTemplates::get('ka121-sch')['action']);
+        $this->assertSame('KA122-VET', ApplicationTemplates::get('ka122-vet')['action']);
+        $this->assertSame('KA210-ADU', ApplicationTemplates::get('ka210-adu')['action']);
+        $this->assertSame('KA220-YOU', ApplicationTemplates::get('ka220-you')['action']);
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka151-you'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka152-you'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka153-you'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka154-you'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka121-sch'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka122-vet'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka210-adu'));
+        $this->assertTrue(ApplicationTemplates::isOfficiallyVerified('ka220-vet'));
+        $this->assertCount(3, ApplicationTemplates::sections('ka151-you'));
+        $this->assertSame(
+            'Do you foresee Virtual/Blended activities and/or the use of any virtual component, before, during or after the activity?',
+            ApplicationTemplates::sections('ka151-you')[1]['title'],
+        );
+        $this->assertCount(41, ApplicationTemplates::sections('ka152-you'));
+        $this->assertSame(
+            'Please describe the background of the participants in each participating group and how each group was formed. Please also provide information on the group leaders, the age of the participants and how country balance is ensured. If necessary, explain how the gender balance is respected.',
+            collect(ApplicationTemplates::sections('ka152-you'))->firstWhere('key', 'activity-participant-background')['title'],
+        );
+        $this->assertSame(
+            'If any, please explain the particular measures (accompanying person, reinforced preparation etc.) you will put in place to cater for the specific needs of these participants and/or to support their participation.',
+            collect(ApplicationTemplates::sections('ka152-you'))->firstWhere('key', 'fewer-opportunities-measures')['title'],
+        );
+        $this->assertCount(31, ApplicationTemplates::sections('ka153-you'));
+        $this->assertCount(35, ApplicationTemplates::sections('ka154-you'));
+        $this->assertCount(22, ApplicationTemplates::sections('ka122-sch'));
+        $this->assertCount(4, ApplicationTemplates::sections('ka121-adu'));
+        $this->assertCount(18, ApplicationTemplates::sections('ka210-you'));
+        $this->assertCount(37, ApplicationTemplates::sections('ka220-vet'));
+        $this->assertCount(18, ApplicationTemplates::catalog());
+        $this->assertSame(['any', 'ka122-sch', 'ka122'], ApplicationTemplates::libraryKeys('ka122-sch'));
     }
 
     public function test_template_sync_preserves_existing_answers_and_creates_backup(): void
@@ -89,13 +129,13 @@ class WriteApplicationTest extends TestCase
         Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
-            ->set('selectedTemplate', 'ka152-you')
+            ->set('selectedTemplate', 'ka151-you')
             ->call('loadTemplate')
             ->assertSee('Writing guidance');
 
         $this->assertSame('Do not delete this text.', $legacy->fresh()->content);
-        $this->assertSame('ka152-you', $project->fresh()->ka_action);
-        $this->assertGreaterThan(15, $project->applicationSections()->count());
+        $this->assertSame('ka151-you', $project->fresh()->ka_action);
+        $this->assertSame(4, $project->applicationSections()->count());
         $this->assertSame(1, ProjectApplicationVersion::where('project_id', $project->id)->count());
     }
 
@@ -114,10 +154,25 @@ class WriteApplicationTest extends TestCase
         $version = ProjectApplicationVersion::where('project_id', $project->id)->firstOrFail();
         $section->update(['content' => 'Changed later']);
 
+        $component
+            ->set('showVersions', true)
+            ->call('openVersionDiff', $version->id)
+            ->assertSet('versionDiffId', $version->id)
+            ->assertSee('Comparing with')
+            ->assertSee('Modified');
+
+        $diff = $component->instance()->getVersionDiff();
+
+        $this->assertSame(1, $diff['summary']['modified']);
+        $this->assertSame('Answer', $diff['changes'][0]['fields'][0]);
+        $this->assertStringContainsString('Original draft', $diff['changes'][0]['before']);
+        $this->assertStringContainsString('Changed later', $diff['changes'][0]['after']);
+
         $component->call('restoreVersion', $version->id);
 
         $this->assertSame('Original draft', $project->applicationSections()->sole()->content);
         $this->assertSame(2, ProjectApplicationVersion::where('project_id', $project->id)->count());
+        $this->assertNull($component->instance()->versionDiffId);
     }
 
     public function test_template_manager_reports_alignment_and_can_switch_catalog_template(): void
@@ -132,16 +187,372 @@ class WriteApplicationTest extends TestCase
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->call('openTemplateDetails')
             ->assertSee('Application template manager')
+            ->assertSee('Youth mobility')
+            ->assertSee('Search by KA code, sector, form or keyword')
+            ->assertSee('Officially verified')
+            ->assertSee('Switch impact preview')
+            ->assertSee('Template audit')
+            ->assertSee('Audit score')
             ->assertSee('Missing official questions')
+            ->set('templateCatalogSearch', '153')
+            ->assertSee('KA153-YOU')
+            ->assertSee('Audit')
             ->call('selectTemplate', 'ka153-you')
             ->assertSet('selectedTemplate', 'ka153-you');
 
         $alignment = $component->instance()->getTemplateAlignment();
+        $catalogKeys = collect($component->instance()->getTemplateCatalog())->pluck('key')->all();
+        $audit = $component->instance()->getSelectedTemplateAudit();
+        $auditSummary = $component->instance()->getTemplateAuditSummary();
 
         $this->assertSame('ka153-you', $component->instance()->selectedTemplate);
+        $this->assertContains('ka153-you', $catalogKeys);
+        $this->assertNotContains('ka152-you', $catalogKeys);
         $this->assertGreaterThan(0, $alignment['missing_count']);
         $this->assertSame(1, $alignment['custom_count']);
         $this->assertSame(1, $alignment['matched']);
+        $this->assertGreaterThan(0, $audit['counts']['sections']);
+        $this->assertArrayHasKey('tables', $audit);
+        $this->assertGreaterThanOrEqual(1, $auditSummary['templates']);
+    }
+
+    public function test_template_preview_hints_and_activity_table_mode_are_visible(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update(['ka_action' => 'ka151-you']);
+        $this->createSection($project, 'Do you foresee Virtual/Blended activities and/or the use of any virtual component, before, during or after the activity?', 'We will use online preparation.', 4000, 'Summary', 0, 'virtual-blended-components');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Activity/table-driven application')
+            ->assertSee('Evaluator hints for this question')
+            ->call('openTemplateDetails')
+            ->assertSee('Officially verified')
+            ->assertSee('Switch impact preview');
+
+        $this->assertTrue($component->instance()->isActivityTableTemplate());
+        $this->assertGreaterThanOrEqual(1, $component->instance()->getTemplateSwitchPreview()['matched_count']);
+        $this->assertNotEmpty($component->instance()->getQuestionHints($project->applicationSections()->first()));
+    }
+
+    public function test_standard_application_tables_can_be_filled_and_exported(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $section = $this->createSection(
+            $project,
+            'Have you, at this stage, identified the need of any specific additional funding such as Exceptional costs for expensive travel, visas, financial guarantee, or Inclusion support for participants etc.? If this is the case, please fill in the table below.',
+            'Yes, we need inclusion support.',
+            1000,
+            'Activities',
+            0,
+            'additional-funding-needs',
+        );
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Additional funding needs')
+            ->call('addTableRow', $section->id, 'additional_funding')
+            ->set("tables.{$section->id}.additional_funding.0.cost_type", 'Inclusion support')
+            ->set("tables.{$section->id}.additional_funding.0.participants", '4 participants')
+            ->set("tables.{$section->id}.additional_funding.0.estimated_cost", '800 EUR');
+
+        $section->refresh();
+
+        $this->assertSame('Inclusion support', $section->application_tables['additional_funding'][0]['cost_type']);
+        $this->assertSame('4 participants', $section->application_tables['additional_funding'][0]['participants']);
+
+        $this->get(route('projects.export-application-word', $project))
+            ->assertOk()
+            ->assertSee('Additional funding needs')
+            ->assertSee('Inclusion support')
+            ->assertSee('800 EUR');
+    }
+
+    public function test_standard_application_tables_can_be_populated_from_project_data(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'mobility_start_date' => '2026-08-01',
+            'mobility_end_date' => '2026-08-08',
+            'partner_orgs' => [
+                ['name' => 'Roots in Motion', 'country' => 'Romania', 'oid' => null],
+            ],
+        ]);
+
+        $project->participants()->create([
+            'first_name' => 'Ana',
+            'last_name' => 'Pop',
+            'role' => 'participant',
+            'fewer_opportunities' => true,
+        ]);
+
+        $project->budgetLines()->where('title', 'Inclusion Support')->firstOrFail()->update([
+            'allocated_budget' => 1200,
+        ]);
+
+        $funding = $this->createSection($project, 'Have you identified the need of any specific additional funding? If this is the case, please fill in the table below.', '', 1000, 'Activities', 0, 'additional-funding-needs');
+        $activities = $this->createSection($project, 'What activities do you plan to implement? What is the number and profile of the participants involved?', '', 1000, 'Project summary', 1, 'summary-activities');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Populate from project')
+            ->call('autofillTable', $funding->id, 'additional_funding')
+            ->call('autofillTable', $activities->id, 'activity_plan');
+
+        $funding->refresh();
+        $activities->refresh();
+
+        $this->assertSame('Inclusion Support', $funding->application_tables['additional_funding'][0]['cost_type']);
+        $this->assertSame('1 participants with fewer opportunities', $funding->application_tables['additional_funding'][0]['participants']);
+        $this->assertSame('Youth Exchange', $activities->application_tables['activity_plan'][0]['activity']);
+        $this->assertStringContainsString('Participant', $activities->application_tables['activity_plan'][0]['participants']);
+    }
+
+    public function test_application_can_be_exported_as_word_compatible_document(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->createSection($project, 'Official question', 'Clean answer for export.', 1000, 'Context', 0, 'official-question');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $this->get(route('projects.export-application-word', $project))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/msword; charset=UTF-8')
+            ->assertSee('Official question')
+            ->assertSee('Clean answer for export.')
+            ->assertDontSee('Writing guidance')
+            ->assertDontSee('Evaluator hints');
+    }
+
+    public function test_activity_flows_can_be_generated_and_used_by_application_pack(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'ka_action' => 'ka152-you',
+            'mobility_start_date' => '2026-08-01',
+            'mobility_end_date' => '2026-08-07',
+            'partner_orgs' => [
+                ['name' => 'Roots in Motion', 'country' => 'Romania', 'oid' => null],
+            ],
+        ]);
+        $this->createSection($project, 'What activities do you plan to implement? What is the number and profile of the participants involved?', '', 1000, 'Project summary', 0, 'summary-activities');
+        $project->participants()->create([
+            'first_name' => 'Ana',
+            'last_name' => 'Pop',
+            'country' => 'Spain',
+            'partner_organisation' => 'Partner Spain',
+            'role' => 'participant',
+            'fewer_opportunities' => true,
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('openActivityBuilder')
+            ->assertSet('showActivityBuilder', true)
+            ->call('generateActivityFlowsFromParticipants');
+
+        $summary = $component->instance()->getActivityFlowSummary();
+        $review = $component->instance()->getActivityFlowReview();
+
+        $this->assertSame(1, $summary['count']);
+        $this->assertSame(1, $summary['participants']);
+        $storedFlow = $project->fresh()->action_data['application_flows'][0];
+        $this->assertSame('Partner Spain', $storedFlow['group_label']);
+        $this->assertSame('7', $storedFlow['duration_days']);
+        $this->assertContains('Country balance may be incomplete', collect($review['issues'])->pluck('title')->all());
+
+        $this->get(route('projects.export-application-pack', $project))
+            ->assertOk()
+            ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_activity_flow_review_flags_participant_mismatches_and_youth_exchange_age_range(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'ka_action' => 'ka152-you',
+            'mobility_start_date' => '2026-08-01',
+            'mobility_end_date' => '2026-08-07',
+            'action_data' => [
+                'application_flows' => [[
+                    'activity_id' => 'A1',
+                    'flow_id' => 'F1',
+                    'activity_type' => 'ka152-you',
+                    'group_label' => 'Spain group',
+                    'origin_country' => 'Spain',
+                    'destination_country' => 'Romania',
+                    'start_date' => '2026-08-01',
+                    'end_date' => '2026-08-07',
+                    'duration_days' => '7',
+                    'travel_days' => '2',
+                    'participants_count' => '1',
+                    'fewer_opportunities_count' => '0',
+                    'group_leaders_count' => '0',
+                    'green_travel' => true,
+                    'distance_band' => '',
+                    'responsible' => 'Coordinator',
+                    'learning_output' => 'Learning output',
+                ]],
+            ],
+        ]);
+
+        $project->participants()->create([
+            'first_name' => 'Old',
+            'last_name' => 'Participant',
+            'birth_date' => '1990-01-01',
+            'country' => 'Spain',
+            'role' => 'participant',
+            'fewer_opportunities' => true,
+        ]);
+        $project->participants()->create([
+            'first_name' => 'Young',
+            'last_name' => 'Participant',
+            'birth_date' => '2010-01-01',
+            'country' => 'Portugal',
+            'role' => 'participant',
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Flow quality');
+
+        $review = $component->instance()->getActivityFlowReview();
+        $titles = collect($review['issues'])->pluck('title')->all();
+
+        $this->assertContains('Participant count mismatch', $titles);
+        $this->assertContains('Fewer-opportunity count mismatch', $titles);
+        $this->assertContains('Youth Exchange age range', $titles);
+        $this->assertContains('F1: green travel without distance band', $titles);
+        $this->assertGreaterThan(0, $review['critical']);
+    }
+
+    public function test_official_readiness_flags_conditional_missing_answers_and_navigation(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update(['ka_action' => 'ka152-you']);
+        $trigger = $this->createSection(
+            $project,
+            'Do you foresee Virtual/Blended activities and/or the use of any virtual component, before, during or after the activity?',
+            'Yes, we will include virtual preparation.',
+            1000,
+            'Project summary',
+            0,
+            'virtual-blended-components',
+        );
+        $followUp = $this->createSection(
+            $project,
+            'Please describe the planned virtual or blended components.',
+            '',
+            1000,
+            'Project summary',
+            1,
+            'virtual-blended-description',
+        );
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Official readiness')
+            ->assertSee('Next official issue')
+            ->call('filterReviewStatus', 'official-issues')
+            ->assertSet('sectionFilter', 'official-issues')
+            ->call('focusNextOfficialIssue')
+            ->assertSet('writingMode', 'focus')
+            ->assertSet('focusSectionId', $followUp->id);
+
+        $review = $component->instance()->getOfficialCompletenessReview();
+
+        $this->assertGreaterThan(0, $review['critical']);
+        $this->assertContains('Conditional official answer', collect($review['issues'])->pluck('area')->all());
+        $this->assertSame([$followUp->id], $component->instance()->getVisibleSections()->pluck('id')->all());
+        $this->assertNotSame($trigger->id, $component->instance()->focusSectionId);
+    }
+
+    public function test_submission_checklist_is_action_specific_for_ka152(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update(['ka_action' => 'ka152-you']);
+        $participantBackground = $this->createSection($project, 'Participant background', '', 4000, 'Description of the activity', 0, 'activity-participant-background');
+        $this->createSection($project, 'European certificates', 'Yes, we will use Youthpass.', 1000, 'Project design', 1, 'european-certificates');
+        $fewerMeasures = $this->createSection($project, 'Fewer opportunities measures', '', 4000, 'Participant with fewer opportunities', 2, 'fewer-opportunities-measures');
+        $this->createSection($project, 'Safety and protection', '', 3000, 'Project design', 3, 'safety-protection');
+        $this->createSection($project, 'Evaluation', '', 3500, 'Project management', 4, 'evaluation');
+        $this->createSection($project, 'Dissemination', '', 3500, 'Project management', 5, 'dissemination');
+
+        $project->participants()->create([
+            'first_name' => 'Ana',
+            'last_name' => 'Pop',
+            'role' => 'participant',
+            'fewer_opportunities' => true,
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Submission checklist')
+            ->call('openReviewDetails')
+            ->assertSee('KA152 participant groups')
+            ->assertSee('KA152 fewer-opportunities support')
+            ->assertSee('KA152 safety and protection');
+
+        $checklist = $component->instance()->getSubmissionChecklist();
+        $itemsByLabel = collect($checklist['items'])->keyBy('label');
+
+        $this->assertSame('missing', $itemsByLabel['KA152 participant groups']['status']);
+        $this->assertSame($participantBackground->id, $itemsByLabel['KA152 participant groups']['sectionId']);
+        $this->assertSame('missing', $itemsByLabel['KA152 fewer-opportunities support']['status']);
+        $this->assertSame($fewerMeasures->id, $itemsByLabel['KA152 fewer-opportunities support']['sectionId']);
+        $this->assertGreaterThan(0, $checklist['missing']);
+        $this->assertLessThan(100, $checklist['score']);
+    }
+
+    public function test_answer_scaffold_can_be_inserted_for_a_question(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $section = $this->createSection($project, 'Expected impact and follow-up', '', 2000, 'Impact', 0, 'summary-impact');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('insertAnswerScaffold', $section->id);
+
+        $this->assertStringContainsString('Expected result / proof', $section->fresh()->content);
+    }
+
+    public function test_template_switch_replaces_old_official_questions_and_preserves_custom_sections(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $oldOfficial = $this->createSection($project, 'Legacy impact question', 'This belongs to another form.', 1000, 'Old form', 0, 'summary-impact');
+        $custom = $this->createSection($project, 'Internal evaluator note', 'Keep this project-specific note.', 1000, 'Custom', 1, 'custom-note');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->set('selectedTemplate', 'ka151-you')
+            ->call('loadTemplate')
+            ->assertSee('Writing guidance');
+
+        $this->assertNull($oldOfficial->fresh());
+        $this->assertSame('Keep this project-specific note.', $custom->fresh()->content);
+        $this->assertSame('ka151-you', $project->fresh()->ka_action);
+        $this->assertTrue($project->applicationSections()->where('question_key', 'virtual-blended-components')->exists());
+        $this->assertFalse($project->applicationSections()->where('question_key', 'summary-impact')->exists());
+        $this->assertSame(1, ProjectApplicationVersion::where('project_id', $project->id)->count());
     }
 
     public function test_consistency_checker_flags_missing_answers_and_erasmus_themes(): void
@@ -155,7 +566,7 @@ class WriteApplicationTest extends TestCase
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Consistency checker')
-            ->assertSee('Unanswered questions')
+            ->assertSee('View checks')
             ->assertSee('Inclusion');
 
         $review = $component->instance()->getConsistencyReview();
@@ -212,7 +623,7 @@ class WriteApplicationTest extends TestCase
         Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
-            ->assertSee('View all checks')
+            ->assertSee('View checks')
             ->call('openReviewDetails')
             ->assertSet('showReviewDetails', true)
             ->assertSee('Application review details')
@@ -292,6 +703,38 @@ class WriteApplicationTest extends TestCase
         $this->assertSame('ready', $draft->fresh()->review_status);
         $this->assertSame(0, $component->instance()->getApplicationSummary()['draft']);
         $this->assertSame(2, $component->instance()->getApplicationSummary()['ready']);
+    }
+
+    public function test_bulk_review_actions_flag_issues_generate_notes_and_mark_answered_ready(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $answered = $this->createSection($project, 'Project objectives', 'A clear draft answer.', 1000, 'Context', 0, 'needs-objectives');
+        $empty = $this->createSection($project, 'Expected impact', '', 1000, 'Impact', 1, 'summary-impact');
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Flag')
+            ->assertSee('Generate notes')
+            ->assertSee('Mark')
+            ->call('sendIssueSectionsToReview')
+            ->assertSet("reviewStatuses.{$empty->id}", 'review')
+            ->assertSee('with notes');
+
+        $this->assertSame('review', $empty->fresh()->review_status);
+        $this->assertStringContainsString('Unanswered questions', $empty->fresh()->internal_notes);
+
+        $component
+            ->call('markAnsweredSectionsReady')
+            ->assertSet("reviewStatuses.{$answered->id}", 'ready');
+
+        $this->assertSame('ready', $answered->fresh()->review_status);
+        $this->assertSame('review', $empty->fresh()->review_status);
+
+        $component->call('generateReviewNotesFromChecks');
+
+        $this->assertStringContainsString('Unanswered questions', $empty->fresh()->internal_notes);
     }
 
     private function workspaceProjectAndUser(string $role): array

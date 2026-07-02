@@ -8,12 +8,14 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectBoard;
 use App\Filament\Resources\Projects\Pages\ViewProjectDocuments;
 use App\Filament\Resources\Projects\Pages\ViewProjectEstimate;
+use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Filament\Resources\Projects\Pages\ViewProjectParticipants;
 use App\Filament\Resources\Projects\Pages\WriteApplication;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
 use App\Models\Project;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -40,12 +42,12 @@ class ProjectResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PROJECTS);
     }
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PROJECTS);
     }
 
     public static function form(Schema $schema): Schema
@@ -73,6 +75,7 @@ class ProjectResource extends Resource
             'write' => WriteApplication::route('/{record}/write'),
             'estimate' => ViewProjectEstimate::route('/{record}/estimate'),
             'board' => ViewProjectBoard::route('/{record}/board'),
+            'mobility' => ViewProjectMobility::route('/{record}/mobility'),
             'participants' => ViewProjectParticipants::route('/{record}/participants'),
             'documents' => ViewProjectDocuments::route('/{record}/documents'),
             'edit' => EditProject::route('/{record}/edit'),
@@ -110,6 +113,11 @@ class ProjectResource extends Resource
                 ->icon(Heroicon::OutlinedBanknotes)
                 ->url($budgetUrl)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectEstimate || $page instanceof ViewProjectBoard),
+
+            NavigationItem::make('Mobility')
+                ->icon(Heroicon::OutlinedMap)
+                ->url(static::getUrl('mobility', ['record' => $record]))
+                ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
 
             NavigationItem::make('Participants')
                 ->icon(Heroicon::OutlinedUsers)

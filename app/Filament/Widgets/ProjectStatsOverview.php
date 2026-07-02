@@ -12,6 +12,8 @@ class ProjectStatsOverview extends BaseWidget
 {
     protected static bool $isLazy = false;
 
+    protected ?string $pollingInterval = null;
+
     protected function getStats(): array
     {
         $workspaceId = Filament::getTenant()?->id;

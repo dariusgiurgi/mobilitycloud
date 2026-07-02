@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\SavedCalculation;
 use App\Support\AuthorizesWorkspaceManagement;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -29,7 +30,7 @@ class IndividualSupportCalculator extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_CALCULATOR);
     }
 
     public const TRAVEL_BANDS = [

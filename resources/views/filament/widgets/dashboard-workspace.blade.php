@@ -24,7 +24,7 @@
                     <span style="display:inline-flex;align-items:center;gap:.35rem;">
                         Needs attention
                         <x-help-tip id="dashboard-attention" title="How priorities are detected">
-                            MobilityCloud checks project dates, participant documents, expense evidence and signed records. This is an operational reminder, not a compliance decision.
+                            MobilityCloud combines the project readiness check with urgent dates, participant files, expense evidence, signed records and open tasks. This is an operational reminder, not a compliance decision.
                         </x-help-tip>
                     </span>
                 </x-slot>
@@ -84,6 +84,7 @@
                                 $budget = $project->effective_budget;
                                 $remaining = $project->remaining;
                                 $date = $project->mobility_start_date ?? $project->start_date;
+                                $projectReadiness = $readiness->get($project->id);
                             @endphp
                             <a href="{{ \App\Filament\Resources\Projects\ProjectResource::getUrl('overview', ['record' => $project]) }}" class="mc-project-card">
                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;">
@@ -93,6 +94,16 @@
                                     </div>
                                     <x-filament::badge :color="$status->getColor()" size="sm">{{ $status->getLabel() }}</x-filament::badge>
                                 </div>
+
+                                @if ($projectReadiness)
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:.85rem;">
+                                        <span class="mc-muted" style="font-size:.72rem;">Readiness</span>
+                                        <span class="text-gray-950 dark:text-white" style="font-size:.72rem;font-weight:650;">{{ $projectReadiness['score'] }}%</span>
+                                    </div>
+                                    <div style="height:5px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden;margin-top:.3rem;">
+                                        <div style="height:100%;width:{{ $projectReadiness['score'] }}%;border-radius:9999px;background:{{ $projectReadiness['tone'] === 'success' ? '#22c55e' : ($projectReadiness['tone'] === 'warning' ? '#f59e0b' : '#ef4444') }};"></div>
+                                    </div>
+                                @endif
 
                                 <div style="display:flex;justify-content:space-between;gap:.75rem;margin-top:1rem;font-size:.75rem;">
                                     <span class="mc-muted">Spent {{ number_format($project->spent, 0) }} €</span>

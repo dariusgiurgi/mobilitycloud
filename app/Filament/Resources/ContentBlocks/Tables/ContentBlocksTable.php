@@ -151,7 +151,7 @@ class ContentBlocksTable
                 ]),
             ])
             ->defaultSort('updated_at', 'desc')
-            ->emptyStateHeading('No content blocks yet')
-            ->emptyStateDescription('Create reusable paragraphs here, or import a proven example from the Public Library.');
+            ->emptyStateHeading('No writing blocks yet')
+            ->emptyStateDescription('Save reusable answers here, or import a proven example from the Public Library.');
     }
 }

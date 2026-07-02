@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\Expense;
 use App\Support\AuthorizesWorkspaceManagement;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -32,7 +33,7 @@ class ManageCurrencies extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_CURRENCIES);
     }
 
     public string $newCode = '';

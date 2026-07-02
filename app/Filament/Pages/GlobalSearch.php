@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -30,7 +31,7 @@ class GlobalSearch extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PROJECTS);
     }
 
     public function getSubheading(): ?string

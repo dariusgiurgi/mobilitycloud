@@ -8,6 +8,7 @@ use App\Filament\Resources\PublicContentBlocks\Pages\ListPublicContentBlocks;
 use App\Filament\Resources\PublicContentBlocks\Schemas\PublicContentBlockForm;
 use App\Filament\Resources\PublicContentBlocks\Tables\PublicContentBlocksTable;
 use App\Models\PublicContentBlock;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -41,7 +42,7 @@ class PublicContentBlockResource extends Resource
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PUBLIC_LIBRARY);
     }
 
     // NU e tenant-scoped: biblioteca publica e comuna tuturor workspace-urilor.
@@ -52,7 +53,7 @@ class PublicContentBlockResource extends Resource
 
     public static function canCreate(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface()
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PUBLIC_LIBRARY)
             && (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false);
     }
 

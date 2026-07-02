@@ -8,6 +8,7 @@ use App\Models\Participant;
 use App\Models\ProjectApplicationSection;
 use App\Models\User;
 use App\Services\ProjectDocumentChecklist;
+use App\Services\ProjectReadinessCheck;
 use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\Action;
@@ -40,6 +41,14 @@ class ViewProjectOverview extends Page
     public string $taskPriority = 'normal';
 
     public string $taskFilter = 'open';
+
+    public bool $showTransitionReadinessModal = false;
+
+    public ?string $pendingTransitionTarget = null;
+
+    public array $pendingTransitionIssues = [];
+
+    public array $pendingTransitionSummary = [];
 
     public function mount(int|string $record): void
     {
@@ -181,6 +190,11 @@ class ViewProjectOverview extends Page
         ];
     }
 
+    public function getProjectReadiness(): array
+    {
+        return app(ProjectReadinessCheck::class)->build($this->record);
+    }
+
     public function getRecentActivity()
     {
         return $this->record->activityLogs()
@@ -309,6 +323,47 @@ class ViewProjectOverview extends Page
         ]);
     }
 
+    public function createTasksFromReadiness(): void
+    {
+        $this->authorizeProjectManagement();
+
+        $readiness = $this->getProjectReadiness();
+        $issues = collect($readiness['items'])
+            ->filter(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true))
+            ->reject(fn (array $item): bool => $item['target'] === 'tasks')
+            ->take(8);
+
+        $created = 0;
+
+        foreach ($issues as $item) {
+            $title = 'Resolve: '.$item['label'];
+            $alreadyExists = $this->record->tasks()
+                ->where('status', 'open')
+                ->where('title', $title)
+                ->exists();
+
+            if ($alreadyExists) {
+                continue;
+            }
+
+            $this->record->tasks()->create([
+                'title' => $title,
+                'description' => $item['detail']."\n\nGenerated from Project readiness check.",
+                'priority' => $item['severity'] === 'critical' ? 'high' : 'normal',
+                'status' => 'open',
+                'created_by' => auth()->id(),
+            ]);
+
+            $created++;
+        }
+
+        Notification::make()
+            ->title($created > 0 ? "{$created} readiness task(s) created" : 'No new readiness tasks')
+            ->body($created > 0 ? 'Open tasks now contains the most important readiness issues.' : 'Matching open tasks already exist for the current readiness issues.')
+            ->success()
+            ->send();
+    }
+
     public function deleteTask(int $taskId): void
     {
         $this->authorizeProjectManagement();
@@ -392,6 +447,69 @@ class ViewProjectOverview extends Page
                 'icon' => 'heroicon-o-archive-box',
             ],
         };
+    }
+
+    public function requestTransitionTo(string $target): void
+    {
+        $this->authorizeProjectManagement();
+
+        $targetEnum = ProjectStatus::tryFrom($target);
+        if (! $targetEnum) {
+            return;
+        }
+
+        $current = $this->record->statusEnum();
+
+        if (! $current->canTransitionTo($targetEnum)) {
+            Notification::make()
+                ->title('That status change is not allowed from '.$current->getLabel())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $readiness = $this->getProjectReadiness();
+        $issues = collect($readiness['items'])
+            ->filter(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true))
+            ->take(7)
+            ->values();
+
+        if ($issues->isEmpty()) {
+            $this->transitionTo($target);
+
+            return;
+        }
+
+        $this->pendingTransitionTarget = $target;
+        $this->pendingTransitionIssues = $issues->all();
+        $this->pendingTransitionSummary = [
+            'score' => $readiness['score'],
+            'status' => $readiness['status'],
+            'critical' => $readiness['critical'],
+            'warning' => $readiness['warning'],
+            'target_label' => $targetEnum->getLabel(),
+            'current_label' => $current->getLabel(),
+        ];
+        $this->showTransitionReadinessModal = true;
+    }
+
+    public function confirmPendingTransition(): void
+    {
+        $target = $this->pendingTransitionTarget;
+        $this->closeTransitionReadinessModal();
+
+        if ($target) {
+            $this->transitionTo($target);
+        }
+    }
+
+    public function closeTransitionReadinessModal(): void
+    {
+        $this->showTransitionReadinessModal = false;
+        $this->pendingTransitionTarget = null;
+        $this->pendingTransitionIssues = [];
+        $this->pendingTransitionSummary = [];
     }
 
     public function transitionTo(string $target): void

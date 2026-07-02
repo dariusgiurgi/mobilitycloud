@@ -17,11 +17,11 @@ class PublicBlockReportResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFlag;
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Operations';
+    protected static string|\UnitEnum|null $navigationGroup = 'Platform management';
 
     protected static ?string $navigationLabel = 'Moderation reports';
 
-    protected static ?int $navigationSort = 20;
+    protected static ?int $navigationSort = 40;
 
     protected static ?string $modelLabel = 'report';
 

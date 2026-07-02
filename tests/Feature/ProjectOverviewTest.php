@@ -51,9 +51,13 @@ class ProjectOverviewTest extends TestCase
             ->assertSee('Grant estimate')
             ->assertSee('KA152-YOU - Youth Exchanges')
             ->assertSee('Project details')
-            ->assertSee('Project stage');
+            ->assertSee('Project stage')
+            ->assertSee('Project readiness check')
+            ->assertSee('Critical items need attention')
+            ->assertSee('Application answers');
 
         $this->assertStringContainsString('/estimate', $component->instance()->getModuleUrls()['budget']);
+        $this->assertArrayHasKey('groups', $component->instance()->getProjectReadiness());
     }
 
     public function test_manager_can_use_an_allowed_lifecycle_transition(): void
@@ -64,10 +68,29 @@ class ProjectOverviewTest extends TestCase
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Mark as Submitted')
-            ->call('transitionTo', 'submitted')
+            ->call('requestTransitionTo', 'submitted')
+            ->assertSet('showTransitionReadinessModal', true)
+            ->assertSee('Readiness warning before status change')
+            ->assertSee('Continue anyway')
+            ->call('confirmPendingTransition')
             ->assertSee('Awaiting the funding decision');
 
         $this->assertSame('submitted', $project->fresh()->status);
+    }
+
+    public function test_readiness_transition_warning_can_be_cancelled(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->call('requestTransitionTo', 'submitted')
+            ->assertSet('showTransitionReadinessModal', true)
+            ->call('closeTransitionReadinessModal')
+            ->assertSet('showTransitionReadinessModal', false);
+
+        $this->assertSame('writing', $project->fresh()->status);
     }
 
     public function test_viewer_does_not_see_project_mutation_actions(): void
@@ -78,7 +101,34 @@ class ProjectOverviewTest extends TestCase
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Continue writing the application')
-            ->assertDontSee('Mark as Submitted');
+            ->assertDontSee('Mark as Submitted')
+            ->assertDontSee('Create tasks');
+    }
+
+    public function test_manager_can_create_tasks_from_readiness_issues_without_duplicates(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        ProjectApplicationSection::create([
+            'project_id' => $project->id,
+            'title' => 'Objectives',
+            'content' => '',
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        $component = Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertSee('Create tasks')
+            ->call('createTasksFromReadiness');
+
+        $this->assertGreaterThan(0, $project->tasks()->where('status', 'open')->count());
+        $this->assertTrue($project->tasks()->where('title', 'Resolve: Project dates')->exists());
+        $taskCount = $project->tasks()->count();
+
+        $component->call('createTasksFromReadiness');
+
+        $this->assertSame($taskCount, $project->tasks()->count());
     }
 
     private function workspaceProjectAndUser(string $role): array

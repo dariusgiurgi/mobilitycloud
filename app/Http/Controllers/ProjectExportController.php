@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Services\ProjectFinalArchiveService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,20 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectExportController extends Controller
 {
+    public function finalArchive(Project $project, ProjectFinalArchiveService $archives)
+    {
+        abort_unless(
+            Auth::check() && $project->canBeAccessedBy(Auth::user()),
+            403
+        );
+
+        $path = $archives->create($project);
+
+        return response()
+            ->download($path, 'final-archive-'.Str::slug($project->name).'.zip')
+            ->deleteFileAfterSend(true);
+    }
+
     public function participantsCsv(Project $project): StreamedResponse
     {
         abort_unless(
@@ -160,5 +175,67 @@ class ProjectExportController extends Controller
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download('application-'.Str::slug($project->name).'.pdf');
+    }
+
+    public function exportApplicationWord(Project $project)
+    {
+        abort_unless(
+            Auth::check() && $project->canBeAccessedBy(Auth::user()),
+            403
+        );
+
+        $project->loadMissing('workspace');
+
+        $sections = ProjectApplicationSection::where('project_id', $project->id)
+            ->orderBy('sort_order')->orderBy('id')->get();
+
+        $html = view('pdf.application-report', [
+            'project' => $project,
+            'sections' => $sections,
+            'forWord' => true,
+        ])->render();
+
+        return response($html, 200, [
+            'Content-Type' => 'application/msword; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="application-'.Str::slug($project->name).'.doc"',
+        ]);
+    }
+
+    public function exportApplicationPack(Project $project)
+    {
+        abort_unless(
+            Auth::check() && $project->canBeAccessedBy(Auth::user()),
+            403
+        );
+
+        $project->loadMissing(['workspace', 'participants', 'budgetLines.expenses', 'tasks.assignee']);
+
+        $sections = ProjectApplicationSection::where('project_id', $project->id)
+            ->orderBy('sort_order')->orderBy('id')->get();
+
+        $flows = collect((array) (($project->action_data ?? [])['application_flows'] ?? []))
+            ->filter(fn ($flow) => collect((array) $flow)->filter(fn ($value) => filled($value))->isNotEmpty())
+            ->values()
+            ->all();
+
+        $budgetLines = $project->budgetLines->map(function ($line) {
+            $spent = (float) $line->expenses->sum('amount_eur');
+
+            return [
+                'title' => $line->title,
+                'allocated' => (float) $line->allocated_budget,
+                'spent' => $spent,
+                'remaining' => (float) $line->allocated_budget - $spent,
+            ];
+        })->values();
+
+        $pdf = Pdf::loadView('pdf.application-pack', [
+            'project' => $project,
+            'sections' => $sections,
+            'flows' => $flows,
+            'budgetLines' => $budgetLines,
+        ])->setPaper('a4', 'portrait');
+
+        return $pdf->download('application-pack-'.Str::slug($project->name).'.pdf');
     }
 }

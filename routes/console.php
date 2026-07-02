@@ -11,3 +11,11 @@ Artisan::command('inspire', function () {
 Schedule::command('tasks:send-reminders')
     ->dailyAt('08:00')
     ->withoutOverlapping();
+
+Schedule::command('subscriptions:send-alerts')
+    ->dailyAt('08:15')
+    ->withoutOverlapping();
+
+Schedule::command('demo:reset-workspaces')
+    ->dailyAt('03:30')
+    ->withoutOverlapping();

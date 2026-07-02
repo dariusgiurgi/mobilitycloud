@@ -79,7 +79,7 @@ class TaskNotificationTest extends TestCase
         $panel = Filament::getPanel('admin');
 
         $this->assertTrue($panel->hasDatabaseNotifications());
-        $this->assertSame('30s', $panel->getDatabaseNotificationsPollingInterval());
+        $this->assertNull($panel->getDatabaseNotificationsPollingInterval());
     }
 
     private function workspaceProjectAndManager(): array

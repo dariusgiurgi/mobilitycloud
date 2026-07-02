@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Services\ProjectReadinessCheck;
 use App\Services\TaskReminderService;
 use Carbon\Carbon;
 use Filament\Facades\Filament;
@@ -41,7 +42,8 @@ class DashboardWorkspace extends Widget
             ->take(4)
             ->values();
 
-        $attention = $this->attentionItems($projects);
+        $readiness = $this->readinessItems($projects);
+        $attention = $this->attentionItems($projects, $readiness);
         $milestones = $this->milestones($projects);
         $primaryProject = $projects->first(fn (Project $project) => $project->isManagementStage());
         $writingProject = $projects->first(fn (Project $project) => $project->isWritingStage());
@@ -50,6 +52,7 @@ class DashboardWorkspace extends Widget
         return [
             'projects' => $currentProjects,
             'projectCount' => $projects->count(),
+            'readiness' => $readiness,
             'attention' => $attention->take(6),
             'attentionCount' => $attention->count(),
             'milestones' => $milestones->take(6),
@@ -72,13 +75,38 @@ class DashboardWorkspace extends Widget
     }
 
     /** @param Collection<int, Project> $projects */
-    private function attentionItems(Collection $projects): Collection
+    private function readinessItems(Collection $projects): Collection
+    {
+        $checker = app(ProjectReadinessCheck::class);
+
+        return $projects
+            ->mapWithKeys(fn (Project $project): array => [
+                $project->id => $checker->build($project),
+            ]);
+    }
+
+    /** @param Collection<int, Project> $projects */
+    private function attentionItems(Collection $projects, Collection $readiness): Collection
     {
         $items = collect();
         $today = today();
 
         foreach ($projects as $project) {
             $status = $project->statusEnum();
+            $projectReadiness = $readiness->get($project->id);
+
+            if ($projectReadiness && (($projectReadiness['critical'] ?? 0) > 0 || ($projectReadiness['warning'] ?? 0) >= 2)) {
+                $next = $projectReadiness['next'] ?? null;
+                $items->push([
+                    'project' => $project->name,
+                    'title' => 'Readiness '.$projectReadiness['score'].'% · '.$projectReadiness['status'],
+                    'detail' => $next
+                        ? 'Next: '.$next['label'].' · '.$next['detail']
+                        : 'Open the readiness panel for the next recommended action.',
+                    'severity' => ($projectReadiness['tone'] ?? null) === 'danger' ? 'danger' : 'warning',
+                    'url' => $this->readinessUrl($project, $next['target'] ?? null),
+                ]);
+            }
 
             if ($status->isManagementStage() && (! $project->start_date || ! $project->end_date)) {
                 $items->push($this->attentionItem(
@@ -251,6 +279,18 @@ class DashboardWorkspace extends Widget
             'severity' => $severity,
             'url' => ProjectResource::getUrl($page, ['record' => $project]),
         ];
+    }
+
+    private function readinessUrl(Project $project, ?string $target): string
+    {
+        return match ($target) {
+            'application' => ProjectResource::getUrl('write', ['record' => $project]),
+            'budget' => ProjectResource::getUrl($project->isWritingStage() ? 'estimate' : 'board', ['record' => $project]),
+            'participants' => ProjectResource::getUrl('participants', ['record' => $project]),
+            'documents' => ProjectResource::getUrl('documents', ['record' => $project]),
+            'settings' => ProjectResource::getUrl('edit', ['record' => $project]),
+            default => ProjectResource::getUrl('overview', ['record' => $project]),
+        };
     }
 
     private function relativeDays(int $days): string

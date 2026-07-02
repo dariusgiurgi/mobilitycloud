@@ -14,6 +14,10 @@ use App\Models\ProjectTask;
 use App\Observers\ProjectActivityObserver;
 use App\Policies\ContentBlockPolicy;
 use App\Policies\ProjectPolicy;
+use App\Http\Responses\Filament\UnifiedLoginResponse;
+use App\Http\Responses\Filament\UnifiedLogoutResponse;
+use Filament\Auth\Http\Responses\Contracts\LoginResponse;
+use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -24,7 +28,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(LoginResponse::class, UnifiedLoginResponse::class);
+        $this->app->bind(LogoutResponse::class, UnifiedLogoutResponse::class);
     }
 
     /**

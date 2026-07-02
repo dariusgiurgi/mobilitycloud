@@ -90,8 +90,15 @@
             @empty
                 <div style="padding:2rem 1rem;text-align:center;">
                     <x-filament::icon icon="heroicon-o-check-circle" class="mx-auto h-9 w-9 text-gray-400" />
-                    <p class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:650;margin-top:.6rem;">No matching tasks</p>
-                    <p class="mc-my-muted" style="font-size:.75rem;margin-top:.2rem;">Your assigned tasks will appear here automatically.</p>
+                    <p class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:650;margin-top:.6rem;">{{ $search || $dueFilter !== 'all' || $statusFilter !== 'open' ? 'No matching tasks' : 'No assigned tasks yet' }}</p>
+                    <p class="mc-my-muted" style="font-size:.75rem;line-height:1.5;margin:.2rem auto 0;max-width:34rem;">
+                        {{ $search || $dueFilter !== 'all' || $statusFilter !== 'open' ? 'Try another filter or open a project to review its task board.' : 'Tasks are created inside a project overview. Once someone assigns a task to you, it will appear here automatically.' }}
+                    </p>
+                    <div style="margin-top:.85rem;">
+                        <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl()" color="gray" size="sm" icon="heroicon-o-rectangle-stack">
+                            Open projects
+                        </x-filament::button>
+                    </div>
                 </div>
             @endforelse
 

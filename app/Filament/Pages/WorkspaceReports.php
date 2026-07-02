@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Services\WorkspaceReportService;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -13,11 +14,11 @@ class WorkspaceReports extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedChartBar;
 
-    protected static ?string $navigationLabel = 'Reports';
+    protected static ?string $navigationLabel = 'Portfolio reports';
 
     protected static ?int $navigationSort = 3;
 
-    protected static ?string $title = 'Workspace reports';
+    protected static ?string $title = 'Portfolio reports';
 
     protected string $view = 'filament.pages.workspace-reports';
 
@@ -25,7 +26,7 @@ class WorkspaceReports extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_REPORTS);
     }
 
     public ?string $startDate = null;

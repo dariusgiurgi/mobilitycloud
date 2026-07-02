@@ -47,7 +47,11 @@
                     </div>
                 </x-filament::section>
 
-                <x-filament::section heading="Platform preferences" description="Personal preferences apply to your account across every workspace." icon="heroicon-o-adjustments-horizontal">
+                <x-filament::section
+                    heading="{{ $this->isPlatformPanel() ? 'Platform admin preferences' : 'Platform preferences' }}"
+                    description="{{ $this->isPlatformPanel() ? 'These preferences apply only to the internal platform administration panel.' : 'Personal preferences apply to your account across every workspace.' }}"
+                    icon="heroicon-o-adjustments-horizontal"
+                >
                     <div class="mc-account-fields">
                         <div class="mc-account-field">
                             <label for="default-landing">Default landing</label>
@@ -67,21 +71,23 @@
                         </div>
                     </div>
 
-                    <div style="margin-top:1rem;">
-                        @foreach([
-                            ['taskAssigned','New task assigned','When another collaborator assigns a task to you.'],
-                            ['taskDueSoon','Deadline approaching','One reminder when an open task is due within three days.'],
-                            ['taskOverdue','Task overdue','One alert after an assigned task passes its deadline.'],
-                        ] as [$model,$label,$detail])
-                            <label class="mc-account-row">
-                                <span>
-                                    <span class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;font-weight:650;">{{ $label }}</span>
-                                    <span class="mc-muted" style="display:block;font-size:.71rem;margin-top:.18rem;">{{ $detail }}</span>
-                                </span>
-                                <input type="checkbox" wire:model="{{ $model }}" class="mc-switch" aria-label="{{ $label }}">
-                            </label>
-                        @endforeach
-                    </div>
+                    @unless($this->isPlatformPanel())
+                        <div style="margin-top:1rem;">
+                            @foreach([
+                                ['taskAssigned','New task assigned','When another collaborator assigns a task to you.'],
+                                ['taskDueSoon','Deadline approaching','One reminder when an open task is due within three days.'],
+                                ['taskOverdue','Task overdue','One alert after an assigned task passes its deadline.'],
+                            ] as [$model,$label,$detail])
+                                <label class="mc-account-row">
+                                    <span>
+                                        <span class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;font-weight:650;">{{ $label }}</span>
+                                        <span class="mc-muted" style="display:block;font-size:.71rem;margin-top:.18rem;">{{ $detail }}</span>
+                                    </span>
+                                    <input type="checkbox" wire:model="{{ $model }}" class="mc-switch" aria-label="{{ $label }}">
+                                </label>
+                            @endforeach
+                        </div>
+                    @endunless
 
                     <div class="mc-account-actions">
                         <x-filament::button wire:click="savePreferences" wire:loading.attr="disabled" wire:target="savePreferences" icon="heroicon-o-check">Save preferences</x-filament::button>
@@ -89,63 +95,65 @@
                 </x-filament::section>
             </div>
 
-            <div class="mc-account-stack">
-                <x-filament::section heading="Subscription" description="Plans are currently managed per workspace, so each organisation can grow independently." icon="heroicon-o-credit-card">
-                    @if($this->currentWorkspace)
-                        <div class="mc-plan-card">
-                            <span class="mc-muted" style="font-size:.65rem;font-weight:750;text-transform:uppercase;">Current workspace</span>
-                            <strong class="text-gray-950 dark:text-white" style="display:block;font-size:1rem;margin-top:.2rem;">{{ $this->currentWorkspace->name }}</strong>
-                            <p class="mc-muted mc-help" style="margin-top:.35rem;">Active plan: <strong>{{ $this->planOptions()[$this->currentWorkspace->plan] ?? ucfirst($this->currentWorkspace->plan) }}</strong></p>
-                        </div>
-                    @endif
+            @unless($this->isPlatformPanel())
+                <div class="mc-account-stack">
+                    <x-filament::section heading="Subscription" description="Plans are currently managed per workspace, so each organisation can grow independently." icon="heroicon-o-credit-card">
+                        @if($this->currentWorkspace)
+                            <div class="mc-plan-card">
+                                <span class="mc-muted" style="font-size:.65rem;font-weight:750;text-transform:uppercase;">Current workspace</span>
+                                <strong class="text-gray-950 dark:text-white" style="display:block;font-size:1rem;margin-top:.2rem;">{{ $this->currentWorkspace->name }}</strong>
+                                <p class="mc-muted mc-help" style="margin-top:.35rem;">Active plan: <strong>{{ $this->planOptions()[$this->currentWorkspace->plan] ?? ucfirst($this->currentWorkspace->plan) }}</strong></p>
+                            </div>
+                        @endif
 
-                    @if($this->manageableWorkspaces->isNotEmpty())
-                        <div class="mc-account-fields" style="margin-top:1rem;">
-                            <div class="mc-account-field mc-account-field-full">
-                                <label for="subscription-workspace">Workspace</label>
-                                <select id="subscription-workspace" wire:model.live="subscriptionWorkspaceId" class="text-gray-950 dark:text-white">
-                                    @foreach($this->manageableWorkspaces as $workspace)
-                                        <option value="{{ $workspace->id }}">{{ $workspace->name }}</option>
-                                    @endforeach
-                                </select>
+                        @if($this->manageableWorkspaces->isNotEmpty())
+                            <div class="mc-account-fields" style="margin-top:1rem;">
+                                <div class="mc-account-field mc-account-field-full">
+                                    <label for="subscription-workspace">Workspace</label>
+                                    <select id="subscription-workspace" wire:model.live="subscriptionWorkspaceId" class="text-gray-950 dark:text-white">
+                                        @foreach($this->manageableWorkspaces as $workspace)
+                                            <option value="{{ $workspace->id }}">{{ $workspace->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="mc-account-field mc-account-field-full">
+                                    <label for="subscription-plan">Plan</label>
+                                    <select id="subscription-plan" wire:model="subscriptionPlan" class="text-gray-950 dark:text-white">
+                                        @foreach($this->planOptions() as $value => $label)
+                                            <option value="{{ $value }}">{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
                             </div>
-                            <div class="mc-account-field mc-account-field-full">
-                                <label for="subscription-plan">Plan</label>
-                                <select id="subscription-plan" wire:model="subscriptionPlan" class="text-gray-950 dark:text-white">
-                                    @foreach($this->planOptions() as $value => $label)
-                                        <option value="{{ $value }}">{{ $label }}</option>
-                                    @endforeach
-                                </select>
+                            <div class="mc-account-actions">
+                                <x-filament::button wire:click="saveSubscriptionPlan" wire:loading.attr="disabled" wire:target="saveSubscriptionPlan" icon="heroicon-o-arrow-path">Update plan</x-filament::button>
                             </div>
-                        </div>
-                        <div class="mc-account-actions">
-                            <x-filament::button wire:click="saveSubscriptionPlan" wire:loading.attr="disabled" wire:target="saveSubscriptionPlan" icon="heroicon-o-arrow-path">Update plan</x-filament::button>
-                        </div>
-                    @else
-                        <p class="mc-muted mc-help">You can view your workspace plans here. Plan changes are available to workspace owners and admins.</p>
-                    @endif
-                </x-filament::section>
+                        @else
+                            <p class="mc-muted mc-help">You can view your workspace plans here. Plan changes are available to workspace owners and admins.</p>
+                        @endif
+                    </x-filament::section>
 
-                <x-filament::section heading="Your workspaces" description="One account can belong to multiple organisations. Switch between them without changing account settings." icon="heroicon-o-building-office-2">
-                    @forelse($this->workspaceRows as $workspace)
-                        <div class="mc-account-workspace">
-                            <div>
-                                <strong class="text-gray-950 dark:text-white" style="display:block;font-size:.84rem;">{{ $workspace->name }}</strong>
-                                <span class="mc-muted" style="font-size:.7rem;">{{ ucfirst($workspace->pivot->role) }} · {{ $workspace->projects_count }} project{{ $workspace->projects_count === 1 ? '' : 's' }} · {{ $this->planOptions()[$workspace->plan] ?? ucfirst($workspace->plan) }}</span>
+                    <x-filament::section heading="Your workspaces" description="One account can belong to multiple organisations. Switch between them without changing account settings." icon="heroicon-o-building-office-2">
+                        @forelse($this->workspaceRows as $workspace)
+                            <div class="mc-account-workspace">
+                                <div>
+                                    <strong class="text-gray-950 dark:text-white" style="display:block;font-size:.84rem;">{{ $workspace->name }}</strong>
+                                    <span class="mc-muted" style="font-size:.7rem;">{{ ucfirst($workspace->pivot->role) }} · {{ $workspace->projects_count }} project{{ $workspace->projects_count === 1 ? '' : 's' }} · {{ $this->planOptions()[$workspace->plan] ?? ucfirst($workspace->plan) }}</span>
+                                </div>
+                                <div style="display:flex;gap:.45rem;align-items:center;">
+                                    @if($this->currentWorkspace?->id === $workspace->id)
+                                        <span class="mc-pill">Current</span>
+                                    @else
+                                        <x-filament::button size="xs" color="gray" wire:click="switchWorkspace({{ $workspace->id }})">Open</x-filament::button>
+                                    @endif
+                                </div>
                             </div>
-                            <div style="display:flex;gap:.45rem;align-items:center;">
-                                @if($this->currentWorkspace?->id === $workspace->id)
-                                    <span class="mc-pill">Current</span>
-                                @else
-                                    <x-filament::button size="xs" color="gray" wire:click="switchWorkspace({{ $workspace->id }})">Open</x-filament::button>
-                                @endif
-                            </div>
-                        </div>
-                    @empty
-                        <p class="mc-muted mc-help">This account is not attached to a workspace yet.</p>
-                    @endforelse
-                </x-filament::section>
-            </div>
+                        @empty
+                            <p class="mc-muted mc-help">This account is not attached to a workspace yet.</p>
+                        @endforelse
+                    </x-filament::section>
+                </div>
+            @endunless
         </div>
     </div>
 </x-filament-panels::page>

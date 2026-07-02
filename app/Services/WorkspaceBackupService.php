@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BudgetTransfer;
+use App\Models\ProjectDocument;
 use App\Models\SavedCalculation;
 use App\Models\Workspace;
 use Illuminate\Support\Facades\Storage;
@@ -30,7 +31,12 @@ class WorkspaceBackupService
             'budgetLines' => fn ($query) => $query->orderBy('sort_order'),
             'budgetLines.expenses' => fn ($query) => $query->withTrashed(),
             'participants.attachments',
-            'documents',
+            'documents' => fn ($query) => $query
+                ->orderBy('category')
+                ->orderByRaw('document_date is null')
+                ->orderBy('document_date')
+                ->orderBy('title')
+                ->orderBy('id'),
             'tasks',
             'activityLogs',
         ])->get();
@@ -87,8 +93,10 @@ class WorkspaceBackupService
             }
 
             foreach ($project->documents as $document) {
-                $this->addStoredFile($zip, $fileIndex, 'project_document', $document->id, 'original', $document->file_disk, $document->file_path, $projectDir.'/documents/'.$document->id.'-original-'.$this->safeFilename($document->file_name), $document->file_name);
-                $this->addStoredFile($zip, $fileIndex, 'project_document', $document->id, 'signed', $document->signed_disk, $document->signed_path, $projectDir.'/documents/'.$document->id.'-signed-'.$this->safeFilename($document->signed_name), $document->signed_name);
+                $folder = $this->documentFolder($document);
+                $base = $projectDir.'/'.$folder.'/'.$document->id.'-'.$this->safeName($document->title);
+                $this->addStoredFile($zip, $fileIndex, 'project_document', $document->id, 'original', $document->file_disk, $document->file_path, $base.'/original-'.$this->safeFilename($document->file_name), $document->file_name);
+                $this->addStoredFile($zip, $fileIndex, 'project_document', $document->id, 'signed', $document->signed_disk, $document->signed_path, $base.'/signed-'.$this->safeFilename($document->signed_name), $document->signed_name);
             }
         }
 
@@ -160,6 +168,27 @@ class WorkspaceBackupService
     private function safeName(?string $value): string
     {
         return Str::slug($value ?: 'record') ?: 'record';
+    }
+
+    private function documentFolder(ProjectDocument $document): string
+    {
+        if ($document->type === ProjectDocument::TYPE_ATTENDANCE) {
+            return 'documents/01-generated-records/attendance';
+        }
+
+        if ($document->type === ProjectDocument::TYPE_EXPENSE_REPORT) {
+            return 'documents/01-generated-records/expense-reports';
+        }
+
+        if (array_key_exists((string) $document->category, ProjectDocument::MOBILITY_CATEGORIES)) {
+            return 'documents/02-mobility/'.$this->safeName($document->categoryLabel());
+        }
+
+        if ($document->category === 'dissemination_evidence') {
+            return 'documents/03-dissemination/'.$this->safeName((string) data_get($document->metadata, 'organisation_name', 'organisation'));
+        }
+
+        return 'documents/04-project-documents/'.$this->safeName($document->categoryLabel());
     }
 
     private function safeFilename(?string $value): string

@@ -17,6 +17,13 @@ class Dashboard extends BaseDashboard
 {
     protected static ?string $title = 'Workspace overview';
 
+    public static function getNavigationLabel(): string
+    {
+        return auth()->user()?->isPlatformAdmin()
+            ? 'Platform overview'
+            : 'Workspace overview';
+    }
+
     public function getSubheading(): ?string
     {
         if (auth()->user()?->isPlatformAdmin()) {
@@ -35,7 +42,7 @@ class Dashboard extends BaseDashboard
         if (auth()->user()?->isPlatformAdmin()) {
             return [
                 Action::make('moderationReports')
-                    ->label('Moderation reports')
+                    ->label('Review moderation reports')
                     ->icon(Heroicon::OutlinedFlag)
                     ->url(fn (): string => PublicBlockReportResource::getUrl()),
             ];

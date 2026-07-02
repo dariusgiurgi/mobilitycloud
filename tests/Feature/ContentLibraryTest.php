@@ -35,7 +35,7 @@ class ContentLibraryTest extends TestCase
 
         Livewire::test(ListContentBlocks::class)
             ->assertSee('Browse public library')
-            ->assertSee('New block')
+            ->assertSee('New writing block')
             ->assertSee('Participant safety approach')
             ->assertSee('Our safeguarding approach begins')
             ->assertSee('Safety &amp; protection', escape: false)

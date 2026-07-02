@@ -4,13 +4,29 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\DocumentTemplates;
+use App\Filament\Pages\GlobalSearch;
+use App\Filament\Pages\IndividualSupportCalculator;
+use App\Filament\Pages\ManageCurrencies;
+use App\Filament\Pages\ManageWorkspaceTeam;
+use App\Filament\Pages\MyTasks;
+use App\Filament\Pages\NotificationPreferences;
+use App\Filament\Pages\PublicLibrary;
 use App\Filament\Pages\Tenancy\EditWorkspaceProfile;
 use App\Filament\Pages\Tenancy\RegisterWorkspace;
+use App\Filament\Pages\WorkspaceCalendar;
+use App\Filament\Pages\WorkspaceData;
+use App\Filament\Pages\WorkspaceReports;
+use App\Filament\Resources\ContentBlocks\ContentBlockResource;
+use App\Filament\Resources\Projects\ProjectResource;
+use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
+use App\Filament\Widgets\DashboardWorkspace;
+use App\Filament\Widgets\ProjectStatsOverview;
+use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Models\PlatformAnnouncement;
 use App\Models\Workspace;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
-use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -43,7 +59,11 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling(null)
+            ->renderHook(
+                PanelsRenderHook::STYLES_AFTER,
+                fn () => view('filament.hooks.compact-sidebar'),
+            )
             ->navigationGroups([
                 NavigationGroup::make('Platform management')
                     ->collapsible(false),
@@ -77,15 +97,41 @@ class AdminPanelProvider extends PanelProvider
                         : collect(),
                 ]),
             )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.hooks.impersonation-banner'),
+            )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.hooks.subscription-access-banner'),
+            )
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)
             ->tenantProfile(EditWorkspaceProfile::class)
-            ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
+            ->resources([
+                ProjectResource::class,
+                ContentBlockResource::class,
+                PublicContentBlockResource::class,
+            ])
             ->pages([
                 Dashboard::class,
+                AccountSettings::class,
+                DocumentTemplates::class,
+                GlobalSearch::class,
+                IndividualSupportCalculator::class,
+                ManageCurrencies::class,
+                ManageWorkspaceTeam::class,
+                MyTasks::class,
+                NotificationPreferences::class,
+                PublicLibrary::class,
+                WorkspaceCalendar::class,
+                WorkspaceData::class,
+                WorkspaceReports::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            ->widgets([
+                ProjectStatsOverview::class,
+                DashboardWorkspace::class,
+            ])
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -98,7 +144,7 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                Authenticate::class,
+                AuthenticateFilamentUser::class,
             ]);
     }
 }

@@ -14,7 +14,7 @@ class ListContentBlocks extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Reusable text for applications, organised for quick discovery and editing.';
+        return 'Reusable application answers, examples and paragraphs organised for quick discovery.';
     }
 
     protected function getHeaderActions(): array
@@ -26,7 +26,7 @@ class ListContentBlocks extends ListRecords
                 ->color('gray')
                 ->url(fn (): string => PublicLibrary::getUrl()),
             CreateAction::make()
-                ->label('New block')
+                ->label('New writing block')
                 ->icon('heroicon-o-plus'),
         ];
     }

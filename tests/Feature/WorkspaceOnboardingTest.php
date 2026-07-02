@@ -53,6 +53,7 @@ class WorkspaceOnboardingTest extends TestCase
 
         $component->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project]));
         $this->assertSame($workspace->id, $project->workspace_id);
+        $this->assertNull($project->ka_action);
     }
 
     private function workspaceAndOwner(): array

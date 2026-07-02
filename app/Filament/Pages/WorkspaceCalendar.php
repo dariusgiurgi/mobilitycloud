@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Carbon\CarbonImmutable;
@@ -30,7 +31,7 @@ class WorkspaceCalendar extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PROJECTS);
     }
 
     #[Url]

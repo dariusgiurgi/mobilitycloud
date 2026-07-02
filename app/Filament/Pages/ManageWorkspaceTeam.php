@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Notifications\WorkspaceInvitationNotification;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -35,7 +36,7 @@ class ManageWorkspaceTeam extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface()
+        return PlatformAccess::canUse(PlanCatalog::MODULE_TEAM)
             && (Filament::getTenant()?->canManageMembersBy(auth()->user()) ?? false);
     }
 

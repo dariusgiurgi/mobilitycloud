@@ -87,6 +87,20 @@ class ProjectSettingsTest extends TestCase
         $this->assertSame('ka153-you', $project->fresh()->ka_action);
     }
 
+    public function test_application_template_can_be_cleared_for_manual_projects(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(EditProject::class, ['record' => $project->id])
+            ->fillForm(['ka_action' => null])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertNull($project->fresh()->ka_action);
+    }
+
     public function test_viewer_cannot_see_or_open_project_settings(): void
     {
         [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');

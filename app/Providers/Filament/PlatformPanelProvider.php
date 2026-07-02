@@ -4,15 +4,21 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\PlatformHealth;
+use App\Filament\Pages\PlatformPermissions;
+use App\Filament\Pages\PlatformPlans;
+use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformAuditLogs\PlatformAuditLogResource;
+use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
+use App\Http\Middleware\AuthenticateFilamentUser;
+use App\Http\Middleware\RedirectPlatformLoginToUnifiedLogin;
 use App\Models\PlatformAnnouncement;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
-use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -43,11 +49,17 @@ class PlatformPanelProvider extends PanelProvider
             ])
             ->sidebarCollapsibleOnDesktop()
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling(null)
+            ->renderHook(
+                PanelsRenderHook::STYLES_AFTER,
+                fn () => view('filament.hooks.compact-sidebar'),
+            )
             ->navigationGroups([
                 NavigationGroup::make('Platform management')
                     ->collapsible(false),
-                NavigationGroup::make('Operations')
+                NavigationGroup::make('Billing & access')
+                    ->collapsible(false),
+                NavigationGroup::make('Audit & operations')
                     ->collapsible(false),
             ])
             ->userMenuItems([
@@ -71,13 +83,22 @@ class PlatformPanelProvider extends PanelProvider
                         : collect(),
                 ]),
             )
+            ->renderHook(
+                PanelsRenderHook::TOPBAR_AFTER,
+                fn () => view('filament.hooks.platform-role-badge'),
+            )
             ->pages([
                 Dashboard::class,
                 AccountSettings::class,
+                PlatformPlans::class,
+                PlatformPermissions::class,
+                PlatformHealth::class,
             ])
             ->resources([
                 PlatformUserResource::class,
+                PlatformSubscriptionResource::class,
                 PlatformWorkspaceResource::class,
+                PlatformActivityResource::class,
                 PlatformAnnouncementResource::class,
                 PublicBlockReportResource::class,
                 PlatformAuditLogResource::class,
@@ -87,6 +108,7 @@ class PlatformPanelProvider extends PanelProvider
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
+                RedirectPlatformLoginToUnifiedLogin::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,
@@ -94,7 +116,7 @@ class PlatformPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                Authenticate::class,
+                AuthenticateFilamentUser::class,
             ]);
     }
 }

@@ -31,22 +31,25 @@ class NavigationStructureTest extends TestCase
         $this->assertNull(WorkspaceCalendar::getNavigationGroup());
         $this->assertSame(2, WorkspaceCalendar::getNavigationSort());
         $this->assertNull(WorkspaceReports::getNavigationGroup());
+        $this->assertSame('Portfolio reports', WorkspaceReports::getNavigationLabel());
         $this->assertSame(3, WorkspaceReports::getNavigationSort());
 
         $this->assertSame('Planning tools', ContentBlockResource::getNavigationGroup());
+        $this->assertSame('Writing Library', ContentBlockResource::getNavigationLabel());
         $this->assertSame(10, ContentBlockResource::getNavigationSort());
         $this->assertSame('Planning tools', IndividualSupportCalculator::getNavigationGroup());
         $this->assertSame(20, IndividualSupportCalculator::getNavigationSort());
 
         $this->assertSame('Community', PublicLibrary::getNavigationGroup());
         $this->assertSame(10, PublicLibrary::getNavigationSort());
-        $this->assertSame('Operations', PublicBlockReportResource::getNavigationGroup());
+        $this->assertSame('Platform management', PublicBlockReportResource::getNavigationGroup());
         $this->assertSame('Moderation reports', PublicBlockReportResource::getNavigationLabel());
-        $this->assertSame(20, PublicBlockReportResource::getNavigationSort());
+        $this->assertSame(40, PublicBlockReportResource::getNavigationSort());
 
         $this->assertSame('Workspace settings', ManageCurrencies::getNavigationGroup());
         $this->assertSame(10, ManageCurrencies::getNavigationSort());
         $this->assertSame('Workspace settings', WorkspaceData::getNavigationGroup());
+        $this->assertSame('Backup & exports', WorkspaceData::getNavigationLabel());
         $this->assertSame(30, WorkspaceData::getNavigationSort());
         $this->assertSame('Workspace settings', DocumentTemplates::getNavigationGroup());
         $this->assertSame(35, DocumentTemplates::getNavigationSort());

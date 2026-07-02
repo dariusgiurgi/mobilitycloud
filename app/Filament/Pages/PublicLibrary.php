@@ -9,6 +9,7 @@ use App\Models\PublicBlockReport;
 use App\Models\PublicContentBlock;
 use App\Models\User;
 use App\Support\AuthorizesWorkspaceManagement;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -38,7 +39,7 @@ class PublicLibrary extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface();
+        return PlatformAccess::canUse(PlanCatalog::MODULE_PUBLIC_LIBRARY);
     }
 
     public string $sort = 'relevant';     // relevant | new | imports

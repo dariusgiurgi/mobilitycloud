@@ -14,6 +14,8 @@ class PlatformStatsOverview extends BaseWidget
 {
     protected static bool $isLazy = false;
 
+    protected ?string $pollingInterval = null;
+
     protected function getStats(): array
     {
         $users = User::query();
@@ -35,10 +37,14 @@ class PlatformStatsOverview extends BaseWidget
                         ->whereIn('subscription_status', ['expired', 'suspended'])
                         ->orWhere(fn ($query) => $query
                             ->whereNotNull('subscription_ends_at')
-                            ->where('subscription_ends_at', '<=', now()->addDays(14))))
+                            ->where('subscription_ends_at', '<=', now()->addDays(14)))
+                        ->orWhere(fn ($query) => $query
+                            ->where('subscription_status', 'trial')
+                            ->whereNotNull('trial_ends_at')
+                            ->where('trial_ends_at', '<=', now()->addDays(7))))
                     ->count()
             ))
-                ->description('Expired, suspended or ending soon')
+                ->description('Expired, suspended, trial or paid access ending soon')
                 ->color('warning'),
             Stat::make('Moderation reports', number_format(
                 PublicBlockReport::query()->where('status', PublicBlockReport::STATUS_PENDING)->count()

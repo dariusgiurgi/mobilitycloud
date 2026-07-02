@@ -50,6 +50,8 @@ class DashboardTest extends TestCase
         Livewire::test(DashboardWorkspace::class)
             ->assertSee('Needs attention')
             ->assertSee('How priorities are detected')
+            ->assertSee('Readiness')
+            ->assertSee('Critical items need attention')
             ->assertSee('Mobility starts in 5 days')
             ->assertSee('1 participant record incomplete')
             ->assertSee('1 expense without evidence')
@@ -97,7 +99,9 @@ class DashboardTest extends TestCase
             ->assertSee('Approved funding')
             ->assertSee('Needs attention')
             ->assertSee('Current projects')
-            ->assertSee('Quick actions');
+            ->assertSee('Quick actions')
+            ->assertDontSee('wire:poll.5s', false)
+            ->assertDontSee('wire:poll.30s', false);
     }
 
     private function workspaceProjectAndUser(): array

@@ -65,8 +65,16 @@ class AccountSettings extends Page
         $this->taskAssigned = $user->wantsNotification('task_assigned');
         $this->taskDueSoon = $user->wantsNotification('task_due_soon');
         $this->taskOverdue = $user->wantsNotification('task_overdue');
-        $this->defaultLanding = (string) data_get($preferences, 'platform.default_landing', 'dashboard');
+        $this->defaultLanding = (string) data_get(
+            $preferences,
+            $this->isPlatformPanel() ? 'platform_admin.default_landing' : 'platform.default_landing',
+            'dashboard',
+        );
         $this->interfaceDensity = (string) data_get($preferences, 'platform.interface_density', 'comfortable');
+
+        if ($this->isPlatformPanel()) {
+            return;
+        }
 
         $workspace = Filament::getTenant() ?: $this->workspaces()->first();
         $this->subscriptionWorkspaceId = $workspace?->id;
@@ -75,6 +83,10 @@ class AccountSettings extends Page
 
     public function getSubheading(): ?string
     {
+        if ($this->isPlatformPanel()) {
+            return 'Manage your platform administrator profile, security and interface preferences.';
+        }
+
         return 'Manage your personal profile, security, workspaces, subscription and platform preferences.';
     }
 
@@ -127,10 +139,15 @@ class AccountSettings extends Page
 
         $preferences = auth()->user()->notification_preferences ?? [];
 
-        data_set($preferences, 'task_assigned', (bool) $data['taskAssigned']);
-        data_set($preferences, 'task_due_soon', (bool) $data['taskDueSoon']);
-        data_set($preferences, 'task_overdue', (bool) $data['taskOverdue']);
-        data_set($preferences, 'platform.default_landing', $data['defaultLanding']);
+        if ($this->isPlatformPanel()) {
+            data_set($preferences, 'platform_admin.default_landing', $data['defaultLanding']);
+        } else {
+            data_set($preferences, 'task_assigned', (bool) $data['taskAssigned']);
+            data_set($preferences, 'task_due_soon', (bool) $data['taskDueSoon']);
+            data_set($preferences, 'task_overdue', (bool) $data['taskOverdue']);
+            data_set($preferences, 'platform.default_landing', $data['defaultLanding']);
+        }
+
         data_set($preferences, 'platform.interface_density', $data['interfaceDensity']);
 
         auth()->user()->update(['notification_preferences' => $preferences]);
@@ -140,6 +157,8 @@ class AccountSettings extends Page
 
     public function saveSubscriptionPlan(): void
     {
+        abort_if($this->isPlatformPanel(), 404);
+
         $data = $this->validate([
             'subscriptionWorkspaceId' => ['required', 'integer'],
             'subscriptionPlan' => ['required', Rule::in(array_keys($this->planOptions()))],
@@ -159,6 +178,8 @@ class AccountSettings extends Page
 
     public function switchWorkspace(int $workspaceId): void
     {
+        abort_if($this->isPlatformPanel(), 404);
+
         $workspace = $this->workspaces()->whereKey($workspaceId)->firstOrFail();
 
         auth()->user()->update(['current_workspace_id' => $workspace->id]);
@@ -168,6 +189,10 @@ class AccountSettings extends Page
 
     public function updatedSubscriptionWorkspaceId($workspaceId): void
     {
+        if ($this->isPlatformPanel()) {
+            return;
+        }
+
         $workspace = $this->workspaces()->whereKey((int) $workspaceId)->first();
         $this->subscriptionPlan = (string) ($workspace?->plan ?? 'free');
     }
@@ -203,6 +228,16 @@ class AccountSettings extends Page
 
     public function landingOptions(): array
     {
+        if ($this->isPlatformPanel()) {
+            return [
+                'dashboard' => 'Platform overview',
+                'users' => 'Users',
+                'subscriptions' => 'Subscriptions',
+                'workspaces' => 'Workspaces',
+                'audit' => 'Audit log',
+            ];
+        }
+
         return [
             'dashboard' => 'Workspace overview',
             'projects' => 'Projects',
@@ -221,5 +256,10 @@ class AccountSettings extends Page
     private function workspaces()
     {
         return auth()->user()->workspaces();
+    }
+
+    public function isPlatformPanel(): bool
+    {
+        return Filament::getCurrentPanel()?->getId() === 'platform';
     }
 }

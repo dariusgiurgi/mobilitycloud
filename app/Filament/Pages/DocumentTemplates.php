@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Support\PlatformAccess;
+use App\Support\PlanCatalog;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -49,7 +50,7 @@ class DocumentTemplates extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface()
+        return PlatformAccess::canUse(PlanCatalog::MODULE_DOCUMENTS)
             && (Filament::getTenant()?->canManageMembersBy(auth()->user()) ?? false);
     }
 

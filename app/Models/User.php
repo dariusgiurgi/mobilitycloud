@@ -9,17 +9,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name', 'email', 'password', 'current_workspace_id', 'notification_preferences', 'role',
-        'is_suspended', 'must_change_password', 'support_notes', 'last_login_at',
+        'is_suspended', 'suspension_category', 'suspension_reason', 'suspended_at', 'suspended_by',
+        'archived_at', 'archived_by', 'archived_reason', 'must_change_password', 'support_notes', 'last_login_at',
     ];
 
     protected $hidden = [
@@ -33,6 +36,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             'password' => 'hashed',
             'notification_preferences' => 'array',
             'is_suspended' => 'boolean',
+            'suspended_at' => 'datetime',
+            'archived_at' => 'datetime',
             'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
         ];
@@ -53,6 +58,26 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class)->withTimestamps();
+    }
+
+    public function supportNotes(): HasMany
+    {
+        return $this->hasMany(PlatformSupportNote::class);
+    }
+
+    public function authoredSupportNotes(): HasMany
+    {
+        return $this->hasMany(PlatformSupportNote::class, 'author_id');
+    }
+
+    public function suspendedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'suspended_by');
+    }
+
+    public function archivedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'archived_by');
     }
 
     public function getPlatformRoleLabelAttribute(): string
@@ -83,13 +108,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function canAccessPanel(Panel $panel): bool
     {
-        if ($this->is_suspended) {
-            return false;
-        }
-
         return match ($panel->getId()) {
             'platform' => $this->isPlatformAdmin(),
-            'admin' => ! $this->isPlatformAdmin(),
+            'admin' => true,
             default => true,
         };
     }

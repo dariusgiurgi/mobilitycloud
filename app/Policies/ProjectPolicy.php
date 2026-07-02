@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\WorkspaceAccess;
 use Filament\Facades\Filament;
 
 class ProjectPolicy
@@ -22,8 +23,11 @@ class ProjectPolicy
     public function create(User $user): bool
     {
         $workspace = Filament::getTenant();
+        $projectLimit = WorkspaceAccess::limit($workspace, 'projects');
 
-        return $workspace instanceof Workspace && $workspace->canBeManagedBy($user);
+        return $workspace instanceof Workspace
+            && $workspace->canBeManagedBy($user)
+            && ($projectLimit === null || $projectLimit === 0 || $workspace->projects()->count() < $projectLimit);
     }
 
     public function update(User $user, Project $project): bool

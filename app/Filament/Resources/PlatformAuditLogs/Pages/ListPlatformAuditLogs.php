@@ -11,6 +11,6 @@ class ListPlatformAuditLogs extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Internal accountability for sensitive platform administration actions.';
+        return 'Owner-only raw audit trail for legal/accountability review. Day-to-day support should use Activity center.';
     }
 }

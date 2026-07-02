@@ -11,6 +11,15 @@
         $taskAssignees = $this->getTaskAssignees();
         $nextStep = $this->getNextStep();
         $urls = $this->getModuleUrls();
+        $readiness = $this->getProjectReadiness();
+        $readinessTargets = [
+            'application' => $urls['application'],
+            'budget' => $urls['budget'],
+            'participants' => $urls['participants'],
+            'documents' => $urls['documents'],
+            'settings' => $urls['settings'],
+            'tasks' => '#project-tasks',
+        ];
         $partners = $this->record->partners;
         $approved = (float) $this->record->approved_budget;
         $requested = (float) $this->record->total_budget;
@@ -37,10 +46,24 @@
         .mc-task-check.is-done { border-color:#10b981;background:#10b981; }
         .mc-task-field { width:100%;padding:.58rem .7rem;border:1px solid rgba(100,116,139,.3);border-radius:.55rem;background:transparent;font-size:.82rem; }
         .mc-task-form-grid { display:grid;grid-template-columns:1fr 1fr;gap:.85rem; }
+        .mc-readiness-panel { margin-top:1rem;padding:1rem;border:1px solid rgba(99,102,241,.18);border-radius:.95rem;background:linear-gradient(135deg,rgba(99,102,241,.09),rgba(14,165,233,.045)); }
+        .mc-readiness-head { display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:1rem;align-items:center; }
+        .mc-readiness-score { width:118px;height:118px;border-radius:999px;display:grid;place-items:center;background:conic-gradient(var(--mc-readiness-color) calc(var(--mc-readiness-score) * 1%),rgba(148,163,184,.2) 0);position:relative; }
+        .mc-readiness-score::after { content:'';position:absolute;inset:9px;border-radius:999px;background:#fff; }
+        .mc-readiness-score span { position:relative;z-index:1;font-size:1.55rem;font-weight:850;color:#111827; }
+        .mc-readiness-groups { display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.45rem;margin-top:.9rem; }
+        .mc-readiness-group { border:1px solid rgba(148,163,184,.2);border-radius:.65rem;padding:.55rem .6rem;background:rgba(255,255,255,.62); }
+        .mc-readiness-issues { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-top:.8rem; }
+        .mc-readiness-issue { display:flex;gap:.55rem;align-items:flex-start;padding:.65rem .7rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(255,255,255,.72);text-decoration:none; }
+        .mc-readiness-dot { width:18px;height:18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-size:.62rem;font-weight:850; }
         .dark .mc-overview-card { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
         .dark .mc-overview-card:hover { box-shadow:0 10px 28px rgba(0,0,0,.22); }
         .dark .mc-overview-muted { color:#94a3b8; }
+        .dark .mc-readiness-score::after { background:rgb(17,24,39); }
+        .dark .mc-readiness-score span { color:#f9fafb; }
+        .dark .mc-readiness-group,.dark .mc-readiness-issue { background:rgba(17,24,39,.68);border-color:rgba(255,255,255,.1); }
         @media (max-width:1100px) { .mc-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width:900px) { .mc-readiness-head { grid-template-columns:1fr; }.mc-readiness-groups { grid-template-columns:repeat(2,minmax(0,1fr)); }.mc-readiness-issues { grid-template-columns:1fr; } }
         @media (max-width:700px) { .mc-overview-grid,.mc-overview-detail-grid,.mc-task-form-grid { grid-template-columns:1fr; } }
     </style>
 
@@ -64,8 +87,7 @@
                 <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
                     @forelse ($transitions as $next)
                         <x-filament::button
-                            wire:click="transitionTo('{{ $next->value }}')"
-                            wire:confirm="Move this project from {{ $status->getLabel() }} to {{ $next->getLabel() }}?"
+                            wire:click="requestTransitionTo('{{ $next->value }}')"
                             :color="$next->getColor()"
                             size="sm"
                         >
@@ -98,6 +120,87 @@
             @endif
         </div>
     </x-filament::section>
+
+    @php
+        $readinessColor = match ($readiness['tone']) {
+            'success' => '#10b981',
+            'warning' => '#f59e0b',
+            default => '#ef4444',
+        };
+        $visibleReadinessIssues = collect($readiness['items'])
+            ->filter(fn ($item) => in_array($item['status'], ['missing', 'attention'], true))
+            ->take(3);
+    @endphp
+    <section class="mc-readiness-panel" style="--mc-readiness-score:{{ $readiness['score'] }};--mc-readiness-color:{{ $readinessColor }};">
+        <div class="mc-readiness-head">
+            <div class="mc-readiness-score" aria-label="Project readiness {{ $readiness['score'] }} percent">
+                <span>{{ $readiness['score'] }}%</span>
+            </div>
+            <div style="min-width:0;">
+                <p style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">Project readiness check</p>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:1.03rem;font-weight:750;margin-top:.18rem;">{{ $readiness['status'] }}</h2>
+                <p class="mc-overview-muted" style="font-size:.76rem;line-height:1.5;margin-top:.28rem;">
+                    Checks application, dates, grant/budget, participants, documents, signed records and open tasks. It adapts to the current project stage.
+                </p>
+                <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.55rem;">
+                    <x-filament::badge color="success">{{ $readiness['complete'] }} complete</x-filament::badge>
+                    @if($readiness['critical'])<x-filament::badge color="danger">{{ $readiness['critical'] }} critical</x-filament::badge>@endif
+                    @if($readiness['warning'])<x-filament::badge color="warning">{{ $readiness['warning'] }} warnings</x-filament::badge>@endif
+                    @if($readiness['optional'])<x-filament::badge color="gray">{{ $readiness['optional'] }} optional</x-filament::badge>@endif
+                </div>
+            </div>
+            <div style="display:flex;gap:.45rem;align-items:center;justify-content:flex-end;flex-wrap:wrap;">
+                @if($readiness['next'])
+                    <x-filament::button tag="a" :href="$readinessTargets[$readiness['next']['target']] ?? '#'" color="{{ $readiness['tone'] === 'success' ? 'gray' : 'primary' }}" icon="heroicon-m-arrow-right" icon-position="after" size="sm">
+                        Fix next item
+                    </x-filament::button>
+                @endif
+                @if($canManage && ($readiness['critical'] + $readiness['warning']) > 0)
+                    <x-filament::button wire:click="createTasksFromReadiness" wire:loading.attr="disabled" color="gray" icon="heroicon-m-list-bullet" size="sm">
+                        Create tasks
+                    </x-filament::button>
+                @endif
+            </div>
+        </div>
+
+        <div class="mc-readiness-groups">
+            @foreach($readiness['groups'] as $group)
+                <div class="mc-readiness-group">
+                    <div style="display:flex;justify-content:space-between;gap:.45rem;align-items:center;">
+                        <p class="text-gray-950 dark:text-white" style="font-size:.68rem;font-weight:780;line-height:1.2;">{{ $group['label'] }}</p>
+                        <span style="font-size:.72rem;font-weight:850;color:{{ $group['issues'] ? '#d97706' : '#059669' }};">{{ $group['score'] }}%</span>
+                    </div>
+                    <div style="height:4px;border-radius:999px;background:rgba(148,163,184,.22);overflow:hidden;margin-top:.45rem;">
+                        <div style="height:100%;width:{{ $group['score'] }}%;background:{{ $group['issues'] ? '#f59e0b' : '#10b981' }};"></div>
+                    </div>
+                    <p class="mc-overview-muted" style="font-size:.6rem;margin-top:.34rem;">{{ $group['complete'] }} done · {{ $group['issues'] }} issue{{ $group['issues'] === 1 ? '' : 's' }}</p>
+                </div>
+            @endforeach
+        </div>
+
+        @if($visibleReadinessIssues->isNotEmpty())
+            <div class="mc-readiness-issues">
+                @foreach($visibleReadinessIssues as $item)
+                    @php
+                        $isCritical = $item['severity'] === 'critical';
+                        $dotBg = $item['status'] === 'missing' ? 'rgba(239,68,68,.12)' : 'rgba(245,158,11,.14)';
+                        $dotColor = $item['status'] === 'missing' ? '#dc2626' : '#b45309';
+                    @endphp
+                    <a class="mc-readiness-issue" href="{{ $readinessTargets[$item['target']] ?? '#' }}">
+                        <span class="mc-readiness-dot" style="background:{{ $dotBg }};color:{{ $dotColor }};">{{ $isCritical ? '!' : '•' }}</span>
+                        <span style="min-width:0;">
+                            <span class="text-gray-950 dark:text-white" style="display:block;font-size:.72rem;font-weight:780;line-height:1.3;">{{ $item['label'] }}</span>
+                            <span class="mc-overview-muted" style="display:block;font-size:.65rem;line-height:1.35;margin-top:.12rem;">{{ $item['detail'] }}</span>
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <div style="margin-top:.8rem;padding:.65rem .75rem;border-radius:.7rem;background:rgba(16,185,129,.1);color:#047857;font-size:.72rem;font-weight:700;">
+                No blocking readiness issues detected.
+            </div>
+        @endif
+    </section>
 
     <div class="mc-overview-grid" style="margin-top:1rem;">
         <a href="{{ $urls['application'] }}" class="mc-overview-card">
@@ -292,6 +395,65 @@
             </div>
         @endforelse
     </x-filament::section>
+
+    @if($showTransitionReadinessModal)
+        <div class="mc-modal-backdrop mc-modal-top" wire:click.self="closeTransitionReadinessModal">
+            <div class="mc-modal-panel mc-modal-panel-wide">
+                <div class="mc-modal-body">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;">
+                        <div>
+                            <h3 class="mc-modal-heading">Readiness warning before status change</h3>
+                            <p class="mc-modal-description">
+                                You are moving this project from {{ $pendingTransitionSummary['current_label'] ?? 'current status' }} to {{ $pendingTransitionSummary['target_label'] ?? 'the next status' }} while readiness issues are still open.
+                            </p>
+                        </div>
+                        <button type="button" class="mc-iconbtn" wire:click="closeTransitionReadinessModal">✕</button>
+                    </div>
+
+                    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem;margin-bottom:1rem;">
+                        <div class="mc-readiness-group">
+                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Readiness</p>
+                            <p class="text-gray-950 dark:text-white" style="font-size:1.25rem;font-weight:850;margin-top:.18rem;">{{ $pendingTransitionSummary['score'] ?? 0 }}%</p>
+                        </div>
+                        <div class="mc-readiness-group">
+                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Critical</p>
+                            <p style="font-size:1.25rem;font-weight:850;margin-top:.18rem;color:{{ ($pendingTransitionSummary['critical'] ?? 0) > 0 ? '#dc2626' : '#059669' }};">{{ $pendingTransitionSummary['critical'] ?? 0 }}</p>
+                        </div>
+                        <div class="mc-readiness-group">
+                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Warnings</p>
+                            <p style="font-size:1.25rem;font-weight:850;margin-top:.18rem;color:{{ ($pendingTransitionSummary['warning'] ?? 0) > 0 ? '#d97706' : '#059669' }};">{{ $pendingTransitionSummary['warning'] ?? 0 }}</p>
+                        </div>
+                    </div>
+
+                    <div style="display:grid;gap:.5rem;max-height:320px;overflow:auto;padding-right:.15rem;">
+                        @foreach($pendingTransitionIssues as $issue)
+                            @php
+                                $issueColor = $issue['severity'] === 'critical' ? '#dc2626' : '#d97706';
+                                $issueBg = $issue['severity'] === 'critical' ? 'rgba(239,68,68,.1)' : 'rgba(245,158,11,.12)';
+                            @endphp
+                            <div style="display:flex;gap:.6rem;align-items:flex-start;padding:.68rem .75rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(148,163,184,.04);">
+                                <span style="width:21px;height:21px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none;background:{{ $issueBg }};color:{{ $issueColor }};font-size:.65rem;font-weight:850;">{{ $issue['severity'] === 'critical' ? '!' : '•' }}</span>
+                                <span style="min-width:0;">
+                                    <span class="text-gray-950 dark:text-white" style="display:block;font-size:.75rem;font-weight:800;line-height:1.3;">{{ $issue['label'] }}</span>
+                                    <span class="mc-overview-muted" style="display:block;font-size:.68rem;line-height:1.45;margin-top:.12rem;">{{ $issue['detail'] }}</span>
+                                    <span class="mc-overview-muted" style="display:block;font-size:.6rem;text-transform:uppercase;font-weight:800;letter-spacing:.05em;margin-top:.28rem;">{{ $issue['group'] }}</span>
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    <div style="margin-top:.9rem;padding:.7rem .8rem;border-radius:.7rem;background:rgba(245,158,11,.1);color:#92400e;font-size:.72rem;line-height:1.45;">
+                        This does not block the status change. It exists to prevent accidental lifecycle moves when important project data is incomplete.
+                    </div>
+
+                    <div class="mc-modal-actions">
+                        <x-filament::button wire:click="closeTransitionReadinessModal" color="gray" size="sm">Cancel</x-filament::button>
+                        <x-filament::button wire:click="confirmPendingTransition" color="warning" size="sm">Continue anyway</x-filament::button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
 
     @if($showTaskModal)
         <div class="mc-modal-backdrop" wire:click.self="$set('showTaskModal', false)">

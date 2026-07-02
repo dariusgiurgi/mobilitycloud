@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Services\WorkspaceRestoreService;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -17,13 +18,13 @@ class WorkspaceData extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBoxArrowDown;
 
-    protected static ?string $navigationLabel = 'Data & backup';
+    protected static ?string $navigationLabel = 'Backup & exports';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Workspace settings';
 
     protected static ?int $navigationSort = 30;
 
-    protected static ?string $title = 'Workspace data & backup';
+    protected static ?string $title = 'Backup & exports';
 
     protected string $view = 'filament.pages.workspace-data';
 
@@ -33,13 +34,13 @@ class WorkspaceData extends Page
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::usesWorkspaceInterface()
+        return PlatformAccess::canUse(PlanCatalog::MODULE_SETTINGS)
             && (Filament::getTenant()?->canManageMembersBy(auth()->user()) ?? false);
     }
 
     public function getSubheading(): ?string
     {
-        return 'Keep an independent copy of your organisation’s records and uploaded files.';
+        return 'Download, restore and export workspace records and uploaded files.';
     }
 
     public function getBackupUrlProperty(): string

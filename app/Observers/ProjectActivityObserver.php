@@ -12,6 +12,7 @@ use App\Models\ProjectApplicationSection;
 use App\Models\ProjectDocument;
 use App\Models\ProjectTask;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class ProjectActivityObserver
 {
@@ -62,7 +63,7 @@ class ProjectActivityObserver
             'event' => $event,
             'subject_type' => $subject::class,
             'subject_id' => $subject->getKey(),
-            'description' => $this->description($subject, $event),
+            'description' => Str::limit($this->description($subject, $event), 250),
             'metadata' => $changes === [] ? null : ['changed_fields' => $changes],
         ]);
     }

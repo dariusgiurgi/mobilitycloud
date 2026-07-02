@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use Illuminate\Support\Str;
 
 class ProjectDocumentChecklist
 {
@@ -28,6 +29,20 @@ class ProjectDocumentChecklist
         $partnerLabel = $partnerCount === 1 ? 'external partner' : 'external partners';
         $signedAttendance = $attendance->filter->hasSignedCopy()->count();
         $signedReports = $expenseReports->filter->hasSignedCopy()->count();
+        $disseminationOrganisations = $this->disseminationOrganisations($project);
+        $disseminationEvidence = $uploads
+            ->where('category', 'dissemination_evidence')
+            ->filter(fn (ProjectDocument $document): bool => filled(data_get($document->metadata, 'organisation_key')));
+        $disseminationReports = collect(data_get($project->action_data ?? [], 'dissemination_reports', []))
+            ->filter(fn ($report): bool => filled(trim((string) $report)));
+        $disseminationEvidenceCount = collect($disseminationOrganisations)
+            ->filter(fn (array $organisation): bool => $disseminationEvidence
+                ->filter(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_key') === $organisation['key'])
+                ->isNotEmpty())
+            ->count();
+        $disseminationReportCount = collect($disseminationOrganisations)
+            ->filter(fn (array $organisation): bool => $disseminationReports->has($organisation['key']))
+            ->count();
         $conventionCount = $conventions->count();
         $readyConventions = $conventions->filter->hasCompleteConventionData()->count();
         $signedAgreements = $conventions->filter(fn ($expense) => $expense->hasConventionSignedCopy('agreement'))->count();
@@ -47,6 +62,17 @@ class ProjectDocumentChecklist
                     'mandate'
                 ),
             $this->uploadedItem($uploads, 'activity_agenda', 'Activity agenda', 'Current activity agenda uploaded'),
+            count($disseminationOrganisations) === 0
+                ? $this->item('Dissemination evidence', 'optional', 'No organisations configured for dissemination')
+                : $this->item(
+                    'Dissemination evidence',
+                    $disseminationEvidenceCount >= count($disseminationOrganisations) && $disseminationReportCount >= count($disseminationOrganisations)
+                        ? 'complete'
+                        : ($disseminationEvidenceCount > 0 || $disseminationReportCount > 0 ? 'attention' : 'missing'),
+                    $disseminationEvidenceCount.'/'.count($disseminationOrganisations).' with evidence, '
+                    .$disseminationReportCount.'/'.count($disseminationOrganisations).' with report',
+                    'open_dissemination'
+                ),
             $attendance->isEmpty()
                 ? $this->item('Attendance records', 'missing', 'No attendance list generated', 'generate_attendance')
                 : $this->item(
@@ -99,5 +125,36 @@ class ProjectDocumentChecklist
     private function item(string $label, string $status, string $detail, ?string $action = null, ?string $category = null): array
     {
         return compact('label', 'status', 'detail', 'action', 'category');
+    }
+
+    private function disseminationOrganisations(Project $project): array
+    {
+        $partners = collect($project->partners)
+            ->filter(fn (array $partner): bool => filled($partner['name'] ?? null))
+            ->values();
+
+        if ($partners->isEmpty() && $project->workspace) {
+            $partners = collect([[
+                'name' => $project->workspace->name,
+                'country' => null,
+                'oid' => null,
+            ]]);
+        }
+
+        return $partners
+            ->map(fn (array $partner, int $index): array => [
+                'key' => $this->disseminationOrganisationKey($partner, $index),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function disseminationOrganisationKey(array $partner, int $index): string
+    {
+        if (filled($partner['oid'] ?? null)) {
+            return 'oid_'.Str::slug((string) $partner['oid'], '_');
+        }
+
+        return 'org_'.substr(sha1(trim(($partner['name'] ?? 'organisation').'|'.($partner['country'] ?? '').'|'.$index)), 0, 12);
     }
 }
