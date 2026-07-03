@@ -80,7 +80,8 @@ class AdminPanelProvider extends PanelProvider
                 Action::make('accountSettings')
                     ->label('My account')
                     ->icon(Heroicon::OutlinedUserCircle)
-                    ->url(fn (): string => AccountSettings::getUrl())
+                    ->visible(fn (): bool => Filament::getTenant() instanceof Workspace)
+                    ->url(fn (): string => AccountSettings::getUrl(tenant: Filament::getTenant()))
                     ->sort(5),
             ])
             ->renderHook(

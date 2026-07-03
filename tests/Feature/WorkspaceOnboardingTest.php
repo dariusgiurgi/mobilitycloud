@@ -17,6 +17,16 @@ class WorkspaceOnboardingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_authenticated_user_without_workspace_can_open_workspace_registration(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/app/new')
+            ->assertOk()
+            ->assertSee('Create workspace');
+    }
+
     public function test_workspace_profile_groups_identity_and_legal_details(): void
     {
         [$workspace, $user] = $this->workspaceAndOwner();
