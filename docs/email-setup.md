@@ -22,8 +22,8 @@ Production `.env` values:
 
 ```dotenv
 MAIL_MAILER=smtp
-MAIL_SCHEME=tls
-MAIL_HOST=your-smtp-host
+MAIL_SCHEME=smtp
+MAIL_HOST=smtpout.secureserver.net
 MAIL_PORT=587
 MAIL_USERNAME=contact@mobilitycloud.eu
 MAIL_PASSWORD=your-mailbox-password-or-app-password
