@@ -5,7 +5,7 @@
     $title = $title ?? 'We could not complete this request.';
     $message = $message ?? 'The platform could not load this page. Please try again or contact support if the problem persists.';
     $accent = $accent ?? '#6366f1';
-    $supportEmail = config('mobilitycloud.emails.support', 'support@mobilitycloud.eu');
+    $supportEmail = config('mobilitycloud.emails.support', 'contact@xeotype.com');
     $loginUrl = \Illuminate\Support\Facades\Route::has('filament.admin.auth.login')
         ? route('filament.admin.auth.login')
         : url('/app/login');

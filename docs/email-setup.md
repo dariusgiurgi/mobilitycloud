@@ -1,46 +1,41 @@
 # MobilityCloud email setup
 
-MobilityCloud starts with a compact set of real inboxes and uses the support
-address for transactional email until volume justifies a dedicated sender.
+MobilityCloud currently uses one mailbox for every platform contact flow.
+This keeps the launch setup cheap and simple.
 
 ## Recommended addresses
 
-- `darius@mobilitycloud.eu` — owner account and direct founder inbox.
-- `contact@mobilitycloud.eu` — public/general contact inbox.
-- `support@mobilitycloud.eu` — customer support inbox, reply-to address and initial transactional sender.
-- `billing@mobilitycloud.eu` — billing and subscription inbox.
+- `contact@xeotype.com` — owner account, public contact, support, billing and transactional sender.
 
 ## Business inboxes
 
-Use Zoho Mail for real inboxes: `darius@`, `contact@`, `support@` and
-`billing@`. Configure the MX, SPF, DKIM and DMARC records provided by Zoho in
-GoDaddy DNS.
+Use GoDaddy email for the single mailbox `contact@xeotype.com`.
+Configure the MX, SPF, DKIM and DMARC records provided by GoDaddy in DNS.
 
 ## Transactional email
 
-Use Resend for application emails such as password resets, workspace invitations
-and account notifications. At launch, send them from `support@mobilitycloud.eu`
-to keep the setup simple. Later, we can split transactional messages into
-`noreply@mobilitycloud.eu` if volume grows.
+Use the mailbox SMTP settings for application emails such as password resets,
+workspace invitations and account notifications. Later, we can split this into
+dedicated `@mobilitycloud.eu` inboxes or a transactional provider if volume grows.
 
 Production `.env` values:
 
 ```dotenv
 MAIL_MAILER=smtp
 MAIL_SCHEME=tls
-MAIL_HOST=smtp.resend.com
+MAIL_HOST=your-smtp-host
 MAIL_PORT=587
-MAIL_USERNAME=resend
-MAIL_PASSWORD=your-resend-api-key
-MAIL_FROM_ADDRESS=support@mobilitycloud.eu
+MAIL_USERNAME=contact@xeotype.com
+MAIL_PASSWORD=your-mailbox-password-or-app-password
+MAIL_FROM_ADDRESS=contact@xeotype.com
 MAIL_FROM_NAME=MobilityCloud
-MAIL_REPLY_TO_ADDRESS=support@mobilitycloud.eu
+MAIL_REPLY_TO_ADDRESS=contact@xeotype.com
 MAIL_REPLY_TO_NAME="MobilityCloud Support"
 
-MOBILITYCLOUD_OWNER_EMAIL=darius@mobilitycloud.eu
-MOBILITYCLOUD_CONTACT_EMAIL=contact@mobilitycloud.eu
-MOBILITYCLOUD_SUPPORT_EMAIL=support@mobilitycloud.eu
-MOBILITYCLOUD_BILLING_EMAIL=billing@mobilitycloud.eu
+MOBILITYCLOUD_OWNER_EMAIL=contact@xeotype.com
+MOBILITYCLOUD_CONTACT_EMAIL=contact@xeotype.com
+MOBILITYCLOUD_SUPPORT_EMAIL=contact@xeotype.com
+MOBILITYCLOUD_BILLING_EMAIL=contact@xeotype.com
 ```
 
 After editing `.env` on production, run:
@@ -52,17 +47,16 @@ sudo -u deploy php artisan config:cache
 
 ## DNS checklist
 
-1. In Resend, add and verify `mobilitycloud.eu`.
-2. Add the Resend SPF/DKIM records in GoDaddy.
-3. In Zoho Mail, add `mobilitycloud.eu` and create the inboxes.
-4. Add the Zoho MX/SPF/DKIM records in GoDaddy.
-5. Keep one DMARC record only, for example:
+1. Create the `contact@xeotype.com` mailbox in GoDaddy.
+2. Copy the GoDaddy SMTP host, port, username and password/app-password.
+3. Add or confirm the GoDaddy MX/SPF/DKIM records for `xeotype.com`.
+4. Keep one DMARC record only, for example:
 
 ```dns
-_dmarc TXT v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:support@mobilitycloud.eu
+_dmarc TXT v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:contact@xeotype.com
 ```
 
-6. Send a test password-reset email and a workspace invitation.
+5. Send a test password-reset email and a workspace invitation.
 
 Do not host inbound mail directly on the application server unless there is a
 specific operational reason. Mail deliverability is safer with a dedicated email

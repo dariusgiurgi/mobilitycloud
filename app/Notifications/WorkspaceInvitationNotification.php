@@ -23,7 +23,7 @@ class WorkspaceInvitationNotification extends Notification
         $workspace = $this->invitation->workspace;
 
         return (new MailMessage)
-            ->replyTo(config('mobilitycloud.emails.support', 'support@mobilitycloud.eu'), 'MobilityCloud Support')
+            ->replyTo(config('mobilitycloud.emails.support', 'contact@xeotype.com'), 'MobilityCloud Support')
             ->subject('Join '.$workspace->name.' on MobilityCloud')
             ->greeting('You have been invited')
             ->line(($this->invitation->inviter?->name ?? 'A workspace administrator').' invited you to collaborate in '.$workspace->name.'.')

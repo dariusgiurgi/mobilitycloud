@@ -111,12 +111,12 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', env('MOBILITYCLOUD_SUPPORT_EMAIL', 'support@mobilitycloud.eu')),
+        'address' => env('MAIL_FROM_ADDRESS', env('MOBILITYCLOUD_CONTACT_EMAIL', 'contact@xeotype.com')),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'MobilityCloud')),
     ],
 
     'reply_to' => [
-        'address' => env('MAIL_REPLY_TO_ADDRESS', env('MOBILITYCLOUD_SUPPORT_EMAIL', 'support@mobilitycloud.eu')),
+        'address' => env('MAIL_REPLY_TO_ADDRESS', env('MOBILITYCLOUD_CONTACT_EMAIL', 'contact@xeotype.com')),
         'name' => env('MAIL_REPLY_TO_NAME', env('APP_NAME', 'MobilityCloud').' Support'),
     ],
 
