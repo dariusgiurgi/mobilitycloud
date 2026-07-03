@@ -5,11 +5,11 @@ This keeps the launch setup cheap and simple.
 
 ## Recommended addresses
 
-- `contact@xeotype.com` — owner account, public contact, support, billing and transactional sender.
+- `contact@mobilitycloud.eu` — owner account, public contact, support, billing and transactional sender.
 
 ## Business inboxes
 
-Use GoDaddy email for the single mailbox `contact@xeotype.com`.
+Use GoDaddy email for the single mailbox `contact@mobilitycloud.eu`.
 Configure the MX, SPF, DKIM and DMARC records provided by GoDaddy in DNS.
 
 ## Transactional email
@@ -25,17 +25,17 @@ MAIL_MAILER=smtp
 MAIL_SCHEME=tls
 MAIL_HOST=your-smtp-host
 MAIL_PORT=587
-MAIL_USERNAME=contact@xeotype.com
+MAIL_USERNAME=contact@mobilitycloud.eu
 MAIL_PASSWORD=your-mailbox-password-or-app-password
-MAIL_FROM_ADDRESS=contact@xeotype.com
+MAIL_FROM_ADDRESS=contact@mobilitycloud.eu
 MAIL_FROM_NAME=MobilityCloud
-MAIL_REPLY_TO_ADDRESS=contact@xeotype.com
+MAIL_REPLY_TO_ADDRESS=contact@mobilitycloud.eu
 MAIL_REPLY_TO_NAME="MobilityCloud Support"
 
-MOBILITYCLOUD_OWNER_EMAIL=contact@xeotype.com
-MOBILITYCLOUD_CONTACT_EMAIL=contact@xeotype.com
-MOBILITYCLOUD_SUPPORT_EMAIL=contact@xeotype.com
-MOBILITYCLOUD_BILLING_EMAIL=contact@xeotype.com
+MOBILITYCLOUD_OWNER_EMAIL=contact@mobilitycloud.eu
+MOBILITYCLOUD_CONTACT_EMAIL=contact@mobilitycloud.eu
+MOBILITYCLOUD_SUPPORT_EMAIL=contact@mobilitycloud.eu
+MOBILITYCLOUD_BILLING_EMAIL=contact@mobilitycloud.eu
 ```
 
 After editing `.env` on production, run:
@@ -47,13 +47,13 @@ sudo -u deploy php artisan config:cache
 
 ## DNS checklist
 
-1. Create the `contact@xeotype.com` mailbox in GoDaddy.
+1. Create the `contact@mobilitycloud.eu` mailbox in GoDaddy.
 2. Copy the GoDaddy SMTP host, port, username and password/app-password.
 3. Add or confirm the GoDaddy MX/SPF/DKIM records for `xeotype.com`.
 4. Keep one DMARC record only, for example:
 
 ```dns
-_dmarc TXT v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:contact@xeotype.com
+_dmarc TXT v=DMARC1; p=quarantine; adkim=s; aspf=s; rua=mailto:contact@mobilitycloud.eu
 ```
 
 5. Send a test password-reset email and a workspace invitation.

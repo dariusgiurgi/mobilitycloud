@@ -1,6 +1,6 @@
 @php
     $user = auth()->user();
-    $supportEmail = config('mobilitycloud.emails.support', 'contact@xeotype.com');
+    $supportEmail = config('mobilitycloud.emails.support', 'contact@mobilitycloud.eu');
 @endphp
 
 <!DOCTYPE html>

@@ -1223,7 +1223,7 @@ class PlatformAdminPanelTest extends TestCase
             ->assertOk()
             ->assertSee('Your MobilityCloud account is currently suspended')
             ->assertSee('Security review')
-            ->assertSee('contact@xeotype.com')
+            ->assertSee('contact@mobilitycloud.eu')
             ->assertSee($admin->email);
 
         $this->get(route('account.suspended.logout'))
@@ -1252,7 +1252,7 @@ class PlatformAdminPanelTest extends TestCase
         $this->get(route('account.suspended'))
             ->assertOk()
             ->assertSee('Your MobilityCloud account is currently suspended')
-            ->assertSee('contact@xeotype.com');
+            ->assertSee('contact@mobilitycloud.eu');
 
         $this->get(route('account.suspended.logout'))
             ->assertRedirect(route('filament.admin.auth.login'));
