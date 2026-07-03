@@ -1,5 +1,6 @@
 @php
     $user = auth()->user();
+    $supportEmail = config('mobilitycloud.emails.support', 'support@mobilitycloud.eu');
 @endphp
 
 <!DOCTYPE html>
@@ -162,7 +163,7 @@
 
                 <div class="actions">
                     <a
-                        href="mailto:contact@xeotype.com?subject=MobilityCloud%20suspended%20account"
+                        href="mailto:{{ $supportEmail }}?subject=MobilityCloud%20suspended%20account"
                         class="primary"
                     >
                         Contact support
