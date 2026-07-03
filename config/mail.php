@@ -111,7 +111,7 @@ return [
     */
 
     'from' => [
-        'address' => env('MAIL_FROM_ADDRESS', env('MOBILITYCLOUD_NOTIFICATION_EMAIL', 'notifications@mobilitycloud.eu')),
+        'address' => env('MAIL_FROM_ADDRESS', env('MOBILITYCLOUD_SUPPORT_EMAIL', 'support@mobilitycloud.eu')),
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'MobilityCloud')),
     ],
 
