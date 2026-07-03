@@ -36,10 +36,13 @@ use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
 use App\Support\PlanCatalog;
 use App\Support\WorkspaceAccess;
+use Filament\Auth\Notifications\ResetPassword;
 use Filament\Auth\Pages\Login;
+use Filament\Auth\Pages\PasswordReset\RequestPasswordReset;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -1153,6 +1156,34 @@ class PlatformAdminPanelTest extends TestCase
 
         $this->get('/app')
             ->assertRedirect(route('filament.platform.pages.dashboard'));
+    }
+
+    public function test_login_exposes_password_reset_and_sends_reset_email(): void
+    {
+        NotificationFacade::fake();
+
+        $user = User::factory()->create();
+
+        $this->useAdminPanel();
+
+        $this->get(route('filament.admin.auth.login'))
+            ->assertOk()
+            ->assertSee('Forgot password?')
+            ->assertSee(route('filament.admin.auth.password-reset.request'), escape: false);
+
+        $this->get(route('filament.admin.auth.password-reset.request'))
+            ->assertOk()
+            ->assertSee('Forgot password?')
+            ->assertSee('Send email');
+
+        Livewire::test(RequestPasswordReset::class)
+            ->fillForm([
+                'email' => $user->email,
+            ])
+            ->call('request')
+            ->assertHasNoFormErrors();
+
+        NotificationFacade::assertSentTo($user, ResetPassword::class);
     }
 
     public function test_platform_login_redirects_to_single_login_page(): void

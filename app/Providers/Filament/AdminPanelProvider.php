@@ -52,6 +52,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('app')
             ->login()
+            ->passwordReset()
             ->registration()
             ->brandName('MobilityCloud')
             ->colors([

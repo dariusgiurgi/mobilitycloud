@@ -43,6 +43,7 @@ class PlatformPanelProvider extends PanelProvider
             ->id('platform')
             ->path('platform')
             ->login()
+            ->passwordReset()
             ->brandName('MobilityCloud Platform')
             ->colors([
                 'primary' => Color::Indigo,
