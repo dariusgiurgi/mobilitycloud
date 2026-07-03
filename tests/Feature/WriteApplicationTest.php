@@ -279,7 +279,7 @@ class WriteApplicationTest extends TestCase
             'mobility_start_date' => '2026-08-01',
             'mobility_end_date' => '2026-08-08',
             'partner_orgs' => [
-                ['name' => 'Roots in Motion', 'country' => 'Romania', 'oid' => null],
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'oid' => null],
             ],
         ]);
 
@@ -339,7 +339,7 @@ class WriteApplicationTest extends TestCase
             'mobility_start_date' => '2026-08-01',
             'mobility_end_date' => '2026-08-07',
             'partner_orgs' => [
-                ['name' => 'Roots in Motion', 'country' => 'Romania', 'oid' => null],
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'oid' => null],
             ],
         ]);
         $this->createSection($project, 'What activities do you plan to implement? What is the number and profile of the participants involved?', '', 1000, 'Project summary', 0, 'summary-activities');

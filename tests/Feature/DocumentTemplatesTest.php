@@ -40,8 +40,8 @@ class DocumentTemplatesTest extends TestCase
         Filament::setTenant($workspace);
 
         Livewire::test(DocumentTemplates::class)
-            ->set('brandName', 'Roots in Motion Association')
-            ->set('legalName', 'Roots in Motion Association')
+            ->set('brandName', 'Scoala de Jocuri Association')
+            ->set('legalName', 'Scoala de Jocuri Association')
             ->set('vatNumber', 'RO12345678')
             ->set('legalAddress', 'Cluj-Napoca, Romania')
             ->set('headerText', 'Official Erasmus+ record')
@@ -54,7 +54,7 @@ class DocumentTemplatesTest extends TestCase
             ->assertHasNoErrors();
 
         $workspace->refresh();
-        $this->assertSame('Roots in Motion Association', $workspace->documentSetting('brand_name'));
+        $this->assertSame('Scoala de Jocuri Association', $workspace->documentSetting('brand_name'));
         $this->assertSame('#123456', $workspace->documentSetting('accent_color'));
         $this->assertSame('RO12345678', $workspace->billing_vat);
         Storage::disk('local')->assertExists($workspace->document_logo_path);
@@ -63,7 +63,7 @@ class DocumentTemplatesTest extends TestCase
             'project' => $project->load('workspace'),
             'sections' => collect([$section]),
         ])->render();
-        $this->assertStringContainsString('Roots in Motion Association', $html);
+        $this->assertStringContainsString('Scoala de Jocuri Association', $html);
         $this->assertStringContainsString('Official Erasmus+ record', $html);
         $this->assertStringContainsString('#123456', $html);
         $this->assertStringStartsWith('%PDF', Pdf::loadView('pdf.application-report', [

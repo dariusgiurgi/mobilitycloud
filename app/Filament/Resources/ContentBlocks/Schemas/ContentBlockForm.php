@@ -72,7 +72,7 @@ class ContentBlockForm
                         TextInput::make('source_note')
                             ->label('Source')
                             ->maxLength(255)
-                            ->placeholder('e.g. Roots in Motion, KA152 — approved 2025')
+                            ->placeholder('e.g. Scoala de Jocuri, KA152 — approved 2025')
                             ->helperText('Required when the block is marked as proven.')
                             ->required(fn (callable $get): bool => (bool) $get('is_proven')),
                     ]),

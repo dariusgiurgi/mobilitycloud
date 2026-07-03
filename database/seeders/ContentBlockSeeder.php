@@ -10,7 +10,7 @@ class ContentBlockSeeder extends Seeder
 {
     /**
      * Seeds the Content Library with reusable paragraphs extracted from an
-     * approved KA152 application (Roots in Motion). Organisation-specific
+     * approved KA152 application (Scoala de Jocuri). Organisation-specific
      * details are replaced with placeholders: [PROJECT], [PARTNER], [VENUE],
      * [N]. Fill them in when inserting, or keep as a starting point.
      */
@@ -23,7 +23,7 @@ class ContentBlockSeeder extends Seeder
             return;
         }
 
-        $source = 'Roots in Motion (KA152) — approved 2025';
+        $source = 'Scoala de Jocuri (KA152) — approved 2025';
 
         $blocks = [
             ['title' => 'Organisation background — Școala de Jocuri', 'category' => 'organisation', 'tags' => ['NGO', 'non-formal education', 'games'], 'body' => <<<TXT

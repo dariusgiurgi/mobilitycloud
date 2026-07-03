@@ -27,7 +27,7 @@ class RegisterWorkspace extends RegisterTenant
                             ->required()
                             ->maxLength(255)
                             ->autofocus()
-                            ->placeholder('e.g. Roots in Motion'),
+                            ->placeholder('e.g. Scoala de Jocuri'),
                     ]),
             ]);
     }

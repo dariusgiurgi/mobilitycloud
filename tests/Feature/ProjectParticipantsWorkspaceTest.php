@@ -20,7 +20,7 @@ class ProjectParticipantsWorkspaceTest extends TestCase
     public function test_register_surfaces_participant_and_document_readiness(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
-        $ready = $this->participant($project, 'Ana', 'Popescu', 'Roots in Motion', 'RO', '2000-01-01');
+        $ready = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
         foreach (['gdpr', 'agreement'] as $type) {
             ParticipantAttachment::create([
                 'participant_id' => $ready->id,
@@ -41,7 +41,7 @@ class ProjectParticipantsWorkspaceTest extends TestCase
             ->assertSee('2 organisations')
             ->assertSee('Documents ready')
             ->assertSee('Documents incomplete')
-            ->assertSee('Roots in Motion')
+            ->assertSee('Scoala de Jocuri')
             ->assertSee('ana@example.test')
             ->assertSee('COMPLETE')
             ->assertSee('3 MISSING')
@@ -71,7 +71,7 @@ class ProjectParticipantsWorkspaceTest extends TestCase
     public function test_viewer_gets_participant_details_without_mutation_controls(): void
     {
         [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
-        $participant = $this->participant($project, 'Ana', 'Popescu', 'Roots in Motion', 'RO', '2000-01-01');
+        $participant = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
         $this->actingAs($viewer);
         Filament::setTenant($workspace);
 

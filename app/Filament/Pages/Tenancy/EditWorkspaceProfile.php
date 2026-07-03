@@ -27,7 +27,7 @@ class EditWorkspaceProfile extends EditTenantProfile
                             ->label('Workspace name')
                             ->required()
                             ->maxLength(255)
-                            ->placeholder('e.g. Roots in Motion'),
+                            ->placeholder('e.g. Scoala de Jocuri'),
                     ]),
 
                 Section::make('Legal and billing details')
