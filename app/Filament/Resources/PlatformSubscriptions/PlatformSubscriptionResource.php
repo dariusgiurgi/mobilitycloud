@@ -383,6 +383,7 @@ class PlatformSubscriptionResource extends Resource
                         ])
                         ->action(function (Workspace $record, array $data): void {
                             $record->update([
+                                ...PlanCatalog::workspaceDefaults((string) $data['plan']),
                                 'plan' => $data['plan'],
                                 'subscription_status' => 'active',
                                 'feature_flags' => $data['feature_flags'] ?? PlanCatalog::defaultModules((string) $data['plan']),

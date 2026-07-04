@@ -150,6 +150,8 @@ class PlatformAdminPanelTest extends TestCase
 
         $clientWorkspace->refresh();
         $this->assertSame('writer_pro', $clientWorkspace->plan);
+        $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $clientWorkspace->feature_flags);
+        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $clientWorkspace->plan_limits);
         $this->assertSame('trial', $clientWorkspace->subscription_status);
         $this->assertSame('Manual support override.', $clientWorkspace->internal_notes);
         $this->assertDatabaseHas('platform_audit_logs', [
@@ -970,6 +972,7 @@ class PlatformAdminPanelTest extends TestCase
 
         $workspace->refresh();
         $this->assertSame('writer_pro', $workspace->plan);
+        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $workspace->plan_limits);
         $this->assertSame('active', $workspace->subscription_status);
         $this->assertFalse($workspace->is_suspended);
         $this->assertNull($workspace->suspension_category);

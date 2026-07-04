@@ -59,6 +59,13 @@ class EditPlatformWorkspace extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (($data['plan'] ?? null) !== $this->record->plan) {
+            $data = [
+                ...$data,
+                ...PlanCatalog::workspaceDefaults((string) ($data['plan'] ?? 'free')),
+            ];
+        }
+
         if (auth()->user()?->canManagePlatformAdmins() && filled($data['access_override_reason'] ?? null)) {
             $data['access_override_granted_by'] = auth()->id();
         }

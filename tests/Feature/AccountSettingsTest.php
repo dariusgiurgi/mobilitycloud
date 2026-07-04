@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\AccountSettings;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\PlanCatalog;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -102,6 +103,8 @@ class AccountSettingsTest extends TestCase
             ->call('saveSubscriptionPlan');
 
         $this->assertSame('writer_pro', $workspace->fresh()->plan);
+        $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $workspace->fresh()->feature_flags);
+        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $workspace->fresh()->plan_limits);
     }
 
     public function test_workspace_viewer_cannot_change_subscription_plan(): void

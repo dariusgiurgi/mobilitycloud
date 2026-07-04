@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\PlanCatalog;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -167,7 +168,7 @@ class AccountSettings extends Page
         $workspace = $this->workspaces()->whereKey($data['subscriptionWorkspaceId'])->firstOrFail();
         abort_unless($workspace->canManageMembersBy(auth()->user()), 403);
 
-        $workspace->update(['plan' => $data['subscriptionPlan']]);
+        $workspace->update(PlanCatalog::workspaceDefaults($data['subscriptionPlan']));
 
         Notification::make()
             ->title('Subscription updated')

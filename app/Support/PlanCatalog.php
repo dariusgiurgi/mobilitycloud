@@ -127,4 +127,18 @@ class PlanCatalog
     {
         return self::plans()[$plan]['limits'] ?? self::plans()['free']['limits'];
     }
+
+    /**
+     * @return array{plan: string, feature_flags: array<int, string>, plan_limits: array<string, int>}
+     */
+    public static function workspaceDefaults(string $plan): array
+    {
+        $plan = array_key_exists($plan, self::plans()) ? $plan : 'free';
+
+        return [
+            'plan' => $plan,
+            'feature_flags' => self::defaultModules($plan),
+            'plan_limits' => self::defaultLimits($plan),
+        ];
+    }
 }
