@@ -21,13 +21,18 @@ class WorkspaceInvitationNotification extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $workspace = $this->invitation->workspace;
+        $project = $this->invitation->project;
+        $accessLabel = $this->invitation->role === 'project_collaborator'
+            ? 'Project-only collaborator'
+            : ucfirst($this->invitation->role);
 
         return (new MailMessage)
             ->replyTo(config('mobilitycloud.emails.support', 'contact@mobilitycloud.eu'), 'MobilityCloud Support')
-            ->subject('Join '.$workspace->name.' on MobilityCloud')
+            ->subject($project ? 'Join '.$project->name.' on MobilityCloud' : 'Join '.$workspace->name.' on MobilityCloud')
             ->greeting('You have been invited')
-            ->line(($this->invitation->inviter?->name ?? 'A workspace administrator').' invited you to collaborate in '.$workspace->name.'.')
-            ->line('Your access level will be: '.ucfirst($this->invitation->role).'.')
+            ->line(($this->invitation->inviter?->name ?? 'A workspace administrator').' invited you to collaborate in '.($project?->name ?? $workspace->name).'.')
+            ->line($project ? 'You will only see this project inside '.$workspace->name.'.' : 'You will join the workspace '.$workspace->name.'.')
+            ->line('Your access level will be: '.$accessLabel.'.')
             ->action('Accept invitation', route('workspace-invitations.accept', $this->invitation->token))
             ->line('This invitation expires on '.$this->invitation->expires_at->format('d M Y, H:i').'.');
     }

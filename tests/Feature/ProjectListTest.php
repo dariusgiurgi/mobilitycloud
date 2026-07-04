@@ -43,4 +43,21 @@ class ProjectListTest extends TestCase
             ->assertDontSee('15,000.00')
             ->assertSee('Open project');
     }
+
+    public function test_only_workspace_owner_sees_create_project_action(): void
+    {
+        $workspace = Workspace::create(['name' => 'Creation Workspace']);
+        $owner = User::factory()->create();
+        $member = User::factory()->create();
+        $workspace->users()->attach($owner, ['role' => 'owner']);
+        $workspace->users()->attach($member, ['role' => 'member']);
+
+        $this->actingAs($owner);
+        Filament::setTenant($workspace);
+        Livewire::test(ListProjects::class)->assertSee('New project');
+
+        $this->actingAs($member);
+        Filament::setTenant($workspace);
+        Livewire::test(ListProjects::class)->assertDontSee('New project');
+    }
 }

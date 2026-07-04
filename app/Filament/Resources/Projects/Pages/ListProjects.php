@@ -32,10 +32,12 @@ class ListProjects extends ListRecords
                 ->icon(fn (): string => $this->archived ? 'heroicon-o-arrow-left' : 'heroicon-o-archive-box')
                 ->color('gray')
                 ->action(fn () => $this->archived = ! $this->archived)
-                ->visible(fn (): bool => $this->archived || Project::onlyTrashed()
-                    ->where('workspace_id', Filament::getTenant()?->id)
-                    ->accessibleTo(auth()->user(), Filament::getTenant())
-                    ->exists()),
+                ->visible(fn (): bool => $this->archived
+                    || (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
+                    || Project::onlyTrashed()
+                        ->where('workspace_id', Filament::getTenant()?->id)
+                        ->accessibleTo(auth()->user(), Filament::getTenant())
+                        ->exists()),
             Action::make('duplicateProject')
                 ->label('Duplicate project')
                 ->icon('heroicon-o-document-duplicate')
@@ -70,7 +72,7 @@ class ListProjects extends ListRecords
                 ])
                 ->action(function (array $data, ProjectDuplicator $duplicator): void {
                     $workspace = Filament::getTenant();
-                    abort_unless($workspace?->canBeManagedBy(auth()->user()), 403);
+                    abort_unless(auth()->user()?->can('create', Project::class), 403);
                     $source = Project::query()
                         ->where('workspace_id', $workspace->id)
                         ->accessibleTo(auth()->user(), $workspace)
@@ -86,12 +88,12 @@ class ListProjects extends ListRecords
                     $this->redirect(ProjectResource::getUrl('overview', ['record' => $copy]));
                 })
                 ->visible(fn (): bool => ! $this->archived
-                    && (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
+                    && (auth()->user()?->can('create', Project::class) ?? false)
                     && Project::query()->where('workspace_id', Filament::getTenant()?->id)
                         ->accessibleTo(auth()->user(), Filament::getTenant())->exists()),
             CreateAction::make()
                 ->label('New project')
-                ->visible(fn (): bool => ! $this->archived),
+                ->visible(fn (): bool => ! $this->archived && (auth()->user()?->can('create', Project::class) ?? false)),
         ];
     }
 

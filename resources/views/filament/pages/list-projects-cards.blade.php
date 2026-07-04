@@ -2,6 +2,7 @@
     @php
         $projects = $this->getProjects();
         $canManage = \Filament\Facades\Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
+        $canCreate = auth()->user()?->can('create', \App\Models\Project::class) ?? false;
     @endphp
 
     <style>
@@ -21,11 +22,11 @@
                 <span style="display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:.8rem;background:rgba(99,102,241,.1);color:#6366f1;margin-bottom:.9rem;">
                     <x-filament::icon icon="heroicon-o-rectangle-stack" style="width:1.5rem;height:1.5rem;" />
                 </span>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : 'Create your first project' }}</h2>
-                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Projects archived from this workspace will be kept here for restoration.' : 'Keep the application, budget, participants and documents together from the beginning.' }}</p>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : 'No projects available') }}</h2>
+                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Projects archived from this workspace will be kept here for restoration.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : 'Ask the workspace owner to create a project or assign you to an existing restricted project.') }}</p>
                 @if($archived)
                     <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to active projects</x-filament::button>
-                @else
+                @elseif($canCreate)
                     <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
                 @endif
             </div>

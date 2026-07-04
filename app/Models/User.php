@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class User extends Authenticatable implements FilamentUser, HasTenants
@@ -98,12 +98,21 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function getTenants(Panel $panel): Collection
     {
-        return $this->workspaces;
+        $workspaceTenants = $this->workspaces()->get();
+        $projectTenants = Workspace::query()
+            ->whereHas('projects.members', fn ($query) => $query->whereKey($this->id))
+            ->get();
+
+        return $workspaceTenants
+            ->merge($projectTenants)
+            ->unique('id')
+            ->values();
     }
 
     public function canAccessTenant(Model $tenant): bool
     {
-        return $this->workspaces()->whereKey($tenant)->exists();
+        return $tenant instanceof Workspace
+            && $tenant->hasProjectAccessFor($this);
     }
 
     public function canAccessPanel(Panel $panel): bool

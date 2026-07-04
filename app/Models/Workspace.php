@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
+use App\Support\WorkspaceAccess;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Support\WorkspaceAccess;
 
 class Workspace extends Model
 {
@@ -181,6 +181,16 @@ class Workspace extends Model
             && in_array($this->roleFor($user), ['owner', 'admin', 'member'], true);
     }
 
+    public function canCreateProjectsBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return ! WorkspaceAccess::isReadOnly($this)
+            && $this->roleFor($user) === 'owner';
+    }
+
     public function canManageMembersBy(?User $user): bool
     {
         if (! $user) {
@@ -189,5 +199,32 @@ class Workspace extends Model
 
         return ! WorkspaceAccess::isReadOnly($this)
             && in_array($this->roleFor($user), ['owner', 'admin'], true);
+    }
+
+    public function hasProjectAccessFor(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($this->users()->whereKey($user->id)->exists()) {
+            return true;
+        }
+
+        return $this->projects()
+            ->whereHas('members', fn ($members) => $members->whereKey($user->id))
+            ->exists();
+    }
+
+    public function isProjectOnlyFor(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return ! $this->users()->whereKey($user->id)->exists()
+            && $this->projects()
+                ->whereHas('members', fn ($members) => $members->whereKey($user->id))
+                ->exists();
     }
 }

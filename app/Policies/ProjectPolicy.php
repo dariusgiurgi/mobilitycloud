@@ -26,7 +26,7 @@ class ProjectPolicy
         $projectLimit = WorkspaceAccess::limit($workspace, 'projects');
 
         return $workspace instanceof Workspace
-            && $workspace->canBeManagedBy($user)
+            && $workspace->canCreateProjectsBy($user)
             && ($projectLimit === null || $projectLimit === 0 || $workspace->projects()->count() < $projectLimit);
     }
 

@@ -100,17 +100,17 @@ class ProjectDuplicationTest extends TestCase
         $this->assertTrue($copy->budgetLines()->get()->every(fn ($line): bool => (float) $line->allocated_budget === 0.0));
     }
 
-    public function test_duplicate_action_is_available_only_to_workspace_managers(): void
+    public function test_duplicate_action_is_available_only_to_workspace_owner(): void
     {
-        [$workspace, $member] = $this->workspaceUserAndProject('member');
-        $this->actingAs($member);
+        [$workspace, $owner] = $this->workspaceUserAndProject('owner');
+        $this->actingAs($owner);
         Filament::setTenant($workspace);
 
         Livewire::test(ListProjects::class)->assertSee('Duplicate project');
 
-        $viewer = User::factory()->create();
-        $workspace->users()->attach($viewer, ['role' => 'viewer']);
-        $this->actingAs($viewer);
+        $member = User::factory()->create();
+        $workspace->users()->attach($member, ['role' => 'member']);
+        $this->actingAs($member);
         Filament::setTenant($workspace);
 
         Livewire::test(ListProjects::class)->assertDontSee('Duplicate project');
@@ -118,8 +118,8 @@ class ProjectDuplicationTest extends TestCase
 
     public function test_duplicate_action_creates_the_draft_and_redirects_to_it(): void
     {
-        [$workspace, $member, $source] = $this->workspaceUserAndProject('member');
-        $this->actingAs($member);
+        [$workspace, $owner, $source] = $this->workspaceUserAndProject('owner');
+        $this->actingAs($owner);
         Filament::setTenant($workspace);
 
         Livewire::test(ListProjects::class)
@@ -138,8 +138,8 @@ class ProjectDuplicationTest extends TestCase
 
     public function test_duplicate_button_can_mount_its_modal(): void
     {
-        [$workspace, $member] = $this->workspaceUserAndProject('member');
-        $this->actingAs($member);
+        [$workspace, $owner] = $this->workspaceUserAndProject('owner');
+        $this->actingAs($owner);
         Filament::setTenant($workspace);
 
         Livewire::test(ListProjects::class)
@@ -168,7 +168,10 @@ class ProjectDuplicationTest extends TestCase
 
     private function workspaceUserAndProject(string $role): array
     {
-        $workspace = Workspace::create(['name' => 'Duplication Workspace']);
+        $workspace = Workspace::create([
+            'name' => 'Duplication Workspace',
+            'plan_limits' => ['projects' => 5],
+        ]);
         $user = User::factory()->create();
         $workspace->users()->attach($user, ['role' => $role]);
         $project = Project::create([

@@ -13,7 +13,7 @@ class WorkspaceInvitationController extends Controller
     public function accept(Request $request, string $token): RedirectResponse
     {
         $invitation = WorkspaceInvitation::query()
-            ->with('workspace')
+            ->with(['workspace', 'project'])
             ->where('token', $token)
             ->firstOrFail();
 
@@ -34,12 +34,16 @@ class WorkspaceInvitationController extends Controller
         abort_unless(strcasecmp($request->user()->email, $invitation->email) === 0, 403, 'Sign in with the email address that received this invitation.');
 
         DB::transaction(function () use ($request, $invitation): void {
-            $invitation->workspace->users()->syncWithoutDetaching([
-                $request->user()->id => [
-                    'role' => $invitation->role,
-                    'joined_at' => now(),
-                ],
-            ]);
+            if ($invitation->project_id && $invitation->role === 'project_collaborator') {
+                $invitation->project?->members()->syncWithoutDetaching([$request->user()->id]);
+            } else {
+                $invitation->workspace->users()->syncWithoutDetaching([
+                    $request->user()->id => [
+                        'role' => $invitation->role,
+                        'joined_at' => now(),
+                    ],
+                ]);
+            }
 
             $invitation->accepted_at = now();
             $invitation->save();
@@ -50,6 +54,8 @@ class WorkspaceInvitationController extends Controller
         });
 
         return redirect(Dashboard::getUrl(panel: 'admin', tenant: $invitation->workspace))
-            ->with('status', 'You joined '.$invitation->workspace->name.'.');
+            ->with('status', $invitation->project
+                ? 'You now have access to '.$invitation->project->name.'.'
+                : 'You joined '.$invitation->workspace->name.'.');
     }
 }

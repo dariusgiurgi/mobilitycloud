@@ -48,6 +48,7 @@ class DashboardWorkspace extends Widget
         $primaryProject = $projects->first(fn (Project $project) => $project->isManagementStage());
         $writingProject = $projects->first(fn (Project $project) => $project->isWritingStage());
         $canManage = Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
+        $canCreate = auth()->user()?->can('create', Project::class) ?? false;
 
         return [
             'projects' => $currentProjects,
@@ -57,7 +58,7 @@ class DashboardWorkspace extends Widget
             'attentionCount' => $attention->count(),
             'milestones' => $milestones->take(6),
             'milestoneCount' => $milestones->count(),
-            'quickActions' => $this->quickActions($primaryProject, $writingProject, $canManage),
+            'quickActions' => $this->quickActions($primaryProject, $writingProject, $canManage, $canCreate),
             'projectsUrl' => ProjectResource::getUrl('index'),
         ];
     }
@@ -302,12 +303,12 @@ class DashboardWorkspace extends Widget
         };
     }
 
-    private function quickActions(?Project $primaryProject, ?Project $writingProject, bool $canManage): array
+    private function quickActions(?Project $primaryProject, ?Project $writingProject, bool $canManage, bool $canCreate): array
     {
         $fallback = ProjectResource::getUrl('index');
         $actions = [];
 
-        if ($canManage) {
+        if ($canCreate) {
             $actions[] = [
                 'label' => 'New project',
                 'description' => 'Start an application',

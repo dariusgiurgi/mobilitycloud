@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProjectStatus;
+use App\Support\WorkspaceAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -90,20 +91,32 @@ class Project extends Model
             return $query;
         }
 
-        return $query->where(function (Builder $query) use ($user): void {
-            $query->where('access_mode', 'workspace')
-                ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
+        return $query->where(function (Builder $query) use ($user, $role): void {
+            if ($role !== null) {
+                $query->where('access_mode', 'workspace')
+                    ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
+
+                return;
+            }
+
+            $query->whereHas('members', fn (Builder $members) => $members->whereKey($user->id));
         });
     }
 
     public function canBeAccessedBy(?User $user): bool
     {
-        if (! $user || ! $this->workspace?->users()->whereKey($user->id)->exists()) {
+        if (! $user || ! $this->workspace) {
             return false;
         }
 
-        if (in_array($this->workspace->roleFor($user), ['owner', 'admin'], true)) {
+        $role = $this->workspace->roleFor($user);
+
+        if (in_array($role, ['owner', 'admin'], true)) {
             return true;
+        }
+
+        if ($role === null) {
+            return $this->members()->whereKey($user->id)->exists();
         }
 
         return ($this->access_mode ?: 'workspace') === 'workspace'
@@ -153,6 +166,16 @@ class Project extends Model
 
         return $this->canBeAccessedBy($user)
             && ($this->workspace?->canBeManagedBy($user) ?? false);
+    }
+
+    public function canBeCollaboratedOnBy(?User $user): bool
+    {
+        if (! $user || ! $this->canBeAccessedBy($user) || WorkspaceAccess::isReadOnly($this->workspace)) {
+            return false;
+        }
+
+        return ($this->workspace?->canBeManagedBy($user) ?? false)
+            || $this->members()->whereKey($user->id)->exists();
     }
 
     /**

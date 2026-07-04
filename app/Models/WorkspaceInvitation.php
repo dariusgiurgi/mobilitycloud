@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class WorkspaceInvitation extends Model
 {
     protected $fillable = [
-        'workspace_id', 'invited_by', 'email', 'role', 'token', 'expires_at', 'accepted_at',
+        'workspace_id', 'project_id', 'invited_by', 'email', 'role', 'token', 'expires_at', 'accepted_at',
     ];
 
     protected function casts(): array
@@ -22,6 +22,11 @@ class WorkspaceInvitation extends Model
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function inviter(): BelongsTo

@@ -7,7 +7,7 @@ trait AuthorizesProjectManagement
     protected function authorizeProjectManagement(): void
     {
         abort_unless(
-            isset($this->record) && $this->record->canBeManagedBy(auth()->user()),
+            isset($this->record) && $this->record->canBeCollaboratedOnBy(auth()->user()),
             403
         );
     }

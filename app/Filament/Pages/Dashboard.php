@@ -8,6 +8,7 @@ use App\Filament\Widgets\DashboardWorkspace;
 use App\Filament\Widgets\PlatformOperationsOverview;
 use App\Filament\Widgets\PlatformStatsOverview;
 use App\Filament\Widgets\ProjectStatsOverview;
+use App\Models\Project;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
@@ -53,7 +54,7 @@ class Dashboard extends BaseDashboard
                 ->label('New project')
                 ->icon(Heroicon::OutlinedPlus)
                 ->url(fn (): string => ProjectResource::getUrl('create'))
-                ->visible(fn (): bool => Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false),
+                ->visible(fn (): bool => auth()->user()?->can('create', Project::class) ?? false),
         ];
     }
 
