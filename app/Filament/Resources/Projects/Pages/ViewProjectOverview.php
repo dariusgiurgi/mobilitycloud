@@ -125,20 +125,6 @@ class ViewProjectOverview extends Page
                 ->icon('heroicon-o-plus')
                 ->action(fn () => $this->openTaskCreate())
                 ->visible(fn (): bool => $this->record->canBeManagedBy(auth()->user())),
-            Action::make('archiveProject')
-                ->label('Archive project')
-                ->icon('heroicon-o-archive-box')
-                ->color('gray')
-                ->requiresConfirmation()
-                ->modalHeading('Archive '.$this->record->name.'?')
-                ->modalDescription('The project will leave active views, dashboards, tasks and reminders. Its data and files remain available for restoration.')
-                ->action(function (): void {
-                    abort_unless($this->record->canBeManagedBy(auth()->user()), 403);
-                    $this->record->delete();
-                    Notification::make()->title('Project archived')->success()->send();
-                    $this->redirect(ProjectResource::getUrl('index', ['archived' => true]));
-                })
-                ->visible(fn (): bool => $this->record->canBeManagedBy(auth()->user())),
         ];
     }
 

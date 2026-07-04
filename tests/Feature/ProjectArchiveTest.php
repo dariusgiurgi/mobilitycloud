@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Projects\Pages\EditProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Models\Project;
@@ -24,8 +25,12 @@ class ProjectArchiveTest extends TestCase
         Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
-            ->assertActionVisible('archiveProject')
-            ->callAction('archiveProject');
+            ->assertActionDoesNotExist('archiveProject')
+            ->assertDontSee('Archive project');
+
+        Livewire::test(EditProject::class, ['record' => $project->id])
+            ->assertActionVisible('delete')
+            ->callAction('delete');
 
         $this->assertSoftDeleted($project);
         $this->assertDatabaseHas('project_activity_logs', [
