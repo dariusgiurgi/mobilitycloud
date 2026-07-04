@@ -62,7 +62,26 @@ class WorkspaceTeamTest extends TestCase
             ->assertRedirect('/app/'.$workspace->slug);
 
         $this->assertSame('member', $workspace->roleFor($invitedUser));
+        $this->assertSame($workspace->id, $invitedUser->fresh()->current_workspace_id);
         $this->assertNotNull($invitation->fresh()->accepted_at);
+    }
+
+    public function test_guest_invitation_link_redirects_to_login_without_crashing(): void
+    {
+        [$workspace, $owner] = $this->workspaceAndUser('owner');
+        $invitation = WorkspaceInvitation::create([
+            'workspace_id' => $workspace->id,
+            'invited_by' => $owner->id,
+            'email' => 'partner@example.org',
+            'role' => 'member',
+            'token' => str_repeat('c', 64),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        $this->get(route('workspace-invitations.accept', $invitation->token))
+            ->assertRedirect(route('filament.admin.auth.login'));
+
+        $this->assertSame(route('workspace-invitations.accept', $invitation->token), session('url.intended'));
     }
 
     public function test_invitation_rejects_a_different_email_and_expired_token(): void

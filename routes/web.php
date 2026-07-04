@@ -115,9 +115,10 @@ Route::get('/impersonation/stop', function (Request $request) {
     return redirect()->route('filament.platform.pages.dashboard');
 })->name('platform.impersonation.stop');
 
+Route::get('/workspace-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
+    ->name('workspace-invitations.accept');
+
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {
-    Route::get('/workspace-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
-        ->name('workspace-invitations.accept');
     Route::get('/workspaces/{workspace}/backup', [WorkspaceBackupController::class, 'download'])
         ->name('workspaces.backup');
     Route::get('/workspaces/{workspace}/report.csv', [WorkspaceReportController::class, 'csv'])
