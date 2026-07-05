@@ -37,8 +37,7 @@ class NavigationStructureTest extends TestCase
         $this->assertSame('Planning tools', ContentBlockResource::getNavigationGroup());
         $this->assertSame('Writing Library', ContentBlockResource::getNavigationLabel());
         $this->assertSame(10, ContentBlockResource::getNavigationSort());
-        $this->assertSame('Planning tools', IndividualSupportCalculator::getNavigationGroup());
-        $this->assertSame(20, IndividualSupportCalculator::getNavigationSort());
+        $this->assertFalse(IndividualSupportCalculator::shouldRegisterNavigation());
 
         $this->assertSame('Community', PublicLibrary::getNavigationGroup());
         $this->assertSame(10, PublicLibrary::getNavigationSort());
@@ -46,8 +45,7 @@ class NavigationStructureTest extends TestCase
         $this->assertSame('Moderation reports', PublicBlockReportResource::getNavigationLabel());
         $this->assertSame(40, PublicBlockReportResource::getNavigationSort());
 
-        $this->assertSame('Workspace settings', ManageCurrencies::getNavigationGroup());
-        $this->assertSame(10, ManageCurrencies::getNavigationSort());
+        $this->assertFalse(ManageCurrencies::shouldRegisterNavigation());
         $this->assertSame('Workspace settings', WorkspaceData::getNavigationGroup());
         $this->assertSame('Backup & exports', WorkspaceData::getNavigationLabel());
         $this->assertSame(30, WorkspaceData::getNavigationSort());

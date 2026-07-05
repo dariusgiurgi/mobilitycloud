@@ -28,6 +28,11 @@ class IndividualSupportCalculator extends Page
 
     protected string $view = 'filament.pages.individual-support-calculator';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         return PlatformAccess::canUse(PlanCatalog::MODULE_CALCULATOR);

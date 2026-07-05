@@ -37,16 +37,16 @@ class ProjectPolicy
 
     public function delete(User $user, Project $project): bool
     {
-        return $project->canBeManagedBy($user);
+        return $project->canManageLifecycleBy($user);
     }
 
     public function restore(User $user, Project $project): bool
     {
-        return $project->canBeManagedBy($user);
+        return $project->canManageLifecycleBy($user);
     }
 
     public function forceDelete(User $user, Project $project): bool
     {
-        return $project->canBeManagedBy($user);
+        return $project->canManageLifecycleBy($user);
     }
 }

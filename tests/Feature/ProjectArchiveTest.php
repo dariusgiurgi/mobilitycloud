@@ -18,10 +18,10 @@ class ProjectArchiveTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_manager_can_archive_and_restore_a_project(): void
+    public function test_workspace_owner_can_archive_and_restore_a_project(): void
     {
-        [$workspace, $project, $manager] = $this->workspaceProjectAndUser('member');
-        $this->actingAs($manager);
+        [$workspace, $project, $owner] = $this->workspaceProjectAndUser('owner');
+        $this->actingAs($owner);
         Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
@@ -67,9 +67,43 @@ class ProjectArchiveTest extends TestCase
             ->assertDontSee('Restore');
     }
 
+    public function test_project_editor_cannot_archive_or_restore_a_project(): void
+    {
+        $workspace = Workspace::create(['name' => 'Editor Archive Workspace']);
+        $owner = User::factory()->create();
+        $editor = User::factory()->create();
+        $workspace->users()->attach($owner, ['role' => 'owner']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Editor Archive Candidate',
+            'status' => 'writing',
+        ]);
+        $project->members()->attach($editor, ['role' => Project::PROJECT_ROLE_EDITOR]);
+
+        $this->actingAs($editor);
+        Filament::setTenant($workspace);
+
+        Livewire::test(EditProject::class, ['record' => $project->id])
+            ->assertActionHidden('delete');
+
+        $project->delete();
+
+        Livewire::test(ListProjects::class)
+            ->set('archived', true)
+            ->assertSee('Editor Archive Candidate')
+            ->assertDontSee('Restore');
+
+        Livewire::test(ListProjects::class)
+            ->set('archived', true)
+            ->call('restoreProject', $project->id)
+            ->assertForbidden();
+
+        $this->assertSoftDeleted($project);
+    }
+
     public function test_archived_projects_are_isolated_from_active_and_other_workspace_lists(): void
     {
-        [$workspace, $project, $manager] = $this->workspaceProjectAndUser('member');
+        [$workspace, $project, $manager] = $this->workspaceProjectAndUser('owner');
         $project->delete();
         Project::create([
             'workspace_id' => $workspace->id,

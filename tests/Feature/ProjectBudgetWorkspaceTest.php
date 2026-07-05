@@ -19,7 +19,7 @@ class ProjectBudgetWorkspaceTest extends TestCase
 
     public function test_estimator_explains_the_planning_stage_and_persists_changes(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member', 'writing');
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR, 'writing');
         $this->actingAs($user);
         Filament::setTenant($workspace);
 
@@ -35,7 +35,7 @@ class ProjectBudgetWorkspaceTest extends TestCase
 
     public function test_budget_board_surfaces_allocation_and_document_readiness(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member', 'active');
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR, 'active');
         $project->update(['approved_budget' => 1000]);
         $travel = $project->budgetLines()->orderBy('sort_order')->first();
         $travel->update(['allocated_budget' => 800]);
@@ -98,7 +98,6 @@ class ProjectBudgetWorkspaceTest extends TestCase
     {
         $workspace = Workspace::create(['name' => 'Budget Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
         $project = Project::create([
             'workspace_id' => $workspace->id,
             'name' => 'Budget Project',
@@ -106,6 +105,12 @@ class ProjectBudgetWorkspaceTest extends TestCase
             'ka_action' => 'ka152',
             'total_budget' => 1000,
         ]);
+
+        if (in_array($role, [Project::PROJECT_ROLE_EDITOR, Project::PROJECT_ROLE_VIEWER], true)) {
+            $project->members()->attach($user, ['role' => $role]);
+        } else {
+            $workspace->users()->attach($user, ['role' => $role]);
+        }
 
         return [$workspace, $project, $user];
     }

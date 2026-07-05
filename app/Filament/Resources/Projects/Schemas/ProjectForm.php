@@ -146,6 +146,54 @@ class ProjectForm
                             ->helperText('Applied when civil convention payment statements are generated.'),
                     ]),
 
+                Section::make('Project currencies')
+                    ->description('EUR is the base currency. Add only the currencies used by expenses in this project; changing a rate recalculates this project only.')
+                    ->schema([
+                        Repeater::make('currencies')
+                            ->hiddenLabel()
+                            ->schema([
+                                TextInput::make('code')
+                                    ->label('Currency code')
+                                    ->placeholder('RON')
+                                    ->required()
+                                    ->maxLength(3)
+                                    ->minLength(3)
+                                    ->regex('/^[A-Za-z]{3}$/')
+                                    ->dehydrateStateUsing(fn (?string $state): string => Str::upper(trim((string) $state)))
+                                    ->helperText('Use ISO code, e.g. RON or USD. EUR is already included.'),
+                                TextInput::make('rate')
+                                    ->label('Rate')
+                                    ->numeric()
+                                    ->required()
+                                    ->minValue(0.000001)
+                                    ->maxValue(1000000)
+                                    ->helperText('How many units equal 1 EUR. Example: 1 EUR = 5.07 RON.'),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Add currency')
+                            ->defaultItems(0)
+                            ->reorderable(false)
+                            ->itemLabel(fn (array $state): ?string => isset($state['code']) ? Str::upper((string) $state['code']) : 'Currency')
+                            ->dehydrateStateUsing(function (?array $state): array {
+                                return collect($state ?? [])
+                                    ->map(function (array $row): ?array {
+                                        $code = Str::upper(trim((string) ($row['code'] ?? '')));
+                                        $rate = $row['rate'] ?? null;
+
+                                        if ($code === '' || $code === 'EUR' || strlen($code) !== 3 || ! is_numeric($rate) || (float) $rate <= 0) {
+                                            return null;
+                                        }
+
+                                        return ['code' => $code, 'rate' => (float) $rate];
+                                    })
+                                    ->filter()
+                                    ->unique('code')
+                                    ->values()
+                                    ->all();
+                            })
+                            ->columnSpanFull(),
+                    ]),
+
                 Section::make('Advanced controls')
                     ->description('Lifecycle overrides and expense numbering affect several project modules. Change them deliberately.')
                     ->columns(3)

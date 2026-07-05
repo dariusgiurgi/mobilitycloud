@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     @php
         $projects = $this->getProjects();
-        $canManage = \Filament\Facades\Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
+        $canRestore = \Filament\Facades\Filament::getTenant()?->canCreateProjectsBy(auth()->user()) ?? false;
         $canCreate = auth()->user()?->can('create', \App\Models\Project::class) ?? false;
     @endphp
 
@@ -107,7 +107,7 @@
                     @if($archived)
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:auto;padding-top:1rem;">
                             <span class="mc-project-muted" style="font-size:.7rem;">Archived {{ $project->deleted_at?->diffForHumans() }}</span>
-                            @if($canManage)
+                            @if($canRestore)
                                 <x-filament::button wire:click="restoreProject({{ $project->id }})" wire:confirm="Restore {{ $project->name }} to active projects?" color="gray" size="sm" icon="heroicon-o-arrow-uturn-left">Restore</x-filament::button>
                             @endif
                         </div>

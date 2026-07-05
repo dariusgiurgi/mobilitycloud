@@ -15,6 +15,7 @@ class Project extends Model
 {
     use SoftDeletes;
 
+    /** @deprecated Project managers are now treated as editors. */
     public const PROJECT_ROLE_MANAGER = 'manager';
 
     public const PROJECT_ROLE_EDITOR = 'editor';
@@ -31,7 +32,7 @@ class Project extends Model
 
     protected $fillable = [
         'workspace_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
-        'total_budget', 'approved_budget', 'first_tranche_pct', 'withholding_tax_rate',
+        'total_budget', 'approved_budget', 'first_tranche_pct', 'withholding_tax_rate', 'currencies',
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
         'expense_prefix', 'expense_pad_length',
         'start_date', 'end_date', 'mobility_start_date', 'mobility_end_date', 'partner_org', 'partner_orgs', 'notes',
@@ -44,6 +45,7 @@ class Project extends Model
         'is_activated' => 'boolean',
         'activated_at' => 'datetime',
         'activation_snapshot' => 'array',
+        'currencies' => 'array',
         'partner_orgs' => 'array',
         'action_data' => 'array',
         'start_date' => 'date',
@@ -89,7 +91,6 @@ class Project extends Model
     public static function projectRoleOptions(): array
     {
         return [
-            self::PROJECT_ROLE_MANAGER => 'Project manager',
             self::PROJECT_ROLE_EDITOR => 'Editor',
             self::PROJECT_ROLE_VIEWER => 'Viewer',
         ];
@@ -97,6 +98,10 @@ class Project extends Model
 
     public static function projectRoleLabel(?string $role): string
     {
+        if ($role === self::PROJECT_ROLE_MANAGER) {
+            return 'Editor';
+        }
+
         return self::projectRoleOptions()[$role] ?? 'Editor';
     }
 
@@ -201,10 +206,10 @@ class Project extends Model
             return true;
         }
 
-        return in_array($this->projectRoleFor($user), [
-            self::PROJECT_ROLE_MANAGER,
-            self::PROJECT_ROLE_EDITOR,
-        ], true);
+        $projectRole = $this->projectRoleFor($user);
+
+        return $projectRole !== null
+            && $this->normaliseProjectRole($projectRole) === self::PROJECT_ROLE_EDITOR;
     }
 
     public function canManageAccessBy(?User $user): bool
@@ -216,6 +221,44 @@ class Project extends Model
     public function canBeCollaboratedOnBy(?User $user): bool
     {
         return $this->canBeManagedBy($user);
+    }
+
+    public function canManageLifecycleBy(?User $user): bool
+    {
+        return ! WorkspaceAccess::isReadOnly($this->workspace)
+            && ($this->workspace?->canCreateProjectsBy($user) ?? false);
+    }
+
+    public static function normaliseProjectRole(?string $role): string
+    {
+        return $role === self::PROJECT_ROLE_MANAGER
+            ? self::PROJECT_ROLE_EDITOR
+            : ($role ?: self::PROJECT_ROLE_VIEWER);
+    }
+
+    public function currencyRates(): array
+    {
+        $rates = [];
+
+        foreach ($this->currencies ?? [] as $key => $value) {
+            if (is_array($value)) {
+                $code = strtoupper(trim((string) ($value['code'] ?? $key)));
+                $rate = $value['rate'] ?? null;
+            } else {
+                $code = strtoupper(trim((string) $key));
+                $rate = $value;
+            }
+
+            if ($code === '' || $code === 'EUR' || strlen($code) !== 3 || ! is_numeric($rate) || (float) $rate <= 0) {
+                continue;
+            }
+
+            $rates[$code] = (float) $rate;
+        }
+
+        ksort($rates);
+
+        return ['EUR' => 1.0] + $rates;
     }
 
     /**

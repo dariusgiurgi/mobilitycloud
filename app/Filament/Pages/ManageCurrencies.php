@@ -29,6 +29,11 @@ class ManageCurrencies extends Page
 
     protected string $view = 'filament.pages.manage-currencies';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public array $rows = [];
 
     public static function canAccess(): bool

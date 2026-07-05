@@ -29,14 +29,14 @@ class SecurityHardeningTest extends TestCase
         $this->assertFalse($project->canBeManagedBy($viewer));
     }
 
-    public function test_member_can_manage_a_project(): void
+    public function test_project_editor_can_manage_a_project(): void
     {
         [$workspace, $project] = $this->workspaceAndProject();
-        $member = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'member']);
+        $editor = User::factory()->create();
+        $project->members()->attach($editor, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
-        $this->assertTrue(Gate::forUser($member)->allows('update', $project));
-        $this->assertTrue($project->canBeManagedBy($member));
+        $this->assertTrue(Gate::forUser($editor)->allows('update', $project));
+        $this->assertTrue($project->canBeManagedBy($editor));
     }
 
     public function test_participant_attachment_download_requires_workspace_membership(): void

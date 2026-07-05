@@ -33,7 +33,7 @@ class ListProjects extends ListRecords
                 ->color('gray')
                 ->action(fn () => $this->archived = ! $this->archived)
                 ->visible(fn (): bool => $this->archived
-                    || (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
+                    || (Filament::getTenant()?->canCreateProjectsBy(auth()->user()) ?? false)
                     || Project::onlyTrashed()
                         ->where('workspace_id', Filament::getTenant()?->id)
                         ->accessibleTo(auth()->user(), Filament::getTenant())
@@ -128,7 +128,7 @@ class ListProjects extends ListRecords
     public function restoreProject(int $projectId): void
     {
         $workspace = Filament::getTenant();
-        abort_unless($workspace?->canBeManagedBy(auth()->user()), 403);
+        abort_unless($workspace?->canCreateProjectsBy(auth()->user()), 403);
         $project = Project::onlyTrashed()
             ->where('workspace_id', $workspace->id)
             ->accessibleTo(auth()->user(), $workspace)

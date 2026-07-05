@@ -169,7 +169,7 @@ class ProjectAccessTest extends TestCase
             ->callAction('manageAccess', data: [
                 'collaborators' => [],
                 'invite_email' => 'existing@example.test',
-                'invite_role' => Project::PROJECT_ROLE_MANAGER,
+                'invite_role' => Project::PROJECT_ROLE_EDITOR,
             ]);
 
         $this->assertDatabaseMissing('project_user', [
@@ -180,7 +180,7 @@ class ProjectAccessTest extends TestCase
             'workspace_id' => $workspace->id,
             'project_id' => $project->id,
             'email' => 'existing@example.test',
-            'role' => 'project_manager',
+            'role' => 'project_editor',
             'accepted_at' => null,
         ]);
         Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
@@ -217,7 +217,7 @@ class ProjectAccessTest extends TestCase
         $this->assertDatabaseHas('project_user', [
             'project_id' => $project->id,
             'user_id' => $existing->id,
-            'role' => Project::PROJECT_ROLE_MANAGER,
+            'role' => Project::PROJECT_ROLE_EDITOR,
         ]);
         $this->assertNotNull($invitation->fresh()->accepted_at);
         $this->assertSame($workspace->id, $existing->fresh()->current_workspace_id);

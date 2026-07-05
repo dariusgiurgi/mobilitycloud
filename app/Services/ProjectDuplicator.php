@@ -25,6 +25,7 @@ class ProjectDuplicator
                 'approved_budget' => null,
                 'first_tranche_pct' => $source->first_tranche_pct ?? 80,
                 'withholding_tax_rate' => $source->withholding_tax_rate ?? 10,
+                'currencies' => $copyBudget ? $source->currencies : [],
                 'expense_prefix' => $source->expense_prefix ?: 'EXP',
                 'expense_pad_length' => $source->expense_pad_length ?: 3,
                 'partner_orgs' => $copyPartners ? $source->partner_orgs : [],

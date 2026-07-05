@@ -246,7 +246,7 @@
                     </div>
                     <div class="tile">
                         <strong>Simple roles</strong>
-                        <span>Project access is handled by invitation: Project manager, Editor or Viewer.</span>
+                        <span>Project access is handled by invitation: Editor or Viewer.</span>
                     </div>
                 </div>
 

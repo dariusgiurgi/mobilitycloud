@@ -9,7 +9,6 @@ use App\Models\Expense;
 use App\Services\BudgetTransferService;
 use App\Support\AuthorizesProjectManagement;
 use DomainException;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -70,9 +69,7 @@ class ViewProjectBoard extends Page
 
     public function getCurrencies(): array
     {
-        $currencies = Filament::getTenant()?->currencies ?? [];
-
-        return array_merge(['EUR' => 1], $currencies);
+        return $this->record->currencyRates();
     }
 
     private function extractRate($value): float
@@ -211,7 +208,7 @@ class ViewProjectBoard extends Page
                 $this->reload();
                 Notification::make()
                     ->title('No exchange rate for '.$expense->currency)
-                    ->body('Add a rate in Settings → Currencies, then re-enter the amount. This expense counts as € 0 until then.')
+                    ->body('Add a rate in Project settings → Project currencies, then re-enter the amount. This expense counts as € 0 until then.')
                     ->warning()
                     ->send();
 
