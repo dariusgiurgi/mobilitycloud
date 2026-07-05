@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Filament\Pages\Dashboard;
+use App\Models\Project;
 use App\Models\WorkspaceInvitation;
+use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,8 +36,19 @@ class WorkspaceInvitationController extends Controller
         abort_unless(strcasecmp($request->user()->email, $invitation->email) === 0, 403, 'Sign in with the email address that received this invitation.');
 
         DB::transaction(function () use ($request, $invitation): void {
-            if ($invitation->project_id && $invitation->role === 'project_collaborator') {
-                $invitation->project?->members()->syncWithoutDetaching([$request->user()->id]);
+            if ($invitation->project_id && str_starts_with($invitation->role, 'project_')) {
+                $projectRole = str($invitation->role)->after('project_')->toString();
+                $projectRole = array_key_exists($projectRole, Project::projectRoleOptions()) ? $projectRole : Project::PROJECT_ROLE_EDITOR;
+
+                $invitation->project?->members()->syncWithoutDetaching([
+                    $request->user()->id => ['role' => $projectRole],
+                ]);
+
+                Notification::make()
+                    ->title('Project access granted')
+                    ->body('You now have access to '.$invitation->project?->name.' as '.Project::projectRoleLabel($projectRole).'.')
+                    ->success()
+                    ->sendToDatabase($request->user());
             } else {
                 $invitation->workspace->users()->syncWithoutDetaching([
                     $request->user()->id => [

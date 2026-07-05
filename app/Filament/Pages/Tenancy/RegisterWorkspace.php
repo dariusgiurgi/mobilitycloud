@@ -12,15 +12,25 @@ class RegisterWorkspace extends RegisterTenant
 {
     public static function getLabel(): string
     {
-        return 'Create workspace';
+        return 'Create your first workspace';
+    }
+
+    public function getTitle(): string
+    {
+        return 'Create your first workspace';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Your account is ready. Create the organisation workspace that will own the subscription and the projects you manage.';
     }
 
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Your organisation workspace')
-                    ->description('A workspace keeps one organisation\'s projects, participants, documents and reusable content together. You can complete the legal details later.')
+                Section::make('Organisation workspace')
+                    ->description('The workspace is the billing and ownership container. Projects stay inside it, and collaborators are invited directly to the projects they need.')
                     ->schema([
                         TextInput::make('name')
                             ->label('Workspace name')

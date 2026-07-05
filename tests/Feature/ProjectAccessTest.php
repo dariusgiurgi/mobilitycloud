@@ -34,7 +34,7 @@ class ProjectAccessTest extends TestCase
             'name' => 'Restricted Mobility',
             'status' => 'writing',
         ]);
-        $project->members()->attach($selected);
+        $project->members()->attach($selected, ['role' => Project::PROJECT_ROLE_VIEWER]);
 
         $this->assertTrue($project->canBeAccessedBy($admin));
         $this->assertTrue($project->canBeAccessedBy($selected));
@@ -49,12 +49,12 @@ class ProjectAccessTest extends TestCase
         Livewire::test(ListProjects::class)->assertSee('Restricted Mobility');
     }
 
-    public function test_admin_can_update_project_access_from_overview(): void
+    public function test_workspace_owner_can_update_project_roles_from_overview(): void
     {
         $workspace = Workspace::create(['name' => 'Managed Access']);
-        $admin = User::factory()->create();
+        $owner = User::factory()->create();
         $viewer = User::factory()->create();
-        $workspace->users()->attach($admin, ['role' => 'admin']);
+        $workspace->users()->attach($owner, ['role' => 'owner']);
         $workspace->users()->attach($viewer, ['role' => 'viewer']);
         $project = Project::create([
             'workspace_id' => $workspace->id,
@@ -62,18 +62,26 @@ class ProjectAccessTest extends TestCase
             'status' => 'writing',
         ]);
 
-        $this->actingAs($admin);
+        $this->actingAs($owner);
         Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertActionVisible('manageAccess')
             ->callAction('manageAccess', data: [
-                'access_mode' => 'restricted',
-                'member_ids' => [$viewer->id],
+                'collaborators' => [
+                    ['user_id' => $viewer->id, 'role' => Project::PROJECT_ROLE_VIEWER],
+                ],
+                'invite_email' => '',
+                'invite_role' => Project::PROJECT_ROLE_EDITOR,
             ]);
 
         $this->assertSame('restricted', $project->fresh()->access_mode);
-        $this->assertTrue($project->members()->whereKey($viewer->id)->exists());
+        $this->assertDatabaseHas('project_user', [
+            'project_id' => $project->id,
+            'user_id' => $viewer->id,
+            'role' => Project::PROJECT_ROLE_VIEWER,
+        ]);
+        $this->assertFalse($project->fresh()->canBeCollaboratedOnBy($viewer));
     }
 
     public function test_project_only_collaborator_can_enter_tenant_and_only_see_assigned_projects(): void
@@ -92,7 +100,7 @@ class ProjectAccessTest extends TestCase
             'name' => 'Hidden Project',
             'status' => 'writing',
         ]);
-        $assigned->members()->attach($collaborator);
+        $assigned->members()->attach($collaborator, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->assertTrue($collaborator->canAccessTenant($workspace));
         $this->assertNull($workspace->roleFor($collaborator));
@@ -112,29 +120,29 @@ class ProjectAccessTest extends TestCase
     {
         Notification::fake();
         $workspace = Workspace::create(['name' => 'Invite Project Workspace']);
-        $admin = User::factory()->create();
-        $workspace->users()->attach($admin, ['role' => 'admin']);
+        $owner = User::factory()->create();
+        $workspace->users()->attach($owner, ['role' => 'owner']);
         $project = Project::create([
             'workspace_id' => $workspace->id,
             'name' => 'Invitation Project',
             'status' => 'writing',
         ]);
 
-        $this->actingAs($admin);
+        $this->actingAs($owner);
         Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->callAction('manageAccess', data: [
-                'access_mode' => 'restricted',
-                'member_ids' => [],
+                'collaborators' => [],
                 'invite_email' => 'project-only@example.test',
+                'invite_role' => Project::PROJECT_ROLE_EDITOR,
             ]);
 
         $this->assertDatabaseHas('workspace_invitations', [
             'workspace_id' => $workspace->id,
             'project_id' => $project->id,
             'email' => 'project-only@example.test',
-            'role' => 'project_collaborator',
+            'role' => 'project_editor',
         ]);
         Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
     }

@@ -15,6 +15,12 @@ class Project extends Model
 {
     use SoftDeletes;
 
+    public const PROJECT_ROLE_MANAGER = 'manager';
+
+    public const PROJECT_ROLE_EDITOR = 'editor';
+
+    public const PROJECT_ROLE_VIEWER = 'viewer';
+
     public const DEFAULT_BUDGET_LINES = [
         ['title' => 'Travel',                 'emoji' => '✈️', 'color' => '#3b82f6', 'sort_order' => 0],
         ['title' => 'Individual Support',     'emoji' => '🙋', 'color' => '#22c55e', 'sort_order' => 1],
@@ -75,7 +81,34 @@ class Project extends Model
 
     public function members(): BelongsToMany
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        return $this->belongsToMany(User::class)
+            ->withPivot('role')
+            ->withTimestamps();
+    }
+
+    public static function projectRoleOptions(): array
+    {
+        return [
+            self::PROJECT_ROLE_MANAGER => 'Project manager',
+            self::PROJECT_ROLE_EDITOR => 'Editor',
+            self::PROJECT_ROLE_VIEWER => 'Viewer',
+        ];
+    }
+
+    public static function projectRoleLabel(?string $role): string
+    {
+        return self::projectRoleOptions()[$role] ?? 'Editor';
+    }
+
+    public function projectRoleFor(?User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $member = $this->members()->whereKey($user->id)->first();
+
+        return $member?->pivot?->role;
     }
 
     public function scopeAccessibleTo(Builder $query, ?User $user, ?Workspace $workspace = null): Builder
@@ -160,22 +193,29 @@ class Project extends Model
 
     public function canBeManagedBy(?User $user): bool
     {
-        if (! $user) {
-            return false;
-        }
-
-        return $this->canBeAccessedBy($user)
-            && ($this->workspace?->canBeManagedBy($user) ?? false);
-    }
-
-    public function canBeCollaboratedOnBy(?User $user): bool
-    {
         if (! $user || ! $this->canBeAccessedBy($user) || WorkspaceAccess::isReadOnly($this->workspace)) {
             return false;
         }
 
-        return ($this->workspace?->canBeManagedBy($user) ?? false)
-            || $this->members()->whereKey($user->id)->exists();
+        if ($this->workspace?->canCreateProjectsBy($user) ?? false) {
+            return true;
+        }
+
+        return in_array($this->projectRoleFor($user), [
+            self::PROJECT_ROLE_MANAGER,
+            self::PROJECT_ROLE_EDITOR,
+        ], true);
+    }
+
+    public function canManageAccessBy(?User $user): bool
+    {
+        return ! WorkspaceAccess::isReadOnly($this->workspace)
+            && ($this->workspace?->canCreateProjectsBy($user) ?? false);
+    }
+
+    public function canBeCollaboratedOnBy(?User $user): bool
+    {
+        return $this->canBeManagedBy($user);
     }
 
     /**

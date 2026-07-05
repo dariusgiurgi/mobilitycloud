@@ -13,6 +13,7 @@ use App\Services\ProjectReadinessCheck;
 use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -71,60 +72,97 @@ class ViewProjectOverview extends Page
                 ->label('Project access')
                 ->icon('heroicon-o-lock-closed')
                 ->color('gray')
-                ->modalHeading('Control project access')
-                ->modalDescription('Workspace owners and admins always retain access. Choose whether other collaborators see this project.')
+                ->modalHeading('Project collaborators')
+                ->modalDescription('Workspace owners keep financial responsibility. Add people directly to this project and choose what they can do.')
                 ->fillForm(fn (): array => [
-                    'access_mode' => $this->record->access_mode ?: 'workspace',
-                    'member_ids' => $this->record->members()->pluck('users.id')->all(),
+                    'collaborators' => $this->record->members()
+                        ->orderBy('name')
+                        ->get()
+                        ->map(fn (User $user): array => [
+                            'user_id' => $user->id,
+                            'role' => $user->pivot->role ?: 'editor',
+                        ])
+                        ->values()
+                        ->all(),
                     'invite_email' => '',
+                    'invite_role' => 'editor',
                 ])
                 ->form([
-                    Select::make('access_mode')
-                        ->label('Visibility')
-                        ->options([
-                            'workspace' => 'Everyone in this workspace',
-                            'restricted' => 'Only selected collaborators',
+                    Repeater::make('collaborators')
+                        ->label('People with project access')
+                        ->schema([
+                            Select::make('user_id')
+                                ->label('Person')
+                                ->options(fn (): array => $this->projectCollaboratorOptions())
+                                ->searchable()
+                                ->preload()
+                                ->required()
+                                ->native(false)
+                                ->columnSpan(2),
+                            Select::make('role')
+                                ->label('Role')
+                                ->options(\App\Models\Project::projectRoleOptions())
+                                ->default('editor')
+                                ->required()
+                                ->native(false)
+                                ->columnSpan(1),
                         ])
-                        ->required()
-                        ->native(false),
-                    Select::make('member_ids')
-                        ->label('Selected collaborators')
-                        ->multiple()
-                        ->searchable()
-                        ->preload()
-                        ->options(fn (): array => $this->projectCollaboratorOptions())
-                        ->helperText('Owners and admins are included automatically. Project-only collaborators appear here after they accept or if they already have an account.'),
+                        ->columns(3)
+                        ->defaultItems(0)
+                        ->addActionLabel('Add existing user')
+                        ->itemLabel(fn (array $state): ?string => isset($state['user_id'])
+                            ? ($this->projectCollaboratorOptions()[$state['user_id']] ?? 'Collaborator')
+                            : 'Collaborator')
+                        ->helperText('Project manager and Editor can work in the project. Viewer can only read. The workspace owner is included automatically and is not listed here.'),
                     TextInput::make('invite_email')
-                        ->label('Invite a project-only collaborator')
+                        ->label('Invite by email')
                         ->email()
                         ->maxLength(255)
                         ->placeholder('collaborator@example.org')
-                        ->helperText('Optional. This person will only see this project, not the full workspace.'),
+                        ->helperText('Optional. If the account exists, they receive an in-app notification. Otherwise they receive an email invitation.'),
+                    Select::make('invite_role')
+                        ->label('Invitation role')
+                        ->options(\App\Models\Project::projectRoleOptions())
+                        ->default('editor')
+                        ->required()
+                        ->native(false),
                 ])
                 ->action(function (array $data): void {
-                    abort_unless($this->record->workspace->canManageMembersBy(auth()->user()), 403);
-                    abort_unless(in_array($data['access_mode'], ['workspace', 'restricted'], true), 422);
-                    $requestedIds = collect($data['member_ids'] ?? [])->map(fn ($id) => (int) $id)->filter()->all();
+                    abort_unless($this->record->canManageAccessBy(auth()->user()), 403);
+
+                    $roles = array_keys(\App\Models\Project::projectRoleOptions());
                     $allowedIds = $this->projectCollaboratorQuery()
-                        ->whereKey($requestedIds)
                         ->pluck('users.id')
+                        ->map(fn ($id): int => (int) $id)
                         ->all();
-                    $this->record->update(['access_mode' => $data['access_mode']]);
-                    $this->record->members()->sync($allowedIds);
+
+                    $sync = collect($data['collaborators'] ?? [])
+                        ->mapWithKeys(function (array $row) use ($allowedIds, $roles): array {
+                            $userId = (int) ($row['user_id'] ?? 0);
+                            $role = in_array($row['role'] ?? null, $roles, true) ? $row['role'] : 'editor';
+
+                            return $userId > 0 && in_array($userId, $allowedIds, true)
+                                ? [$userId => ['role' => $role]]
+                                : [];
+                        })
+                        ->all();
+
+                    $this->record->update(['access_mode' => 'restricted']);
+                    $this->record->members()->sync($sync);
 
                     $email = Str::lower(trim($data['invite_email'] ?? ''));
                     if ($email !== '') {
-                        $this->inviteProjectCollaborator($email);
+                        $this->inviteProjectCollaborator($email, $data['invite_role'] ?? 'editor');
                     }
 
                     Notification::make()->title('Project access updated')->success()->send();
                 })
-                ->visible(fn (): bool => $this->record->workspace->canManageMembersBy(auth()->user())),
+                ->visible(fn (): bool => $this->record->canManageAccessBy(auth()->user())),
             Action::make('addTask')
                 ->label('Add task')
                 ->icon('heroicon-o-plus')
                 ->action(fn () => $this->openTaskCreate())
-                ->visible(fn (): bool => $this->record->canBeManagedBy(auth()->user())),
+                ->visible(fn (): bool => $this->record->canBeCollaboratedOnBy(auth()->user())),
         ];
     }
 
@@ -240,7 +278,7 @@ class ViewProjectOverview extends Page
             ->orderBy('name')
             ->get()
             ->mapWithKeys(fn (User $user): array => [
-                $user->id => $user->name.' · '.$user->email.($this->record->workspace->isProjectOnlyFor($user) ? ' · project-only' : ''),
+                $user->id => $user->name.' · '.$user->email.($this->record->workspace->isProjectOnlyFor($user) ? ' · project collaborator' : ''),
             ])
             ->all();
     }
@@ -248,11 +286,17 @@ class ViewProjectOverview extends Page
     private function projectCollaboratorQuery()
     {
         $workspaceMemberIds = $this->record->workspace->users()
-            ->wherePivotIn('role', ['member', 'viewer'])
+            ->wherePivotIn('role', ['admin', 'member', 'viewer'])
             ->pluck('users.id');
         $projectMemberIds = $this->record->members()->pluck('users.id');
 
-        return User::query()->whereIn('id', $workspaceMemberIds->merge($projectMemberIds)->unique()->values());
+        $ownerIds = $this->record->workspace->users()
+            ->wherePivot('role', 'owner')
+            ->pluck('users.id');
+
+        return User::query()
+            ->whereIn('id', $workspaceMemberIds->merge($projectMemberIds)->unique()->values())
+            ->whereNotIn('id', $ownerIds);
     }
 
     private function projectAssigneeIds()
@@ -264,26 +308,32 @@ class ViewProjectOverview extends Page
             ->values();
     }
 
-    private function inviteProjectCollaborator(string $email): void
+    private function inviteProjectCollaborator(string $email, string $role): void
     {
         $workspace = $this->record->workspace;
+        $role = in_array($role, array_keys(\App\Models\Project::projectRoleOptions()), true) ? $role : 'editor';
 
-        if ($workspace->users()->whereRaw('LOWER(email) = ?', [$email])->wherePivotIn('role', ['owner', 'admin'])->exists()) {
+        if ($workspace->users()->whereRaw('LOWER(email) = ?', [$email])->wherePivot('role', 'owner')->exists()) {
             return;
         }
 
         if ($user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first()) {
-            $this->record->members()->syncWithoutDetaching([$user->id]);
+            $this->record->members()->syncWithoutDetaching([
+                $user->id => ['role' => $role],
+            ]);
+            $this->sendProjectAccessNotification($user, $role);
 
             return;
         }
 
         $invitation = $workspace->invitations()->updateOrCreate(
-            ['email' => $email],
             [
+                'email' => $email,
                 'project_id' => $this->record->id,
+            ],
+            [
                 'invited_by' => auth()->id(),
-                'role' => 'project_collaborator',
+                'role' => 'project_'.$role,
                 'token' => Str::random(64),
                 'expires_at' => now()->addDays(7),
                 'accepted_at' => null,
@@ -292,6 +342,15 @@ class ViewProjectOverview extends Page
 
         NotificationFacade::route('mail', $email)
             ->notify(new WorkspaceInvitationNotification($invitation));
+    }
+
+    private function sendProjectAccessNotification(User $user, string $role): void
+    {
+        Notification::make()
+            ->title('Project access granted')
+            ->body('You were added to '.$this->record->name.' as '.\App\Models\Project::projectRoleLabel($role).'.')
+            ->success()
+            ->sendToDatabase($user);
     }
 
     public function openTaskCreate(): void

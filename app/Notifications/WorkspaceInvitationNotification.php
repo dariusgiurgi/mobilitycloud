@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\WorkspaceInvitation;
+use App\Models\Project;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -22,8 +23,8 @@ class WorkspaceInvitationNotification extends Notification
     {
         $workspace = $this->invitation->workspace;
         $project = $this->invitation->project;
-        $accessLabel = $this->invitation->role === 'project_collaborator'
-            ? 'Project-only collaborator'
+        $accessLabel = str_starts_with($this->invitation->role, 'project_')
+            ? Project::projectRoleLabel(str($this->invitation->role)->after('project_')->toString())
             : ucfirst($this->invitation->role);
 
         return (new MailMessage)

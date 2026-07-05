@@ -23,6 +23,7 @@ class CreateProject extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['workspace_id'] = Filament::getTenant()->getKey();
+        $data['access_mode'] = 'restricted';
 
         return $data;
     }

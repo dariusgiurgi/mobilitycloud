@@ -57,7 +57,9 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function projects(): BelongsToMany
     {
-        return $this->belongsToMany(Project::class)->withTimestamps();
+        return $this->belongsToMany(Project::class)
+            ->withPivot('role')
+            ->withTimestamps();
     }
 
     public function supportNotes(): HasMany
