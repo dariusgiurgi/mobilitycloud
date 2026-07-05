@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Tenancy;
 
 use App\Models\Workspace;
+use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Tenancy\RegisterTenant;
 use Filament\Schemas\Components\Section;
@@ -12,25 +13,25 @@ class RegisterWorkspace extends RegisterTenant
 {
     public static function getLabel(): string
     {
-        return 'Create your first workspace';
+        return 'Set up your organisation';
     }
 
     public function getTitle(): string
     {
-        return 'Create your first workspace';
+        return 'Set up your organisation';
     }
 
     public function getSubheading(): ?string
     {
-        return 'Your account is ready. Create the organisation workspace that will own the subscription and the projects you manage.';
+        return 'Your account is ready. Add the organisation that will own the subscription and the projects you manage.';
     }
 
     public function form(Schema $schema): Schema
     {
         return $schema
             ->components([
-                Section::make('Organisation workspace')
-                    ->description('The workspace is the billing and ownership container. Projects stay inside it, and collaborators are invited directly to the projects they need.')
+                Section::make('Organisation details')
+                    ->description('This organisation owns the subscription. Projects stay inside it, and collaborators are invited directly to the projects they need.')
                     ->schema([
                         TextInput::make('name')
                             ->label('Workspace name')
@@ -52,5 +53,11 @@ class RegisterWorkspace extends RegisterTenant
         ]);
 
         return $workspace;
+    }
+
+    public function getRegisterFormAction(): Action
+    {
+        return parent::getRegisterFormAction()
+            ->label('Continue');
     }
 }

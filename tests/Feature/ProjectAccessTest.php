@@ -61,6 +61,7 @@ class ProjectAccessTest extends TestCase
             'name' => 'Shared Project',
             'status' => 'writing',
         ]);
+        $project->members()->attach($viewer, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($owner);
         Filament::setTenant($workspace);
@@ -145,6 +146,44 @@ class ProjectAccessTest extends TestCase
             'role' => 'project_editor',
         ]);
         Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
+    }
+
+    public function test_inviting_existing_user_sends_email_and_in_app_notification(): void
+    {
+        Notification::fake();
+        $workspace = Workspace::create(['name' => 'Invite Existing Workspace']);
+        $owner = User::factory()->create();
+        $existing = User::factory()->create(['email' => 'existing@example.test']);
+        $workspace->users()->attach($owner, ['role' => 'owner']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Existing User Project',
+            'status' => 'writing',
+        ]);
+
+        $this->actingAs($owner);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->callAction('manageAccess', data: [
+                'collaborators' => [],
+                'invite_email' => 'existing@example.test',
+                'invite_role' => Project::PROJECT_ROLE_MANAGER,
+            ]);
+
+        $this->assertDatabaseHas('project_user', [
+            'project_id' => $project->id,
+            'user_id' => $existing->id,
+            'role' => Project::PROJECT_ROLE_MANAGER,
+        ]);
+        $this->assertDatabaseHas('workspace_invitations', [
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'email' => 'existing@example.test',
+            'role' => 'project_manager',
+        ]);
+        Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
+        Notification::assertSentTo($existing, \Filament\Notifications\DatabaseNotification::class);
     }
 
     public function test_project_routes_cannot_cross_workspace_or_restricted_access_boundaries(): void

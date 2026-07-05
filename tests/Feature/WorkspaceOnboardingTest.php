@@ -24,7 +24,8 @@ class WorkspaceOnboardingTest extends TestCase
         $this->actingAs($user)
             ->get('/app/new')
             ->assertOk()
-            ->assertSee('Create workspace');
+            ->assertSee('Set up your organisation')
+            ->assertDontSee('Create workspace');
     }
 
     public function test_workspace_profile_groups_identity_and_legal_details(): void

@@ -8,7 +8,6 @@ use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\ManageCurrencies;
-use App\Filament\Pages\ManageWorkspaceTeam;
 use App\Filament\Pages\MyTasks;
 use App\Filament\Pages\NotificationPreferences;
 use App\Filament\Pages\PublicLibrary;
@@ -124,7 +123,6 @@ class AdminPanelProvider extends PanelProvider
                 GlobalSearch::class,
                 IndividualSupportCalculator::class,
                 ManageCurrencies::class,
-                ManageWorkspaceTeam::class,
                 MyTasks::class,
                 NotificationPreferences::class,
                 PublicLibrary::class,

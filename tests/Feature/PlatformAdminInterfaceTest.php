@@ -6,7 +6,6 @@ use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\ManageCurrencies;
-use App\Filament\Pages\ManageWorkspaceTeam;
 use App\Filament\Pages\MyTasks;
 use App\Filament\Pages\PublicLibrary;
 use App\Filament\Pages\WorkspaceCalendar;
@@ -68,7 +67,6 @@ class PlatformAdminInterfaceTest extends TestCase
         $this->assertTrue(ProjectResource::canAccess());
         $this->assertTrue(ContentBlockResource::canAccess());
         $this->assertTrue(GlobalSearch::canAccess());
-        $this->assertTrue(ManageWorkspaceTeam::canAccess());
         $this->assertFalse(PublicBlockReportResource::shouldRegisterNavigation());
     }
 
@@ -85,7 +83,6 @@ class PlatformAdminInterfaceTest extends TestCase
             IndividualSupportCalculator::class,
             PublicLibrary::class,
             ManageCurrencies::class,
-            ManageWorkspaceTeam::class,
             WorkspaceData::class,
             DocumentTemplates::class,
         ] as $module) {
