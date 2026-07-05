@@ -103,12 +103,17 @@ class DashboardTest extends TestCase
 
         $this->actingAs($user);
         Filament::setTenant($workspace);
+        $this->assertSame(0, $user->notifications()->count());
 
         Livewire::test(DashboardWorkspace::class)
             ->assertSee('Pending invitations')
             ->assertSee('Shared Project')
             ->assertSee('Inviting Portfolio')
             ->assertSee('Accept');
+
+        $notification = $user->notifications()->sole();
+        $this->assertSame('Project invitation received', $notification->data['title']);
+        $this->assertSame($invitedProject->id, data_get($notification->data, 'viewData.project_id'));
     }
 
     public function test_workspace_member_can_render_the_complete_dashboard_page(): void

@@ -7,6 +7,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\WorkspaceInvitation;
 use App\Services\ProjectReadinessCheck;
+use App\Services\ProjectInvitationNotificationService;
 use App\Services\TaskReminderService;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
@@ -24,6 +25,10 @@ class DashboardWorkspace extends Widget
 
     protected function getViewData(): array
     {
+        if (auth()->user()) {
+            app(ProjectInvitationNotificationService::class)->syncPendingFor(auth()->user());
+        }
+
         auth()->user()?->getTenants(filament()->getPanel('admin'))
             ->each(fn ($workspace) => app(TaskReminderService::class)->dispatch($workspace->id));
 

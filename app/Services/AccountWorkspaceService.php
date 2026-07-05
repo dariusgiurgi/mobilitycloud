@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Support\Str;
@@ -40,6 +41,15 @@ class AccountWorkspaceService
     public function preferredFor(User $user): Workspace
     {
         return $this->ensureFor($user);
+    }
+
+    public function ownedProjectCount(User $user): int
+    {
+        return Project::query()
+            ->whereHas('workspace.users', fn ($members) => $members
+                ->whereKey($user->id)
+                ->where('workspace_user.role', 'owner'))
+            ->count();
     }
 
     private function setCurrent(User $user, Workspace $workspace): void

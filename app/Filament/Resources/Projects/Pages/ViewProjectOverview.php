@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\WorkspaceInvitation;
 use App\Notifications\WorkspaceInvitationNotification;
 use App\Services\ProjectDocumentChecklist;
+use App\Services\ProjectInvitationNotificationService;
 use App\Services\ProjectReadinessCheck;
 use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
@@ -309,24 +310,8 @@ class ViewProjectOverview extends Page
             ->notify(new WorkspaceInvitationNotification($invitation));
 
         if ($user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first()) {
-            $this->sendProjectInvitationNotification($user, $invitation, $role);
+            app(ProjectInvitationNotificationService::class)->notifyExistingAccount($invitation, $user);
         }
-    }
-
-    private function sendProjectInvitationNotification(User $user, WorkspaceInvitation $invitation, string $role): void
-    {
-        Notification::make()
-            ->title('Project invitation received')
-            ->body('You were invited to '.$this->record->name.' as '.\App\Models\Project::projectRoleLabel($role).'. Accept the invitation to get access.')
-            ->info()
-            ->actions([
-                Action::make('acceptProjectInvitation')
-                    ->label('Accept invitation')
-                    ->button()
-                    ->markAsRead()
-                    ->url(route('workspace-invitations.accept', $invitation->token)),
-            ])
-            ->sendToDatabase($user, isEventDispatched: true);
     }
 
     public function openTaskCreate(): void

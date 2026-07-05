@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
-use Filament\Facades\Filament;
+use App\Services\AccountWorkspaceService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateProject extends CreateRecord
@@ -22,7 +22,7 @@ class CreateProject extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['workspace_id'] = Filament::getTenant()->getKey();
+        $data['workspace_id'] = app(AccountWorkspaceService::class)->ensureFor(auth()->user())->getKey();
         $data['access_mode'] = 'restricted';
 
         return $data;
@@ -30,6 +30,6 @@ class CreateProject extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return ProjectResource::getUrl('overview', ['record' => $this->record]);
+        return ProjectResource::getUrl('overview', ['record' => $this->record], tenant: $this->record->workspace);
     }
 }

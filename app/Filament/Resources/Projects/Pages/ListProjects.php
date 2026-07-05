@@ -4,10 +4,10 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Services\AccountWorkspaceService;
 use App\Services\ProjectDuplicator;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
-use Filament\Facades\Filament;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -33,7 +33,7 @@ class ListProjects extends ListRecords
                 ->color('gray')
                 ->action(fn () => $this->archived = ! $this->archived)
                 ->visible(fn (): bool => $this->archived
-                    || (Filament::getTenant()?->canCreateProjectsBy(auth()->user()) ?? false)
+                    || (auth()->user()?->can('create', Project::class) ?? false)
                     || Project::onlyTrashed()
                         ->visibleToAccount(auth()->user())
                         ->exists()),
@@ -77,7 +77,11 @@ class ListProjects extends ListRecords
                     $source = Project::query()
                         ->visibleToAccount(auth()->user())
                         ->findOrFail($data['source_id']);
-                    $copy = $duplicator->duplicate($source, $data);
+                    $copy = $duplicator->duplicate(
+                        $source,
+                        $data,
+                        app(AccountWorkspaceService::class)->ensureFor(auth()->user()),
+                    );
 
                     Notification::make()
                         ->title('Project copy created')
@@ -85,7 +89,7 @@ class ListProjects extends ListRecords
                         ->success()
                         ->send();
 
-                    $this->redirect(ProjectResource::getUrl('overview', ['record' => $copy]));
+                    $this->redirect(ProjectResource::getUrl('overview', ['record' => $copy], tenant: $copy->workspace));
                 })
                 ->visible(fn (): bool => ! $this->archived
                     && (auth()->user()?->can('create', Project::class) ?? false)

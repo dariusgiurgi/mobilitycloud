@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -44,7 +45,7 @@ class ProjectListTest extends TestCase
             ->assertSee('Open project');
     }
 
-    public function test_only_workspace_owner_sees_create_project_action(): void
+    public function test_project_creation_uses_the_authenticated_users_own_plan(): void
     {
         $workspace = Workspace::create(['name' => 'Creation Workspace']);
         $owner = User::factory()->create();
@@ -58,6 +59,46 @@ class ProjectListTest extends TestCase
 
         $this->actingAs($member);
         Filament::setTenant($workspace);
+        Livewire::test(ListProjects::class)->assertSee('New project');
+
+        $memberAccount = app(AccountWorkspaceService::class)->ensureFor($member);
+        Project::create([
+            'workspace_id' => $memberAccount->id,
+            'name' => 'Member Own Free Project',
+            'status' => 'writing',
+        ]);
+
+        Livewire::test(ListProjects::class)->assertDontSee('New project');
+    }
+
+    public function test_invited_projects_do_not_consume_the_free_project_limit(): void
+    {
+        $invitingWorkspace = Workspace::create(['name' => 'External Owner']);
+        $owner = User::factory()->create();
+        $user = User::factory()->create();
+        $invitingWorkspace->users()->attach($owner, ['role' => 'owner']);
+
+        $shared = Project::create([
+            'workspace_id' => $invitingWorkspace->id,
+            'name' => 'Shared External Project',
+            'status' => 'writing',
+        ]);
+        $shared->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+
+        $this->actingAs($user);
+        Filament::setTenant($invitingWorkspace);
+
+        Livewire::test(ListProjects::class)
+            ->assertSee('Shared External Project')
+            ->assertSee('New project');
+
+        $userAccount = app(AccountWorkspaceService::class)->ensureFor($user);
+        Project::create([
+            'workspace_id' => $userAccount->id,
+            'name' => 'My Free Plan Project',
+            'status' => 'writing',
+        ]);
+
         Livewire::test(ListProjects::class)->assertDontSee('New project');
     }
 

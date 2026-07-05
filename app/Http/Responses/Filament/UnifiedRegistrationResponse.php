@@ -5,6 +5,7 @@ namespace App\Http\Responses\Filament;
 use App\Models\User;
 use App\Services\AccountWorkspaceService;
 use App\Filament\Pages\Dashboard;
+use App\Services\ProjectInvitationNotificationService;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Features\SupportRedirects\Redirector;
@@ -25,6 +26,7 @@ class UnifiedRegistrationResponse implements RegistrationResponse
 
         if ($user instanceof User) {
             $workspace = app(AccountWorkspaceService::class)->ensureFor($user);
+            app(ProjectInvitationNotificationService::class)->syncPendingFor($user);
 
             return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
         }

@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
 use App\Notifications\WorkspaceInvitationNotification;
+use App\Services\ProjectInvitationNotificationService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use Filament\Facades\Filament;
@@ -117,7 +118,7 @@ class ProjectAccessTest extends TestCase
         Livewire::test(ListProjects::class)
             ->assertSee('Assigned Project')
             ->assertDontSee('Hidden Project')
-            ->assertDontSee('New project');
+            ->assertSee('New project');
     }
 
     public function test_project_collaborators_have_the_same_application_menu_modules_as_the_owner(): void
@@ -225,6 +226,39 @@ class ProjectAccessTest extends TestCase
         ]);
         Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
         Notification::assertSentTo($existing, \Filament\Notifications\DatabaseNotification::class);
+    }
+
+    public function test_project_invitation_creates_an_in_app_notification_for_existing_account(): void
+    {
+        $workspace = Workspace::create(['name' => 'In App Invite Workspace']);
+        $owner = User::factory()->create(['name' => 'Darius Owner']);
+        $existing = User::factory()->create(['email' => 'existing@example.test']);
+        $workspace->users()->attach($owner, ['role' => 'owner']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Visible Invitation Project',
+            'status' => 'writing',
+        ]);
+        $invitation = WorkspaceInvitation::create([
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'email' => 'existing@example.test',
+            'role' => 'project_viewer',
+            'token' => str_repeat('e', 64),
+            'expires_at' => now()->addDays(3),
+            'invited_by' => $owner->id,
+        ]);
+
+        $this->assertTrue(app(ProjectInvitationNotificationService::class)->notifyExistingAccount($invitation));
+
+        $notification = $existing->notifications()->sole();
+        $this->assertSame('Project invitation received', $notification->data['title']);
+        $this->assertStringContainsString('Darius Owner invited you to Visible Invitation Project as Viewer', $notification->data['body']);
+        $this->assertSame($invitation->id, data_get($notification->data, 'viewData.invitation_id'));
+        $this->assertNotEmpty($notification->data['actions']);
+
+        $this->assertFalse(app(ProjectInvitationNotificationService::class)->notifyExistingAccount($invitation));
+        $this->assertSame(1, $existing->notifications()->count());
     }
 
     public function test_project_invitation_grants_access_only_after_acceptance(): void

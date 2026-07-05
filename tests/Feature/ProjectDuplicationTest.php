@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use App\Services\ProjectDuplicator;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -100,7 +101,7 @@ class ProjectDuplicationTest extends TestCase
         $this->assertTrue($copy->budgetLines()->get()->every(fn ($line): bool => (float) $line->allocated_budget === 0.0));
     }
 
-    public function test_duplicate_action_is_available_only_to_workspace_owner(): void
+    public function test_duplicate_action_uses_the_authenticated_users_own_project_limit(): void
     {
         [$workspace, $owner] = $this->workspaceUserAndProject('owner');
         $this->actingAs($owner);
@@ -112,6 +113,15 @@ class ProjectDuplicationTest extends TestCase
         $workspace->users()->attach($member, ['role' => 'member']);
         $this->actingAs($member);
         Filament::setTenant($workspace);
+
+        Livewire::test(ListProjects::class)->assertSee('Duplicate project');
+
+        $memberAccount = app(AccountWorkspaceService::class)->ensureFor($member);
+        Project::create([
+            'workspace_id' => $memberAccount->id,
+            'name' => 'Member Existing Free Project',
+            'status' => 'writing',
+        ]);
 
         Livewire::test(ListProjects::class)->assertDontSee('Duplicate project');
     }
@@ -134,6 +144,29 @@ class ProjectDuplicationTest extends TestCase
         $copy = Project::query()->where('name', 'Duplicated through action')->firstOrFail();
         $this->assertSame('writing', $copy->status);
         $this->assertSame($workspace->id, $copy->workspace_id);
+    }
+
+    public function test_duplicate_action_copies_shared_projects_into_the_users_own_account(): void
+    {
+        [$workspace, , $source] = $this->workspaceUserAndProject('owner');
+        $collaborator = User::factory()->create();
+        $source->members()->attach($collaborator, ['role' => Project::PROJECT_ROLE_EDITOR]);
+
+        $this->actingAs($collaborator);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ListProjects::class)
+            ->callAction('duplicateProject', data: [
+                'source_id' => $source->id,
+                'name' => 'Own copied draft',
+                'copy_application' => true,
+                'copy_budget' => true,
+                'copy_partners' => true,
+            ]);
+
+        $copy = Project::query()->where('name', 'Own copied draft')->firstOrFail();
+        $this->assertSame(app(AccountWorkspaceService::class)->ensureFor($collaborator)->id, $copy->workspace_id);
+        $this->assertNotSame($workspace->id, $copy->workspace_id);
     }
 
     public function test_duplicate_button_can_mount_its_modal(): void
