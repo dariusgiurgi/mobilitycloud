@@ -86,6 +86,9 @@ class ProjectListTest extends TestCase
 
         Livewire::test(ListProjects::class)
             ->assertSee('Owned Project')
-            ->assertSee('Shared Project');
+            ->assertSee('Shared Project')
+            ->assertSee('Your project')
+            ->assertSee('Owner: Second Internal Container')
+            ->assertSee('Editor');
     }
 }

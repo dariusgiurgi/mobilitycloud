@@ -111,6 +111,12 @@ class Project extends Model
             return null;
         }
 
+        if ($this->relationLoaded('members')) {
+            $member = $this->members->firstWhere('id', $user->id);
+
+            return $member?->pivot?->role;
+        }
+
         $member = $this->members()->whereKey($user->id)->first();
 
         return $member?->pivot?->role;
@@ -151,7 +157,7 @@ class Project extends Model
             $query
                 ->whereHas('workspace.users', fn (Builder $members) => $members
                     ->whereKey($user->id)
-                    ->wherePivotIn('role', ['owner', 'admin']))
+                    ->whereIn('workspace_user.role', ['owner', 'admin']))
                 ->orWhere(function (Builder $query) use ($user): void {
                     $query
                         ->where('access_mode', 'workspace')
@@ -230,6 +236,58 @@ class Project extends Model
 
         return $projectRole !== null
             && $this->normaliseProjectRole($projectRole) === self::PROJECT_ROLE_EDITOR;
+    }
+
+    public function owner(): ?User
+    {
+        return $this->workspace?->owner();
+    }
+
+    public function isOwnedBy(?User $user): bool
+    {
+        return $user !== null
+            && $this->workspace?->roleFor($user) === 'owner';
+    }
+
+    public function ownerLabelFor(?User $user): ?string
+    {
+        if ($this->isOwnedBy($user)) {
+            return null;
+        }
+
+        $owner = $this->owner();
+
+        if ($owner) {
+            return 'Owner: '.$owner->name;
+        }
+
+        if ($this->workspace?->name) {
+            return 'Owner: '.$this->workspace->name;
+        }
+
+        return 'Shared project';
+    }
+
+    public function accessLabelFor(?User $user): string
+    {
+        if ($this->isOwnedBy($user)) {
+            return 'Owner';
+        }
+
+        $projectRole = $this->projectRoleFor($user);
+
+        if ($projectRole !== null) {
+            return self::projectRoleLabel(self::normaliseProjectRole($projectRole));
+        }
+
+        $workspaceRole = $user ? $this->workspace?->roleFor($user) : null;
+
+        return match ($workspaceRole) {
+            'admin' => 'Admin access',
+            'member' => 'Editor',
+            'viewer' => 'Viewer',
+            default => 'Shared',
+        };
     }
 
     public function canManageAccessBy(?User $user): bool

@@ -75,7 +75,7 @@ class ViewProjectOverview extends Page
                 ->icon('heroicon-o-lock-closed')
                 ->color('gray')
                 ->modalHeading('Project collaborators')
-                ->modalDescription('Workspace owners keep financial responsibility. Add people directly to this project and choose what they can do.')
+                ->modalDescription('The project owner keeps financial responsibility. Invite people directly to this project and choose what they can do.')
                 ->fillForm(fn (): array => [
                     'collaborators' => $this->record->members()
                         ->orderBy('name')

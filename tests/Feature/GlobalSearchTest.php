@@ -55,4 +55,38 @@ class GlobalSearchTest extends TestCase
             ->assertSee('Aurora mandate')
             ->assertDontSee($hidden->name);
     }
+
+    public function test_search_uses_the_full_accessible_project_portfolio(): void
+    {
+        $home = Workspace::create(['name' => 'Home Portfolio']);
+        $sharedWorkspace = Workspace::create(['name' => 'Shared Portfolio']);
+        $user = User::factory()->create();
+        $home->users()->attach($user, ['role' => 'owner']);
+        $homeProject = Project::create([
+            'workspace_id' => $home->id,
+            'name' => 'Home Aurora',
+            'status' => 'active',
+        ]);
+        $sharedProject = Project::create([
+            'workspace_id' => $sharedWorkspace->id,
+            'name' => 'Shared Aurora',
+            'status' => 'active',
+        ]);
+        $sharedProject->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
+
+        Participant::create([
+            'project_id' => $sharedProject->id,
+            'first_name' => 'Aurora',
+            'last_name' => 'Shared',
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($home);
+
+        Livewire::test(GlobalSearch::class)
+            ->set('search', 'Aurora')
+            ->assertSee($homeProject->name)
+            ->assertSee($sharedProject->name)
+            ->assertSee('Aurora Shared');
+    }
 }

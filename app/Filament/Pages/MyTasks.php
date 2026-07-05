@@ -7,7 +7,6 @@ use App\Models\ProjectTask;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -58,7 +57,7 @@ class MyTasks extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Your assigned actions across every project in this workspace.';
+        return 'Your assigned actions across every project you can access.';
     }
 
     public function updated(string $property): void
@@ -71,7 +70,7 @@ class MyTasks extends Page
     public function getTasks()
     {
         return $this->filteredQuery()
-            ->with('project')
+            ->with('project.workspace')
             ->orderByRaw("CASE status WHEN 'open' THEN 0 ELSE 1 END")
             ->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('due_date')
@@ -115,7 +114,7 @@ class MyTasks extends Page
 
     public function getProjectUrl(ProjectTask $task): string
     {
-        return ProjectResource::getUrl('overview', ['record' => $task->project]).'#project-tasks';
+        return ProjectResource::getUrl('overview', ['record' => $task->project], tenant: $task->project?->workspace).'#project-tasks';
     }
 
     private function filteredQuery(): Builder
@@ -140,8 +139,6 @@ class MyTasks extends Page
     {
         return ProjectTask::query()
             ->where('assigned_to', auth()->id())
-            ->whereHas('project', fn (Builder $query) => $query
-                ->where('workspace_id', Filament::getTenant()?->id)
-                ->accessibleTo(auth()->user(), Filament::getTenant()));
+            ->whereHas('project', fn (Builder $query) => $query->visibleToAccount(auth()->user()));
     }
 }

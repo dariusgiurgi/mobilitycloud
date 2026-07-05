@@ -15,17 +15,8 @@ class PlatformAccess
     public static function canUse(string $module): bool
     {
         $workspace = Filament::getTenant();
-        $user = auth()->user();
-
         if (! self::usesWorkspaceInterface() || ! WorkspaceAccess::moduleEnabled($workspace, $module)) {
             return false;
-        }
-
-        if ($workspace?->isProjectOnlyFor($user)) {
-            return in_array($module, [
-                PlanCatalog::MODULE_PROJECTS,
-                PlanCatalog::MODULE_TASKS,
-            ], true);
         }
 
         return true;

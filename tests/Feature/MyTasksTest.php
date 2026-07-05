@@ -16,7 +16,7 @@ class MyTasksTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_page_shows_only_tasks_assigned_to_user_in_current_workspace(): void
+    public function test_page_shows_assigned_tasks_across_all_accessible_projects(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('viewer');
         $otherUser = User::factory()->create();
@@ -36,7 +36,7 @@ class MyTasksTest extends TestCase
         Livewire::test(MyTasks::class)
             ->assertSee('My visible task')
             ->assertDontSee('Someone else task')
-            ->assertDontSee('Other workspace task');
+            ->assertSee('Other workspace task');
     }
 
     public function test_stats_search_and_due_filters_reflect_assigned_tasks(): void

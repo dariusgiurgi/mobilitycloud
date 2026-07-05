@@ -10,7 +10,6 @@ use App\Models\ProjectDocument;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
@@ -23,7 +22,7 @@ class GlobalSearch extends Page
 
     protected static ?int $navigationSort = 1;
 
-    protected static ?string $title = 'Search workspace';
+    protected static ?string $title = 'Search projects';
 
     protected string $view = 'filament.pages.global-search';
 
@@ -47,14 +46,11 @@ class GlobalSearch extends Page
         }
 
         $like = '%'.$term.'%';
-        $workspace = Filament::getTenant();
-        $accessible = fn (Builder $query): Builder => $query
-            ->where('workspace_id', $workspace?->id)
-            ->accessibleTo(auth()->user(), $workspace);
+        $accessible = fn (Builder $query): Builder => $query->visibleToAccount(auth()->user());
 
         $projects = Project::query()
-            ->where('workspace_id', $workspace?->id)
-            ->accessibleTo(auth()->user(), $workspace)
+            ->visibleToAccount(auth()->user())
+            ->with('workspace')
             ->where(fn (Builder $query) => $query->where('name', 'like', $like)
                 ->orWhere('acronym', 'like', $like)
                 ->orWhere('grant_ref', 'like', $like))
@@ -62,7 +58,7 @@ class GlobalSearch extends Page
             ->map(fn (Project $project): array => [
                 'title' => $project->name,
                 'detail' => collect([$project->acronym, $project->grant_ref])->filter()->join(' · ') ?: ucfirst($project->status),
-                'url' => ProjectResource::getUrl('overview', ['record' => $project]),
+                'url' => ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace),
             ]);
 
         $participants = Participant::query()
@@ -71,11 +67,11 @@ class GlobalSearch extends Page
                 ->orWhere('last_name', 'like', $like)
                 ->orWhere('email', 'like', $like)
                 ->orWhere('partner_organisation', 'like', $like))
-            ->with('project')->orderBy('last_name')->limit(8)->get()
+            ->with('project.workspace')->orderBy('last_name')->limit(8)->get()
             ->map(fn (Participant $participant): array => [
                 'title' => $participant->fullName(),
                 'detail' => $participant->project->name.' · '.($participant->email ?: $participant->partner_organisation ?: 'Participant'),
-                'url' => ProjectResource::getUrl('participants', ['record' => $participant->project]),
+                'url' => ProjectResource::getUrl('participants', ['record' => $participant->project], tenant: $participant->project?->workspace),
             ]);
 
         $expenses = Expense::query()
@@ -83,11 +79,11 @@ class GlobalSearch extends Page
             ->where(fn (Builder $query) => $query->where('description', 'like', $like)
                 ->orWhere('reference_nr', 'like', $like)
                 ->orWhere('attachment_name', 'like', $like))
-            ->with('budgetLine.project')->latest('expense_date')->limit(8)->get()
+            ->with('budgetLine.project.workspace')->latest('expense_date')->limit(8)->get()
             ->map(fn (Expense $expense): array => [
                 'title' => $expense->description ?: ($expense->reference_nr ?: 'Expense #'.$expense->id),
                 'detail' => $expense->budgetLine->project->name.' · '.number_format((float) $expense->amount, 2).' '.($expense->currency ?: 'EUR'),
-                'url' => ProjectResource::getUrl('board', ['record' => $expense->budgetLine->project]),
+                'url' => ProjectResource::getUrl('board', ['record' => $expense->budgetLine->project], tenant: $expense->budgetLine->project?->workspace),
             ]);
 
         $documents = ProjectDocument::query()
@@ -96,11 +92,11 @@ class GlobalSearch extends Page
                 ->orWhere('file_name', 'like', $like)
                 ->orWhere('signed_name', 'like', $like)
                 ->orWhere('category', 'like', $like))
-            ->with('project')->latest()->limit(8)->get()
+            ->with('project.workspace')->latest()->limit(8)->get()
             ->map(fn (ProjectDocument $document): array => [
                 'title' => $document->title ?: ($document->file_name ?: 'Project document'),
                 'detail' => $document->project->name.' · '.str($document->type)->replace('_', ' ')->title(),
-                'url' => ProjectResource::getUrl('documents', ['record' => $document->project]),
+                'url' => ProjectResource::getUrl('documents', ['record' => $document->project], tenant: $document->project?->workspace),
             ]);
 
         return compact('projects', 'participants', 'expenses', 'documents');

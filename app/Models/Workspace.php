@@ -150,6 +150,12 @@ class Workspace extends Model
 
     public function roleFor(User $user): ?string
     {
+        if ($this->relationLoaded('users')) {
+            $member = $this->users->firstWhere('id', $user->id);
+
+            return $member?->pivot?->role;
+        }
+
         $member = $this->users()->where('user_id', $user->id)->first();
 
         return $member?->pivot->role;
@@ -157,6 +163,13 @@ class Workspace extends Model
 
     public function owner(): ?User
     {
+        if ($this->relationLoaded('users')) {
+            return $this->users
+                ->filter(fn (User $user): bool => $user->pivot?->role === 'owner')
+                ->sortBy('name')
+                ->first();
+        }
+
         return $this->users()->wherePivot('role', 'owner')->orderBy('name')->first();
     }
 

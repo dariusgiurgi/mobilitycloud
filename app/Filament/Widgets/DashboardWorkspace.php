@@ -30,7 +30,7 @@ class DashboardWorkspace extends Widget
         $projects = Project::query()
             ->visibleToAccount(auth()->user())
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
-            ->with(['workspace', 'budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
+            ->with(['workspace.users', 'members', 'budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
             ->latest('updated_at')
             ->get();
 

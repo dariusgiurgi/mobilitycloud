@@ -52,6 +52,8 @@
                     $progress = $project->progress;
                     $start = $project->mobility_start_date ?? $project->start_date;
                     $end = $project->mobility_end_date ?? $project->end_date;
+                    $ownerLabel = $project->ownerLabelFor(auth()->user());
+                    $accessLabel = $project->accessLabelFor(auth()->user());
                 @endphp
 
                 @if($archived)<div class="mc-project-list-card">@else<a href="{{ $this->getProjectUrl($project) }}" class="mc-project-list-card">@endif
@@ -68,8 +70,16 @@
                                     {{ collect([$project->acronym, $project->grant_ref])->filter()->join(' · ') }}
                                 </p>
                             @endif
+                            <p class="mc-project-muted" style="font-size:.7rem;margin-top:.25rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                {{ $ownerLabel ?: 'Your project' }} · {{ $accessLabel }}
+                            </p>
                         </div>
-                        <x-filament::badge :color="$archived ? 'gray' : $status->getColor()" size="sm">{{ $archived ? 'Archived' : $status->getLabel() }}</x-filament::badge>
+                        <div style="display:flex;align-items:flex-end;gap:.35rem;flex-direction:column;">
+                            <x-filament::badge :color="$archived ? 'gray' : $status->getColor()" size="sm">{{ $archived ? 'Archived' : $status->getLabel() }}</x-filament::badge>
+                            @if($ownerLabel)
+                                <x-filament::badge color="gray" size="sm">{{ $accessLabel }}</x-filament::badge>
+                            @endif
+                        </div>
                     </div>
 
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1.15rem;padding:.8rem 0;border-top:1px solid rgba(148,163,184,.18);border-bottom:1px solid rgba(148,163,184,.18);">

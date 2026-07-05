@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
 use App\Notifications\WorkspaceInvitationNotification;
+use App\Support\PlanCatalog;
+use App\Support\PlatformAccess;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -116,6 +118,44 @@ class ProjectAccessTest extends TestCase
             ->assertSee('Assigned Project')
             ->assertDontSee('Hidden Project')
             ->assertDontSee('New project');
+    }
+
+    public function test_project_collaborators_have_the_same_application_menu_modules_as_the_owner(): void
+    {
+        $workspace = Workspace::create(['name' => 'Shared Menu Workspace']);
+        $owner = User::factory()->create();
+        $collaborator = User::factory()->create();
+        $workspace->users()->attach($owner, ['role' => 'owner']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Shared Menu Project',
+            'status' => 'writing',
+        ]);
+        $project->members()->attach($collaborator, ['role' => Project::PROJECT_ROLE_VIEWER]);
+
+        $modules = [
+            PlanCatalog::MODULE_PROJECTS,
+            PlanCatalog::MODULE_CONTENT_LIBRARY,
+            PlanCatalog::MODULE_PUBLIC_LIBRARY,
+            PlanCatalog::MODULE_TASKS,
+            PlanCatalog::MODULE_REPORTS,
+        ];
+
+        $this->actingAs($owner);
+        Filament::setTenant($workspace);
+        $ownerMenu = collect($modules)
+            ->mapWithKeys(fn (string $module): array => [$module => PlatformAccess::canUse($module)])
+            ->all();
+
+        $this->actingAs($collaborator);
+        Filament::setTenant($workspace);
+        $collaboratorMenu = collect($modules)
+            ->mapWithKeys(fn (string $module): array => [$module => PlatformAccess::canUse($module)])
+            ->all();
+
+        $this->assertSame($ownerMenu, $collaboratorMenu);
+        $this->assertTrue($collaboratorMenu[PlanCatalog::MODULE_PROJECTS]);
+        $this->assertTrue($collaboratorMenu[PlanCatalog::MODULE_REPORTS]);
     }
 
     public function test_project_access_action_can_invite_a_project_only_collaborator(): void
