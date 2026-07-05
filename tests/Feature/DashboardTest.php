@@ -9,6 +9,7 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceInvitation;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -77,9 +78,37 @@ class DashboardTest extends TestCase
             DashboardWorkspace::class,
         ], $dashboard->getWidgets());
         $this->assertSame(
-            'Dashboard Workspace · Your projects, priorities and upcoming milestones.',
+            'Your projects, priorities and upcoming milestones.',
             $dashboard->getSubheading(),
         );
+    }
+
+    public function test_dashboard_lists_pending_project_invitations_for_account_email(): void
+    {
+        [$workspace, , $user] = $this->workspaceProjectAndUser();
+        $invitingWorkspace = Workspace::create(['name' => 'Inviting Portfolio']);
+        $invitedProject = Project::create([
+            'workspace_id' => $invitingWorkspace->id,
+            'name' => 'Shared Project',
+            'status' => 'writing',
+        ]);
+        WorkspaceInvitation::create([
+            'workspace_id' => $invitingWorkspace->id,
+            'project_id' => $invitedProject->id,
+            'email' => $user->email,
+            'role' => 'project_editor',
+            'token' => str_repeat('d', 64),
+            'expires_at' => now()->addDays(3),
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(DashboardWorkspace::class)
+            ->assertSee('Pending invitations')
+            ->assertSee('Shared Project')
+            ->assertSee('Inviting Portfolio')
+            ->assertSee('Accept');
     }
 
     public function test_workspace_member_can_render_the_complete_dashboard_page(): void
@@ -95,7 +124,7 @@ class DashboardTest extends TestCase
 
         $this->get(Dashboard::getUrl(tenant: $workspace))
             ->assertOk()
-            ->assertSee('Workspace overview')
+            ->assertSee('Project dashboard')
             ->assertSee('Approved funding')
             ->assertSee('Needs attention')
             ->assertSee('Current projects')
@@ -108,7 +137,7 @@ class DashboardTest extends TestCase
     {
         $workspace = Workspace::create(['name' => 'Dashboard Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        $workspace->users()->attach($user, ['role' => 'owner']);
         $project = Project::create([
             'workspace_id' => $workspace->id,
             'name' => 'Youth Exchange',

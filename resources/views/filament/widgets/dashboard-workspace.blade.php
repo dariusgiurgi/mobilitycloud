@@ -19,6 +19,31 @@
 
     <div class="mc-dashboard-grid">
         <div class="mc-dashboard-stack">
+            @if ($pendingInvitations->isNotEmpty())
+                <x-filament::section>
+                    <x-slot name="heading">Pending invitations</x-slot>
+                    <x-slot name="description">Project invitations sent to your email address.</x-slot>
+                    <x-slot name="headerEnd">
+                        <x-filament::badge color="info">{{ $pendingInvitations->count() }}</x-filament::badge>
+                    </x-slot>
+
+                    @foreach ($pendingInvitations as $invitation)
+                        <a href="{{ route('workspace-invitations.accept', $invitation->token) }}" class="mc-row-link">
+                            <span style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.65rem;background:rgba(99,102,241,.1);color:#6366f1;">
+                                <x-filament::icon icon="heroicon-o-envelope-open" style="width:1rem;height:1rem;" />
+                            </span>
+                            <span style="min-width:0;flex:1;">
+                                <span class="text-gray-950 dark:text-white" style="display:block;font-size:.875rem;font-weight:600;line-height:1.35;">{{ $invitation->project?->name ?? 'Project invitation' }}</span>
+                                <span class="mc-muted" style="display:block;font-size:.76rem;margin-top:.15rem;">
+                                    {{ $invitation->workspace?->name ?? 'MobilityCloud' }} · expires {{ $invitation->expires_at?->format('d M Y') }}
+                                </span>
+                            </span>
+                            <span style="font-size:.76rem;font-weight:700;color:#6366f1;">Accept</span>
+                        </a>
+                    @endforeach
+                </x-filament::section>
+            @endif
+
             <x-filament::section>
                 <x-slot name="heading">
                     <span style="display:inline-flex;align-items:center;gap:.35rem;">
@@ -86,7 +111,7 @@
                                 $date = $project->mobility_start_date ?? $project->start_date;
                                 $projectReadiness = $readiness->get($project->id);
                             @endphp
-                            <a href="{{ \App\Filament\Resources\Projects\ProjectResource::getUrl('overview', ['record' => $project]) }}" class="mc-project-card">
+                            <a href="{{ \App\Filament\Resources\Projects\ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace) }}" class="mc-project-card">
                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;">
                                     <div style="min-width:0;">
                                         <p class="text-gray-950 dark:text-white" style="font-size:.9rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $project->name }}</p>

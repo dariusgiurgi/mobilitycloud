@@ -9,7 +9,6 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Models\WorkspaceInvitation;
 use Filament\Auth\Pages\Login;
 use Filament\Auth\Pages\Register;
 use Filament\Facades\Filament;
@@ -21,12 +20,12 @@ class WorkspaceOnboardingTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_without_workspace_logs_into_onboarding_instead_of_registration_form(): void
+    public function test_user_without_workspace_logs_directly_into_project_dashboard(): void
     {
         $user = User::factory()->create(['email' => 'new-user@example.test']);
         Filament::setCurrentPanel('admin');
 
-        Livewire::test(Login::class)
+        $component = Livewire::test(Login::class)
             ->fillForm([
                 'email' => 'new-user@example.test',
                 'password' => 'password',
@@ -34,14 +33,24 @@ class WorkspaceOnboardingTest extends TestCase
             ])
             ->call('authenticate')
             ->assertHasNoFormErrors()
-            ->assertRedirect(route('app.onboarding'));
+            ->assertRedirect();
+
+        $workspace = $user->fresh()->currentWorkspace;
+
+        $this->assertNotNull($workspace);
+        $component->assertRedirect(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+        $this->assertDatabaseHas('workspace_user', [
+            'workspace_id' => $workspace->id,
+            'user_id' => $user->id,
+            'role' => 'owner',
+        ]);
     }
 
-    public function test_new_registration_opens_onboarding_instead_of_registration_form(): void
+    public function test_new_registration_creates_internal_project_container(): void
     {
         Filament::setCurrentPanel('admin');
 
-        Livewire::test(Register::class)
+        $component = Livewire::test(Register::class)
             ->fillForm([
                 'name' => 'New Client',
                 'email' => 'new-client@example.test',
@@ -50,75 +59,37 @@ class WorkspaceOnboardingTest extends TestCase
             ])
             ->call('register')
             ->assertHasNoFormErrors()
-            ->assertRedirect(route('app.onboarding'));
+            ->assertRedirect();
 
         $this->assertAuthenticated();
-        $this->assertDatabaseHas('users', ['email' => 'new-client@example.test']);
+        $user = User::query()->where('email', 'new-client@example.test')->firstOrFail();
+        $workspace = $user->currentWorkspace;
+
+        $this->assertNotNull($workspace);
+        $this->assertSame('New Client projects', $workspace->name);
+        $component->assertRedirect(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
     }
 
-    public function test_app_root_redirects_user_without_workspace_to_onboarding(): void
+    public function test_app_root_creates_internal_container_instead_of_onboarding(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get('/app')
-            ->assertRedirect(route('app.onboarding'));
+            ->assertRedirect();
+
+        $this->assertNotNull($user->fresh()->currentWorkspace);
     }
 
-    public function test_onboarding_page_does_not_force_workspace_creation(): void
+    public function test_onboarding_route_is_only_a_compatibility_redirect(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get(route('app.onboarding'))
-            ->assertOk()
-            ->assertSee('You do not have an organisation yet.')
-            ->assertSee('wait until someone invites you directly to a project')
-            ->assertSee('No active invitations for this email address yet.')
-            ->assertDontSee('Create workspace')
-            ->assertDontSee('>Support<', false);
-    }
+            ->assertRedirect();
 
-    public function test_onboarding_lists_pending_email_invitations_for_the_account_email(): void
-    {
-        $workspace = Workspace::create(['name' => 'Inviting Organisation']);
-        $project = Project::create([
-            'workspace_id' => $workspace->id,
-            'name' => 'Invited Project',
-            'status' => 'writing',
-        ]);
-        $user = User::factory()->create(['email' => 'invited@example.test']);
-        $otherUser = User::factory()->create(['email' => 'other@example.test']);
-        WorkspaceInvitation::create([
-            'workspace_id' => $workspace->id,
-            'project_id' => $project->id,
-            'email' => 'invited@example.test',
-            'role' => 'project_editor',
-            'token' => str_repeat('a', 64),
-            'expires_at' => now()->addDays(3),
-        ]);
-        WorkspaceInvitation::create([
-            'workspace_id' => $workspace->id,
-            'project_id' => $project->id,
-            'email' => 'other@example.test',
-            'role' => 'project_editor',
-            'token' => str_repeat('b', 64),
-            'expires_at' => now()->addDays(3),
-        ]);
-
-        $this->actingAs($user)
-            ->get(route('app.onboarding'))
-            ->assertOk()
-            ->assertSee('Invitations by email')
-            ->assertSee('Invited Project')
-            ->assertSee('Inviting Organisation')
-            ->assertSee('Accept invitation')
-            ->assertDontSee('No active invitations for this email address yet.');
-
-        $this->actingAs($otherUser)
-            ->get(route('app.onboarding'))
-            ->assertOk()
-            ->assertSee('Invited Project');
+        $this->assertNotNull($user->fresh()->currentWorkspace);
     }
 
     public function test_user_without_workspace_can_create_organisation_from_onboarding(): void
@@ -141,15 +112,13 @@ class WorkspaceOnboardingTest extends TestCase
         $this->assertSame($workspace->id, $user->fresh()->current_workspace_id);
     }
 
-    public function test_authenticated_user_without_workspace_can_open_workspace_registration(): void
+    public function test_authenticated_user_no_longer_opens_workspace_registration(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->get('/app/new')
-            ->assertOk()
-            ->assertSee('Set up your organisation')
-            ->assertDontSee('Create workspace');
+            ->assertNotFound();
     }
 
     public function test_workspace_profile_groups_identity_and_legal_details(): void

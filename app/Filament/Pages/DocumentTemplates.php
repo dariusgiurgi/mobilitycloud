@@ -20,13 +20,18 @@ class DocumentTemplates extends Page
 
     protected static ?string $navigationLabel = 'Document templates';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Workspace settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Account settings';
 
     protected static ?int $navigationSort = 35;
 
     protected static ?string $title = 'Document templates';
 
     protected string $view = 'filament.pages.document-templates';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public string $brandName = '';
 

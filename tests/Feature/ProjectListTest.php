@@ -60,4 +60,32 @@ class ProjectListTest extends TestCase
         Filament::setTenant($workspace);
         Livewire::test(ListProjects::class)->assertDontSee('New project');
     }
+
+    public function test_project_list_shows_accessible_projects_across_internal_containers(): void
+    {
+        $first = Workspace::create(['name' => 'First Internal Container']);
+        $second = Workspace::create(['name' => 'Second Internal Container']);
+        $user = User::factory()->create();
+        $first->users()->attach($user, ['role' => 'owner']);
+
+        Project::create([
+            'workspace_id' => $first->id,
+            'name' => 'Owned Project',
+            'status' => 'writing',
+        ]);
+
+        $shared = Project::create([
+            'workspace_id' => $second->id,
+            'name' => 'Shared Project',
+            'status' => 'active',
+        ]);
+        $shared->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+
+        $this->actingAs($user);
+        Filament::setTenant($first);
+
+        Livewire::test(ListProjects::class)
+            ->assertSee('Owned Project')
+            ->assertSee('Shared Project');
+    }
 }

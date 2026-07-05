@@ -3,6 +3,8 @@
 namespace App\Http\Responses\Filament;
 
 use App\Models\User;
+use App\Services\AccountWorkspaceService;
+use App\Filament\Pages\Dashboard;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Features\SupportRedirects\Redirector;
@@ -25,8 +27,10 @@ class UnifiedLoginResponse implements LoginResponse
             return redirect()->route('filament.platform.pages.dashboard');
         }
 
-        if ($user instanceof User && ! $user->hasAnyWorkspaceAccess()) {
-            return redirect()->route('app.onboarding');
+        if ($user instanceof User) {
+            $workspace = app(AccountWorkspaceService::class)->preferredFor($user);
+
+            return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
         }
 
         return redirect()->route('filament.admin.tenant');

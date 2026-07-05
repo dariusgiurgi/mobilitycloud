@@ -97,7 +97,7 @@ class AccountSettingsTest extends TestCase
         Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
-            ->assertSee('Subscription')
+            ->assertSee('Project plan')
             ->set('subscriptionWorkspaceId', $workspace->id)
             ->set('subscriptionPlan', 'writer_pro')
             ->call('saveSubscriptionPlan');
@@ -122,7 +122,7 @@ class AccountSettingsTest extends TestCase
         $this->assertSame('free', $workspace->fresh()->plan);
     }
 
-    public function test_user_can_see_multiple_workspaces_and_switch_current_workspace(): void
+    public function test_account_center_hides_workspace_switching_from_regular_users(): void
     {
         [$workspace, $user] = $this->workspaceAndUser('member');
         $second = Workspace::create(['name' => 'Second Organisation']);
@@ -132,11 +132,8 @@ class AccountSettingsTest extends TestCase
         Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
-            ->assertSee('Account Workspace')
-            ->assertSee('Second Organisation')
-            ->call('switchWorkspace', $second->id);
-
-        $this->assertSame($second->id, $user->fresh()->current_workspace_id);
+            ->assertDontSee('Your workspaces')
+            ->assertDontSee('Second Organisation');
     }
 
     private function workspaceAndUser(string $role, array $workspaceAttributes = []): array

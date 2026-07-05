@@ -5,10 +5,10 @@ namespace App\Filament\Widgets;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Models\WorkspaceInvitation;
 use App\Services\ProjectReadinessCheck;
 use App\Services\TaskReminderService;
 use Carbon\Carbon;
-use Filament\Facades\Filament;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
@@ -24,13 +24,13 @@ class DashboardWorkspace extends Widget
 
     protected function getViewData(): array
     {
-        app(TaskReminderService::class)->dispatch(Filament::getTenant()?->id);
+        auth()->user()?->getTenants(filament()->getPanel('admin'))
+            ->each(fn ($workspace) => app(TaskReminderService::class)->dispatch($workspace->id));
 
         $projects = Project::query()
-            ->where('workspace_id', Filament::getTenant()?->id)
-            ->accessibleTo(auth()->user(), Filament::getTenant())
+            ->visibleToAccount(auth()->user())
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
-            ->with(['budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
+            ->with(['workspace', 'budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
             ->latest('updated_at')
             ->get();
 
@@ -47,18 +47,26 @@ class DashboardWorkspace extends Widget
         $milestones = $this->milestones($projects);
         $primaryProject = $projects->first(fn (Project $project) => $project->isManagementStage());
         $writingProject = $projects->first(fn (Project $project) => $project->isWritingStage());
-        $canManage = Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
+        $canManagePrimaryProject = $primaryProject?->canBeManagedBy(auth()->user()) ?? false;
         $canCreate = auth()->user()?->can('create', Project::class) ?? false;
+        $pendingInvitations = WorkspaceInvitation::query()
+            ->with(['workspace', 'project', 'inviter'])
+            ->whereRaw('LOWER(email) = ?', [strtolower((string) auth()->user()?->email)])
+            ->whereNull('accepted_at')
+            ->where('expires_at', '>', now())
+            ->latest()
+            ->get();
 
         return [
             'projects' => $currentProjects,
             'projectCount' => $projects->count(),
+            'pendingInvitations' => $pendingInvitations,
             'readiness' => $readiness,
             'attention' => $attention->take(6),
             'attentionCount' => $attention->count(),
             'milestones' => $milestones->take(6),
             'milestoneCount' => $milestones->count(),
-            'quickActions' => $this->quickActions($primaryProject, $writingProject, $canManage, $canCreate),
+            'quickActions' => $this->quickActions($primaryProject, $writingProject, $canManagePrimaryProject, $canCreate),
             'projectsUrl' => ProjectResource::getUrl('index'),
         ];
     }
@@ -242,7 +250,7 @@ class DashboardWorkspace extends Widget
                         'date' => $date,
                         'label' => $label,
                         'project' => $project->name,
-                        'url' => ProjectResource::getUrl('overview', ['record' => $project]),
+                        'url' => $this->projectUrl($project, 'overview'),
                     ];
                 }
 
@@ -256,7 +264,7 @@ class DashboardWorkspace extends Widget
                         'date' => $date,
                         'label' => 'Task: '.$task->title,
                         'project' => $project->name,
-                        'url' => ProjectResource::getUrl('overview', ['record' => $project]),
+                        'url' => $this->projectUrl($project, 'overview'),
                     ];
                 }
 
@@ -278,19 +286,19 @@ class DashboardWorkspace extends Widget
             'title' => $title,
             'detail' => $detail,
             'severity' => $severity,
-            'url' => ProjectResource::getUrl($page, ['record' => $project]),
+            'url' => $this->projectUrl($project, $page),
         ];
     }
 
     private function readinessUrl(Project $project, ?string $target): string
     {
         return match ($target) {
-            'application' => ProjectResource::getUrl('write', ['record' => $project]),
-            'budget' => ProjectResource::getUrl($project->isWritingStage() ? 'estimate' : 'board', ['record' => $project]),
-            'participants' => ProjectResource::getUrl('participants', ['record' => $project]),
-            'documents' => ProjectResource::getUrl('documents', ['record' => $project]),
-            'settings' => ProjectResource::getUrl('edit', ['record' => $project]),
-            default => ProjectResource::getUrl('overview', ['record' => $project]),
+            'application' => $this->projectUrl($project, 'write'),
+            'budget' => $this->projectUrl($project, $project->isWritingStage() ? 'estimate' : 'board'),
+            'participants' => $this->projectUrl($project, 'participants'),
+            'documents' => $this->projectUrl($project, 'documents'),
+            'settings' => $this->projectUrl($project, 'edit'),
+            default => $this->projectUrl($project, 'overview'),
         };
     }
 
@@ -322,7 +330,7 @@ class DashboardWorkspace extends Widget
                 'label' => 'Continue application',
                 'description' => $writingProject->name,
                 'icon' => 'heroicon-o-pencil-square',
-                'url' => ProjectResource::getUrl('write', ['record' => $writingProject]),
+                'url' => $this->projectUrl($writingProject, 'write'),
             ];
         }
 
@@ -330,23 +338,28 @@ class DashboardWorkspace extends Widget
             'label' => $canManage ? 'Manage expenses' : 'View budget',
             'description' => $primaryProject?->name ?? 'Choose a project',
             'icon' => 'heroicon-o-banknotes',
-            'url' => $primaryProject ? ProjectResource::getUrl('board', ['record' => $primaryProject]) : $fallback,
+            'url' => $primaryProject ? $this->projectUrl($primaryProject, 'board') : $fallback,
         ];
 
         $actions[] = [
             'label' => $canManage ? 'Add participants' : 'View participants',
             'description' => $primaryProject?->name ?? 'Choose a project',
             'icon' => 'heroicon-o-users',
-            'url' => $primaryProject ? ProjectResource::getUrl('participants', ['record' => $primaryProject]) : $fallback,
+            'url' => $primaryProject ? $this->projectUrl($primaryProject, 'participants') : $fallback,
         ];
 
         $actions[] = [
             'label' => $canManage ? 'Create documents' : 'View documents',
             'description' => $primaryProject?->name ?? 'Choose a project',
             'icon' => 'heroicon-o-document-duplicate',
-            'url' => $primaryProject ? ProjectResource::getUrl('documents', ['record' => $primaryProject]) : $fallback,
+            'url' => $primaryProject ? $this->projectUrl($primaryProject, 'documents') : $fallback,
         ];
 
         return array_slice($actions, 0, 4);
+    }
+
+    private function projectUrl(Project $project, string $page): string
+    {
+        return ProjectResource::getUrl($page, ['record' => $project], tenant: $project->workspace);
     }
 }

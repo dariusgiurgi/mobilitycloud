@@ -40,7 +40,7 @@ class WorkspaceReports extends Page
 
     public function getReportProperty(): array
     {
-        return app(WorkspaceReportService::class)->build(Filament::getTenant(), auth()->user(), [
+        return app(WorkspaceReportService::class)->build(null, auth()->user(), [
             'status' => $this->status,
             'start' => $this->startDate,
             'end' => $this->endDate,

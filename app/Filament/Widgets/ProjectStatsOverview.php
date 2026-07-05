@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Enums\ProjectStatus;
 use App\Models\Project;
-use Filament\Facades\Filament;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -16,11 +15,8 @@ class ProjectStatsOverview extends BaseWidget
 
     protected function getStats(): array
     {
-        $workspaceId = Filament::getTenant()?->id;
-
         $projects = Project::query()
-            ->where('workspace_id', $workspaceId)
-            ->accessibleTo(auth()->user(), Filament::getTenant())
+            ->visibleToAccount(auth()->user())
             ->whereIn('status', [ProjectStatus::Approved->value, ProjectStatus::Active->value])
             ->with('budgetLines.expenses')
             ->get();

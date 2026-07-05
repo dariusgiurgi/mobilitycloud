@@ -35,8 +35,7 @@ class ListProjects extends ListRecords
                 ->visible(fn (): bool => $this->archived
                     || (Filament::getTenant()?->canCreateProjectsBy(auth()->user()) ?? false)
                     || Project::onlyTrashed()
-                        ->where('workspace_id', Filament::getTenant()?->id)
-                        ->accessibleTo(auth()->user(), Filament::getTenant())
+                        ->visibleToAccount(auth()->user())
                         ->exists()),
             Action::make('duplicateProject')
                 ->label('Duplicate project')
@@ -48,8 +47,7 @@ class ListProjects extends ListRecords
                     Select::make('source_id')
                         ->label('Source project')
                         ->options(fn (): array => Project::query()
-                            ->where('workspace_id', Filament::getTenant()?->id)
-                            ->accessibleTo(auth()->user(), Filament::getTenant())
+                            ->visibleToAccount(auth()->user())
                             ->orderBy('name')
                             ->pluck('name', 'id')
                             ->all())
@@ -71,11 +69,9 @@ class ListProjects extends ListRecords
                         ->default(true),
                 ])
                 ->action(function (array $data, ProjectDuplicator $duplicator): void {
-                    $workspace = Filament::getTenant();
                     abort_unless(auth()->user()?->can('create', Project::class), 403);
                     $source = Project::query()
-                        ->where('workspace_id', $workspace->id)
-                        ->accessibleTo(auth()->user(), $workspace)
+                        ->visibleToAccount(auth()->user())
                         ->findOrFail($data['source_id']);
                     $copy = $duplicator->duplicate($source, $data);
 
@@ -89,8 +85,7 @@ class ListProjects extends ListRecords
                 })
                 ->visible(fn (): bool => ! $this->archived
                     && (auth()->user()?->can('create', Project::class) ?? false)
-                    && Project::query()->where('workspace_id', Filament::getTenant()?->id)
-                        ->accessibleTo(auth()->user(), Filament::getTenant())->exists()),
+                    && Project::query()->visibleToAccount(auth()->user())->exists()),
             CreateAction::make()
                 ->label('New project')
                 ->visible(fn (): bool => ! $this->archived && (auth()->user()?->can('create', Project::class) ?? false)),
@@ -100,10 +95,9 @@ class ListProjects extends ListRecords
     public function getProjects()
     {
         $query = Project::query()
-            ->where('workspace_id', Filament::getTenant()?->id)
-            ->accessibleTo(auth()->user(), Filament::getTenant())
+            ->visibleToAccount(auth()->user())
             ->withCount('participants')
-            ->with('budgetLines.expenses');
+            ->with(['workspace', 'budgetLines.expenses']);
 
         if ($this->archived) {
             return $query->onlyTrashed()
@@ -127,12 +121,11 @@ class ListProjects extends ListRecords
 
     public function restoreProject(int $projectId): void
     {
-        $workspace = Filament::getTenant();
-        abort_unless($workspace?->canCreateProjectsBy(auth()->user()), 403);
         $project = Project::onlyTrashed()
-            ->where('workspace_id', $workspace->id)
-            ->accessibleTo(auth()->user(), $workspace)
+            ->visibleToAccount(auth()->user())
+            ->with('workspace')
             ->findOrFail($projectId);
+        abort_unless($project->canManageLifecycleBy(auth()->user()), 403);
         $project->restore();
 
         Notification::make()
@@ -143,6 +136,6 @@ class ListProjects extends ListRecords
 
     public function getProjectUrl(Project $project): string
     {
-        return ProjectResource::getUrl('overview', ['record' => $project]);
+        return ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace);
     }
 }

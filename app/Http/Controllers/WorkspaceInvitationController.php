@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Filament\Pages\Dashboard;
+use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\WorkspaceInvitation;
+use App\Services\AccountWorkspaceService;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,8 +37,14 @@ class WorkspaceInvitationController extends Controller
 
         abort_unless(strcasecmp($request->user()->email, $invitation->email) === 0, 403, 'Sign in with the email address that received this invitation.');
 
-        DB::transaction(function () use ($request, $invitation): void {
-            if ($invitation->project_id && str_starts_with($invitation->role, 'project_')) {
+        $isProjectInvitation = $invitation->project_id && str_starts_with($invitation->role, 'project_');
+
+        if ($isProjectInvitation) {
+            app(AccountWorkspaceService::class)->ensureFor($request->user());
+        }
+
+        DB::transaction(function () use ($request, $invitation, $isProjectInvitation): void {
+            if ($isProjectInvitation) {
                 $projectRole = str($invitation->role)->after('project_')->toString();
                 $projectRole = array_key_exists($projectRole, Project::projectRoleOptions()) ? $projectRole : Project::PROJECT_ROLE_EDITOR;
 
@@ -56,19 +64,22 @@ class WorkspaceInvitationController extends Controller
                         'joined_at' => now(),
                     ],
                 ]);
+
+                $request->user()->forceFill([
+                    'current_workspace_id' => $invitation->workspace_id,
+                ])->save();
             }
 
             $invitation->accepted_at = now();
             $invitation->save();
-
-            $request->user()->forceFill([
-                'current_workspace_id' => $invitation->workspace_id,
-            ])->save();
         });
 
+        if ($invitation->project) {
+            return redirect(ProjectResource::getUrl('overview', ['record' => $invitation->project], panel: 'admin', tenant: $invitation->workspace))
+                ->with('status', 'You now have access to '.$invitation->project->name.'.');
+        }
+
         return redirect(Dashboard::getUrl(panel: 'admin', tenant: $invitation->workspace))
-            ->with('status', $invitation->project
-                ? 'You now have access to '.$invitation->project->name.'.'
-                : 'You joined '.$invitation->workspace->name.'.');
+            ->with('status', 'You joined '.$invitation->workspace->name.'.');
     }
 }

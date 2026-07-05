@@ -88,7 +88,7 @@ class AccountSettings extends Page
             return 'Manage your platform administrator profile, security and interface preferences.';
         }
 
-        return 'Manage your personal profile, security, workspaces, subscription and platform preferences.';
+        return 'Manage your personal profile, security, project plan and platform preferences.';
     }
 
     public function saveProfile(): void
@@ -165,7 +165,7 @@ class AccountSettings extends Page
             'subscriptionPlan' => ['required', Rule::in(array_keys($this->planOptions()))],
         ]);
 
-        $workspace = $this->workspaces()->whereKey($data['subscriptionWorkspaceId'])->firstOrFail();
+        $workspace = $this->currentWorkspace ?: $this->workspaces()->whereKey($data['subscriptionWorkspaceId'])->firstOrFail();
         abort_unless($workspace->canManageMembersBy(auth()->user()), 403);
 
         $workspace->update(PlanCatalog::workspaceDefaults($data['subscriptionPlan']));
@@ -231,16 +231,16 @@ class AccountSettings extends Page
     {
         if ($this->isPlatformPanel()) {
             return [
-                'dashboard' => 'Platform overview',
-                'users' => 'Users',
-                'subscriptions' => 'Subscriptions',
-                'workspaces' => 'Workspaces',
-                'audit' => 'Audit log',
+            'dashboard' => 'Platform overview',
+            'users' => 'Users',
+            'subscriptions' => 'Subscriptions',
+            'workspaces' => 'Account containers',
+            'audit' => 'Audit log',
             ];
         }
 
         return [
-            'dashboard' => 'Workspace overview',
+            'dashboard' => 'Project dashboard',
             'projects' => 'Projects',
             'tasks' => 'My Tasks',
         ];

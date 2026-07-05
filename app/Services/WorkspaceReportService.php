@@ -2,20 +2,21 @@
 
 namespace App\Services;
 
+use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use Illuminate\Database\Eloquent\Builder;
 
 class WorkspaceReportService
 {
-    public function build(Workspace $workspace, User $user, array $filters = []): array
+    public function build(?Workspace $workspace, User $user, array $filters = []): array
     {
         $start = filled($filters['start'] ?? null) ? $filters['start'] : null;
         $end = filled($filters['end'] ?? null) ? $filters['end'] : null;
         $status = $filters['status'] ?? 'all';
 
-        $projects = $workspace->projects()
-            ->accessibleTo($user, $workspace)
+        $projects = ($workspace?->projects() ?? Project::query())
+            ->visibleToAccount($user)
             ->when($status !== 'all', fn (Builder $query) => $query->where('status', $status))
             ->withCount('participants')
             ->with(['budgetLines.expenses' => fn ($query) => $query

@@ -1,7 +1,6 @@
 <x-filament-panels::page>
     @php
         $projects = $this->getProjects();
-        $canRestore = \Filament\Facades\Filament::getTenant()?->canCreateProjectsBy(auth()->user()) ?? false;
         $canCreate = auth()->user()?->can('create', \App\Models\Project::class) ?? false;
     @endphp
 
@@ -23,7 +22,7 @@
                     <x-filament::icon icon="heroicon-o-rectangle-stack" style="width:1.5rem;height:1.5rem;" />
                 </span>
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : 'No projects available') }}</h2>
-                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Projects archived from this workspace will be kept here for restoration.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : 'Ask the workspace owner to create a project or assign you to an existing restricted project.') }}</p>
+                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Archived projects are kept here for restoration by the account owner.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : 'Ask the project owner to create a project or invite you to an existing one.') }}</p>
                 @if($archived)
                     <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to active projects</x-filament::button>
                 @elseif($canCreate)
@@ -107,7 +106,7 @@
                     @if($archived)
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:auto;padding-top:1rem;">
                             <span class="mc-project-muted" style="font-size:.7rem;">Archived {{ $project->deleted_at?->diffForHumans() }}</span>
-                            @if($canRestore)
+                            @if($project->canManageLifecycleBy(auth()->user()))
                                 <x-filament::button wire:click="restoreProject({{ $project->id }})" wire:confirm="Restore {{ $project->name }} to active projects?" color="gray" size="sm" icon="heroicon-o-arrow-uturn-left">Restore</x-filament::button>
                             @endif
                         </div>

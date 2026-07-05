@@ -46,10 +46,12 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(40, PublicBlockReportResource::getNavigationSort());
 
         $this->assertFalse(ManageCurrencies::shouldRegisterNavigation());
-        $this->assertSame('Workspace settings', WorkspaceData::getNavigationGroup());
+        $this->assertFalse(WorkspaceData::shouldRegisterNavigation());
+        $this->assertSame('Account settings', WorkspaceData::getNavigationGroup());
         $this->assertSame('Backup & exports', WorkspaceData::getNavigationLabel());
         $this->assertSame(30, WorkspaceData::getNavigationSort());
-        $this->assertSame('Workspace settings', DocumentTemplates::getNavigationGroup());
+        $this->assertFalse(DocumentTemplates::shouldRegisterNavigation());
+        $this->assertSame('Account settings', DocumentTemplates::getNavigationGroup());
         $this->assertSame(35, DocumentTemplates::getNavigationSort());
         $this->assertFalse(NotificationPreferences::shouldRegisterNavigation());
 
@@ -64,15 +66,19 @@ class NavigationStructureTest extends TestCase
 
     public function test_panel_registers_navigation_groups_in_priority_order(): void
     {
-        $groups = Filament::getPanel('admin')->getNavigationGroups();
+        $panel = Filament::getPanel('admin');
+        $groups = $panel->getNavigationGroups();
 
         $this->assertSame(
-            ['Platform management', 'Operations', 'Planning tools', 'Community', 'Workspace settings'],
+            ['Platform management', 'Operations', 'Planning tools', 'Community', 'Account settings'],
             array_map(fn ($group) => $group->getLabel(), $groups),
         );
 
         foreach ($groups as $group) {
             $this->assertFalse($group->isCollapsible());
         }
+
+        $this->assertFalse($panel->hasTenantSwitcher());
+        $this->assertFalse($panel->hasTenantMenu());
     }
 }

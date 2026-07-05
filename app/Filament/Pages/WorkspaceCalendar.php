@@ -8,7 +8,6 @@ use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Carbon\CarbonImmutable;
-use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -22,7 +21,7 @@ class WorkspaceCalendar extends Page
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $title = 'Workspace calendar';
+    protected static ?string $title = 'Project calendar';
 
     protected string $view = 'filament.pages.workspace-calendar';
 
@@ -95,11 +94,12 @@ class WorkspaceCalendar extends Page
 
     private function events(CarbonImmutable $start, CarbonImmutable $end): Collection
     {
-        $workspace = Filament::getTenant();
         $projects = Project::query()
-            ->where('workspace_id', $workspace?->id)
-            ->accessibleTo(auth()->user(), $workspace)
-            ->with(['tasks' => fn ($query) => $query->whereBetween('due_date', [$start, $end])])
+            ->visibleToAccount(auth()->user())
+            ->with([
+                'workspace',
+                'tasks' => fn ($query) => $query->whereBetween('due_date', [$start, $end]),
+            ])
             ->get();
         $events = collect();
 
@@ -120,7 +120,7 @@ class WorkspaceCalendar extends Page
                         'title' => $task->title,
                         'project' => $project->name,
                         'kind' => $task->status === 'completed' ? 'completed' : ($date->isBefore(today()) ? 'overdue' : 'task'),
-                        'url' => ProjectResource::getUrl('overview', ['record' => $project]).'#project-tasks',
+                        'url' => ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace).'#project-tasks',
                     ]);
                 }
             }
@@ -143,7 +143,7 @@ class WorkspaceCalendar extends Page
             'title' => $title,
             'project' => $project->name,
             'kind' => $kind,
-            'url' => ProjectResource::getUrl($page, ['record' => $project]),
+            'url' => ProjectResource::getUrl($page, ['record' => $project], tenant: $project->workspace),
         ]);
     }
 

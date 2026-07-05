@@ -141,6 +141,26 @@ class Project extends Model
         });
     }
 
+    public function scopeVisibleToAccount(Builder $query, ?User $user): Builder
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $query) use ($user): void {
+            $query
+                ->whereHas('workspace.users', fn (Builder $members) => $members
+                    ->whereKey($user->id)
+                    ->wherePivotIn('role', ['owner', 'admin']))
+                ->orWhere(function (Builder $query) use ($user): void {
+                    $query
+                        ->where('access_mode', 'workspace')
+                        ->whereHas('workspace.users', fn (Builder $members) => $members->whereKey($user->id));
+                })
+                ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
+        });
+    }
+
     public function canBeAccessedBy(?User $user): bool
     {
         if (! $user || ! $this->workspace) {

@@ -20,13 +20,18 @@ class WorkspaceData extends Page
 
     protected static ?string $navigationLabel = 'Backup & exports';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Workspace settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Account settings';
 
     protected static ?int $navigationSort = 30;
 
     protected static ?string $title = 'Backup & exports';
 
     protected string $view = 'filament.pages.workspace-data';
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public $restoreFile = null;
 

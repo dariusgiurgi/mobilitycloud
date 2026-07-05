@@ -16,13 +16,13 @@ use Filament\Support\Icons\Heroicon;
 
 class Dashboard extends BaseDashboard
 {
-    protected static ?string $title = 'Workspace overview';
+    protected static ?string $title = 'Project dashboard';
 
     public static function getNavigationLabel(): string
     {
         return auth()->user()?->isPlatformAdmin()
             ? 'Platform overview'
-            : 'Workspace overview';
+            : 'Project dashboard';
     }
 
     public function getSubheading(): ?string
@@ -31,11 +31,7 @@ class Dashboard extends BaseDashboard
             return 'Internal platform administration for users, reports and operational controls.';
         }
 
-        $workspace = Filament::getTenant();
-
-        return $workspace
-            ? $workspace->name.' · Your projects, priorities and upcoming milestones.'
-            : 'Your projects, priorities and upcoming milestones.';
+        return 'Your projects, priorities and upcoming milestones.';
     }
 
     protected function getHeaderActions(): array

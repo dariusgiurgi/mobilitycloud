@@ -212,7 +212,7 @@ class ProjectAccessTest extends TestCase
 
         $this->actingAs($existing)
             ->get(route('workspace-invitations.accept', $invitation->token))
-            ->assertRedirect();
+            ->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], panel: 'admin', tenant: $workspace));
 
         $this->assertDatabaseHas('project_user', [
             'project_id' => $project->id,
@@ -220,7 +220,8 @@ class ProjectAccessTest extends TestCase
             'role' => Project::PROJECT_ROLE_EDITOR,
         ]);
         $this->assertNotNull($invitation->fresh()->accepted_at);
-        $this->assertSame($workspace->id, $existing->fresh()->current_workspace_id);
+        $this->assertNotSame($workspace->id, $existing->fresh()->current_workspace_id);
+        $this->assertSame('owner', $existing->fresh()->currentWorkspace?->roleFor($existing->fresh()));
     }
 
     public function test_project_routes_cannot_cross_workspace_or_restricted_access_boundaries(): void

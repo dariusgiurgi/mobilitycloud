@@ -11,8 +11,6 @@ use App\Filament\Pages\ManageCurrencies;
 use App\Filament\Pages\MyTasks;
 use App\Filament\Pages\NotificationPreferences;
 use App\Filament\Pages\PublicLibrary;
-use App\Filament\Pages\Tenancy\EditWorkspaceProfile;
-use App\Filament\Pages\Tenancy\RegisterWorkspace;
 use App\Filament\Pages\WorkspaceCalendar;
 use App\Filament\Pages\WorkspaceData;
 use App\Filament\Pages\WorkspaceReports;
@@ -73,7 +71,7 @@ class AdminPanelProvider extends PanelProvider
                     ->collapsible(false),
                 NavigationGroup::make('Community')
                     ->collapsible(false),
-                NavigationGroup::make('Workspace settings')
+                NavigationGroup::make('Account settings')
                     ->collapsible(false),
             ])
             ->userMenuItems([
@@ -109,8 +107,8 @@ class AdminPanelProvider extends PanelProvider
                 fn () => view('filament.hooks.subscription-access-banner'),
             )
             ->tenant(Workspace::class, slugAttribute: 'slug')
-            ->tenantRegistration(RegisterWorkspace::class)
-            ->tenantProfile(EditWorkspaceProfile::class)
+            ->tenantMenu(false)
+            ->tenantSwitcher(false)
             ->resources([
                 ProjectResource::class,
                 ContentBlockResource::class,

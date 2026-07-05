@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\AccountWorkspaceService;
+use App\Filament\Pages\Dashboard;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Models\Contracts\FilamentUser;
@@ -51,7 +53,9 @@ class AuthenticateFilamentUser extends Authenticate
             && $request->routeIs('filament.admin.tenant')
             && ! $user->hasAnyWorkspaceAccess()
         ) {
-            throw new HttpResponseException(redirect()->route('app.onboarding'));
+            $workspace = app(AccountWorkspaceService::class)->ensureFor($user);
+
+            throw new HttpResponseException(redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace)));
         }
 
         abort_if(
