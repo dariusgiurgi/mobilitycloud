@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceInvitation;
 use App\Notifications\WorkspaceInvitationNotification;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -148,7 +149,7 @@ class ProjectAccessTest extends TestCase
         Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
     }
 
-    public function test_inviting_existing_user_sends_email_and_in_app_notification(): void
+    public function test_inviting_existing_user_keeps_access_pending_until_acceptance(): void
     {
         Notification::fake();
         $workspace = Workspace::create(['name' => 'Invite Existing Workspace']);
@@ -171,19 +172,55 @@ class ProjectAccessTest extends TestCase
                 'invite_role' => Project::PROJECT_ROLE_MANAGER,
             ]);
 
-        $this->assertDatabaseHas('project_user', [
+        $this->assertDatabaseMissing('project_user', [
             'project_id' => $project->id,
             'user_id' => $existing->id,
-            'role' => Project::PROJECT_ROLE_MANAGER,
         ]);
         $this->assertDatabaseHas('workspace_invitations', [
             'workspace_id' => $workspace->id,
             'project_id' => $project->id,
             'email' => 'existing@example.test',
             'role' => 'project_manager',
+            'accepted_at' => null,
         ]);
         Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
         Notification::assertSentTo($existing, \Filament\Notifications\DatabaseNotification::class);
+    }
+
+    public function test_project_invitation_grants_access_only_after_acceptance(): void
+    {
+        $workspace = Workspace::create(['name' => 'Accept Invite Workspace']);
+        $existing = User::factory()->create(['email' => 'existing@example.test']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Accepted Project',
+            'status' => 'writing',
+        ]);
+        $invitation = WorkspaceInvitation::create([
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'email' => 'existing@example.test',
+            'role' => 'project_manager',
+            'token' => str_repeat('c', 64),
+            'expires_at' => now()->addDays(3),
+        ]);
+
+        $this->assertDatabaseMissing('project_user', [
+            'project_id' => $project->id,
+            'user_id' => $existing->id,
+        ]);
+
+        $this->actingAs($existing)
+            ->get(route('workspace-invitations.accept', $invitation->token))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('project_user', [
+            'project_id' => $project->id,
+            'user_id' => $existing->id,
+            'role' => Project::PROJECT_ROLE_MANAGER,
+        ]);
+        $this->assertNotNull($invitation->fresh()->accepted_at);
+        $this->assertSame($workspace->id, $existing->fresh()->current_workspace_id);
     }
 
     public function test_project_routes_cannot_cross_workspace_or_restricted_access_boundaries(): void

@@ -7,6 +7,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ProjectApplicationSection;
 use App\Models\User;
+use App\Models\WorkspaceInvitation;
 use App\Notifications\WorkspaceInvitationNotification;
 use App\Services\ProjectDocumentChecklist;
 use App\Services\ProjectReadinessCheck;
@@ -118,7 +119,7 @@ class ViewProjectOverview extends Page
                         ->email()
                         ->maxLength(255)
                         ->placeholder('collaborator@example.org')
-                        ->helperText('Everyone receives an email invitation. If the person already has an account, they also receive an in-app notification.'),
+                        ->helperText('Everyone receives an invitation first. Access is granted only after they accept it.'),
                     Select::make('invite_role')
                         ->label('Invitation role')
                         ->options(\App\Models\Project::projectRoleOptions())
@@ -289,13 +290,6 @@ class ViewProjectOverview extends Page
             return;
         }
 
-        if ($user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first()) {
-            $this->record->members()->syncWithoutDetaching([
-                $user->id => ['role' => $role],
-            ]);
-            $this->sendProjectAccessNotification($user, $role);
-        }
-
         $invitation = $workspace->invitations()->updateOrCreate(
             [
                 'workspace_id' => $workspace->id,
@@ -313,15 +307,26 @@ class ViewProjectOverview extends Page
 
         NotificationFacade::route('mail', $email)
             ->notify(new WorkspaceInvitationNotification($invitation));
+
+        if ($user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first()) {
+            $this->sendProjectInvitationNotification($user, $invitation, $role);
+        }
     }
 
-    private function sendProjectAccessNotification(User $user, string $role): void
+    private function sendProjectInvitationNotification(User $user, WorkspaceInvitation $invitation, string $role): void
     {
         Notification::make()
-            ->title('Project access granted')
-            ->body('You were added to '.$this->record->name.' as '.\App\Models\Project::projectRoleLabel($role).'.')
-            ->success()
-            ->sendToDatabase($user);
+            ->title('Project invitation received')
+            ->body('You were invited to '.$this->record->name.' as '.\App\Models\Project::projectRoleLabel($role).'. Accept the invitation to get access.')
+            ->info()
+            ->actions([
+                Action::make('acceptProjectInvitation')
+                    ->label('Accept invitation')
+                    ->button()
+                    ->markAsRead()
+                    ->url(route('workspace-invitations.accept', $invitation->token)),
+            ])
+            ->sendToDatabase($user, isEventDispatched: true);
     }
 
     public function openTaskCreate(): void
