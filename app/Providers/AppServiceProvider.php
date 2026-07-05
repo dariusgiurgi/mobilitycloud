@@ -16,8 +16,10 @@ use App\Policies\ContentBlockPolicy;
 use App\Policies\ProjectPolicy;
 use App\Http\Responses\Filament\UnifiedLoginResponse;
 use App\Http\Responses\Filament\UnifiedLogoutResponse;
+use App\Http\Responses\Filament\UnifiedRegistrationResponse;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
+use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +32,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(LoginResponse::class, UnifiedLoginResponse::class);
         $this->app->bind(LogoutResponse::class, UnifiedLogoutResponse::class);
+        $this->app->bind(RegistrationResponse::class, UnifiedRegistrationResponse::class);
     }
 
     /**

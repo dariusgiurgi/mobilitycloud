@@ -33,6 +33,20 @@ Route::match(['GET', 'POST'], '/account-suspended/logout', function (Request $re
     return redirect()->route('filament.admin.auth.login');
 })->name('account.suspended.logout');
 
+Route::middleware(['auth', RedirectSuspendedAccount::class])->get('/app/onboarding', function (Request $request) {
+    $user = $request->user();
+
+    if ($user instanceof User && $user->isPlatformAdmin()) {
+        return redirect()->route('filament.platform.pages.dashboard');
+    }
+
+    if ($user instanceof User && $user->hasAnyWorkspaceAccess()) {
+        return redirect()->route('filament.admin.tenant');
+    }
+
+    return view('app.onboarding');
+})->name('app.onboarding');
+
 Route::get('/platform/impersonation/{user}/start', function (Request $request, User $user) {
     $impersonator = $request->user();
 

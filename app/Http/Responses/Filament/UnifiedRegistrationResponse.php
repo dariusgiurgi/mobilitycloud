@@ -3,19 +3,15 @@
 namespace App\Http\Responses\Filament;
 
 use App\Models\User;
-use Filament\Auth\Http\Responses\Contracts\LoginResponse;
+use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
 use Illuminate\Http\RedirectResponse;
 use Livewire\Features\SupportRedirects\Redirector;
 
-class UnifiedLoginResponse implements LoginResponse
+class UnifiedRegistrationResponse implements RegistrationResponse
 {
     public function toResponse($request): RedirectResponse | Redirector
     {
         $user = $request->user();
-
-        if ($user instanceof User) {
-            $user->forceFill(['last_login_at' => now()])->save();
-        }
 
         if ($user instanceof User && $user->is_suspended) {
             return redirect()->route('account.suspended');

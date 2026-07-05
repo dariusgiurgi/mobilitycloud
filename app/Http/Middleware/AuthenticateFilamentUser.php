@@ -44,6 +44,16 @@ class AuthenticateFilamentUser extends Authenticate
             throw new HttpResponseException(redirect()->route('filament.platform.pages.dashboard'));
         }
 
+        if (
+            $user instanceof User
+            && ! $user->isPlatformAdmin()
+            && $panel->getId() === 'admin'
+            && $request->routeIs('filament.admin.tenant')
+            && ! $user->hasAnyWorkspaceAccess()
+        ) {
+            throw new HttpResponseException(redirect()->route('app.onboarding'));
+        }
+
         abort_if(
             $user instanceof FilamentUser ?
                 (! $user->canAccessPanel($panel)) :

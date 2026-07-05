@@ -98,6 +98,12 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return (bool) data_get($this->notification_preferences, $type, true);
     }
 
+    public function hasAnyWorkspaceAccess(): bool
+    {
+        return $this->workspaces()->exists()
+            || $this->projects()->exists();
+    }
+
     public function getTenants(Panel $panel): Collection
     {
         $workspaceTenants = $this->workspaces()->get();

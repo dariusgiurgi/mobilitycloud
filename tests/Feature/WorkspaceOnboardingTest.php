@@ -8,6 +8,8 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use Filament\Auth\Pages\Login;
+use Filament\Auth\Pages\Register;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -16,6 +18,62 @@ use Tests\TestCase;
 class WorkspaceOnboardingTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_user_without_workspace_logs_into_onboarding_instead_of_registration_form(): void
+    {
+        $user = User::factory()->create(['email' => 'new-user@example.test']);
+        Filament::setCurrentPanel('admin');
+
+        Livewire::test(Login::class)
+            ->fillForm([
+                'email' => 'new-user@example.test',
+                'password' => 'password',
+                'remember' => false,
+            ])
+            ->call('authenticate')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(route('app.onboarding'));
+    }
+
+    public function test_new_registration_opens_onboarding_instead_of_registration_form(): void
+    {
+        Filament::setCurrentPanel('admin');
+
+        Livewire::test(Register::class)
+            ->fillForm([
+                'name' => 'New Client',
+                'email' => 'new-client@example.test',
+                'password' => 'password',
+                'passwordConfirmation' => 'password',
+            ])
+            ->call('register')
+            ->assertHasNoFormErrors()
+            ->assertRedirect(route('app.onboarding'));
+
+        $this->assertAuthenticated();
+        $this->assertDatabaseHas('users', ['email' => 'new-client@example.test']);
+    }
+
+    public function test_app_root_redirects_user_without_workspace_to_onboarding(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/app')
+            ->assertRedirect(route('app.onboarding'));
+    }
+
+    public function test_onboarding_page_does_not_force_workspace_creation(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('app.onboarding'))
+            ->assertOk()
+            ->assertSee('You do not have an organisation yet.')
+            ->assertSee('wait until someone invites you directly to a project')
+            ->assertDontSee('Create workspace');
+    }
 
     public function test_authenticated_user_without_workspace_can_open_workspace_registration(): void
     {
