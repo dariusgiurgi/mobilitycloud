@@ -11,10 +11,13 @@ use App\Http\Controllers\WorkspaceInvitationController;
 use App\Http\Controllers\WorkspaceReportController;
 use App\Support\AuthSessionHash;
 use App\Models\User;
+use App\Models\Workspace;
+use App\Models\WorkspaceInvitation;
 use App\Support\PlatformAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 Route::get('/', function () {
     return redirect('/app/login');
@@ -44,8 +47,49 @@ Route::middleware(['auth', RedirectSuspendedAccount::class])->get('/app/onboardi
         return redirect()->route('filament.admin.tenant');
     }
 
-    return view('app.onboarding');
+    $pendingInvitations = WorkspaceInvitation::query()
+        ->with(['workspace', 'project', 'inviter'])
+        ->whereRaw('LOWER(email) = ?', [Str::lower($user->email)])
+        ->whereNull('accepted_at')
+        ->where('expires_at', '>', now())
+        ->latest()
+        ->get();
+
+    return view('app.onboarding', [
+        'pendingInvitations' => $pendingInvitations,
+    ]);
 })->name('app.onboarding');
+
+Route::middleware(['auth', RedirectSuspendedAccount::class])->post('/app/organisations', function (Request $request) {
+    $user = $request->user();
+
+    if ($user instanceof User && $user->isPlatformAdmin()) {
+        return redirect()->route('filament.platform.pages.dashboard');
+    }
+
+    if ($user instanceof User && $user->hasAnyWorkspaceAccess()) {
+        return redirect()->route('filament.admin.tenant');
+    }
+
+    $data = $request->validate([
+        'name' => ['required', 'string', 'max:255'],
+    ]);
+
+    $workspace = Workspace::create([
+        'name' => $data['name'],
+    ]);
+
+    $workspace->users()->attach($user->id, [
+        'role' => 'owner',
+        'joined_at' => now(),
+    ]);
+
+    $user->forceFill([
+        'current_workspace_id' => $workspace->id,
+    ])->save();
+
+    return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+})->name('app.organisations.store');
 
 Route::get('/platform/impersonation/{user}/start', function (Request $request, User $user) {
     $impersonator = $request->user();

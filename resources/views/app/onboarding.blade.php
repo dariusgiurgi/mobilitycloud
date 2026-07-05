@@ -50,6 +50,36 @@
         }
         .nav-item.active { background: rgba(79, 70, 229, .1); color: var(--brand-dark); }
         .nav-item.muted { color: #94a3b8; }
+        .invite-panel { margin-top: .55rem; display: grid; gap: .55rem; }
+        .invite-card {
+            padding: .75rem;
+            border: 1px solid var(--line);
+            border-radius: .85rem;
+            background: rgba(255, 255, 255, .76);
+        }
+        .invite-card strong { display: block; font-size: .8rem; line-height: 1.35; color: #0f172a; }
+        .invite-card span { display: block; margin-top: .22rem; font-size: .72rem; color: var(--muted); line-height: 1.4; }
+        .invite-card a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: .55rem;
+            padding: .45rem .6rem;
+            border-radius: .6rem;
+            background: rgba(79, 70, 229, .1);
+            color: var(--brand-dark);
+            text-decoration: none;
+            font-size: .72rem;
+            font-weight: 800;
+        }
+        .empty-note {
+            padding: .75rem;
+            border: 1px dashed rgba(148, 163, 184, .44);
+            border-radius: .85rem;
+            color: var(--muted);
+            font-size: .75rem;
+            line-height: 1.45;
+        }
         .account {
             margin-top: 2rem;
             padding: .9rem;
@@ -111,12 +141,34 @@
         .tile { padding: 1rem; border: 1px solid var(--line); border-radius: 1rem; background: rgba(248, 250, 252, .85); }
         .tile strong { display: block; font-size: .9rem; }
         .tile span { display: block; margin-top: .35rem; color: var(--muted); font-size: .8rem; line-height: 1.45; }
+        .setup-form {
+            margin-top: 1.4rem;
+            padding: 1rem;
+            border: 1px solid var(--line);
+            border-radius: 1rem;
+            background: rgba(248, 250, 252, .85);
+        }
+        .setup-form label { display: block; font-size: .78rem; font-weight: 800; color: #334155; }
+        .setup-row { display: flex; gap: .65rem; margin-top: .55rem; }
+        .setup-row input {
+            flex: 1;
+            min-width: 0;
+            min-height: 44px;
+            border: 1px solid var(--line);
+            border-radius: .85rem;
+            padding: .7rem .85rem;
+            font: inherit;
+            background: white;
+            color: var(--ink);
+        }
+        .error { margin-top: .45rem; color: #dc2626; font-size: .78rem; }
         .footer-note { margin-top: 1.3rem; color: var(--muted); font-size: .8rem; }
         @media (max-width: 860px) {
             .shell { grid-template-columns: 1fr; }
             .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
             .nav { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1rem; }
             .grid { grid-template-columns: 1fr; }
+            .setup-row { flex-direction: column; }
         }
     </style>
 </head>
@@ -130,8 +182,22 @@
 
             <nav class="nav" aria-label="Account navigation">
                 <a class="nav-item active" href="{{ route('app.onboarding') }}">Overview</a>
-                <a class="nav-item muted" href="mailto:{{ config('mobilitycloud.emails.support', 'contact@mobilitycloud.eu') }}">Support</a>
                 <span class="nav-item muted">Invitations by email</span>
+                <div class="invite-panel">
+                    @forelse($pendingInvitations as $invitation)
+                        <div class="invite-card">
+                            <strong>{{ $invitation->project?->name ?? $invitation->workspace?->name ?? 'MobilityCloud invitation' }}</strong>
+                            <span>
+                                {{ $invitation->project ? 'Project access' : 'Organisation access' }}
+                                @if($invitation->workspace) · {{ $invitation->workspace->name }} @endif
+                            </span>
+                            <span>Expires {{ $invitation->expires_at->format('d M Y') }}</span>
+                            <a href="{{ route('workspace-invitations.accept', $invitation->token) }}">Accept invitation</a>
+                        </div>
+                    @empty
+                        <div class="empty-note">No active invitations for this email address yet.</div>
+                    @endforelse
+                </div>
                 <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
                     @csrf
                     <button class="nav-item muted" style="width:100%;border:0;background:transparent;text-align:left;cursor:pointer;">Sign out</button>
@@ -153,9 +219,21 @@
                 </p>
 
                 <div class="actions">
-                    <a class="button primary" href="{{ route('filament.admin.tenant.registration') }}">Set up your organisation</a>
+                    <a class="button primary" href="#setup-organisation">Set up your organisation</a>
                     <a class="button secondary" href="mailto:{{ config('mobilitycloud.emails.support', 'contact@mobilitycloud.eu') }}">Contact support</a>
                 </div>
+
+                <form id="setup-organisation" class="setup-form" method="POST" action="{{ route('app.organisations.store') }}">
+                    @csrf
+                    <label for="organisation-name">Organisation name</label>
+                    <div class="setup-row">
+                        <input id="organisation-name" name="name" value="{{ old('name') }}" placeholder="e.g. Scoala de Jocuri" required maxlength="255">
+                        <button class="button primary" type="submit">Create organisation</button>
+                    </div>
+                    @error('name')
+                        <div class="error">{{ $message }}</div>
+                    @enderror
+                </form>
 
                 <div class="grid">
                     <div class="tile">

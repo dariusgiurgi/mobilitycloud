@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\Tenancy\EditWorkspaceProfile;
+use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Projects\Pages\CreateProject;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Models\WorkspaceInvitation;
 use Filament\Auth\Pages\Login;
 use Filament\Auth\Pages\Register;
 use Filament\Facades\Filament;
@@ -72,7 +74,71 @@ class WorkspaceOnboardingTest extends TestCase
             ->assertOk()
             ->assertSee('You do not have an organisation yet.')
             ->assertSee('wait until someone invites you directly to a project')
-            ->assertDontSee('Create workspace');
+            ->assertSee('No active invitations for this email address yet.')
+            ->assertDontSee('Create workspace')
+            ->assertDontSee('>Support<', false);
+    }
+
+    public function test_onboarding_lists_pending_email_invitations_for_the_account_email(): void
+    {
+        $workspace = Workspace::create(['name' => 'Inviting Organisation']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Invited Project',
+            'status' => 'writing',
+        ]);
+        $user = User::factory()->create(['email' => 'invited@example.test']);
+        $otherUser = User::factory()->create(['email' => 'other@example.test']);
+        WorkspaceInvitation::create([
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'email' => 'invited@example.test',
+            'role' => 'project_editor',
+            'token' => str_repeat('a', 64),
+            'expires_at' => now()->addDays(3),
+        ]);
+        WorkspaceInvitation::create([
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'email' => 'other@example.test',
+            'role' => 'project_editor',
+            'token' => str_repeat('b', 64),
+            'expires_at' => now()->addDays(3),
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('app.onboarding'))
+            ->assertOk()
+            ->assertSee('Invitations by email')
+            ->assertSee('Invited Project')
+            ->assertSee('Inviting Organisation')
+            ->assertSee('Accept invitation')
+            ->assertDontSee('No active invitations for this email address yet.');
+
+        $this->actingAs($otherUser)
+            ->get(route('app.onboarding'))
+            ->assertOk()
+            ->assertSee('Invited Project');
+    }
+
+    public function test_user_without_workspace_can_create_organisation_from_onboarding(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->post(route('app.organisations.store'), [
+                'name' => 'Scoala de Jocuri',
+            ]);
+
+        $workspace = Workspace::query()->where('name', 'Scoala de Jocuri')->firstOrFail();
+
+        $response->assertRedirect(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+        $this->assertDatabaseHas('workspace_user', [
+            'workspace_id' => $workspace->id,
+            'user_id' => $user->id,
+            'role' => 'owner',
+        ]);
+        $this->assertSame($workspace->id, $user->fresh()->current_workspace_id);
     }
 
     public function test_authenticated_user_without_workspace_can_open_workspace_registration(): void
