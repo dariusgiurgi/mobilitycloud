@@ -263,7 +263,7 @@ class ViewProjectOverview extends Page
 
         if ($this->record->access_mode === 'restricted') {
             $allowedIds = $this->record->workspace->users()
-                ->wherePivotIn('role', ['owner', 'admin'])
+                ->whereRaw('workspace_user.role in (?, ?)', ['owner', 'admin'])
                 ->pluck('users.id')
                 ->merge($this->record->members()->pluck('users.id'))
                 ->unique();

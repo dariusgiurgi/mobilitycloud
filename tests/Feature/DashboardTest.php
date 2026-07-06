@@ -116,6 +116,29 @@ class DashboardTest extends TestCase
         $this->assertSame($invitedProject->id, data_get($notification->data, 'viewData.project_id'));
     }
 
+    public function test_project_stats_render_for_project_only_collaborators(): void
+    {
+        $workspace = Workspace::create(['name' => 'External Stats Workspace']);
+        $owner = User::factory()->create();
+        $user = User::factory()->create();
+        $workspace->users()->attach($owner, ['role' => 'owner']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'External Active Project',
+            'status' => 'active',
+            'approved_budget' => 5000,
+        ]);
+        $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ProjectStatsOverview::class)
+            ->assertSee('Active projects')
+            ->assertSee('Approved funding')
+            ->assertSee('5,000.00');
+    }
+
     public function test_workspace_member_can_render_the_complete_dashboard_page(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser();

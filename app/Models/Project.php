@@ -157,7 +157,7 @@ class Project extends Model
             $query
                 ->whereHas('workspace.users', fn (Builder $members) => $members
                     ->whereKey($user->id)
-                    ->whereIn('workspace_user.role', ['owner', 'admin']))
+                    ->whereRaw('workspace_user.role in (?, ?)', ['owner', 'admin']))
                 ->orWhere(function (Builder $query) use ($user): void {
                     $query
                         ->where('access_mode', 'workspace')

@@ -96,6 +96,10 @@ class ListProjects extends ListRecords
                     && Project::query()->visibleToAccount(auth()->user())->exists()),
             CreateAction::make()
                 ->label('New project')
+                ->url(fn (): string => ProjectResource::getUrl(
+                    'create',
+                    tenant: app(AccountWorkspaceService::class)->ensureFor(auth()->user()),
+                ))
                 ->visible(fn (): bool => ! $this->archived && (auth()->user()?->can('create', Project::class) ?? false)),
         ];
     }

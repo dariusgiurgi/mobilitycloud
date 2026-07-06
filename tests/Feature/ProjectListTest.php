@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Projects\Pages\CreateProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
+use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
@@ -93,6 +95,10 @@ class ProjectListTest extends TestCase
             ->assertSee('New project');
 
         $userAccount = app(AccountWorkspaceService::class)->ensureFor($user);
+        $this->assertStringContainsString(
+            $userAccount->slug.'/projects/create',
+            Livewire::test(ListProjects::class)->html(),
+        );
         Project::create([
             'workspace_id' => $userAccount->id,
             'name' => 'My Free Plan Project',
@@ -100,6 +106,57 @@ class ProjectListTest extends TestCase
         ]);
 
         Livewire::test(ListProjects::class)->assertDontSee('New project');
+    }
+
+    public function test_create_project_route_under_an_invited_workspace_redirects_to_the_users_account_workspace(): void
+    {
+        $invitingWorkspace = Workspace::create(['name' => 'Invited Tenant']);
+        $owner = User::factory()->create();
+        $user = User::factory()->create();
+        $invitingWorkspace->users()->attach($owner, ['role' => 'owner']);
+        $shared = Project::create([
+            'workspace_id' => $invitingWorkspace->id,
+            'name' => 'Shared Tenant Project',
+            'status' => 'writing',
+        ]);
+        $shared->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $userAccount = app(AccountWorkspaceService::class)->ensureFor($user);
+
+        $this->actingAs($user);
+
+        $this->get(ProjectResource::getUrl('create', tenant: $invitingWorkspace))
+            ->assertRedirect(ProjectResource::getUrl('create', tenant: $userAccount));
+    }
+
+    public function test_project_created_after_external_collaboration_is_stored_under_the_users_account_workspace(): void
+    {
+        $externalWorkspace = Workspace::create(['name' => 'External Project Owner']);
+        $owner = User::factory()->create();
+        $user = User::factory()->create();
+        $externalWorkspace->users()->attach($owner, ['role' => 'owner']);
+        $shared = Project::create([
+            'workspace_id' => $externalWorkspace->id,
+            'name' => 'External Collaboration',
+            'status' => 'writing',
+        ]);
+        $shared->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $userAccount = app(AccountWorkspaceService::class)->ensureFor($user);
+
+        $this->actingAs($user);
+        Filament::setTenant($userAccount);
+
+        $component = Livewire::test(CreateProject::class)
+            ->fillForm([
+                'name' => 'My Account Project',
+                'total_budget' => 1000,
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $project = Project::query()->where('name', 'My Account Project')->firstOrFail();
+        $this->assertSame($userAccount->id, $project->workspace_id);
+        $this->assertTrue($project->canBeAccessedBy($user));
+        $component->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], tenant: $userAccount));
     }
 
     public function test_project_list_shows_accessible_projects_across_internal_containers(): void
