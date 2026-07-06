@@ -62,6 +62,8 @@ class SeedE2eQaData extends Command
         $this->syncWritingSections($viewerProject, 'ka152-you');
         $writingProject = $this->upsertProject($owner, 'QA Bot Writing KA152 Project', 'QA-WRITE', 'ka152-you');
         $this->syncWritingSections($writingProject, 'ka152-you');
+        $budgetProject = $this->upsertProject($owner, 'QA Bot Active Budget Project', 'QA-BUDGET');
+        $this->seedBudgetBoard($budgetProject, $owner);
         $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
 
         $editorInvitation = $this->upsertInvitation($owner, $collaborationProject, $editor, Project::PROJECT_ROLE_EDITOR);
@@ -82,6 +84,7 @@ class SeedE2eQaData extends Command
                 'collaboration' => ['id' => $collaborationProject->id, 'name' => $collaborationProject->name],
                 'viewer' => ['id' => $viewerProject->id, 'name' => $viewerProject->name],
                 'writing_ka152' => ['id' => $writingProject->id, 'name' => $writingProject->name],
+                'budget_active' => ['id' => $budgetProject->id, 'name' => $budgetProject->name],
                 'free_owned' => ['id' => $freeOwnedProject->id, 'name' => $freeOwnedProject->name],
             ],
             'invitations' => [
@@ -236,6 +239,54 @@ class SeedE2eQaData extends Command
             ->where('project_id', $project->id)
             ->whereNotIn('question_key', collect($sections)->pluck('key')->all())
             ->delete();
+    }
+
+    private function seedBudgetBoard(Project $project, User $owner): void
+    {
+        $project->update([
+            'status' => 'active',
+            'total_budget' => 5000,
+            'approved_budget' => 5000,
+            'currencies' => [
+                'RON' => 5,
+            ],
+        ]);
+
+        $travel = $project->budgetLines()->where('title', 'Travel')->firstOrFail();
+        $support = $project->budgetLines()->where('title', 'Organisational Support')->firstOrFail();
+
+        $travel->update(['allocated_budget' => 3000]);
+        $support->update(['allocated_budget' => 2000]);
+
+        $travel->expenses()->updateOrCreate(
+            ['description' => 'QA Bot train tickets'],
+            [
+                'reference_nr' => 'QA-INV-001',
+                'expense_date' => now()->subDays(7)->toDateString(),
+                'amount' => 500,
+                'currency' => 'RON',
+                'exchange_rate' => 5,
+                'amount_eur' => 100,
+                'is_civil_convention' => false,
+                'position' => 0,
+                'created_by' => $owner->id,
+            ],
+        );
+
+        $support->expenses()->updateOrCreate(
+            ['description' => 'QA Bot facilitation materials'],
+            [
+                'reference_nr' => 'QA-INV-002',
+                'expense_date' => now()->subDays(5)->toDateString(),
+                'amount' => 250,
+                'currency' => 'EUR',
+                'exchange_rate' => 1,
+                'amount_eur' => 250,
+                'is_civil_convention' => false,
+                'position' => 0,
+                'created_by' => $owner->id,
+            ],
+        );
     }
 
     private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): WorkspaceInvitation

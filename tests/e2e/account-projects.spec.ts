@@ -79,6 +79,25 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByPlaceholder('Participants').first()).toHaveValue('12 young people');
     await expectApplicationExports(page, state.projects.writing_ka152.id, qaAnswer);
 
+    await page.goto(`/app/projects/${state.projects.owned.id}/estimate`);
+    await expect(page.getByRole('heading', { name: /Grant estimator/i })).toBeVisible();
+    await expect(page.getByText(/Writing stage/i).first()).toBeVisible();
+    await expect(page.getByText(/Total grant/i)).toBeVisible();
+    await expect(page.getByText(/Changes are saved automatically/i)).toBeVisible();
+
+    await page.goto(`/app/projects/${state.projects.budget_active.id}/board`);
+    await expect(page.getByRole('heading', { name: /Budget control/i })).toBeVisible();
+    await expect(page.getByText(state.projects.budget_active.name).first()).toBeVisible();
+    await expect(page.getByText(/2 expenses/i)).toBeVisible();
+    await expect(page.getByPlaceholder('Expense name…').nth(0)).toHaveValue('QA Bot train tickets');
+    await expect(page.getByPlaceholder('Expense name…').nth(1)).toHaveValue('QA Bot facilitation materials');
+    await expect(page.getByText(/€ 5,000.00/).first()).toBeVisible();
+    await expect(page.getByText(/€ 350.00/).first()).toBeVisible();
+
+    const budgetPdf = await page.request.get(`/projects/${state.projects.budget_active.id}/export`);
+    expect(budgetPdf.status()).toBe(200);
+    expect(budgetPdf.headers()['content-type']).toContain('application/pdf');
+
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
 
@@ -134,6 +153,9 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     const forbiddenExport = await page.request.get(`/projects/${state.projects.viewer.id}/export-application-word`);
     expect(forbiddenExport.status()).toBe(403);
+
+    const forbiddenBudgetExport = await page.request.get(`/projects/${state.projects.budget_active.id}/export`);
+    expect(forbiddenBudgetExport.status()).toBe(403);
   });
 
   test('viewer invitations grant read-only project access', async ({ page }) => {

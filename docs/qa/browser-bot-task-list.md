@@ -103,6 +103,16 @@ MobilityCloudQA!2026
 - Confirm owner, editor and viewer can export the application.
 - Confirm accounts without project access cannot export the application.
 
+### 9. Budget estimator and implementation board
+
+- Seed a dedicated active budget project with approved grant, baskets and expenses.
+- Open the writing-stage grant estimator.
+- Confirm estimator inputs, totals and autosave messaging are visible.
+- Open the active project Budget board.
+- Confirm approved budget, spent amount and seeded expenses are visible.
+- Confirm the project budget PDF export works for the owner.
+- Confirm accounts without project access cannot export the budget report.
+
 ## Next bot scenarios to automate
 
 ### Projects
@@ -121,10 +131,10 @@ MobilityCloudQA!2026
 
 ### Budget
 
-- Add budget baskets.
-- Add expenses in EUR and a secondary currency.
 - Change project currency rate and verify project totals update.
-- Generate formal expenditure report.
+- Add/edit/delete budget baskets through the board.
+- Add/edit expenses in EUR and a secondary currency through the board.
+- Generate formal expenditure report from Documents.
 
 ### Participants
 

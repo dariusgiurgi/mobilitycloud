@@ -33,6 +33,7 @@ export type QaState = {
     collaboration: QaProject;
     viewer: QaProject;
     writing_ka152: QaProject;
+    budget_active: QaProject;
     free_owned: QaProject;
   };
   invitations: {
