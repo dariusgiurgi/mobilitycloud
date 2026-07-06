@@ -1,6 +1,21 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { login, logoutByClearingSession } from './support/auth';
 import { qaState } from './support/qa-state';
+
+async function expectApplicationExports(page: Page, projectId: number, expectedText: string) {
+  const pdf = await page.request.get(`/projects/${projectId}/export-application`);
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()['content-type']).toContain('application/pdf');
+
+  const word = await page.request.get(`/projects/${projectId}/export-application-word`);
+  expect(word.status()).toBe(200);
+  expect(word.headers()['content-type']).toContain('application/msword');
+  expect(await word.text()).toContain(expectedText);
+
+  const pack = await page.request.get(`/projects/${projectId}/export-application-pack`);
+  expect(pack.status()).toBe(200);
+  expect(pack.headers()['content-type']).toContain('application/pdf');
+}
 
 test.describe.serial('Account-owned projects and project invitations', () => {
   const state = qaState();
@@ -62,6 +77,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await page.reload();
     await expect(page.getByPlaceholder('Group / country').first()).toHaveValue('Romania group');
     await expect(page.getByPlaceholder('Participants').first()).toHaveValue('12 young people');
+    await expectApplicationExports(page, state.projects.writing_ka152.id, qaAnswer);
 
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
@@ -93,6 +109,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await page.waitForTimeout(1_200);
     await page.reload();
     await expect(page.locator('textarea[placeholder^="Write your answer here"]').first()).toHaveValue(editorAnswer);
+    await expectApplicationExports(page, state.projects.collaboration.id, editorAnswer);
 
     const projectName = `QA Bot Editor Owned ${Date.now()}`;
     await page.goto('/app/projects/create');
@@ -114,6 +131,9 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     await page.goto('/app/projects/create');
     await expect(page.getByText(/403|forbidden|not authorized|not available/i)).toBeVisible();
+
+    const forbiddenExport = await page.request.get(`/projects/${state.projects.viewer.id}/export-application-word`);
+    expect(forbiddenExport.status()).toBe(403);
   });
 
   test('viewer invitations grant read-only project access', async ({ page }) => {
@@ -133,6 +153,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.locator('textarea:not([placeholder])').first()).toHaveAttribute('readonly', '');
     await expect(page.getByRole('button', { name: /Template manager/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Add row/i })).toHaveCount(0);
+    await expectApplicationExports(page, state.projects.viewer.id, 'QA bot baseline answer for the official KA152 objectives question.');
   });
 
   test('platform owner opens the platform administration surface, not a workspace dashboard', async ({ page }) => {

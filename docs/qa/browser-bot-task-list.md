@@ -100,6 +100,8 @@ MobilityCloudQA!2026
 - Confirm an invited Editor can write in the shared project.
 - Confirm an invited Viewer can open Writing in read-only mode.
 - Confirm Viewer cannot see template/table edit actions.
+- Confirm owner, editor and viewer can export the application.
+- Confirm accounts without project access cannot export the application.
 
 ## Next bot scenarios to automate
 
@@ -114,9 +116,8 @@ MobilityCloudQA!2026
 
 - Create a project with each supported application template.
 - Verify only the selected template's questions appear.
-- Export application content.
 - Verify template switching preserves compatible answers and removes old official questions.
-- Verify Writing export permissions for owner/editor/viewer.
+- Verify exported PDF/pack includes structured table rows.
 
 ### Budget
 
