@@ -16,13 +16,13 @@
                 <div class="mc-template-field"><label>Signatory role</label><input wire:model="signatoryRole" class="text-gray-950 dark:text-white" placeholder="Legal representative"></div>
                 <div class="mc-template-field"><label>Accent colour</label><input type="color" wire:model.live="accentColor" style="height:38px;padding:.2rem;"></div>
                 <div class="mc-template-field"><label>Logo (PNG or JPG)</label><input type="file" wire:model="logo" accept="image/png,image/jpeg" style="border:0;padding:.35rem 0;">@error('logo')<p style="color:#dc2626;font-size:.7rem;">{{ $message }}</p>@enderror</div>
-                <div class="mc-template-full" style="display:flex;gap:.5rem;align-items:center;"><x-filament::button wire:click="save" wire:loading.attr="disabled" wire:target="save" icon="heroicon-o-check">Save template</x-filament::button>@if(\Filament\Facades\Filament::getTenant()->document_logo_path)<x-filament::button wire:click="removeLogo" wire:confirm="Remove the document logo?" color="gray" icon="heroicon-o-trash">Remove logo</x-filament::button>@endif</div>
+                <div class="mc-template-full" style="display:flex;gap:.5rem;align-items:center;"><x-filament::button wire:click="save" wire:loading.attr="disabled" wire:target="save" icon="heroicon-o-check">Save template</x-filament::button>@if($this->hasLogo())<x-filament::button wire:click="removeLogo" wire:confirm="Remove the document logo?" color="gray" icon="heroicon-o-trash">Remove logo</x-filament::button>@endif</div>
             </div>
         </x-filament::section>
 
         <div class="mc-paper" style="--accent:{{ preg_match('/^#[0-9A-Fa-f]{6}$/',$accentColor) ? $accentColor : '#4f46e5' }}">
             <div class="mc-paper-head">
-                <div>@if(\Filament\Facades\Filament::getTenant()->documentLogoDataUri())<img src="{{ \Filament\Facades\Filament::getTenant()->documentLogoDataUri() }}" class="mc-paper-logo">@else<strong style="color:var(--accent);font-family:Arial,sans-serif;">{{ $brandName ?: 'Organisation' }}</strong>@endif</div>
+                <div>@if($this->logoDataUri())<img src="{{ $this->logoDataUri() }}" class="mc-paper-logo">@else<strong style="color:var(--accent);font-family:Arial,sans-serif;">{{ $brandName ?: 'Organisation' }}</strong>@endif</div>
                 <span style="color:#64748b;font:10px Arial,sans-serif;">{{ $headerText }}</span>
             </div>
             <div class="mc-paper-title">Project Document</div>

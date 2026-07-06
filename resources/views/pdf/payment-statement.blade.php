@@ -8,7 +8,7 @@
         * { box-sizing: border-box; }
         body { margin: 0; color: #172033; font-family: DejaVu Sans, sans-serif; font-size: 9px; line-height: 1.45; }
         .header { position: fixed; top: -13mm; left: 0; right: 0; height: 9mm; border-bottom: 1px solid #cbd5e1; }
-        .brand { color: {{ $project->workspace->documentSetting('accent_color', '#4f46e5') }}; font-size: 11px; font-weight: bold; }
+        .brand { color: {{ $project->documentSetting('accent_color', '#4f46e5') }}; font-size: 11px; font-weight: bold; }
         .brand-logo { max-height: 28px; max-width: 125px; }
         .header-right { float: right; color: #64748b; font-size: 7px; padding-top: 2px; }
         .footer { position: fixed; bottom: -11mm; left: 0; right: 0; padding-top: 3px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 6.5px; }
@@ -37,11 +37,11 @@
 </head>
 <body>
     <div class="header">
-        <span class="brand">@if($project->workspace->documentLogoDataUri())<img src="{{ $project->workspace->documentLogoDataUri() }}" class="brand-logo">@else{{ $project->workspace->documentSetting('brand_name', $project->workspace->name) }}@endif</span>
+        <span class="brand">@if($project->documentLogoDataUri())<img src="{{ $project->documentLogoDataUri() }}" class="brand-logo">@else{{ $project->documentSetting('brand_name', $project->documentBrandName()) }}@endif</span>
         <span class="header-right">{{ $project->acronym ?: $project->name }} - Civil convention payment record</span>
     </div>
     <div class="footer">
-        {{ $project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud') }} · {{ now()->format('d M Y, H:i') }}
+        {{ $project->documentSetting('footer_text', 'Generated with MobilityCloud') }} · {{ now()->format('d M Y, H:i') }}
         <span class="page"></span>
     </div>
 
@@ -55,7 +55,7 @@
             <tr>
                 <td><div class="label">Project</div><div class="value">{{ $project->name }} @if($project->grant_ref) - {{ $project->grant_ref }} @endif</div></td>
                 <td><div class="label">Agreement</div><div class="value">No. {{ $data['convention_number'] }} dated {{ \Carbon\Carbon::parse($data['contract_date'])->format('d M Y') }}</div></td>
-                <td><div class="label">Payer / beneficiary</div><div class="value">{{ $data['beneficiary_name'] ?: $project->workspace?->name }}</div></td>
+                <td><div class="label">Payer / beneficiary</div><div class="value">{{ $data['beneficiary_name'] ?: $project->documentLegalName() }}</div></td>
                 <td><div class="label">Service provider</div><div class="value">{{ $data['provider_name'] }}</div></td>
             </tr>
         </table>

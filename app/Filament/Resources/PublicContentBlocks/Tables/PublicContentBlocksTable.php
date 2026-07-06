@@ -9,7 +9,6 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -78,16 +77,15 @@ class PublicContentBlocksTable
                     ->color('primary')
                     ->requiresConfirmation()
                     ->modalHeading('Import to your library')
-                    ->modalDescription('A personal copy will be added to your workspace Content Library. You can edit it freely afterwards.')
-                    ->visible(fn (): bool => Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false)
+                    ->modalDescription('A personal copy will be added to your Content Library. You can edit it freely afterwards.')
+                    ->visible(fn (): bool => auth()->check())
                     ->action(function (PublicContentBlock $record) {
-                        $workspace = Filament::getTenant();
-                        if (! $workspace) {
+                        if (! auth()->check()) {
                             return;
                         }
 
                         if (ContentBlock::query()
-                            ->where('workspace_id', $workspace->id)
+                            ->where('owner_id', auth()->id())
                             ->where('imported_from_public_id', $record->id)
                             ->exists()) {
                             Notification::make()
@@ -99,7 +97,8 @@ class PublicContentBlocksTable
                         }
 
                         ContentBlock::create([
-                            'workspace_id' => $workspace->id,
+                            'owner_id' => auth()->id(),
+                            'workspace_id' => null,
                             'title' => $record->title,
                             'category' => $record->category,
                             'ka_action' => $record->ka_action,

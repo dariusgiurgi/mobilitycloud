@@ -267,23 +267,21 @@ class ViewProjectOverview extends Page
 
     private function projectAssigneeIds()
     {
-        return $this->record->workspace->users()
-            ->wherePivot('role', 'owner')
-            ->pluck('users.id')
+        return collect([$this->record->owner_id])
             ->merge($this->record->members()->pluck('users.id'))
+            ->filter()
             ->unique()
             ->values();
     }
 
     private function inviteProjectCollaborator(string $email, string $role): void
     {
-        $workspace = $this->record->workspace;
         $role = in_array($role, array_keys(\App\Models\Project::projectRoleOptions()), true) ? $role : 'editor';
 
         $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
 
         if (
-            $workspace->users()->whereRaw('LOWER(email) = ?', [$email])->wherePivot('role', 'owner')->exists()
+            strcasecmp((string) $this->record->owner()?->email, $email) === 0
             || ($user && $this->record->members()->whereKey($user->id)->exists())
         ) {
             Notification::make()
@@ -295,13 +293,13 @@ class ViewProjectOverview extends Page
             return;
         }
 
-        $invitation = $workspace->invitations()->updateOrCreate(
+        $invitation = WorkspaceInvitation::query()->updateOrCreate(
             [
-                'workspace_id' => $workspace->id,
                 'email' => $email,
                 'project_id' => $this->record->id,
             ],
             [
+                'workspace_id' => null,
                 'invited_by' => auth()->id(),
                 'role' => 'project_'.$role,
                 'token' => Str::random(64),

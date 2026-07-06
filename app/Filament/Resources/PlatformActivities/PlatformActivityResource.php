@@ -5,7 +5,6 @@ namespace App\Filament\Resources\PlatformActivities;
 use App\Filament\Resources\PlatformActivities\Pages\ListPlatformActivities;
 use App\Filament\Resources\PlatformActivities\Pages\ViewPlatformActivity;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Models\PlatformAuditLog;
 use App\Models\User;
 use App\Models\Workspace;
@@ -110,7 +109,7 @@ class PlatformActivityResource extends Resource
                             ->copyable(),
                     ]),
                 Section::make('Subject')
-                    ->description('The account, workspace or object affected by the action.')
+                    ->description('The account, project or object affected by the action.')
                     ->columnSpan(1)
                     ->schema([
                         TextEntry::make('subject_label')
@@ -190,7 +189,7 @@ class PlatformActivityResource extends Resource
                     ->label('Action type')
                     ->options([
                         'accounts' => 'Accounts',
-                        'subscriptions' => 'Subscriptions',
+                        'subscriptions' => 'Account access',
                         'impersonation' => 'Impersonation',
                         'announcements' => 'Announcements',
                         'support' => 'Support notes',
@@ -200,7 +199,7 @@ class PlatformActivityResource extends Resource
                             'accounts' => $query->where('action', 'like', 'account.%'),
                             'subscriptions' => $query->where(function (Builder $query): void {
                                 $query
-                                    ->where('action', 'like', 'workspace.%')
+                                    ->where('action', 'like', 'account.%')
                                     ->orWhere('action', 'like', 'subscription_%');
                             }),
                             'impersonation' => $query->where('action', 'like', 'impersonation.%'),
@@ -378,7 +377,7 @@ class PlatformActivityResource extends Resource
         }
 
         if ($subject instanceof Workspace) {
-            return $subject->name;
+            return $subject->name.' (legacy workspace record)';
         }
 
         if ($record->subject_type && $record->subject_id) {
@@ -394,10 +393,6 @@ class PlatformActivityResource extends Resource
 
         if ($subject instanceof User && PlatformUserResource::canManageAccount($subject)) {
             return PlatformUserResource::getUrl('edit', ['record' => $subject], panel: 'platform');
-        }
-
-        if ($subject instanceof Workspace) {
-            return PlatformWorkspaceResource::getUrl('edit', ['record' => $subject], panel: 'platform');
         }
 
         return null;

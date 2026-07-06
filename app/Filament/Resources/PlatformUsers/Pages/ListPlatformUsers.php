@@ -15,7 +15,7 @@ class ListPlatformUsers extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'All platform accounts, workspace memberships, plan exposure and support flags.';
+        return 'All platform accounts, project ownership, plan exposure and support flags.';
     }
 
     protected function getHeaderActions(): array

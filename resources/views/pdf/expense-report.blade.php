@@ -8,7 +8,7 @@
         * { box-sizing: border-box; }
         body { margin: 0; color: #172033; font-family: DejaVu Sans, sans-serif; font-size: 8px; line-height: 1.35; }
         .header { position: fixed; top: -15mm; left: 0; right: 0; height: 11mm; border-bottom: 1px solid #cbd5e1; }
-        .header-brand { color: {{ $project->workspace->documentSetting('accent_color', '#4f46e5') }}; font-size: 11px; font-weight: bold; }
+        .header-brand { color: {{ $project->documentSetting('accent_color', '#4f46e5') }}; font-size: 11px; font-weight: bold; }
         .header-logo { max-height: 28px; max-width: 125px; }
         .header-project { float: right; color: #64748b; font-size: 7px; padding-top: 2px; }
         .footer { position: fixed; bottom: -11mm; left: 0; right: 0; color: #64748b; font-size: 6.5px; border-top: 1px solid #e2e8f0; padding-top: 3px; }
@@ -50,11 +50,11 @@
 </head>
 <body>
     <div class="header">
-        <span class="header-brand">@if($project->workspace->documentLogoDataUri())<img src="{{ $project->workspace->documentLogoDataUri() }}" class="header-logo">@else{{ $project->workspace->documentSetting('brand_name', $project->workspace->name) }}@endif</span>
+        <span class="header-brand">@if($project->documentLogoDataUri())<img src="{{ $project->documentLogoDataUri() }}" class="header-logo">@else{{ $project->documentSetting('brand_name', $project->documentBrandName()) }}@endif</span>
         <span class="header-project">{{ $project->acronym ?: $project->name }} · Official financial record</span>
     </div>
     <div class="footer">
-        {{ $project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud') }} · {{ $document->generated_at?->format('d M Y, H:i') }}
+        {{ $project->documentSetting('footer_text', 'Generated with MobilityCloud') }} · {{ $document->generated_at?->format('d M Y, H:i') }}
         <span class="footer-right"></span>
     </div>
 
@@ -120,7 +120,7 @@
             </td>
             <td>
                 <strong>Approved by</strong><br>
-                {{ $project->workspace->documentSetting('signatory_name', $project->workspace?->billing_name ?: $project->workspace?->name) }}@if($project->workspace->documentSetting('signatory_role')) · {{ $project->workspace->documentSetting('signatory_role') }}@endif
+                {{ $project->documentSetting('signatory_name', $project->documentLegalName()) }}@if($project->documentSetting('signatory_role')) · {{ $project->documentSetting('signatory_role') }}@endif
                 <div class="signature-line">Name, role, date and signature</div>
             </td>
         </tr>

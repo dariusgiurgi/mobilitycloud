@@ -21,7 +21,9 @@ class ViewPlatformUser extends ViewRecord
             ? 'Archived account'
             : ($this->record->is_suspended ? 'Suspended account' : 'Active account');
 
-        return $status.' · '.$this->record->email.' · '.$this->record->workspaces()->count().' workspace(s)';
+        return $status.' · '.$this->record->email.' · '
+            .$this->record->ownedProjects()->count().' owned project(s), '
+            .$this->record->projects()->count().' shared project access';
     }
 
     protected function getHeaderActions(): array

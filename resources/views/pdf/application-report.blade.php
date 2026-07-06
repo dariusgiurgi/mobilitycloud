@@ -17,7 +17,7 @@
     @include('pdf.partials.document-theme')
 </style></head><body>
 
-@include('pdf.partials.document-header', ['workspace' => $project->workspace, 'context' => 'Application document', 'footerLeft' => $project->name.' · '.($project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud'))])
+@include('pdf.partials.document-header', ['project' => $project, 'context' => 'Application document', 'footerLeft' => $project->name.' · '.($project->documentSetting('footer_text', 'Generated with MobilityCloud'))])
 
 <div class="mc-doc-title">
     <h1>Project Application</h1>

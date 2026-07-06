@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
-use App\Services\AccountWorkspaceService;
 use App\Services\ProjectDuplicator;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -56,7 +55,7 @@ class ListProjects extends ListRecords
                         ->options(fn (): array => Project::query()
                             ->visibleToAccount(auth()->user())
                             ->orderBy('name')
-                            ->with(['workspace.users', 'members'])
+                            ->with(['ownerAccount', 'members'])
                             ->get()
                             ->mapWithKeys(fn (Project $project): array => [
                                 $project->id => trim($project->name.' — '.$project->accessLabelFor(auth()->user()).($project->ownerLabelFor(auth()->user()) ? ' · '.$project->ownerLabelFor(auth()->user()) : '')),
@@ -87,7 +86,7 @@ class ListProjects extends ListRecords
                     $copy = $duplicator->duplicate(
                         $source,
                         $data,
-                        app(AccountWorkspaceService::class)->ensureFor(auth()->user()),
+                        auth()->id(),
                     );
 
                     Notification::make()
@@ -113,7 +112,7 @@ class ListProjects extends ListRecords
         $query = Project::query()
             ->visibleToAccount(auth()->user())
             ->withCount('participants')
-            ->with(['workspace.users', 'members', 'budgetLines.expenses']);
+            ->with(['ownerAccount', 'members', 'budgetLines.expenses']);
 
         if ($this->archived) {
             return $query->onlyTrashed()
@@ -139,7 +138,7 @@ class ListProjects extends ListRecords
     {
         $project = Project::onlyTrashed()
             ->visibleToAccount(auth()->user())
-            ->with('workspace.users')
+            ->with('ownerAccount')
             ->findOrFail($projectId);
         abort_unless($project->canManageLifecycleBy(auth()->user()), 403);
         $project->restore();

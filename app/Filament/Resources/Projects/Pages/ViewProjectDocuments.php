@@ -214,7 +214,10 @@ class ViewProjectDocuments extends Page
 
         if ($partners->isEmpty()) {
             $partners = collect([[
-                'name' => $this->record->workspace?->name ?: 'Coordinator organisation',
+                'name' => $this->projectOwnerDocumentSettings()['legal_name']
+                    ?? $this->projectOwnerDocumentSettings()['brand_name']
+                    ?? $this->record->owner()?->name
+                    ?? 'Coordinator organisation',
                 'country' => null,
                 'oid' => null,
                 'is_coordinator' => true,
@@ -496,7 +499,8 @@ class ViewProjectDocuments extends Page
             return;
         }
 
-        $workspace = $this->record->workspace;
+        $settings = $this->projectOwnerDocumentSettings();
+        $owner = $this->record->owner();
         $saved = $expense->convention_data ?? [];
         $this->conventionExpenseId = $expense->id;
         $this->conventionData = array_merge([
@@ -504,11 +508,11 @@ class ViewProjectDocuments extends Page
             'convention_number' => $expense->reference_nr ?: $this->expenseCode($expense),
             'contract_date' => $expense->expense_date?->format('Y-m-d') ?? now()->toDateString(),
             'contract_place' => '',
-            'beneficiary_name' => $workspace?->billing_name ?: $workspace?->name,
-            'beneficiary_vat' => $workspace?->billing_vat,
-            'beneficiary_address' => $workspace?->billing_address,
-            'beneficiary_representative' => '',
-            'beneficiary_representative_role' => '',
+            'beneficiary_name' => $settings['legal_name'] ?? $settings['brand_name'] ?? $owner?->name ?? 'Coordinator organisation',
+            'beneficiary_vat' => $settings['vat_number'] ?? '',
+            'beneficiary_address' => $settings['legal_address'] ?? '',
+            'beneficiary_representative' => $settings['signatory_name'] ?? '',
+            'beneficiary_representative_role' => $settings['signatory_role'] ?? '',
             'provider_name' => '',
             'provider_nationality' => '',
             'provider_id_type' => 'Passport',
@@ -910,5 +914,10 @@ class ViewProjectDocuments extends Page
         $base = trim(($partner['name'] ?? 'organisation').'|'.($partner['country'] ?? '').'|'.$index);
 
         return 'org_'.substr(sha1($base), 0, 12);
+    }
+
+    private function projectOwnerDocumentSettings(): array
+    {
+        return $this->record->owner()?->document_settings ?? [];
     }
 }

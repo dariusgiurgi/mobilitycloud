@@ -6,12 +6,9 @@ use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Middleware\RedirectSuspendedAccount;
-use App\Http\Controllers\WorkspaceBackupController;
 use App\Http\Controllers\WorkspaceInvitationController;
-use App\Http\Controllers\WorkspaceReportController;
 use App\Support\AuthSessionHash;
 use App\Models\User;
-use App\Services\AccountWorkspaceService;
 use App\Support\PlatformAudit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -41,9 +38,7 @@ Route::middleware(['auth', RedirectSuspendedAccount::class])->get('/app/onboardi
         return redirect()->route('filament.platform.pages.dashboard');
     }
 
-    $workspace = app(AccountWorkspaceService::class)->ensureFor($user);
-
-    return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+    return redirect()->to(Dashboard::getUrl(panel: 'admin'));
 })->name('app.onboarding');
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->post('/app/organisations', function (Request $request) {
@@ -53,17 +48,15 @@ Route::middleware(['auth', RedirectSuspendedAccount::class])->post('/app/organis
         return redirect()->route('filament.platform.pages.dashboard');
     }
 
-    $workspace = app(AccountWorkspaceService::class)->ensureFor($user);
-
     $data = $request->validate([
         'name' => ['nullable', 'string', 'max:255'],
     ]);
 
     if (filled($data['name'] ?? null)) {
-        $workspace->update(['name' => trim($data['name'])]);
+        $user->update(['name' => trim($data['name'])]);
     }
 
-    return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+    return redirect()->to(Dashboard::getUrl(panel: 'admin'));
 })->name('app.organisations.store');
 
 Route::get('/platform/impersonation/{user}/start', function (Request $request, User $user) {
@@ -84,12 +77,9 @@ Route::get('/platform/impersonation/{user}/start', function (Request $request, U
             ->with('error', 'Impersonation requires a reason.');
     }
 
-    $workspace = $user->currentWorkspace ?: $user->workspaces()->orderBy('name')->first();
-
     PlatformAudit::log('impersonation.started', 'Started impersonating '.$user->email, $user, [
         'impersonator_id' => $impersonator->id,
         'target_user_id' => $user->id,
-        'workspace_id' => $workspace?->id,
         'reason' => $reason,
     ]);
 
@@ -103,11 +93,7 @@ Route::get('/platform/impersonation/{user}/start', function (Request $request, U
         'impersonation_reason' => $reason,
     ]);
 
-    if (! $workspace) {
-        return redirect()->route('filament.admin.tenant');
-    }
-
-    return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+    return redirect()->to(Dashboard::getUrl(panel: 'admin'));
 })->name('platform.impersonation.start');
 
 Route::get('/impersonation/stop', function (Request $request) {
@@ -148,14 +134,13 @@ Route::get('/impersonation/stop', function (Request $request) {
     return redirect()->route('filament.platform.pages.dashboard');
 })->name('platform.impersonation.stop');
 
+Route::get('/project-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
+    ->name('project-invitations.accept');
+
 Route::get('/workspace-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
     ->name('workspace-invitations.accept');
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {
-    Route::get('/workspaces/{workspace}/backup', [WorkspaceBackupController::class, 'download'])
-        ->name('workspaces.backup');
-    Route::get('/workspaces/{workspace}/report.csv', [WorkspaceReportController::class, 'csv'])
-        ->name('workspaces.report.csv');
     Route::get('/projects/{project}/export', [ProjectExportController::class, 'report'])->name('projects.export');
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
     Route::get('/projects/{project}/export-application-word', [ProjectExportController::class, 'exportApplicationWord'])->name('projects.export-application-word');

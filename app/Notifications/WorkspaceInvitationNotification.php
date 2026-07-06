@@ -21,7 +21,6 @@ class WorkspaceInvitationNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $workspace = $this->invitation->workspace;
         $project = $this->invitation->project;
         $accessLabel = str_starts_with($this->invitation->role, 'project_')
             ? Project::projectRoleLabel(str($this->invitation->role)->after('project_')->toString())
@@ -29,12 +28,12 @@ class WorkspaceInvitationNotification extends Notification
 
         return (new MailMessage)
             ->replyTo(config('mobilitycloud.emails.support', 'contact@mobilitycloud.eu'), 'MobilityCloud Support')
-            ->subject($project ? 'Join '.$project->name.' on MobilityCloud' : 'Join '.$workspace->name.' on MobilityCloud')
+            ->subject('Join '.($project?->name ?? 'a project').' on MobilityCloud')
             ->greeting('You have been invited')
-            ->line(($this->invitation->inviter?->name ?? 'A project owner').' invited you to collaborate in '.($project?->name ?? $workspace->name).'.')
-            ->line($project ? 'After you accept, this project will appear in your Projects section.' : 'After you accept, the shared projects will appear in your Projects section.')
+            ->line(($this->invitation->inviter?->name ?? 'A project owner').' invited you to collaborate in '.($project?->name ?? 'a MobilityCloud project').'.')
+            ->line('After you accept, this project will appear in your Projects section.')
             ->line('Your access level will be: '.$accessLabel.'.')
-            ->action('Accept invitation', route('workspace-invitations.accept', $this->invitation->token))
+            ->action('Accept invitation', route('project-invitations.accept', $this->invitation->token))
             ->line('This invitation expires on '.$this->invitation->expires_at->format('d M Y, H:i').'.');
     }
 }

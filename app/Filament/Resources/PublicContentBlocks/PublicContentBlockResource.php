@@ -11,7 +11,6 @@ use App\Models\PublicContentBlock;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -45,7 +44,7 @@ class PublicContentBlockResource extends Resource
         return PlatformAccess::canUse(PlanCatalog::MODULE_PUBLIC_LIBRARY);
     }
 
-    // NU e tenant-scoped: biblioteca publica e comuna tuturor workspace-urilor.
+    // The public library is shared globally; personal imports live on the user account.
     public static function isScopedToTenant(): bool
     {
         return false;
@@ -54,7 +53,7 @@ class PublicContentBlockResource extends Resource
     public static function canCreate(): bool
     {
         return PlatformAccess::canUse(PlanCatalog::MODULE_PUBLIC_LIBRARY)
-            && (Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false);
+            && auth()->check();
     }
 
     public static function form(Schema $schema): Schema

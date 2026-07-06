@@ -8,20 +8,16 @@ use App\Models\ContentBlock;
 use App\Models\PublicBlockReport;
 use App\Models\PublicContentBlock;
 use App\Models\User;
-use App\Support\AuthorizesWorkspaceManagement;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 
 class PublicLibrary extends Page
 {
-    use AuthorizesWorkspaceManagement;
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedGlobeAlt;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Community';
@@ -253,15 +249,13 @@ class PublicLibrary extends Page
 
     public function import(int $id): void
     {
-        $this->authorizeWorkspaceManagement();
         $block = PublicContentBlock::where('is_hidden', false)->find($id);
-        $workspace = Filament::getTenant();
-        if (! $block || ! $workspace) {
+        if (! $block || ! auth()->check()) {
             return;
         }
 
         if (ContentBlock::query()
-            ->where('workspace_id', $workspace->id)
+            ->where('owner_id', auth()->id())
             ->where('imported_from_public_id', $block->id)
             ->exists()) {
             Notification::make()
@@ -274,7 +268,8 @@ class PublicLibrary extends Page
         }
 
         ContentBlock::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => auth()->id(),
+            'workspace_id' => null,
             'title' => $block->title,
             'category' => $block->category,
             'ka_action' => $block->ka_action,
@@ -315,7 +310,7 @@ class PublicLibrary extends Page
     public function getImportedBlocks()
     {
         return ContentBlock::query()
-            ->where('workspace_id', Filament::getTenant()?->id)
+            ->where('owner_id', auth()->id())
             ->whereNotNull('imported_from_public_id')
             ->get()
             ->keyBy('imported_from_public_id');

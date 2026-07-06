@@ -30,7 +30,7 @@
 </head>
 <body>
 
-@include('pdf.partials.document-header', ['workspace' => $project->workspace, 'context' => 'Financial overview', 'footerLeft' => $project->name.' · '.($project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud'))])
+@include('pdf.partials.document-header', ['project' => $project, 'context' => 'Financial overview', 'footerLeft' => $project->name.' · '.($project->documentSetting('footer_text', 'Generated with MobilityCloud'))])
 
 <div class="mc-doc-title">
     <h1>Expense Report</h1>
@@ -38,7 +38,7 @@
         <strong>{{ $project->name }}</strong>@if($project->acronym) · {{ $project->acronym }}@endif
         @if($project->grant_ref) · {{ $project->grant_ref }}@endif
         <br>
-        {{ $project->workspace->name ?? '' }} · Generated {{ now()->format('d M Y, H:i') }}
+        {{ $project->documentBrandName() }} · Generated {{ now()->format('d M Y, H:i') }}
     </div>
 </div>
 

@@ -18,9 +18,8 @@ class PlatformAnnouncement extends Model
     public const AUDIENCES = [
         'all' => 'All users',
         'platform_admins' => 'Platform admins',
-        'workspace_users' => 'Workspace users',
+        'workspace_users' => 'Client users',
         'plans' => 'Selected plans',
-        'workspaces' => 'Selected workspaces',
     ];
 
     protected $fillable = [
@@ -55,8 +54,7 @@ class PlatformAnnouncement extends Model
         return match ($this->audience) {
             'platform_admins' => $user?->isPlatformAdmin() ?? false,
             'workspace_users' => ! ($user?->isPlatformAdmin() ?? false),
-            'plans' => in_array($workspace?->plan, $this->plans ?? [], true),
-            'workspaces' => in_array($workspace?->id, $this->workspace_ids ?? [], true),
+            'plans' => in_array($user?->plan, $this->plans ?? [], true),
             default => true,
         };
     }

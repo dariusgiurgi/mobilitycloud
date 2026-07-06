@@ -2,20 +2,17 @@
 
 namespace App\Support;
 
-use Filament\Facades\Filament;
-
 class PlatformAccess
 {
     public static function usesWorkspaceInterface(): bool
     {
         return ! (auth()->user()?->isPlatformAdmin() ?? false)
-            && WorkspaceAccess::isSubscriptionActive(Filament::getTenant());
+            && AccountAccess::isSubscriptionActive(auth()->user());
     }
 
     public static function canUse(string $module): bool
     {
-        $workspace = Filament::getTenant();
-        if (! self::usesWorkspaceInterface() || ! WorkspaceAccess::moduleEnabled($workspace, $module)) {
+        if (! self::usesWorkspaceInterface() || ! AccountAccess::moduleEnabled(auth()->user(), $module)) {
             return false;
         }
 
@@ -24,6 +21,6 @@ class PlatformAccess
 
     public static function isReadOnly(): bool
     {
-        return WorkspaceAccess::isReadOnly(Filament::getTenant());
+        return AccountAccess::isReadOnly(auth()->user());
     }
 }

@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Enums\ProjectStatus;
-use App\Support\WorkspaceAccess;
+use App\Support\AccountAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Project extends Model
 {
@@ -31,7 +32,7 @@ class Project extends Model
     ];
 
     protected $fillable = [
-        'workspace_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
+        'owner_id', 'workspace_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
         'total_budget', 'approved_budget', 'first_tranche_pct', 'withholding_tax_rate', 'currencies',
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
         'expense_prefix', 'expense_pad_length',
@@ -56,6 +57,21 @@ class Project extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (Project $project): void {
+            if ($project->owner_id) {
+                return;
+            }
+
+            if ($project->workspace_id) {
+                $project->owner_id = Workspace::query()
+                    ->find($project->workspace_id)
+                    ?->owner()
+                    ?->id;
+            }
+
+            $project->owner_id ??= auth()->id();
+        });
+
         static::created(function (Project $project) {
             foreach (self::DEFAULT_BUDGET_LINES as $line) {
                 $project->budgetLines()->create([
@@ -79,6 +95,11 @@ class Project extends Model
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function ownerAccount(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
     }
 
     public function members(): BelongsToMany
@@ -130,9 +151,7 @@ class Project extends Model
 
         return $query->where(function (Builder $query) use ($user): void {
             $query
-                ->whereHas('workspace.users', fn (Builder $members) => $members
-                    ->whereKey($user->id)
-                    ->where('workspace_user.role', 'owner'))
+                ->where('owner_id', $user->id)
                 ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
         });
     }
@@ -145,16 +164,14 @@ class Project extends Model
 
         return $query->where(function (Builder $query) use ($user): void {
             $query
-                ->whereHas('workspace.users', fn (Builder $members) => $members
-                    ->whereKey($user->id)
-                    ->where('workspace_user.role', 'owner'))
+                ->where('owner_id', $user->id)
                 ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
         });
     }
 
     public function canBeAccessedBy(?User $user): bool
     {
-        if (! $user || ! $this->workspace) {
+        if (! $user) {
             return false;
         }
 
@@ -202,7 +219,7 @@ class Project extends Model
 
     public function canBeManagedBy(?User $user): bool
     {
-        if (! $user || ! $this->canBeAccessedBy($user) || WorkspaceAccess::isReadOnly($this->workspace)) {
+        if (! $user || ! $this->canBeAccessedBy($user) || AccountAccess::isReadOnly($this->owner())) {
             return false;
         }
 
@@ -218,13 +235,21 @@ class Project extends Model
 
     public function owner(): ?User
     {
+        if ($this->relationLoaded('ownerAccount')) {
+            return $this->ownerAccount;
+        }
+
+        if ($this->owner_id) {
+            return $this->ownerAccount()->first();
+        }
+
         return $this->workspace?->owner();
     }
 
     public function isOwnedBy(?User $user): bool
     {
         return $user !== null
-            && $this->workspace?->roleFor($user) === 'owner';
+            && (int) $this->owner_id === (int) $user->id;
     }
 
     public function ownerLabelFor(?User $user): ?string
@@ -263,7 +288,7 @@ class Project extends Model
 
     public function canManageAccessBy(?User $user): bool
     {
-        return ! WorkspaceAccess::isReadOnly($this->workspace)
+        return ! AccountAccess::isReadOnly($this->owner())
             && $this->isOwnedBy($user);
     }
 
@@ -274,7 +299,7 @@ class Project extends Model
 
     public function canManageLifecycleBy(?User $user): bool
     {
-        return ! WorkspaceAccess::isReadOnly($this->workspace)
+        return ! AccountAccess::isReadOnly($this->owner())
             && $this->isOwnedBy($user);
     }
 
@@ -360,6 +385,44 @@ class Project extends Model
         }
 
         return min(100, (int) round($this->spent / $budget * 100));
+    }
+
+    public function documentSettings(): array
+    {
+        return $this->owner()?->document_settings ?? [];
+    }
+
+    public function documentSetting(string $key, mixed $default = null): mixed
+    {
+        return data_get($this->documentSettings(), $key, $default);
+    }
+
+    public function documentLogoDataUri(): ?string
+    {
+        $path = $this->documentSetting('logo_path');
+
+        if (! $path || ! Storage::disk('local')->exists($path)) {
+            return null;
+        }
+
+        $mime = Storage::disk('local')->mimeType($path) ?: 'image/png';
+        $data = base64_encode(Storage::disk('local')->get($path));
+
+        return "data:{$mime};base64,{$data}";
+    }
+
+    public function documentBrandName(): string
+    {
+        return (string) ($this->documentSetting('brand_name')
+            ?: $this->documentSetting('legal_name')
+            ?: $this->owner()?->name
+            ?: 'MobilityCloud');
+    }
+
+    public function documentLegalName(): string
+    {
+        return (string) ($this->documentSetting('legal_name')
+            ?: $this->documentBrandName());
     }
 
     // ─── Lifecycle ───

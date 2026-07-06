@@ -7,13 +7,10 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
-use App\Filament\Pages\ManageCurrencies;
 use App\Filament\Pages\MyTasks;
 use App\Filament\Pages\NotificationPreferences;
 use App\Filament\Pages\PublicLibrary;
 use App\Filament\Pages\WorkspaceCalendar;
-use App\Filament\Pages\WorkspaceData;
-use App\Filament\Pages\WorkspaceReports;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
@@ -22,8 +19,6 @@ use App\Filament\Widgets\ProjectStatsOverview;
 use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Models\PlatformAnnouncement;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -82,7 +77,7 @@ class AdminPanelProvider extends PanelProvider
                     ->icon(Heroicon::OutlinedUserCircle)
                     ->visible(fn (): bool => auth()->user() instanceof User)
                     ->url(fn (): ?string => auth()->user() instanceof User
-                        ? AccountSettings::getUrl(tenant: app(AccountWorkspaceService::class)->ensureFor(auth()->user()))
+                        ? AccountSettings::getUrl()
                         : null)
                     ->sort(5),
             ])
@@ -95,7 +90,7 @@ class AdminPanelProvider extends PanelProvider
                             ->latest('starts_at')
                             ->latest('created_at')
                             ->get()
-                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), Filament::getTenant()))
+                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), null))
                             ->take(3)
                         : collect(),
                 ]),
@@ -108,9 +103,6 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::TOPBAR_AFTER,
                 fn () => view('filament.hooks.subscription-access-banner'),
             )
-            ->tenant(Workspace::class, slugAttribute: 'slug')
-            ->tenantMenu(false)
-            ->tenantSwitcher(false)
             ->resources([
                 ProjectResource::class,
                 ContentBlockResource::class,
@@ -121,14 +113,10 @@ class AdminPanelProvider extends PanelProvider
                 AccountSettings::class,
                 DocumentTemplates::class,
                 GlobalSearch::class,
-                IndividualSupportCalculator::class,
-                ManageCurrencies::class,
                 MyTasks::class,
                 NotificationPreferences::class,
                 PublicLibrary::class,
                 WorkspaceCalendar::class,
-                WorkspaceData::class,
-                WorkspaceReports::class,
             ])
             ->widgets([
                 ProjectStatsOverview::class,

@@ -9,7 +9,7 @@
         body { font-family: DejaVu Sans, sans-serif; color: #18181b; font-size: 9px; margin: 0; }
         .association-page { page-break-before: always; }
         .association-page-first { page-break-before: auto; }
-        .brand { color: {{ $project->workspace->documentSetting('accent_color', '#4f46e5') }}; font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
+        .brand { color: {{ $project->documentSetting('accent_color', '#4f46e5') }}; font-size: 10px; font-weight: bold; letter-spacing: .08em; text-transform: uppercase; }
         .brand-logo { max-height: 30px; max-width: 130px; }
         h1 { font-size: 19px; margin: 5px 0 3px; }
         h2 { font-size: 13px; margin: 12px 0 7px; color: #3730a3; }
@@ -35,10 +35,10 @@
     </style>
 </head>
 <body>
-<div class="footer">{{ $project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud') }}</div>
+<div class="footer">{{ $project->documentSetting('footer_text', 'Generated with MobilityCloud') }}</div>
 @forelse($groups as $organisation => $participants)
     <section class="association-page{{ $loop->first ? ' association-page-first' : '' }}">
-        <div class="brand">@if($project->workspace->documentLogoDataUri())<img src="{{ $project->workspace->documentLogoDataUri() }}" class="brand-logo">@else{{ $project->workspace->documentSetting('brand_name', $project->workspace->name) }}@endif · Attendance record</div>
+        <div class="brand">@if($project->documentLogoDataUri())<img src="{{ $project->documentLogoDataUri() }}" class="brand-logo">@else{{ $project->documentSetting('brand_name', $project->documentBrandName()) }}@endif · Attendance record</div>
         <h1>{{ $project->name }}</h1>
         <table class="meta">
             <tr>

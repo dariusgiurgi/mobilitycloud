@@ -55,7 +55,7 @@ class ProjectDocumentController extends Controller
             .'-'.$document->document_date?->format('Y-m-d').'.pdf';
 
         return Pdf::loadView('pdf.expense-report', [
-            'project' => $project->load('workspace'),
+            'project' => $project->load('ownerAccount'),
             'document' => $document,
             'report' => $document->metadata ?? [],
         ])->setPaper('a4', 'landscape')->download($filename);
@@ -83,7 +83,7 @@ class ProjectDocumentController extends Controller
         abort_unless($expense->hasCompleteConventionData(), 422);
 
         $expense->load('budgetLine');
-        $project->load('workspace');
+        $project->load('ownerAccount');
         $data = $this->conventionData($project, $expense);
         $gross = (float) ($data['gross_amount'] ?? 0);
         $taxRate = (float) ($project->withholding_tax_rate ?? 0);
@@ -111,7 +111,7 @@ class ProjectDocumentController extends Controller
         $this->authorizeConventionExpense($project, $expense);
         abort_unless($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(), 422);
 
-        $project->load('workspace');
+        $project->load('ownerAccount');
         $data = $this->conventionData($project, $expense);
         $gross = (float) ($data['gross_amount'] ?? 0);
         $taxRate = (float) ($project->withholding_tax_rate ?? 0);
@@ -157,14 +157,21 @@ class ProjectDocumentController extends Controller
 
     private function conventionData(Project $project, Expense $expense): array
     {
+        $owner = $project->owner();
+        $settings = $owner?->document_settings ?? [];
+        $beneficiaryName = $settings['legal_name']
+            ?? $settings['brand_name']
+            ?? $owner?->name
+            ?? 'Coordinator organisation';
+
         return array_merge([
             'agreement_type' => 'service_agreement',
             'contract_place' => null,
-            'beneficiary_name' => $project->workspace->billing_name ?: $project->workspace->name,
-            'beneficiary_vat' => $project->workspace->billing_vat,
-            'beneficiary_address' => $project->workspace->billing_address,
-            'beneficiary_representative' => $project->workspace->documentSetting('signatory_name'),
-            'beneficiary_representative_role' => $project->workspace->documentSetting('signatory_role'),
+            'beneficiary_name' => $beneficiaryName,
+            'beneficiary_vat' => $settings['vat_number'] ?? null,
+            'beneficiary_address' => $settings['legal_address'] ?? null,
+            'beneficiary_representative' => $settings['signatory_name'] ?? null,
+            'beneficiary_representative_role' => $settings['signatory_role'] ?? null,
             'provider_nationality' => null,
             'provider_id_type' => 'identity document',
             'provider_personal_number' => null,

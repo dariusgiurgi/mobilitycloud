@@ -57,7 +57,7 @@ class ContentBlocksTable
 
                 TextColumn::make('imported_from_public_id')
                     ->label('Origin')
-                    ->getStateUsing(fn (ContentBlock $record): string => $record->imported_from_public_id ? 'Public library' : 'Workspace')
+                    ->getStateUsing(fn (ContentBlock $record): string => $record->imported_from_public_id ? 'Public library' : 'Personal')
                     ->badge()
                     ->color(fn (string $state): string => $state === 'Public library' ? 'info' : 'gray'),
 
@@ -112,7 +112,7 @@ class ContentBlocksTable
 
                             PublicContentBlock::create([
                                 'user_id' => auth()->id(),
-                                'origin_workspace_id' => $record->workspace_id,
+                                'origin_workspace_id' => null,
                                 'title' => $record->title,
                                 'category' => $record->category,
                                 'ka_action' => $record->ka_action,

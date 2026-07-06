@@ -98,7 +98,7 @@ class ProjectExportController extends Controller
             403
         );
 
-        $project->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses', 'workspace']);
+        $project->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses', 'ownerAccount']);
 
         $totalBudget = (float) $project->budgetLines->sum('allocated_budget');
         $totalSpent = (float) $project->budgetLines->sum(fn ($bl) => $bl->expenses->sum('amount_eur'));
@@ -153,7 +153,7 @@ class ProjectExportController extends Controller
             'bandLabel' => $band['label'], 'green' => $green, 'travelPer' => $travelPer,
             'osRate' => $osRate, 'includeOS' => $includeOS,
             'isTotal' => $isTotal, 'travelTotal' => $travelTotal, 'osTotal' => $osTotal, 'grand' => $grand,
-            'workspace' => Auth::user()->currentWorkspace,
+            'workspace' => null,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download('individual-support-calculation.pdf');
@@ -184,7 +184,7 @@ class ProjectExportController extends Controller
             403
         );
 
-        $project->loadMissing('workspace');
+        $project->loadMissing('ownerAccount');
 
         $sections = ProjectApplicationSection::where('project_id', $project->id)
             ->orderBy('sort_order')->orderBy('id')->get();
@@ -208,7 +208,7 @@ class ProjectExportController extends Controller
             403
         );
 
-        $project->loadMissing(['workspace', 'participants', 'budgetLines.expenses', 'tasks.assignee']);
+        $project->loadMissing(['ownerAccount', 'participants', 'budgetLines.expenses', 'tasks.assignee']);
 
         $sections = ProjectApplicationSection::where('project_id', $project->id)
             ->orderBy('sort_order')->orderBy('id')->get();

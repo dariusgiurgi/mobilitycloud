@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ContentBlockResource extends Resource
 {
@@ -34,9 +35,6 @@ class ContentBlockResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'title';
 
-    // Scope every query to the active workspace via this relationship.
-    protected static ?string $tenantOwnershipRelationshipName = 'workspace';
-
     public static function shouldRegisterNavigation(): bool
     {
         return PlatformAccess::canUse(PlanCatalog::MODULE_CONTENT_LIBRARY);
@@ -55,6 +53,12 @@ class ContentBlockResource extends Resource
     public static function table(Table $table): Table
     {
         return ContentBlocksTable::configure($table);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->where('owner_id', auth()->id());
     }
 
     public static function getPages(): array

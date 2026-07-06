@@ -38,7 +38,7 @@ class PlanCatalog
             'free' => [
                 'label' => 'Free',
                 'visibility' => 'public',
-                'description' => 'Entry plan for initial evaluation with strict workspace limits.',
+                'description' => 'Entry plan for initial evaluation with strict account limits.',
                 'modules' => array_keys(self::moduleOptions()),
                 'limits' => [
                     'projects' => 1,
@@ -114,7 +114,7 @@ class PlanCatalog
             self::MODULE_CALCULATOR => 'Individual Support Calculator',
             self::MODULE_REPORTS => 'Reports',
             self::MODULE_TEAM => 'Team',
-            self::MODULE_SETTINGS => 'Workspace Settings',
+            self::MODULE_SETTINGS => 'Account Settings',
         ];
     }
 
@@ -133,10 +133,19 @@ class PlanCatalog
      */
     public static function workspaceDefaults(string $plan): array
     {
+        return self::accountDefaults($plan);
+    }
+
+    /**
+     * @return array{plan: string, subscription_status: string, feature_flags: array<int, string>, plan_limits: array<string, int>}
+     */
+    public static function accountDefaults(string $plan): array
+    {
         $plan = array_key_exists($plan, self::plans()) ? $plan : 'free';
 
         return [
             'plan' => $plan,
+            'subscription_status' => $plan === 'demo' ? 'demo' : 'active',
             'feature_flags' => self::defaultModules($plan),
             'plan_limits' => self::defaultLimits($plan),
         ];

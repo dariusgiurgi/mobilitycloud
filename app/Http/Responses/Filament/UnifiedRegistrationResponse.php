@@ -3,7 +3,6 @@
 namespace App\Http\Responses\Filament;
 
 use App\Models\User;
-use App\Services\AccountWorkspaceService;
 use App\Filament\Pages\Dashboard;
 use App\Services\ProjectInvitationNotificationService;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
@@ -25,12 +24,11 @@ class UnifiedRegistrationResponse implements RegistrationResponse
         }
 
         if ($user instanceof User) {
-            $workspace = app(AccountWorkspaceService::class)->ensureFor($user);
             app(ProjectInvitationNotificationService::class)->syncPendingFor($user);
 
-            return redirect()->to(Dashboard::getUrl(panel: 'admin', tenant: $workspace));
+            return redirect()->to(Dashboard::getUrl(panel: 'admin'));
         }
 
-        return redirect()->route('filament.admin.tenant');
+        return redirect()->route('filament.admin.pages.dashboard');
     }
 }

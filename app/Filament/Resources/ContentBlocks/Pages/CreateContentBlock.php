@@ -9,6 +9,14 @@ class CreateContentBlock extends CreateRecord
 {
     protected static string $resource = ContentBlockResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        $data['owner_id'] = auth()->id();
+        $data['workspace_id'] = null;
+
+        return $data;
+    }
+
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');

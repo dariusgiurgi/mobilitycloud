@@ -1,4 +1,4 @@
-@php($docAccent = ($workspace ?? $project->workspace ?? null)?->documentSetting('accent_color', '#4f46e5') ?: '#4f46e5')
+@php($docAccent = isset($project) ? ($project->documentSetting('accent_color', '#4f46e5') ?: '#4f46e5') : (($workspace ?? null)?->documentSetting('accent_color', '#4f46e5') ?: '#4f46e5'))
 @page { margin: 72px 38px 54px; }
 .mc-doc-header {
     position: fixed;

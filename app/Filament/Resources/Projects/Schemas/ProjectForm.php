@@ -47,7 +47,7 @@ class ProjectForm
                     ]),
 
                 Section::make('Application setup')
-                    ->description('Optional. Choose an official application template only when this project also needs a structured Writing workspace.')
+                    ->description('Optional. Choose an official application template only when this project also needs structured Writing questions.')
                     ->columns(2)
                     ->schema([
                         Select::make('ka_action')

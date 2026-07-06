@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ContentBlock extends Model
 {
     protected $fillable = [
-        'workspace_id', 'title', 'category', 'ka_action', 'language',
+        'owner_id', 'workspace_id', 'title', 'category', 'ka_action', 'language',
         'body', 'tags', 'is_proven', 'source_note', 'usage_count', 'imported_from_public_id',
     ];
 
@@ -73,6 +73,11 @@ class ContentBlock extends Model
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
     }
 
     public function categoryLabel(): string

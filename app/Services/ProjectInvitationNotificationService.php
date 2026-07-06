@@ -12,7 +12,7 @@ class ProjectInvitationNotificationService
 {
     public function notifyExistingAccount(WorkspaceInvitation $invitation, ?User $user = null): bool
     {
-        $invitation->loadMissing(['workspace.users', 'project', 'inviter']);
+        $invitation->loadMissing(['project.ownerAccount', 'inviter']);
 
         if (! $this->canNotify($invitation)) {
             return false;
@@ -42,14 +42,13 @@ class ProjectInvitationNotificationService
                 'kind' => 'project_invitation',
                 'invitation_id' => $invitation->id,
                 'project_id' => $invitation->project_id,
-                'workspace_id' => $invitation->workspace_id,
             ])
             ->actions([
                 Action::make('acceptProjectInvitation')
                     ->label('Accept invitation')
                     ->button()
                     ->markAsRead()
-                    ->url(route('workspace-invitations.accept', $invitation->token)),
+                    ->url(route('project-invitations.accept', $invitation->token)),
             ])
             ->sendToDatabase($user, isEventDispatched: true);
 
@@ -61,7 +60,7 @@ class ProjectInvitationNotificationService
         $count = 0;
 
         WorkspaceInvitation::query()
-            ->with(['workspace.users', 'project', 'inviter'])
+            ->with(['project.ownerAccount', 'inviter'])
             ->whereRaw('LOWER(email) = ?', [strtolower((string) $user->email)])
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())

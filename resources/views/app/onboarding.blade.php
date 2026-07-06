@@ -186,13 +186,13 @@
                 <div class="invite-panel">
                     @forelse($pendingInvitations as $invitation)
                         <div class="invite-card">
-                            <strong>{{ $invitation->project?->name ?? $invitation->workspace?->name ?? 'MobilityCloud invitation' }}</strong>
+                            <strong>{{ $invitation->project?->name ?? 'MobilityCloud invitation' }}</strong>
                             <span>
                                 {{ $invitation->project ? 'Project access' : 'Organisation access' }}
-                                @if($invitation->workspace) · {{ $invitation->workspace->name }} @endif
+                                @if($invitation->inviter) · invited by {{ $invitation->inviter->name }} @endif
                             </span>
                             <span>Expires {{ $invitation->expires_at->format('d M Y') }}</span>
-                            <a href="{{ route('workspace-invitations.accept', $invitation->token) }}">Accept invitation</a>
+                            <a href="{{ route('project-invitations.accept', $invitation->token) }}">Accept invitation</a>
                         </div>
                     @empty
                         <div class="empty-note">No active invitations for this email address yet.</div>

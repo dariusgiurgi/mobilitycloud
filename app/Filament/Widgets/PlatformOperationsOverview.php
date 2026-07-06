@@ -5,17 +5,14 @@ namespace App\Filament\Widgets;
 use App\Filament\Pages\PlatformPlans;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
-use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
 use App\Filament\Pages\PlatformHealth;
 use App\Filament\Pages\PlatformPermissions;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Models\PlatformAuditLog;
 use App\Models\PublicBlockReport;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Support\WorkspaceAccess;
+use App\Support\AccountAccess;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -32,7 +29,7 @@ class PlatformOperationsOverview extends Widget
     {
         return [
             'recentUsers' => User::query()->latest()->limit(5)->get(),
-            'endingSoon' => Workspace::query()
+            'endingSoon' => User::query()
                 ->where(function ($query): void {
                     $query
                         ->where(function ($query): void {
@@ -60,7 +57,6 @@ class PlatformOperationsOverview extends Widget
                     'label' => 'Platform management',
                     'links' => [
                         ['label' => 'Accounts', 'url' => PlatformUserResource::getUrl(), 'detail' => 'Users, roles, password resets'],
-                        ['label' => 'Workspaces', 'url' => PlatformWorkspaceResource::getUrl(), 'detail' => 'Organisations, status and notes'],
                         ['label' => 'Announcements', 'url' => PlatformAnnouncementResource::getUrl(), 'detail' => 'Header notices and incidents'],
                         ['label' => 'Moderation reports', 'url' => PublicBlockReportResource::getUrl(), 'detail' => 'Review public content reports'],
                     ],
@@ -68,7 +64,7 @@ class PlatformOperationsOverview extends Widget
                 [
                     'label' => 'Billing & access',
                     'links' => [
-                        ['label' => 'Subscriptions', 'url' => PlatformSubscriptionResource::getUrl(), 'detail' => 'Trials, manual access, expiry'],
+                        ['label' => 'Account subscriptions', 'url' => PlatformUserResource::getUrl(), 'detail' => 'Plans, trials, manual access, expiry'],
                         ['label' => 'Plans & entitlements', 'url' => PlatformPlans::getUrl(), 'detail' => 'Plan modules and limits'],
                     ],
                 ],
@@ -88,13 +84,13 @@ class PlatformOperationsOverview extends Widget
     {
         return [
             [
-                'label' => 'Read-only workspaces',
-                'count' => Workspace::query()->get()->filter(fn (Workspace $workspace): bool => WorkspaceAccess::isReadOnly($workspace))->count(),
+                'label' => 'Read-only accounts',
+                'count' => User::query()->get()->filter(fn (User $user): bool => AccountAccess::isReadOnly($user))->count(),
                 'detail' => 'Expired or suspended access',
             ],
             [
                 'label' => 'Owner-granted access',
-                'count' => Workspace::query()->get()->filter(fn (Workspace $workspace): bool => WorkspaceAccess::hasOwnerGrantedAccess($workspace))->count(),
+                'count' => User::query()->get()->filter(fn (User $user): bool => AccountAccess::hasOwnerGrantedAccess($user))->count(),
                 'detail' => 'Manual access outside subscription rules',
             ],
             [
@@ -123,8 +119,8 @@ class PlatformOperationsOverview extends Widget
                 'level' => 'gray',
             ],
             [
-                'label' => 'Expired or suspended workspaces',
-                'count' => Workspace::query()
+                'label' => 'Expired or suspended accounts',
+                'count' => User::query()
                     ->where(function ($query): void {
                         $query
                             ->where('is_suspended', true)
@@ -136,19 +132,19 @@ class PlatformOperationsOverview extends Widget
                             });
                     })
                     ->count(),
-                'detail' => 'Workspaces with blocked or ended access',
-                'url' => PlatformSubscriptionResource::getUrl(),
+                'detail' => 'Accounts with blocked or ended access',
+                'url' => PlatformUserResource::getUrl(),
                 'level' => 'danger',
             ],
             [
                 'label' => 'Trials ending soon',
-                'count' => Workspace::query()
+                'count' => User::query()
                     ->where('subscription_status', 'trial')
                     ->whereNotNull('trial_ends_at')
                     ->whereBetween('trial_ends_at', [now(), now()->addDays(7)])
                     ->count(),
                 'detail' => 'Needs renewal, conversion or extension',
-                'url' => PlatformSubscriptionResource::getUrl(),
+                'url' => PlatformUserResource::getUrl(),
                 'level' => 'warning',
             ],
             [

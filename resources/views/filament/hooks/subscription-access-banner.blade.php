@@ -1,26 +1,26 @@
 @php
-    $workspace = \Filament\Facades\Filament::getTenant();
+    $account = auth()->user();
 @endphp
 
-@if ($workspace && ($workspace->plan === 'demo' || $workspace->subscription_status === 'demo'))
+@if ($account && ($account->plan === 'demo' || $account->subscription_status === 'demo'))
     <div class="mc-subscription-banner mc-subscription-banner-warning">
-        <strong>Demo workspace</strong>
+        <strong>Demo account</strong>
         <span>— this environment is intended for testing and presentations, not live client delivery.</span>
     </div>
-@elseif ($workspace && \App\Support\WorkspaceAccess::hasOwnerGrantedAccess($workspace))
+@elseif ($account && \App\Support\AccountAccess::hasOwnerGrantedAccess($account))
     <div class="mc-subscription-banner mc-subscription-banner-info">
         <strong>Manual access active</strong>
-        <span>— MobilityCloud owner access override is enabled{{ $workspace->access_override_ends_at ? ' until '.$workspace->access_override_ends_at->format('d M Y') : '' }}.</span>
+        <span>— MobilityCloud owner access override is enabled{{ $account->access_override_ends_at ? ' until '.$account->access_override_ends_at->format('d M Y') : '' }}.</span>
     </div>
-@elseif ($workspace && \App\Support\WorkspaceAccess::isReadOnly($workspace))
+@elseif ($account && \App\Support\AccountAccess::isReadOnly($account))
     <div class="mc-subscription-banner mc-subscription-banner-danger">
-        <strong>Workspace read-only</strong>
+        <strong>Account read-only</strong>
         <span>— subscription access is expired or suspended. You can review data, but changes are restricted.</span>
     </div>
-@elseif ($workspace && \App\Support\WorkspaceAccess::isInGracePeriod($workspace))
+@elseif ($account && \App\Support\AccountAccess::isInGracePeriod($account))
     <div class="mc-subscription-banner mc-subscription-banner-warning">
         <strong>Subscription grace period</strong>
-        <span>— this workspace remains active for a short grace period after expiration.</span>
+        <span>— this account remains active for a short grace period after expiration.</span>
     </div>
 @endif
 

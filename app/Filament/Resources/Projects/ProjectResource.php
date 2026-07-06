@@ -16,12 +16,9 @@ use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
 use Filament\Pages\Enums\SubNavigationPosition;
 use Filament\Resources\Pages\Page;
@@ -30,8 +27,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class ProjectResource extends Resource
 {
@@ -148,22 +143,9 @@ class ProjectResource extends Resource
             ->visibleToAccount(auth()->user());
     }
 
-    public static function accountTenant(?User $user = null): ?Workspace
-    {
-        $user ??= auth()->user();
-
-        if (! $user instanceof User) {
-            $tenant = Filament::getTenant();
-
-            return $tenant instanceof Workspace ? $tenant : null;
-        }
-
-        return app(AccountWorkspaceService::class)->ensureFor($user);
-    }
-
     public static function accountUrl(string $page = 'index', array $parameters = [], ?User $user = null): string
     {
-        return static::getUrl($page, $parameters, tenant: static::accountTenant($user));
+        return static::getUrl($page, $parameters);
     }
 
     public static function projectUrl(Project $project, string $page = 'overview', ?User $user = null): string
@@ -173,29 +155,8 @@ class ProjectResource extends Resource
 
     public static function ensureAccountTenant(string $page = 'index', array $parameters = []): void
     {
-        if (! request()->is('app/*')) {
-            return;
-        }
-
-        $user = auth()->user();
-        $accountTenant = static::accountTenant($user);
-        $currentTenant = Filament::getTenant();
-
-        if (! $accountTenant instanceof Workspace || ! $currentTenant instanceof Workspace) {
-            return;
-        }
-
-        if ((int) $currentTenant->getKey() === (int) $accountTenant->getKey()) {
-            return;
-        }
-
-        $target = static::accountUrl($page, $parameters, $user);
-
-        if (request()->fullUrl() === $target) {
-            return;
-        }
-
-        throw new HttpResponseException(new RedirectResponse($target));
+        // Tenancy was removed from the product architecture. Legacy calls remain
+        // harmless while older pages are being simplified around account-owned projects.
     }
 
     public static function ensureProjectAccountTenant(Project $project, string $page = 'overview'): void

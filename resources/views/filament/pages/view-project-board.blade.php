@@ -39,7 +39,7 @@
                 <div style="display:flex;align-items:center;gap:.45rem;">
                     <h2 class="text-gray-950 dark:text-white" style="font-size:.95rem;font-weight:650;">Budget control</h2>
                     <x-help-tip id="budget-control" title="Implementation budget">
-                        Expenses are recorded in their original currency and converted to EUR using the workspace rate. Basket allocations organise the approved grant but do not change its total.
+                        Expenses are recorded in their original currency and converted to EUR using the project rate. Basket allocations organise the approved grant but do not change its total.
                     </x-help-tip>
                 </div>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;margin-top:.2rem;">{{ $expenseCount }} expenses · {{ $documentedCount }} with supporting files @if(!$canManage) · Read-only access @endif</p>

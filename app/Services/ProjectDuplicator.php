@@ -3,20 +3,20 @@
 namespace App\Services;
 
 use App\Models\Project;
-use App\Models\Workspace;
 use Illuminate\Support\Facades\DB;
 
 class ProjectDuplicator
 {
-    public function duplicate(Project $source, array $options, ?Workspace $targetWorkspace = null): Project
+    public function duplicate(Project $source, array $options, ?int $ownerId = null): Project
     {
-        return DB::transaction(function () use ($source, $options, $targetWorkspace): Project {
+        return DB::transaction(function () use ($source, $options, $ownerId): Project {
             $copyBudget = (bool) ($options['copy_budget'] ?? true);
             $copyPartners = (bool) ($options['copy_partners'] ?? true);
-            $targetWorkspace ??= $source->workspace;
+            $ownerId ??= auth()->id() ?: $source->owner_id;
 
             $project = Project::create([
-                'workspace_id' => $targetWorkspace?->id ?? $source->workspace_id,
+                'owner_id' => $ownerId,
+                'workspace_id' => null,
                 'name' => trim($options['name']),
                 'acronym' => null,
                 'grant_ref' => null,

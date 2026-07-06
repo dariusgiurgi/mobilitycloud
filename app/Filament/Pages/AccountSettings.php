@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Models\User;
-use App\Models\Workspace;
 use App\Support\PlanCatalog;
 use BackedEnum;
 use Filament\Facades\Filament;
@@ -52,8 +51,6 @@ class AccountSettings extends Page
 
     public string $interfaceDensity = 'comfortable';
 
-    public ?int $subscriptionWorkspaceId = null;
-
     public string $subscriptionPlan = 'free';
 
     public function mount(): void
@@ -77,9 +74,7 @@ class AccountSettings extends Page
             return;
         }
 
-        $workspace = Filament::getTenant() ?: $this->workspaces()->first();
-        $this->subscriptionWorkspaceId = $workspace?->id;
-        $this->subscriptionPlan = (string) ($workspace?->plan ?? 'free');
+        $this->subscriptionPlan = (string) ($user->plan ?? 'free');
     }
 
     public function getSubheading(): ?string
@@ -161,61 +156,41 @@ class AccountSettings extends Page
         abort_if($this->isPlatformPanel(), 404);
 
         $data = $this->validate([
-            'subscriptionWorkspaceId' => ['required', 'integer'],
             'subscriptionPlan' => ['required', Rule::in(array_keys($this->planOptions()))],
         ]);
 
-        $workspace = $this->currentWorkspace ?: $this->workspaces()->whereKey($data['subscriptionWorkspaceId'])->firstOrFail();
-        abort_unless($workspace->canManageMembersBy(auth()->user()), 403);
-
-        $workspace->update(PlanCatalog::workspaceDefaults($data['subscriptionPlan']));
+        auth()->user()->update(PlanCatalog::accountDefaults($data['subscriptionPlan']));
 
         Notification::make()
             ->title('Subscription updated')
-            ->body($workspace->name.' is now on the '.$this->planOptions()[$data['subscriptionPlan']].' plan.')
+            ->body('Your account is now on the '.$this->planOptions()[$data['subscriptionPlan']].' plan.')
             ->success()
             ->send();
     }
 
     public function switchWorkspace(int $workspaceId): void
     {
-        abort_if($this->isPlatformPanel(), 404);
-
-        $workspace = $this->workspaces()->whereKey($workspaceId)->firstOrFail();
-
-        auth()->user()->update(['current_workspace_id' => $workspace->id]);
-
-        $this->redirect(Dashboard::getUrl(tenant: $workspace), navigate: true);
+        abort(404);
     }
 
     public function updatedSubscriptionWorkspaceId($workspaceId): void
     {
-        if ($this->isPlatformPanel()) {
-            return;
-        }
-
-        $workspace = $this->workspaces()->whereKey((int) $workspaceId)->first();
-        $this->subscriptionPlan = (string) ($workspace?->plan ?? 'free');
+        //
     }
 
     public function getWorkspaceRowsProperty()
     {
-        return $this->workspaces()
-            ->withCount('projects')
-            ->orderBy('name')
-            ->get();
+        return collect();
     }
 
-    public function getCurrentWorkspaceProperty(): ?Workspace
+    public function getCurrentWorkspaceProperty(): ?User
     {
-        return Filament::getTenant();
+        return auth()->user();
     }
 
     public function getManageableWorkspacesProperty()
     {
-        return $this->workspaceRows
-            ->filter(fn (Workspace $workspace): bool => $workspace->canManageMembersBy(auth()->user()))
-            ->values();
+        return collect([auth()->user()])->filter();
     }
 
     public function planOptions(): array
@@ -234,7 +209,6 @@ class AccountSettings extends Page
             'dashboard' => 'Platform overview',
             'users' => 'Users',
             'subscriptions' => 'Subscriptions',
-            'workspaces' => 'Account containers',
             'audit' => 'Audit log',
             ];
         }
@@ -252,11 +226,6 @@ class AccountSettings extends Page
             'comfortable' => 'Comfortable',
             'compact' => 'Compact',
         ];
-    }
-
-    private function workspaces()
-    {
-        return auth()->user()->workspaces();
     }
 
     public function isPlatformPanel(): bool

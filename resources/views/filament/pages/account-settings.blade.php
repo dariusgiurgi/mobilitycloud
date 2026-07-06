@@ -97,12 +97,12 @@
 
             @unless($this->isPlatformPanel())
                 <div class="mc-account-stack">
-                    <x-filament::section heading="Project plan" description="Plans are applied to the project portfolio owned by this account. The workspace container stays internal." icon="heroicon-o-credit-card">
+                    <x-filament::section heading="Project plan" description="Plans are applied directly to this email account and only limit projects owned by you." icon="heroicon-o-credit-card">
                         @if($this->currentWorkspace)
                             <div class="mc-plan-card">
                                 <span class="mc-muted" style="font-size:.65rem;font-weight:750;text-transform:uppercase;">Current project plan</span>
                                 <strong class="text-gray-950 dark:text-white" style="display:block;font-size:1rem;margin-top:.2rem;">{{ $this->planOptions()[$this->currentWorkspace->plan] ?? ucfirst($this->currentWorkspace->plan) }}</strong>
-                                <p class="mc-muted mc-help" style="margin-top:.35rem;">Billing and limits are based on active projects, not on visible workspaces.</p>
+                                <p class="mc-muted mc-help" style="margin-top:.35rem;">Billing and limits count only projects owned by your account, not projects shared with you.</p>
                             </div>
                         @endif
 

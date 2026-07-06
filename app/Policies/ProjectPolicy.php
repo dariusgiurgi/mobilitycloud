@@ -4,9 +4,7 @@ namespace App\Policies;
 
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
-use App\Support\WorkspaceAccess;
+use App\Support\AccountAccess;
 
 class ProjectPolicy
 {
@@ -26,13 +24,11 @@ class ProjectPolicy
             return false;
         }
 
-        $accountWorkspaces = app(AccountWorkspaceService::class);
-        $workspace = $accountWorkspaces->ensureFor($user);
-        $projectLimit = WorkspaceAccess::limit($workspace, 'projects');
-        $ownedProjectCount = $accountWorkspaces->ownedProjectCount($user);
+        $projectLimit = AccountAccess::limit($user, 'projects');
+        $ownedProjectCount = $user->ownedProjects()->count();
 
-        return $workspace instanceof Workspace
-            && $workspace->canCreateProjectsBy($user)
+        return AccountAccess::isSubscriptionActive($user)
+            && ! AccountAccess::isReadOnly($user)
             && ($projectLimit === null || $projectLimit === 0 || $ownedProjectCount < $projectLimit);
     }
 

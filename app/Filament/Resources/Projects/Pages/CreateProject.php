@@ -4,13 +4,8 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
-use Filament\Facades\Filament;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class CreateProject extends CreateRecord
 {
@@ -18,13 +13,6 @@ class CreateProject extends CreateRecord
 
     public function mount(): void
     {
-        $workspace = $this->accountWorkspace();
-        $tenant = Filament::getTenant();
-
-        if ($tenant instanceof Workspace && (int) $tenant->getKey() !== (int) $workspace->getKey()) {
-            throw new HttpResponseException(new RedirectResponse(ProjectResource::accountUrl('create')));
-        }
-
         parent::mount();
     }
 
@@ -40,7 +28,8 @@ class CreateProject extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['workspace_id'] = $this->accountWorkspace()->getKey();
+        $data['owner_id'] = auth()->id();
+        $data['workspace_id'] = null;
         $data['access_mode'] = 'restricted';
 
         return $data;
@@ -48,11 +37,10 @@ class CreateProject extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        $workspace = $this->accountWorkspace();
-        $data['workspace_id'] = $workspace->getKey();
+        $data['owner_id'] = auth()->id();
+        $data['workspace_id'] = null;
 
         $record = new Project($data);
-        $record->workspace()->associate($workspace);
         $record->save();
 
         return $record;
@@ -63,8 +51,4 @@ class CreateProject extends CreateRecord
         return ProjectResource::projectUrl($this->record);
     }
 
-    private function accountWorkspace(): Workspace
-    {
-        return app(AccountWorkspaceService::class)->ensureFor(auth()->user());
-    }
 }

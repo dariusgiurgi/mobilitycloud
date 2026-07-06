@@ -3,24 +3,23 @@
 namespace App\Models;
 
 use Filament\Models\Contracts\FilamentUser;
-use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Collection;
 
-class User extends Authenticatable implements FilamentUser, HasTenants
+class User extends Authenticatable implements FilamentUser
 {
     use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
         'name', 'email', 'password', 'current_workspace_id', 'notification_preferences', 'role',
+        'plan', 'subscription_status', 'trial_ends_at', 'subscription_ends_at', 'feature_flags',
+        'plan_limits', 'currencies', 'document_settings', 'access_override_ends_at', 'access_override_reason',
         'is_suspended', 'suspension_category', 'suspension_reason', 'suspended_at', 'suspended_by',
         'archived_at', 'archived_by', 'archived_reason', 'must_change_password', 'support_notes', 'last_login_at',
     ];
@@ -35,6 +34,13 @@ class User extends Authenticatable implements FilamentUser, HasTenants
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'notification_preferences' => 'array',
+            'feature_flags' => 'array',
+            'plan_limits' => 'array',
+            'currencies' => 'array',
+            'document_settings' => 'array',
+            'trial_ends_at' => 'datetime',
+            'subscription_ends_at' => 'datetime',
+            'access_override_ends_at' => 'datetime',
             'is_suspended' => 'boolean',
             'suspended_at' => 'datetime',
             'archived_at' => 'datetime',
@@ -60,6 +66,11 @@ class User extends Authenticatable implements FilamentUser, HasTenants
         return $this->belongsToMany(Project::class)
             ->withPivot('role')
             ->withTimestamps();
+    }
+
+    public function ownedProjects(): HasMany
+    {
+        return $this->hasMany(Project::class, 'owner_id');
     }
 
     public function supportNotes(): HasMany
@@ -100,27 +111,8 @@ class User extends Authenticatable implements FilamentUser, HasTenants
 
     public function hasAnyWorkspaceAccess(): bool
     {
-        return $this->workspaces()->exists()
+        return $this->ownedProjects()->exists()
             || $this->projects()->exists();
-    }
-
-    public function getTenants(Panel $panel): Collection
-    {
-        $workspaceTenants = $this->workspaces()->get();
-        $projectTenants = Workspace::query()
-            ->whereHas('projects.members', fn ($query) => $query->whereKey($this->id))
-            ->get();
-
-        return $workspaceTenants
-            ->merge($projectTenants)
-            ->unique('id')
-            ->values();
-    }
-
-    public function canAccessTenant(Model $tenant): bool
-    {
-        return $tenant instanceof Workspace
-            && $tenant->hasProjectAccessFor($this);
     }
 
     public function canAccessPanel(Panel $panel): bool

@@ -5,9 +5,7 @@ namespace App\Filament\Resources\PlatformAnnouncements;
 use App\Filament\Resources\PlatformAnnouncements\Pages\CreatePlatformAnnouncement;
 use App\Filament\Resources\PlatformAnnouncements\Pages\EditPlatformAnnouncement;
 use App\Filament\Resources\PlatformAnnouncements\Pages\ListPlatformAnnouncements;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Models\PlatformAnnouncement;
-use App\Models\Workspace;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -76,15 +74,8 @@ class PlatformAnnouncementResource extends Resource
                         ->live(),
                     Select::make('plans')
                         ->multiple()
-                        ->options(PlatformWorkspaceResource::planOptions())
+                        ->options(\App\Support\PlanCatalog::planOptions())
                         ->visible(fn (callable $get): bool => $get('audience') === 'plans')
-                        ->columnSpanFull(),
-                    Select::make('workspace_ids')
-                        ->label('Workspaces')
-                        ->multiple()
-                        ->options(fn (): array => Workspace::query()->orderBy('name')->pluck('name', 'id')->all())
-                        ->searchable()
-                        ->visible(fn (callable $get): bool => $get('audience') === 'workspaces')
                         ->columnSpanFull(),
                 ]),
             Section::make('Schedule')

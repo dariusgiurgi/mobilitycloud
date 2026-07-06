@@ -10,9 +10,7 @@ use App\Filament\Pages\PlatformPlans;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformAuditLogs\PlatformAuditLogResource;
-use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Http\Middleware\RedirectPlatformLoginToUnifiedLogin;
@@ -79,7 +77,7 @@ class PlatformPanelProvider extends PanelProvider
                             ->latest('starts_at')
                             ->latest('created_at')
                             ->get()
-                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), Filament::getTenant()))
+                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), null))
                             ->take(3)
                         : collect(),
                 ]),
@@ -97,8 +95,6 @@ class PlatformPanelProvider extends PanelProvider
             ])
             ->resources([
                 PlatformUserResource::class,
-                PlatformSubscriptionResource::class,
-                PlatformWorkspaceResource::class,
                 PlatformActivityResource::class,
                 PlatformAnnouncementResource::class,
                 PublicBlockReportResource::class,

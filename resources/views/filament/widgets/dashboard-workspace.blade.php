@@ -28,14 +28,14 @@
                     </x-slot>
 
                     @foreach ($pendingInvitations as $invitation)
-                        <a href="{{ route('workspace-invitations.accept', $invitation->token) }}" class="mc-row-link">
+                        <a href="{{ route('project-invitations.accept', $invitation->token) }}" class="mc-row-link">
                             <span style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.65rem;background:rgba(99,102,241,.1);color:#6366f1;">
                                 <x-filament::icon icon="heroicon-o-envelope-open" style="width:1rem;height:1rem;" />
                             </span>
                             <span style="min-width:0;flex:1;">
                                 <span class="text-gray-950 dark:text-white" style="display:block;font-size:.875rem;font-weight:600;line-height:1.35;">{{ $invitation->project?->name ?? 'Project invitation' }}</span>
                                 <span class="mc-muted" style="display:block;font-size:.76rem;margin-top:.15rem;">
-                                    {{ $invitation->workspace?->name ?? 'MobilityCloud' }} · expires {{ $invitation->expires_at?->format('d M Y') }}
+                                    Invited by {{ $invitation->inviter?->name ?? 'project owner' }} · expires {{ $invitation->expires_at?->format('d M Y') }}
                                 </span>
                             </span>
                             <span style="font-size:.76rem;font-weight:700;color:#6366f1;">Accept</span>

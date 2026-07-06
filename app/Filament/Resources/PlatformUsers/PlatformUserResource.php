@@ -9,6 +9,7 @@ use App\Filament\Resources\PlatformUsers\Pages\ViewPlatformUser;
 use App\Filament\Resources\PlatformUsers\RelationManagers\SupportNotesRelationManager;
 use App\Models\User;
 use App\Support\PlatformAudit;
+use App\Support\PlanCatalog;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -114,7 +115,7 @@ class PlatformUserResource extends Resource
     {
         return $schema->components([
             Section::make('Account')
-                ->description('Global account data. Workspace permissions remain managed inside each workspace.')
+                ->description('Global account data. Project access is managed on each project.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('name')
@@ -169,6 +170,22 @@ class PlatformUserResource extends Resource
                         ->rows(5)
                         ->maxLength(3000)
                         ->columnSpanFull(),
+                    Select::make('plan')
+                        ->label('Subscription plan')
+                        ->options(PlanCatalog::planOptions())
+                        ->default('free')
+                        ->required(),
+                    Select::make('subscription_status')
+                        ->label('Subscription status')
+                        ->options([
+                            'active' => 'Active',
+                            'trial' => 'Trial',
+                            'demo' => 'Demo',
+                            'expired' => 'Expired',
+                            'suspended' => 'Suspended',
+                        ])
+                        ->default('active')
+                        ->required(),
                 ]),
         ]);
     }
@@ -207,9 +224,12 @@ class PlatformUserResource extends Resource
                                 'Password change required' => 'warning',
                                 default => 'success',
                             }),
-                        TextEntry::make('workspaces_count')
-                            ->label('Workspaces')
-                            ->state(fn (User $record): int => $record->workspaces()->count()),
+                        TextEntry::make('plan')
+                            ->label('Plan')
+                            ->formatStateUsing(fn (?string $state): string => PlanCatalog::planOptions()[$state ?: 'free'] ?? ucfirst((string) $state)),
+                        TextEntry::make('owned_projects_count')
+                            ->label('Owned projects')
+                            ->state(fn (User $record): int => $record->ownedProjects()->count()),
                         TextEntry::make('last_login_at')
                             ->label('Last login')
                             ->dateTime('d M Y, H:i')
@@ -241,7 +261,7 @@ class PlatformUserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withTrashed()->withCount('workspaces'))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->withTrashed()->withCount(['ownedProjects', 'projects']))
             ->columns([
                 TextColumn::make('name')
                     ->label('User')
@@ -280,27 +300,30 @@ class PlatformUserResource extends Resource
                     ->label('Suspended')
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('workspaces_count')
-                    ->label('Workspaces')
+                TextColumn::make('plan')
+                    ->label('Plan')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => PlanCatalog::planOptions()[$state ?: 'free'] ?? ucfirst((string) $state))
+                    ->color('info'),
+                TextColumn::make('owned_projects_count')
+                    ->label('Owned')
                     ->numeric()
                     ->sortable()
                     ->alignEnd(),
-                TextColumn::make('projects_total')
-                    ->label('Projects')
-                    ->getStateUsing(fn (User $record): int => $record->workspaces()
-                        ->withCount('projects')
-                        ->get()
-                        ->sum('projects_count'))
+                TextColumn::make('projects_count')
+                    ->label('Shared')
+                    ->numeric()
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('plan_summary')
-                    ->label('Plans')
-                    ->getStateUsing(fn (User $record): string => $record->workspaces()
-                        ->pluck('plan')
-                        ->unique()
-                        ->sort()
-                        ->map(fn (string $plan): string => str($plan)->replace('_', ' ')->title())
-                        ->join(', ') ?: '—')
+                TextColumn::make('subscription_status')
+                    ->label('Subscription')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'trial' => 'warning',
+                        'demo' => 'info',
+                        'expired', 'suspended' => 'danger',
+                        default => 'success',
+                    })
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('last_login_at')
                     ->label('Last login')
@@ -516,7 +539,7 @@ class PlatformUserResource extends Resource
                         ->visible(fn (User $record): bool => filled($record->archived_at) && (auth()->user()?->canManagePlatformAdmins() ?? false))
                         ->requiresConfirmation()
                         ->modalHeading(fn (User $record): string => 'Restore '.$record->email.'?')
-                        ->modalDescription('The account will become active in the admin list again. Review suspension and workspace access before handing it back to the user.')
+                        ->modalDescription('The account will become active in the admin list again. Review suspension and project access before handing it back to the user.')
                         ->action(function (User $record): void {
                             $record->update([
                                 'archived_at' => null,
@@ -533,7 +556,7 @@ class PlatformUserResource extends Resource
                         ->color('danger')
                         ->visible(fn (User $record): bool => static::canPermanentlyDeleteAccount($record))
                         ->modalHeading(fn (User $record): string => 'Permanently delete '.$record->email.'?')
-                        ->modalDescription('This is irreversible. It removes the account, workspace memberships and account-owned public activity that is configured to cascade. Historical audit entries remain where required for platform accountability.')
+                        ->modalDescription('This is irreversible. It removes the account, project memberships and account-owned public activity that is configured to cascade. Historical audit entries remain where required for platform accountability.')
                         ->modalSubmitActionLabel('Delete account permanently')
                         ->form([
                             TextInput::make('confirmation_email')
@@ -564,12 +587,14 @@ class PlatformUserResource extends Resource
 
                             $deletedEmail = $record->email;
                             $deletedId = $record->id;
-                            $workspaceCount = $record->workspaces()->count();
+                            $ownedProjectCount = $record->ownedProjects()->count();
+                            $sharedProjectCount = $record->projects()->count();
 
-                            DB::transaction(function () use ($record, $deletedEmail, $deletedId, $workspaceCount): void {
+                            DB::transaction(function () use ($record, $deletedEmail, $deletedId, $ownedProjectCount, $sharedProjectCount): void {
                                 PlatformAudit::log('account.deleted_permanently', 'Permanently deleted account '.$deletedEmail, $record, [
                                     'deleted_user_id' => $deletedId,
-                                    'workspace_memberships' => $workspaceCount,
+                                    'owned_projects' => $ownedProjectCount,
+                                    'shared_project_access' => $sharedProjectCount,
                                 ]);
 
                                 $record->forceDelete();

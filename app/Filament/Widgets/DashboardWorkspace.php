@@ -8,7 +8,6 @@ use App\Models\Project;
 use App\Models\WorkspaceInvitation;
 use App\Services\ProjectReadinessCheck;
 use App\Services\ProjectInvitationNotificationService;
-use App\Services\TaskReminderService;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
@@ -29,13 +28,10 @@ class DashboardWorkspace extends Widget
             app(ProjectInvitationNotificationService::class)->syncPendingFor(auth()->user());
         }
 
-        auth()->user()?->getTenants(filament()->getPanel('admin'))
-            ->each(fn ($workspace) => app(TaskReminderService::class)->dispatch($workspace->id));
-
         $projects = Project::query()
             ->visibleToAccount(auth()->user())
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
-            ->with(['workspace.users', 'members', 'budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
+            ->with(['ownerAccount', 'members', 'budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
             ->latest('updated_at')
             ->get();
 
@@ -55,7 +51,7 @@ class DashboardWorkspace extends Widget
         $canManagePrimaryProject = $primaryProject?->canBeManagedBy(auth()->user()) ?? false;
         $canCreate = auth()->user()?->can('create', Project::class) ?? false;
         $pendingInvitations = WorkspaceInvitation::query()
-            ->with(['workspace', 'project', 'inviter'])
+            ->with(['project', 'inviter'])
             ->whereRaw('LOWER(email) = ?', [strtolower((string) auth()->user()?->email)])
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())

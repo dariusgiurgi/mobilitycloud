@@ -4,8 +4,6 @@ namespace App\Policies;
 
 use App\Models\ContentBlock;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 
 class ContentBlockPolicy
 {
@@ -16,19 +14,17 @@ class ContentBlockPolicy
 
     public function view(User $user, ContentBlock $block): bool
     {
-        return $user->workspaces()->whereKey($block->workspace_id)->exists();
+        return (int) $block->owner_id === (int) $user->id;
     }
 
     public function create(User $user): bool
     {
-        $workspace = Filament::getTenant();
-
-        return $workspace instanceof Workspace && $workspace->canBeManagedBy($user);
+        return true;
     }
 
     public function update(User $user, ContentBlock $block): bool
     {
-        return $block->workspace?->canBeManagedBy($user) ?? false;
+        return (int) $block->owner_id === (int) $user->id;
     }
 
     public function delete(User $user, ContentBlock $block): bool

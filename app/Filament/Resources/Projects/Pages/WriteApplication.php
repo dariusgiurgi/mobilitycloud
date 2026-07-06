@@ -2225,7 +2225,7 @@ class WriteApplication extends Page
         $keys = ApplicationTemplates::libraryKeys($this->record->ka_action);
 
         return ContentBlock::query()
-            ->where('workspace_id', Filament::getTenant()?->id)
+            ->where('owner_id', auth()->id())
             ->whereIn('ka_action', $keys)
             ->when($this->librarySearch !== '', function ($q) {
                 $s = $this->librarySearch;
@@ -2240,7 +2240,7 @@ class WriteApplication extends Page
     public function insertBlock(int $blockId): void
     {
         $this->authorizeProjectManagement();
-        $block = ContentBlock::where('workspace_id', Filament::getTenant()?->id)->find($blockId);
+        $block = ContentBlock::where('owner_id', auth()->id())->find($blockId);
         if (! $block || ! $this->libraryTargetId) {
             return;
         }

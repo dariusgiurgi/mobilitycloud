@@ -23,6 +23,8 @@ class WorkspaceCalendar extends Page
 
     protected static ?string $title = 'Project calendar';
 
+    protected static ?string $slug = 'calendar';
+
     protected string $view = 'filament.pages.workspace-calendar';
 
     #[Url]
@@ -97,7 +99,6 @@ class WorkspaceCalendar extends Page
         $projects = Project::query()
             ->visibleToAccount(auth()->user())
             ->with([
-                'workspace',
                 'tasks' => fn ($query) => $query->whereBetween('due_date', [$start, $end]),
             ])
             ->get();

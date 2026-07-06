@@ -18,7 +18,7 @@
     @include('pdf.partials.document-theme')
 </style></head><body>
 
-@include('pdf.partials.document-header', ['workspace' => $project->workspace, 'context' => 'Application pack', 'footerLeft' => $project->name.' · '.($project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud'))])
+@include('pdf.partials.document-header', ['project' => $project, 'context' => 'Application pack', 'footerLeft' => $project->name.' · '.($project->documentSetting('footer_text', 'Generated with MobilityCloud'))])
 
 <div class="mc-doc-title">
     <h1>Application Pack</h1>
@@ -29,7 +29,7 @@
 </div>
 
 <h2>1. Project snapshot</h2>
-<div class="kpi"><span class="muted">Workspace</span><strong>{{ $project->workspace?->name ?: '—' }}</strong></div>
+<div class="kpi"><span class="muted">Owner</span><strong>{{ $project->documentBrandName() }}</strong></div>
 <div class="kpi"><span class="muted">Participants</span><strong>{{ $project->participants->count() }}</strong></div>
 <div class="kpi"><span class="muted">Budget</span><strong>{{ number_format((float) ($project->approved_budget ?: $project->total_budget), 2) }} EUR</strong></div>
 <div class="kpi"><span class="muted">Flows</span><strong>{{ count($flows) }}</strong></div>

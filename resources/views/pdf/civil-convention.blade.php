@@ -8,7 +8,7 @@
         * { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; color:#18181b; font-size:9.2px; line-height:1.38; margin:0; }
         .header { border-bottom:1px solid #c7d2fe; padding-bottom:7px; margin-bottom:12px; }
-        .brand { color:{{ $project->workspace->documentSetting('accent_color', '#4f46e5') }}; font-size:8px; font-weight:bold; text-transform:uppercase; letter-spacing:.08em; }
+        .brand { color:{{ $project->documentSetting('accent_color', '#4f46e5') }}; font-size:8px; font-weight:bold; text-transform:uppercase; letter-spacing:.08em; }
         .brand-logo { max-height:28px; max-width:125px; }
         h1 { font-size:17px; text-align:center; margin:12px 0 3px; letter-spacing:.03em; }
         .subtitle { text-align:center; color:#52525b; margin-bottom:13px; }
@@ -28,9 +28,9 @@
     </style>
 </head>
 <body>
-<div class="footer">{{ $project->workspace->documentSetting('footer_text', 'Generated with MobilityCloud') }} - review before signature</div>
+<div class="footer">{{ $project->documentSetting('footer_text', 'Generated with MobilityCloud') }} - review before signature</div>
 <div class="header">
-    <div class="brand">@if($project->workspace->documentLogoDataUri())<img src="{{ $project->workspace->documentLogoDataUri() }}" class="brand-logo">@else{{ $project->workspace->documentSetting('brand_name', $data['beneficiary_name'] ?: $project->workspace->name) }}@endif</div>
+    <div class="brand">@if($project->documentLogoDataUri())<img src="{{ $project->documentLogoDataUri() }}" class="brand-logo">@else{{ $project->documentSetting('brand_name', $data['beneficiary_name'] ?: $project->documentBrandName()) }}@endif</div>
     <div class="muted">{{ $project->name }}@if($project->grant_ref) · {{ $project->grant_ref }}@endif</div>
 </div>
 
@@ -39,7 +39,7 @@
 
 <h2>1. PARTIES</h2>
 <div class="parties">
-    <p><strong>Beneficiary:</strong> {{ $data['beneficiary_name'] ?: $project->workspace->name }}, registered under {{ $data['beneficiary_vat'] ?: 'N/A' }}, with registered office at {{ $data['beneficiary_address'] ?: 'N/A' }}, represented by {{ $data['beneficiary_representative'] ?: 'N/A' }}@if($data['beneficiary_representative_role']), {{ $data['beneficiary_representative_role'] }}@endif (the "Beneficiary").</p>
+    <p><strong>Beneficiary:</strong> {{ $data['beneficiary_name'] ?: $project->documentLegalName() }}, registered under {{ $data['beneficiary_vat'] ?: 'N/A' }}, with registered office at {{ $data['beneficiary_address'] ?: 'N/A' }}, represented by {{ $data['beneficiary_representative'] ?: 'N/A' }}@if($data['beneficiary_representative_role']), {{ $data['beneficiary_representative_role'] }}@endif (the "Beneficiary").</p>
     <p><strong>{{ $type === 'copyright_assignment' ? 'Author' : 'Service Provider' }}:</strong> {{ $data['provider_name'] }}, {{ $data['provider_nationality'] ?: 'nationality not stated' }}, residing at {{ $data['provider_address'] }}, identified by {{ $data['provider_id_type'] ?: 'identity document' }} no. {{ $data['provider_id_number'] }}@if($data['provider_personal_number']), personal/tax no. {{ $data['provider_personal_number'] }}@endif (the "{{ $type === 'copyright_assignment' ? 'Author' : 'Provider' }}").</p>
 </div>
 
@@ -100,7 +100,7 @@
 
 <table class="signatures">
     <tr>
-        <td><strong>BENEFICIARY</strong><br>{{ $data['beneficiary_name'] ?: $project->workspace->name }}<br><br>Name: {{ $data['beneficiary_representative'] ?: '________________' }}<br>Signature: ____________________</td>
+        <td><strong>BENEFICIARY</strong><br>{{ $data['beneficiary_name'] ?: $project->documentLegalName() }}<br><br>Name: {{ $data['beneficiary_representative'] ?: '________________' }}<br>Signature: ____________________</td>
         <td><strong>{{ $type === 'copyright_assignment' ? 'AUTHOR' : 'SERVICE PROVIDER' }}</strong><br>{{ $data['provider_name'] }}<br><br>Signature: ____________________</td>
     </tr>
 </table>

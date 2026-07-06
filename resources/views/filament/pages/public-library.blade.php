@@ -6,7 +6,7 @@
         $me = auth()->user();
         $activeFilters = $this->activeFilterCount();
         $importedBlocks = $this->getImportedBlocks();
-        $canManage = \Filament\Facades\Filament::getTenant()?->canBeManagedBy($me) ?? false;
+        $canManage = filled($me);
     @endphp
 
     <div class="mc-pub">
@@ -17,7 +17,7 @@
                 <div style="display:flex;align-items:center;gap:.4rem;">
                     <h2 class="text-gray-950 dark:text-white" style="font-size:.95rem;font-weight:650;">Shared knowledge, reusable safely</h2>
                     <x-help-tip id="public-library-import" title="Importing a block">
-                        Import creates a private, editable copy in your workspace Content Library. The public original remains unchanged, and later public updates do not overwrite your copy.
+                        Import creates a private, editable copy in your Content Library. The public original remains unchanged, and later public updates do not overwrite your copy.
                     </x-help-tip>
                 </div>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.78rem;line-height:1.5;margin-top:.25rem;">Preview the full text and source before importing. Adapt every block to the project you are writing.</p>
