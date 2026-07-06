@@ -93,6 +93,9 @@ MobilityCloudQA!2026
 - Seed a dedicated `QA Bot Writing KA152 Project`.
 - Open the Writing module as the project owner.
 - Confirm the official KA152 questions are visible and not truncated.
+- Open Template manager and confirm the verified template catalog is visible.
+- Search the template catalog for KA153 and confirm catalog cards are filtered.
+- Confirm template audit and switch impact preview are visible.
 - Confirm standard table blocks appear for relevant questions.
 - Search within questions and answers.
 - Save a draft answer, reload the page and confirm it persists.
@@ -162,7 +165,6 @@ MobilityCloudQA!2026
 ### Writing
 
 - Create a project with each supported application template.
-- Verify only the selected template's questions appear.
 - Verify template switching preserves compatible answers and removes old official questions.
 - Verify exported PDF/pack includes structured table rows.
 

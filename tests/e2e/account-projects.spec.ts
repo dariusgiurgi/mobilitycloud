@@ -70,6 +70,18 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(state.projects.writing_ka152.name).first()).toBeVisible();
     await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/What do you want to achieve by implementing the project/i);
 
+    await page.getByRole('button', { name: /Template manager/i }).click();
+    await expect(page.getByText(/Application template manager/i)).toBeVisible();
+    await expect(page.getByText('Template catalog', { exact: true })).toBeVisible();
+    await expect(page.getByText('Officially verified', { exact: true }).first()).toBeVisible();
+    await expect(page.getByText('Switch impact preview', { exact: true })).toBeVisible();
+    await page.getByPlaceholder(/Search by KA code, sector, form or keyword/i).fill('153');
+    await expect(page.locator('.mc-template-card').filter({ hasText: 'KA153-YOU' })).toHaveCount(1);
+    await expect(page.locator('.mc-template-card').filter({ hasText: 'KA152-YOU' })).toHaveCount(0);
+    await expect(page.locator('.mc-template-card').filter({ hasText: /31 questions/i })).toHaveCount(1);
+    await page.locator('.mc-modal-panel-wide .mc-iconbtn').first().click();
+    await expect(page.getByText(/Application template manager/i)).toHaveCount(0);
+
     await page.getByPlaceholder(/Search questions or answers/i).fill('background of the participants');
     await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/Please describe the background of the participants in each participating group/i);
     await expect(page.getByText('Participant groups').first()).toBeVisible();
