@@ -137,7 +137,9 @@ class Project extends Model
 
         return $query->where(function (Builder $query) use ($user, $role): void {
             if ($role !== null) {
-                $query->where('access_mode', 'workspace')
+                $query->where(fn (Builder $access) => $access
+                    ->whereNull('access_mode')
+                    ->orWhere('access_mode', 'workspace'))
                     ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
 
                 return;
@@ -160,7 +162,9 @@ class Project extends Model
                     ->whereRaw('workspace_user.role in (?, ?)', ['owner', 'admin']))
                 ->orWhere(function (Builder $query) use ($user): void {
                     $query
-                        ->where('access_mode', 'workspace')
+                        ->where(fn (Builder $access) => $access
+                            ->whereNull('access_mode')
+                            ->orWhere('access_mode', 'workspace'))
                         ->whereHas('workspace.users', fn (Builder $members) => $members->whereKey($user->id));
                 })
                 ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));

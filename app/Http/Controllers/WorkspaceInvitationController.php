@@ -78,11 +78,11 @@ class WorkspaceInvitationController extends Controller
         });
 
         if ($invitation->project) {
-            return redirect(ProjectResource::getUrl('overview', ['record' => $invitation->project], panel: 'admin', tenant: $invitation->workspace))
+            return redirect(ProjectResource::projectUrl($invitation->project, 'overview', $request->user()))
                 ->with('status', 'You now have access to '.$invitation->project->name.'.');
         }
 
-        return redirect(Dashboard::getUrl(panel: 'admin', tenant: $invitation->workspace))
+        return redirect(Dashboard::getUrl(panel: 'admin', tenant: app(AccountWorkspaceService::class)->ensureFor($request->user())))
             ->with('status', 'You joined '.$invitation->workspace->name.'.');
     }
 }

@@ -13,8 +13,11 @@
 
     if ($user?->isPlatformAdmin() && \Illuminate\Support\Facades\Route::has('filament.platform.pages.dashboard')) {
         $homeUrl = route('filament.platform.pages.dashboard');
-    } elseif ($user?->currentWorkspace) {
-        $homeUrl = \App\Filament\Pages\Dashboard::getUrl(panel: 'admin', tenant: $user->currentWorkspace);
+    } elseif ($user instanceof \App\Models\User) {
+        $homeUrl = \App\Filament\Pages\Dashboard::getUrl(
+            panel: 'admin',
+            tenant: app(\App\Services\AccountWorkspaceService::class)->ensureFor($user),
+        );
     }
 @endphp
 

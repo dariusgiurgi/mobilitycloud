@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -79,8 +80,10 @@ class DocumentTemplatesTest extends TestCase
         $workspace->users()->attach($viewer, ['role' => 'viewer']);
         $this->actingAs($viewer);
         Filament::setTenant($workspace);
+        $accountWorkspace = app(AccountWorkspaceService::class)->ensureFor($viewer);
 
         $this->assertFalse(DocumentTemplates::canAccess());
-        $this->get(DocumentTemplates::getUrl(tenant: $workspace))->assertForbidden();
+        $this->get(DocumentTemplates::getUrl(tenant: $workspace))
+            ->assertRedirect(DocumentTemplates::getUrl(tenant: $accountWorkspace));
     }
 }

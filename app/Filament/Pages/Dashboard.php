@@ -49,7 +49,7 @@ class Dashboard extends BaseDashboard
             Action::make('newProject')
                 ->label('New project')
                 ->icon(Heroicon::OutlinedPlus)
-                ->url(fn (): string => ProjectResource::getUrl('create'))
+                ->url(fn (): string => ProjectResource::accountUrl('create'))
                 ->visible(fn (): bool => auth()->user()?->can('create', Project::class) ?? false),
         ];
     }

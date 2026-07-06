@@ -7,6 +7,7 @@ use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -31,7 +32,7 @@ class MyTasksTest extends TestCase
         $otherProject->tasks()->create(['title' => 'Other workspace task', 'assigned_to' => $user->id]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(MyTasks::class)
             ->assertSee('My visible task')
@@ -47,7 +48,7 @@ class MyTasksTest extends TestCase
         $project->tasks()->create(['title' => 'No deadline note', 'assigned_to' => $user->id]);
         $project->tasks()->create(['title' => 'Completed task', 'assigned_to' => $user->id, 'status' => 'completed', 'completed_at' => now()]);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         $component = Livewire::test(MyTasks::class)
             ->assertSee('Overdue mandate')
@@ -77,7 +78,7 @@ class MyTasksTest extends TestCase
         [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
         $task = $project->tasks()->create(['title' => 'Viewer responsibility', 'assigned_to' => $viewer->id]);
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($viewer));
 
         Livewire::test(MyTasks::class)->call('toggleTask', $task->id);
         $this->assertSame('completed', $task->fresh()->status);
@@ -97,7 +98,7 @@ class MyTasksTest extends TestCase
         $project->tasks()->create(['title' => 'Late', 'assigned_to' => $user->id, 'due_date' => today()->subDay()]);
         $project->tasks()->create(['title' => 'Done', 'assigned_to' => $user->id, 'status' => 'completed']);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         $this->assertSame('2', MyTasks::getNavigationBadge());
         $this->assertSame('danger', MyTasks::getNavigationBadgeColor());

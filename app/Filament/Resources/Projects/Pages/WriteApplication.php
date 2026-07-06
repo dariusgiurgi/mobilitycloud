@@ -81,6 +81,7 @@ class WriteApplication extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+        ProjectResource::ensureProjectAccountTenant($this->record, 'write');
         $this->selectedTemplate = ApplicationTemplates::normaliseKey($this->record->ka_action ?: 'ka152-you');
         if (! ApplicationTemplates::get($this->selectedTemplate) || ! ApplicationTemplates::isOfficiallyVerified($this->selectedTemplate)) {
             $this->selectedTemplate = ApplicationTemplates::defaultVerifiedKey();

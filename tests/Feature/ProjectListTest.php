@@ -35,7 +35,7 @@ class ProjectListTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ListProjects::class)
             ->assertSee('Active Mobility')
@@ -56,11 +56,11 @@ class ProjectListTest extends TestCase
         $workspace->users()->attach($member, ['role' => 'member']);
 
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
         Livewire::test(ListProjects::class)->assertSee('New project');
 
         $this->actingAs($member);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($member));
         Livewire::test(ListProjects::class)->assertSee('New project');
 
         $memberAccount = app(AccountWorkspaceService::class)->ensureFor($member);
@@ -88,7 +88,7 @@ class ProjectListTest extends TestCase
         $shared->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($user);
-        Filament::setTenant($invitingWorkspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ListProjects::class)
             ->assertSee('Shared External Project')
@@ -126,6 +126,26 @@ class ProjectListTest extends TestCase
 
         $this->get(ProjectResource::getUrl('create', tenant: $invitingWorkspace))
             ->assertRedirect(ProjectResource::getUrl('create', tenant: $userAccount));
+    }
+
+    public function test_old_project_links_under_the_owner_workspace_redirect_to_the_users_account_workspace(): void
+    {
+        $ownerWorkspace = Workspace::create(['name' => 'Owner Workspace']);
+        $owner = User::factory()->create();
+        $user = User::factory()->create();
+        $ownerWorkspace->users()->attach($owner, ['role' => 'owner']);
+        $project = Project::create([
+            'workspace_id' => $ownerWorkspace->id,
+            'name' => 'Externally Owned Project',
+            'status' => 'writing',
+        ]);
+        $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $userAccount = app(AccountWorkspaceService::class)->ensureFor($user);
+
+        $this->actingAs($user);
+
+        $this->get(ProjectResource::getUrl('overview', ['record' => $project], tenant: $ownerWorkspace))
+            ->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], tenant: $userAccount));
     }
 
     public function test_project_created_after_external_collaboration_is_stored_under_the_users_account_workspace(): void
@@ -180,7 +200,7 @@ class ProjectListTest extends TestCase
         $shared->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($user);
-        Filament::setTenant($first);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ListProjects::class)
             ->assertSee('Owned Project')

@@ -72,7 +72,7 @@ class DashboardWorkspace extends Widget
             'milestones' => $milestones->take(6),
             'milestoneCount' => $milestones->count(),
             'quickActions' => $this->quickActions($primaryProject, $writingProject, $canManagePrimaryProject, $canCreate),
-            'projectsUrl' => ProjectResource::getUrl('index'),
+            'projectsUrl' => ProjectResource::accountUrl('index'),
         ];
     }
 
@@ -318,7 +318,7 @@ class DashboardWorkspace extends Widget
 
     private function quickActions(?Project $primaryProject, ?Project $writingProject, bool $canManage, bool $canCreate): array
     {
-        $fallback = ProjectResource::getUrl('index');
+        $fallback = ProjectResource::accountUrl('index');
         $actions = [];
 
         if ($canCreate) {
@@ -326,7 +326,7 @@ class DashboardWorkspace extends Widget
                 'label' => 'New project',
                 'description' => 'Start an application',
                 'icon' => 'heroicon-o-plus',
-                'url' => ProjectResource::getUrl('create'),
+                'url' => ProjectResource::accountUrl('create'),
             ];
         }
 
@@ -365,6 +365,6 @@ class DashboardWorkspace extends Widget
 
     private function projectUrl(Project $project, string $page): string
     {
-        return ProjectResource::getUrl($page, ['record' => $project], tenant: $project->workspace);
+        return ProjectResource::projectUrl($project, $page);
     }
 }

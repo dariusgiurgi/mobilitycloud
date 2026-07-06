@@ -112,7 +112,7 @@
                                 $projectReadiness = $readiness->get($project->id);
                                 $ownerLabel = $project->ownerLabelFor(auth()->user());
                             @endphp
-                            <a href="{{ \App\Filament\Resources\Projects\ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace) }}" class="mc-project-card">
+                            <a href="{{ \App\Filament\Resources\Projects\ProjectResource::projectUrl($project) }}" class="mc-project-card">
                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;">
                                     <div style="min-width:0;">
                                         <p class="text-gray-950 dark:text-white" style="font-size:.9rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $project->name }}</p>

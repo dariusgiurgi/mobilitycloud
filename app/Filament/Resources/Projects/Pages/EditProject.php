@@ -16,6 +16,13 @@ class EditProject extends EditRecord
 
     protected array $previousCurrencyRates = [];
 
+    public function mount(int | string $record): void
+    {
+        parent::mount($record);
+
+        ProjectResource::ensureProjectAccountTenant($this->record, 'edit');
+    }
+
     protected function getHeaderActions(): array
     {
         return [

@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -21,7 +22,7 @@ class ProjectSettingsTest extends TestCase
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('owner');
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertSee('Project identity')
@@ -39,7 +40,7 @@ class ProjectSettingsTest extends TestCase
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm([
@@ -63,7 +64,7 @@ class ProjectSettingsTest extends TestCase
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm(['expense_prefix' => 'eras-26'])
@@ -77,7 +78,7 @@ class ProjectSettingsTest extends TestCase
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertFormSet(['ka_action' => 'ka152-you'])
@@ -92,7 +93,7 @@ class ProjectSettingsTest extends TestCase
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm(['ka_action' => null])
@@ -128,7 +129,7 @@ class ProjectSettingsTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm([
@@ -160,7 +161,7 @@ class ProjectSettingsTest extends TestCase
             'amount_eur' => 10,
         ]);
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
             ->assertSee('USD')
@@ -171,12 +172,12 @@ class ProjectSettingsTest extends TestCase
     {
         [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($viewer));
 
         $this->assertFalse($project->canBeManagedBy($viewer));
 
-        $this->get(ProjectResource::getUrl('edit', ['record' => $project]))
-            ->assertForbidden();
+        $this->get(ProjectResource::projectUrl($project, 'edit', $viewer))
+            ->assertNotFound();
     }
 
     private function workspaceProjectAndUser(string $role): array

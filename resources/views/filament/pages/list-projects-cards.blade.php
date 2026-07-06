@@ -26,7 +26,7 @@
                 @if($archived)
                     <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to active projects</x-filament::button>
                 @elseif($canCreate)
-                    <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
+                    <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::accountUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
                 @endif
             </div>
         </x-filament::section>

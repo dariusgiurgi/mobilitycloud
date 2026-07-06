@@ -15,6 +15,9 @@ use App\Filament\Resources\Projects\Pages\WriteApplication;
 use App\Filament\Resources\Projects\Schemas\ProjectForm;
 use App\Filament\Resources\Projects\Tables\ProjectsTable;
 use App\Models\Project;
+use App\Models\User;
+use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
@@ -27,6 +30,8 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Symfony\Component\HttpFoundation\RedirectResponse;
 
 class ProjectResource extends Resource
 {
@@ -94,19 +99,19 @@ class ProjectResource extends Resource
         // While writing, this is a grant estimate. Once the project is managed,
         // the same module becomes the implementation budget board.
         $budgetUrl = $record->isWritingStage()
-            ? static::getUrl('estimate', ['record' => $record])
-            : static::getUrl('board', ['record' => $record]);
+            ? static::projectUrl($record, 'estimate')
+            : static::projectUrl($record, 'board');
         $budgetLabel = $record->isWritingStage() ? 'Estimate' : 'Budget';
 
         return [
             NavigationItem::make('Overview')
                 ->icon(Heroicon::OutlinedHome)
-                ->url(static::getUrl('overview', ['record' => $record]))
+                ->url(static::projectUrl($record))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectOverview),
 
             NavigationItem::make('Application')
                 ->icon(Heroicon::OutlinedDocumentText)
-                ->url(static::getUrl('write', ['record' => $record]))
+                ->url(static::projectUrl($record, 'write'))
                 ->isActiveWhen(fn () => $page instanceof WriteApplication),
 
             NavigationItem::make($budgetLabel)
@@ -116,22 +121,22 @@ class ProjectResource extends Resource
 
             NavigationItem::make('Mobility')
                 ->icon(Heroicon::OutlinedMap)
-                ->url(static::getUrl('mobility', ['record' => $record]))
+                ->url(static::projectUrl($record, 'mobility'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
 
             NavigationItem::make('Participants')
                 ->icon(Heroicon::OutlinedUsers)
-                ->url(static::getUrl('participants', ['record' => $record]))
+                ->url(static::projectUrl($record, 'participants'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
 
             NavigationItem::make('Documents')
                 ->icon(Heroicon::OutlinedDocumentDuplicate)
-                ->url(static::getUrl('documents', ['record' => $record]))
+                ->url(static::projectUrl($record, 'documents'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectDocuments),
 
             NavigationItem::make('Settings')
                 ->icon(Heroicon::OutlinedCog6Tooth)
-                ->url(static::getUrl('edit', ['record' => $record]))
+                ->url(static::projectUrl($record, 'edit'))
                 ->visible(fn (): bool => $record->canBeManagedBy(auth()->user()))
                 ->isActiveWhen(fn () => $page instanceof EditProject),
         ];
@@ -140,7 +145,61 @@ class ProjectResource extends Resource
     public static function getRecordRouteBindingEloquentQuery(): Builder
     {
         return parent::getRecordRouteBindingEloquentQuery()
-            ->where('workspace_id', Filament::getTenant()?->id)
-            ->accessibleTo(auth()->user(), Filament::getTenant());
+            ->visibleToAccount(auth()->user());
+    }
+
+    public static function accountTenant(?User $user = null): ?Workspace
+    {
+        $user ??= auth()->user();
+
+        if (! $user instanceof User) {
+            $tenant = Filament::getTenant();
+
+            return $tenant instanceof Workspace ? $tenant : null;
+        }
+
+        return app(AccountWorkspaceService::class)->ensureFor($user);
+    }
+
+    public static function accountUrl(string $page = 'index', array $parameters = [], ?User $user = null): string
+    {
+        return static::getUrl($page, $parameters, tenant: static::accountTenant($user));
+    }
+
+    public static function projectUrl(Project $project, string $page = 'overview', ?User $user = null): string
+    {
+        return static::accountUrl($page, ['record' => $project], $user);
+    }
+
+    public static function ensureAccountTenant(string $page = 'index', array $parameters = []): void
+    {
+        if (! request()->is('app/*')) {
+            return;
+        }
+
+        $user = auth()->user();
+        $accountTenant = static::accountTenant($user);
+        $currentTenant = Filament::getTenant();
+
+        if (! $accountTenant instanceof Workspace || ! $currentTenant instanceof Workspace) {
+            return;
+        }
+
+        if ((int) $currentTenant->getKey() === (int) $accountTenant->getKey()) {
+            return;
+        }
+
+        $target = static::accountUrl($page, $parameters, $user);
+
+        if (request()->fullUrl() === $target) {
+            return;
+        }
+
+        throw new HttpResponseException(new RedirectResponse($target));
+    }
+
+    public static function ensureProjectAccountTenant(Project $project, string $page = 'overview'): void
+    {
+        static::ensureAccountTenant($page, ['record' => $project]);
     }
 }

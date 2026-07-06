@@ -73,12 +73,7 @@ class TaskNotificationService
             ->label('Open project')
             ->button()
             ->markAsRead()
-            ->url(ProjectResource::getUrl(
-                'overview',
-                ['record' => $task->project],
-                panel: 'admin',
-                tenant: $task->project->workspace,
-            ));
+            ->url(ProjectResource::projectUrl($task->project, user: $task->assignee));
     }
 
     private function dueSuffix(ProjectTask $task): string

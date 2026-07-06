@@ -24,6 +24,13 @@ class ListProjects extends ListRecords
     #[Url]
     public bool $archived = false;
 
+    public function mount(): void
+    {
+        ProjectResource::ensureAccountTenant('index');
+
+        parent::mount();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -89,17 +96,14 @@ class ListProjects extends ListRecords
                         ->success()
                         ->send();
 
-                    $this->redirect(ProjectResource::getUrl('overview', ['record' => $copy], tenant: $copy->workspace));
+                    $this->redirect(ProjectResource::projectUrl($copy));
                 })
                 ->visible(fn (): bool => ! $this->archived
                     && (auth()->user()?->can('create', Project::class) ?? false)
                     && Project::query()->visibleToAccount(auth()->user())->exists()),
             CreateAction::make()
                 ->label('New project')
-                ->url(fn (): string => ProjectResource::getUrl(
-                    'create',
-                    tenant: app(AccountWorkspaceService::class)->ensureFor(auth()->user()),
-                ))
+                ->url(fn (): string => ProjectResource::accountUrl('create'))
                 ->visible(fn (): bool => ! $this->archived && (auth()->user()?->can('create', Project::class) ?? false)),
         ];
     }
@@ -148,6 +152,6 @@ class ListProjects extends ListRecords
 
     public function getProjectUrl(Project $project): string
     {
-        return ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace);
+        return ProjectResource::projectUrl($project);
     }
 }

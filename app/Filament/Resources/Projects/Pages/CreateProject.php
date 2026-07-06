@@ -22,7 +22,7 @@ class CreateProject extends CreateRecord
         $tenant = Filament::getTenant();
 
         if ($tenant instanceof Workspace && (int) $tenant->getKey() !== (int) $workspace->getKey()) {
-            throw new HttpResponseException(new RedirectResponse(ProjectResource::getUrl('create', tenant: $workspace)));
+            throw new HttpResponseException(new RedirectResponse(ProjectResource::accountUrl('create')));
         }
 
         parent::mount();
@@ -60,7 +60,7 @@ class CreateProject extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return ProjectResource::getUrl('overview', ['record' => $this->record], tenant: $this->record->workspace);
+        return ProjectResource::projectUrl($this->record);
     }
 
     private function accountWorkspace(): Workspace

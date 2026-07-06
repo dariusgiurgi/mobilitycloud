@@ -21,7 +21,9 @@ use App\Filament\Widgets\DashboardWorkspace;
 use App\Filament\Widgets\ProjectStatsOverview;
 use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Models\PlatformAnnouncement;
+use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -78,9 +80,9 @@ class AdminPanelProvider extends PanelProvider
                 Action::make('accountSettings')
                     ->label('My account')
                     ->icon(Heroicon::OutlinedUserCircle)
-                    ->visible(fn (): bool => Filament::getTenant() instanceof Workspace)
-                    ->url(fn (): ?string => Filament::getTenant() instanceof Workspace
-                        ? AccountSettings::getUrl(tenant: Filament::getTenant())
+                    ->visible(fn (): bool => auth()->user() instanceof User)
+                    ->url(fn (): ?string => auth()->user() instanceof User
+                        ? AccountSettings::getUrl(tenant: app(AccountWorkspaceService::class)->ensureFor(auth()->user()))
                         : null)
                     ->sort(5),
             ])

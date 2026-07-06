@@ -58,7 +58,7 @@ class GlobalSearch extends Page
             ->map(fn (Project $project): array => [
                 'title' => $project->name,
                 'detail' => collect([$project->acronym, $project->grant_ref])->filter()->join(' · ') ?: ucfirst($project->status),
-                'url' => ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace),
+                'url' => ProjectResource::projectUrl($project),
             ]);
 
         $participants = Participant::query()
@@ -71,7 +71,7 @@ class GlobalSearch extends Page
             ->map(fn (Participant $participant): array => [
                 'title' => $participant->fullName(),
                 'detail' => $participant->project->name.' · '.($participant->email ?: $participant->partner_organisation ?: 'Participant'),
-                'url' => ProjectResource::getUrl('participants', ['record' => $participant->project], tenant: $participant->project?->workspace),
+                'url' => ProjectResource::projectUrl($participant->project, 'participants'),
             ]);
 
         $expenses = Expense::query()
@@ -83,7 +83,7 @@ class GlobalSearch extends Page
             ->map(fn (Expense $expense): array => [
                 'title' => $expense->description ?: ($expense->reference_nr ?: 'Expense #'.$expense->id),
                 'detail' => $expense->budgetLine->project->name.' · '.number_format((float) $expense->amount, 2).' '.($expense->currency ?: 'EUR'),
-                'url' => ProjectResource::getUrl('board', ['record' => $expense->budgetLine->project], tenant: $expense->budgetLine->project?->workspace),
+                'url' => ProjectResource::projectUrl($expense->budgetLine->project, 'board'),
             ]);
 
         $documents = ProjectDocument::query()
@@ -96,7 +96,7 @@ class GlobalSearch extends Page
             ->map(fn (ProjectDocument $document): array => [
                 'title' => $document->title ?: ($document->file_name ?: 'Project document'),
                 'detail' => $document->project->name.' · '.str($document->type)->replace('_', ' ')->title(),
-                'url' => ProjectResource::getUrl('documents', ['record' => $document->project], tenant: $document->project?->workspace),
+                'url' => ProjectResource::projectUrl($document->project, 'documents'),
             ]);
 
         return compact('projects', 'participants', 'expenses', 'documents');

@@ -114,7 +114,7 @@ class MyTasks extends Page
 
     public function getProjectUrl(ProjectTask $task): string
     {
-        return ProjectResource::getUrl('overview', ['record' => $task->project], tenant: $task->project?->workspace).'#project-tasks';
+        return ProjectResource::projectUrl($task->project).'#project-tasks';
     }
 
     private function filteredQuery(): Builder

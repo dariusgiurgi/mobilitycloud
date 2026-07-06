@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use App\Services\ProjectFinalArchiveService;
 use App\Services\WorkspaceBackupService;
 use Filament\Facades\Filament;
@@ -27,7 +28,7 @@ class ProjectMobilityTest extends TestCase
         Storage::fake('local');
         [$workspace, $project, $user] = $this->workspaceProjectAndUser();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
             ->assertSee('Mobility workspace')
@@ -122,7 +123,7 @@ class ProjectMobilityTest extends TestCase
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         $this->assertArrayHasKey('mobility', ProjectResource::getPages());
         $this->assertStringContainsString('/mobility', ProjectResource::getUrl('mobility', ['record' => $project]));
@@ -137,7 +138,7 @@ class ProjectMobilityTest extends TestCase
             'status' => 'active',
         ]);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         return [$workspace, $project, $user];
     }

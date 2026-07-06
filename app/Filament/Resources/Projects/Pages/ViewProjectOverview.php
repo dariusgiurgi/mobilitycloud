@@ -61,6 +61,8 @@ class ViewProjectOverview extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+
+        ProjectResource::ensureProjectAccountTenant($this->record);
     }
 
     public function getTitle(): string
@@ -466,11 +468,11 @@ class ViewProjectOverview extends Page
     public function getModuleUrls(): array
     {
         return [
-            'application' => ProjectResource::getUrl('write', ['record' => $this->record]),
-            'budget' => ProjectResource::getUrl($this->record->isWritingStage() ? 'estimate' : 'board', ['record' => $this->record]),
-            'participants' => ProjectResource::getUrl('participants', ['record' => $this->record]),
-            'documents' => ProjectResource::getUrl('documents', ['record' => $this->record]),
-            'settings' => ProjectResource::getUrl('edit', ['record' => $this->record]),
+            'application' => ProjectResource::projectUrl($this->record, 'write'),
+            'budget' => ProjectResource::projectUrl($this->record, $this->record->isWritingStage() ? 'estimate' : 'board'),
+            'participants' => ProjectResource::projectUrl($this->record, 'participants'),
+            'documents' => ProjectResource::projectUrl($this->record, 'documents'),
+            'settings' => ProjectResource::projectUrl($this->record, 'edit'),
         ];
     }
 

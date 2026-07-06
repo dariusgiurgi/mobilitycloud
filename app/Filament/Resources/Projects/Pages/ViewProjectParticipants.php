@@ -62,6 +62,8 @@ class ViewProjectParticipants extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+
+        ProjectResource::ensureProjectAccountTenant($this->record, 'participants');
     }
 
     public function getTitle(): string

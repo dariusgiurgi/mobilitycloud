@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
 use App\Notifications\WorkspaceInvitationNotification;
+use App\Services\AccountWorkspaceService;
 use App\Services\ProjectInvitationNotificationService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
@@ -45,11 +46,11 @@ class ProjectAccessTest extends TestCase
         $this->assertFalse($project->canBeAccessedBy($unselected));
 
         $this->actingAs($unselected);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($unselected));
         Livewire::test(ListProjects::class)->assertDontSee('Restricted Mobility');
 
         $this->actingAs($selected);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($selected));
         Livewire::test(ListProjects::class)->assertSee('Restricted Mobility');
     }
 
@@ -113,7 +114,7 @@ class ProjectAccessTest extends TestCase
         $this->assertTrue($assigned->canBeCollaboratedOnBy($collaborator));
 
         $this->actingAs($collaborator);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($collaborator));
 
         Livewire::test(ListProjects::class)
             ->assertSee('Assigned Project')
@@ -284,9 +285,11 @@ class ProjectAccessTest extends TestCase
             'user_id' => $existing->id,
         ]);
 
+        $accountWorkspace = app(AccountWorkspaceService::class)->ensureFor($existing);
+
         $this->actingAs($existing)
             ->get(route('workspace-invitations.accept', $invitation->token))
-            ->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], panel: 'admin', tenant: $workspace));
+            ->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], panel: 'admin', tenant: $accountWorkspace));
 
         $this->assertDatabaseHas('project_user', [
             'project_id' => $project->id,
@@ -318,8 +321,19 @@ class ProjectAccessTest extends TestCase
 
         $this->actingAs($viewer);
         Filament::setTenant($workspace);
+        $accountWorkspace = app(AccountWorkspaceService::class)->ensureFor($viewer);
 
-        $this->get(ProjectResource::getUrl('overview', ['record' => $restricted], tenant: $workspace))->assertNotFound();
-        $this->get(ProjectResource::getUrl('overview', ['record' => $otherProject], tenant: $workspace))->assertNotFound();
+        $restrictedAccountUrl = ProjectResource::getUrl('overview', ['record' => $restricted], tenant: $accountWorkspace);
+        $otherAccountUrl = ProjectResource::getUrl('overview', ['record' => $otherProject], tenant: $accountWorkspace);
+
+        $this->get(ProjectResource::getUrl('overview', ['record' => $restricted], tenant: $workspace))
+            ->assertRedirect($restrictedAccountUrl);
+        $this->get(ProjectResource::getUrl('overview', ['record' => $otherProject], tenant: $workspace))
+            ->assertRedirect($otherAccountUrl);
+
+        Filament::setTenant($accountWorkspace);
+
+        $this->get($restrictedAccountUrl)->assertNotFound();
+        $this->get($otherAccountUrl)->assertNotFound();
     }
 }

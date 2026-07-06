@@ -120,7 +120,7 @@ class WorkspaceCalendar extends Page
                         'title' => $task->title,
                         'project' => $project->name,
                         'kind' => $task->status === 'completed' ? 'completed' : ($date->isBefore(today()) ? 'overdue' : 'task'),
-                        'url' => ProjectResource::getUrl('overview', ['record' => $project], tenant: $project->workspace).'#project-tasks',
+                        'url' => ProjectResource::projectUrl($project).'#project-tasks',
                     ]);
                 }
             }
@@ -143,7 +143,7 @@ class WorkspaceCalendar extends Page
             'title' => $title,
             'project' => $project->name,
             'kind' => $kind,
-            'url' => ProjectResource::getUrl($page, ['record' => $project], tenant: $project->workspace),
+            'url' => ProjectResource::projectUrl($project, $page),
         ]);
     }
 

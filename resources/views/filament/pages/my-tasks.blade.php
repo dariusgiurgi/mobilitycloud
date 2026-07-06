@@ -95,7 +95,7 @@
                         {{ $search || $dueFilter !== 'all' || $statusFilter !== 'open' ? 'Try another filter or open a project to review its task board.' : 'Tasks are created inside a project overview. Once someone assigns a task to you, it will appear here automatically.' }}
                     </p>
                     <div style="margin-top:.85rem;">
-                        <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl()" color="gray" size="sm" icon="heroicon-o-rectangle-stack">
+                        <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::accountUrl('index')" color="gray" size="sm" icon="heroicon-o-rectangle-stack">
                             Open projects
                         </x-filament::button>
                     </div>

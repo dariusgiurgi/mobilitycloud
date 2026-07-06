@@ -41,6 +41,7 @@ class ViewProjectMobility extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+        ProjectResource::ensureProjectAccountTenant($this->record, 'mobility');
         $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
         $this->documentDate = now()->toDateString();
     }

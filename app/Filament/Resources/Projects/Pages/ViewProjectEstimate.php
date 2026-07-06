@@ -43,6 +43,7 @@ class ViewProjectEstimate extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+        ProjectResource::ensureProjectAccountTenant($this->record, 'estimate');
 
         $in = $this->record->action_data['estimate']['inputs'] ?? null;
         if (is_array($in)) {

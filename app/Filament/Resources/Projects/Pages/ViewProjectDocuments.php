@@ -100,6 +100,7 @@ class ViewProjectDocuments extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+        ProjectResource::ensureProjectAccountTenant($this->record, 'documents');
         $this->disseminationReports = $this->storedDisseminationReports();
     }
 

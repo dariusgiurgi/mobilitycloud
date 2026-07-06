@@ -105,14 +105,14 @@ class ProjectDuplicationTest extends TestCase
     {
         [$workspace, $owner] = $this->workspaceUserAndProject('owner');
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
 
         Livewire::test(ListProjects::class)->assertSee('Duplicate project');
 
         $member = User::factory()->create();
         $workspace->users()->attach($member, ['role' => 'member']);
         $this->actingAs($member);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($member));
 
         Livewire::test(ListProjects::class)->assertSee('Duplicate project');
 
@@ -130,7 +130,7 @@ class ProjectDuplicationTest extends TestCase
     {
         [$workspace, $owner, $source] = $this->workspaceUserAndProject('owner');
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
 
         Livewire::test(ListProjects::class)
             ->callAction('duplicateProject', data: [
@@ -153,7 +153,7 @@ class ProjectDuplicationTest extends TestCase
         $source->members()->attach($collaborator, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($collaborator);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($collaborator));
 
         Livewire::test(ListProjects::class)
             ->callAction('duplicateProject', data: [
@@ -173,7 +173,7 @@ class ProjectDuplicationTest extends TestCase
     {
         [$workspace, $owner] = $this->workspaceUserAndProject('owner');
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
+        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
 
         Livewire::test(ListProjects::class)
             ->assertSeeHtml('wire:partial="action-modals"')

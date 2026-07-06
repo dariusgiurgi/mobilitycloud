@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\AccountSettings;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use App\Support\PlanCatalog;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,7 +46,10 @@ class AccountSettingsTest extends TestCase
         $this->assertFalse(AccountSettings::shouldRegisterNavigation());
         $this->assertArrayHasKey('accountSettings', $items);
         $this->assertSame('My account', $items['accountSettings']->getLabel());
-        $this->assertSame(AccountSettings::getUrl(), $items['accountSettings']->getUrl());
+        $this->assertSame(
+            AccountSettings::getUrl(tenant: app(AccountWorkspaceService::class)->ensureFor($user)),
+            $items['accountSettings']->getUrl(),
+        );
     }
 
     public function test_user_can_update_password_from_account_center(): void
