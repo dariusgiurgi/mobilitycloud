@@ -113,6 +113,18 @@ MobilityCloudQA!2026
 - Confirm the project budget PDF export works for the owner.
 - Confirm accounts without project access cannot export the budget report.
 
+### 10. Participant register and CSV export
+
+- Seed a dedicated participant project with multiple organisations.
+- Include adult, minor and fewer-opportunity participant cases.
+- Open the participant register as owner.
+- Confirm participant statistics, names, minor and FO badges are visible.
+- Search/filter the participant list by name.
+- Export participant CSV and confirm alphabetical, Excel-safe content.
+- Confirm Viewer can open the register in read-only mode.
+- Confirm Viewer cannot see import, attendance generation or add-participant actions.
+- Confirm accounts without project access cannot export participants.
+
 ## Next bot scenarios to automate
 
 ### Projects
@@ -138,9 +150,9 @@ MobilityCloudQA!2026
 
 ### Participants
 
-- Import exported CSV without date-format errors.
-- Add participant manually.
 - Generate attendance sheets grouped by association.
+- Import exported CSV through the browser modal.
+- Add/edit participant manually through the browser modal.
 - Upload signed attendance sheets through Documents.
 
 ### Documents

@@ -60,10 +60,13 @@ class SeedE2eQaData extends Command
         $this->syncWritingSections($collaborationProject, 'ka152-you');
         $viewerProject = $this->upsertProject($owner, 'QA Bot Viewer Project', 'QA-VIEW', 'ka152-you');
         $this->syncWritingSections($viewerProject, 'ka152-you');
+        $this->seedParticipants($viewerProject);
         $writingProject = $this->upsertProject($owner, 'QA Bot Writing KA152 Project', 'QA-WRITE', 'ka152-you');
         $this->syncWritingSections($writingProject, 'ka152-you');
         $budgetProject = $this->upsertProject($owner, 'QA Bot Active Budget Project', 'QA-BUDGET');
         $this->seedBudgetBoard($budgetProject, $owner);
+        $participantsProject = $this->upsertProject($owner, 'QA Bot Participants Project', 'QA-PART');
+        $this->seedParticipants($participantsProject);
         $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
 
         $editorInvitation = $this->upsertInvitation($owner, $collaborationProject, $editor, Project::PROJECT_ROLE_EDITOR);
@@ -85,6 +88,7 @@ class SeedE2eQaData extends Command
                 'viewer' => ['id' => $viewerProject->id, 'name' => $viewerProject->name],
                 'writing_ka152' => ['id' => $writingProject->id, 'name' => $writingProject->name],
                 'budget_active' => ['id' => $budgetProject->id, 'name' => $budgetProject->name],
+                'participants' => ['id' => $participantsProject->id, 'name' => $participantsProject->name],
                 'free_owned' => ['id' => $freeOwnedProject->id, 'name' => $freeOwnedProject->name],
             ],
             'invitations' => [
@@ -287,6 +291,67 @@ class SeedE2eQaData extends Command
                 'created_by' => $owner->id,
             ],
         );
+    }
+
+    private function seedParticipants(Project $project): void
+    {
+        $project->update([
+            'status' => 'active',
+            'mobility_start_date' => '2026-08-01',
+            'partner_orgs' => [
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'is_coordinator' => true],
+                ['name' => 'Youth Group Spain', 'country' => 'Spain', 'is_coordinator' => false],
+            ],
+        ]);
+
+        $rows = [
+            [
+                'first_name' => 'Ana',
+                'last_name' => 'Adams',
+                'birth_date' => '2001-04-12',
+                'partner_organisation' => 'Scoala de Jocuri',
+                'country' => 'Romania',
+                'role' => 'group_leader',
+                'email' => 'ana.adams@example.test',
+                'phone' => '+40123456789',
+                'fewer_opportunities' => false,
+            ],
+            [
+                'first_name' => 'Mara',
+                'last_name' => 'Ionescu',
+                'birth_date' => '2010-01-15',
+                'partner_organisation' => 'Scoala de Jocuri',
+                'country' => 'Romania',
+                'role' => 'participant',
+                'email' => 'mara.ionescu@example.test',
+                'phone' => '+40987654321',
+                'fewer_opportunities' => true,
+                'guardian_name' => 'Ioana Ionescu',
+                'guardian_contact' => '+40700000000',
+            ],
+            [
+                'first_name' => 'Zoe',
+                'last_name' => 'Zimmer',
+                'birth_date' => '2005-11-20',
+                'partner_organisation' => 'Youth Group Spain',
+                'country' => 'Spain',
+                'role' => 'participant',
+                'email' => '=HYPERLINK("https://example.test")',
+                'phone' => '+34123456789',
+                'fewer_opportunities' => false,
+                'dietary_restrictions' => 'Vegetarian',
+            ],
+        ];
+
+        foreach ($rows as $row) {
+            $project->participants()->updateOrCreate(
+                [
+                    'first_name' => $row['first_name'],
+                    'last_name' => $row['last_name'],
+                ],
+                $row,
+            );
+        }
     }
 
     private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): WorkspaceInvitation

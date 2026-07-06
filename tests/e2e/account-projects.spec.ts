@@ -17,6 +17,21 @@ async function expectApplicationExports(page: Page, projectId: number, expectedT
   expect(pack.headers()['content-type']).toContain('application/pdf');
 }
 
+async function expectParticipantsCsv(page: Page, projectId: number) {
+  const csv = await page.request.get(`/projects/${projectId}/export-participants`);
+  expect(csv.status()).toBe(200);
+  expect(csv.headers()['content-type']).toContain('text/csv');
+
+  const body = await csv.text();
+  expect(body).toContain('Last name');
+  expect(body).toContain('Adams;Ana');
+  expect(body).toContain('Ionescu;Mara');
+  expect(body).toContain('Zimmer;Zoe');
+  expect(body).toContain("'=HYPERLINK");
+  expect(body.indexOf('Adams;Ana')).toBeLessThan(body.indexOf('Ionescu;Mara'));
+  expect(body.indexOf('Ionescu;Mara')).toBeLessThan(body.indexOf('Zimmer;Zoe'));
+}
+
 test.describe.serial('Account-owned projects and project invitations', () => {
   const state = qaState();
 
@@ -98,6 +113,25 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     expect(budgetPdf.status()).toBe(200);
     expect(budgetPdf.headers()['content-type']).toContain('application/pdf');
 
+    await page.goto(`/app/projects/${state.projects.participants.id}/participants`);
+    await expect(page.getByRole('heading', { name: /Participant register/i })).toBeVisible();
+    await expect(page.getByText(state.projects.participants.name).first()).toBeVisible();
+    await expect(page.getByText(/2 organisations/i)).toBeVisible();
+    await expect(page.getByText(/1 participants with fewer opportunities/i)).toBeVisible();
+    await expect(page.getByText('Ana Adams').first()).toBeVisible();
+    await expect(page.getByText('Mara Ionescu').first()).toBeVisible();
+    await expect(page.getByText('Zoe Zimmer').first()).toBeVisible();
+    const minorParticipantRow = page.getByRole('row', { name: /Mara Ionescu/i });
+    await expect(minorParticipantRow.getByText('MINOR')).toBeVisible();
+    await expect(minorParticipantRow.getByText('FO')).toBeVisible();
+
+    await page.getByPlaceholder(/Search name/i).fill('Mara');
+    await expect(page.getByText('Mara Ionescu').first()).toBeVisible();
+    await expect(page.getByText('Ana Adams')).toHaveCount(0);
+    await page.getByPlaceholder(/Search name/i).fill('');
+
+    await expectParticipantsCsv(page, state.projects.participants.id);
+
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
 
@@ -156,6 +190,9 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     const forbiddenBudgetExport = await page.request.get(`/projects/${state.projects.budget_active.id}/export`);
     expect(forbiddenBudgetExport.status()).toBe(403);
+
+    const forbiddenParticipantsExport = await page.request.get(`/projects/${state.projects.participants.id}/export-participants`);
+    expect(forbiddenParticipantsExport.status()).toBe(403);
   });
 
   test('viewer invitations grant read-only project access', async ({ page }) => {
@@ -176,6 +213,15 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('button', { name: /Template manager/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Add row/i })).toHaveCount(0);
     await expectApplicationExports(page, state.projects.viewer.id, 'QA bot baseline answer for the official KA152 objectives question.');
+
+    await page.goto(`/app/projects/${state.projects.viewer.id}/participants`);
+    await expect(page.getByRole('heading', { name: /Participant register/i })).toBeVisible();
+    await expect(page.getByText(/Read-only access/i)).toBeVisible();
+    await expect(page.getByText('Mara Ionescu').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Import CSV/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Attendance list/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Add participant/i })).toHaveCount(0);
+    await expectParticipantsCsv(page, state.projects.viewer.id);
   });
 
   test('platform owner opens the platform administration surface, not a workspace dashboard', async ({ page }) => {
