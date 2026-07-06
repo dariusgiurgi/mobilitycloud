@@ -1,0 +1,236 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Models\Project;
+use App\Models\User;
+use App\Models\WorkspaceInvitation;
+use App\Support\PlanCatalog;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
+class SeedE2eQaData extends Command
+{
+    protected $signature = 'qa:seed-e2e
+        {--fresh : Remove previously generated QA bot data before seeding}
+        {--force : Allow running in production-like environments}';
+
+    protected $description = 'Seed deterministic browser-test accounts, projects and project invitations for Playwright QA bots.';
+
+    private const PASSWORD = 'MobilityCloudQA!2026';
+
+    private const OWNER_EMAIL = 'qa.owner@mobilitycloud.test';
+
+    private const EDITOR_EMAIL = 'qa.editor@mobilitycloud.test';
+
+    private const VIEWER_EMAIL = 'qa.viewer@mobilitycloud.test';
+
+    private const FREE_EMAIL = 'qa.free@mobilitycloud.test';
+
+    private const ADMIN_EMAIL = 'qa.platform-owner@mobilitycloud.test';
+
+    public function handle(): int
+    {
+        if (app()->isProduction() && ! $this->option('force')) {
+            $this->error('Refusing to seed QA data in production without --force.');
+
+            return self::FAILURE;
+        }
+
+        if ($this->option('fresh')) {
+            $this->purgeQaData();
+        }
+
+        $password = env('E2E_QA_PASSWORD', self::PASSWORD);
+
+        $owner = $this->upsertUser(self::OWNER_EMAIL, 'QA Bot Owner', 'writer_pro', User::ROLE_USER, $password);
+        $editor = $this->upsertUser(self::EDITOR_EMAIL, 'QA Bot Editor', 'free', User::ROLE_USER, $password);
+        $viewer = $this->upsertUser(self::VIEWER_EMAIL, 'QA Bot Viewer', 'free', User::ROLE_USER, $password);
+        $free = $this->upsertUser(self::FREE_EMAIL, 'QA Bot Free Account', 'free', User::ROLE_USER, $password);
+        $admin = $this->upsertUser(self::ADMIN_EMAIL, 'QA Bot Platform Owner', 'demo', User::ROLE_PLATFORM_OWNER, $password);
+
+        $ownedProject = $this->upsertProject($owner, 'QA Bot Owned Project', 'QA-OWN');
+        $collaborationProject = $this->upsertProject($owner, 'QA Bot Collaboration Project', 'QA-COLLAB');
+        $viewerProject = $this->upsertProject($owner, 'QA Bot Viewer Project', 'QA-VIEW');
+        $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
+
+        $editorInvitation = $this->upsertInvitation($owner, $collaborationProject, $editor, Project::PROJECT_ROLE_EDITOR);
+        $viewerInvitation = $this->upsertInvitation($owner, $viewerProject, $viewer, Project::PROJECT_ROLE_VIEWER);
+
+        $state = [
+            'base_url' => config('app.url'),
+            'password' => $password,
+            'users' => [
+                'owner' => ['email' => self::OWNER_EMAIL, 'name' => $owner->name],
+                'editor' => ['email' => self::EDITOR_EMAIL, 'name' => $editor->name],
+                'viewer' => ['email' => self::VIEWER_EMAIL, 'name' => $viewer->name],
+                'free' => ['email' => self::FREE_EMAIL, 'name' => $free->name],
+                'admin' => ['email' => self::ADMIN_EMAIL, 'name' => $admin->name],
+            ],
+            'projects' => [
+                'owned' => ['id' => $ownedProject->id, 'name' => $ownedProject->name],
+                'collaboration' => ['id' => $collaborationProject->id, 'name' => $collaborationProject->name],
+                'viewer' => ['id' => $viewerProject->id, 'name' => $viewerProject->name],
+                'free_owned' => ['id' => $freeOwnedProject->id, 'name' => $freeOwnedProject->name],
+            ],
+            'invitations' => [
+                'editor' => [
+                    'email' => $editorInvitation->email,
+                    'token' => $editorInvitation->token,
+                    'url' => route('project-invitations.accept', $editorInvitation->token),
+                ],
+                'viewer' => [
+                    'email' => $viewerInvitation->email,
+                    'token' => $viewerInvitation->token,
+                    'url' => route('project-invitations.accept', $viewerInvitation->token),
+                ],
+            ],
+        ];
+
+        Storage::disk('local')->put('e2e-state.json', json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        $this->info('QA browser-test data is ready.');
+        $this->line('State file: '.storage_path('app/private/e2e-state.json'));
+        $this->line('Password: '.$password);
+
+        return self::SUCCESS;
+    }
+
+    private function purgeQaData(): void
+    {
+        Cache::flush();
+
+        DB::transaction(function (): void {
+            $emails = $this->qaEmails();
+
+            $qaUsers = User::withTrashed()
+                ->whereIn('email', $emails)
+                ->get();
+
+            $qaUserIds = $qaUsers->pluck('id')->all();
+
+            $qaProjectIds = Project::withTrashed()
+                ->where(fn ($query) => $query
+                    ->whereIn('owner_id', $qaUserIds)
+                    ->orWhere('name', 'like', 'QA Bot%'))
+                ->pluck('id')
+                ->all();
+
+            WorkspaceInvitation::query()
+                ->where(fn ($query) => $query
+                    ->whereIn('email', $emails)
+                    ->orWhereIn('invited_by', $qaUserIds)
+                    ->orWhereIn('project_id', $qaProjectIds))
+                ->delete();
+
+            DB::table('project_user')
+                ->whereIn('project_id', $qaProjectIds)
+                ->orWhereIn('user_id', $qaUserIds)
+                ->delete();
+
+            DB::table('notifications')
+                ->where('notifiable_type', User::class)
+                ->whereIn('notifiable_id', $qaUserIds)
+                ->delete();
+
+            Project::withTrashed()
+                ->whereIn('id', $qaProjectIds)
+                ->get()
+                ->each
+                ->forceDelete();
+
+            $qaUsers->each->forceDelete();
+        });
+    }
+
+    private function upsertUser(string $email, string $name, string $plan, string $role, string $password): User
+    {
+        $defaults = PlanCatalog::accountDefaults($plan);
+
+        /** @var User $user */
+        $user = User::withTrashed()->updateOrCreate(
+            ['email' => $email],
+            [
+                'name' => $name,
+                'password' => Hash::make($password),
+                'role' => $role,
+                'plan' => $defaults['plan'],
+                'subscription_status' => $defaults['subscription_status'],
+                'feature_flags' => $defaults['feature_flags'],
+                'plan_limits' => $defaults['plan_limits'],
+                'email_verified_at' => now(),
+                'is_suspended' => false,
+                'suspended_at' => null,
+                'suspended_by' => null,
+                'suspension_category' => null,
+                'suspension_reason' => null,
+                'deleted_at' => null,
+            ],
+        );
+
+        return $user;
+    }
+
+    private function upsertProject(User $owner, string $name, string $acronym): Project
+    {
+        /** @var Project $project */
+        $project = Project::withTrashed()->updateOrCreate(
+            [
+                'owner_id' => $owner->id,
+                'name' => $name,
+            ],
+            [
+                'workspace_id' => null,
+                'access_mode' => 'restricted',
+                'acronym' => $acronym,
+                'description' => 'Automated QA project. Safe to delete.',
+                'status' => 'writing',
+                'total_budget' => 1000,
+                'first_tranche_pct' => 80,
+                'withholding_tax_rate' => 10,
+                'deleted_at' => null,
+            ],
+        );
+
+        return $project;
+    }
+
+    private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): WorkspaceInvitation
+    {
+        /** @var WorkspaceInvitation $invitation */
+        $invitation = WorkspaceInvitation::query()->updateOrCreate(
+            [
+                'project_id' => $project->id,
+                'email' => $invitee->email,
+            ],
+            [
+                'workspace_id' => null,
+                'invited_by' => $owner->id,
+                'role' => 'project_'.$role,
+                'token' => Str::random(64),
+                'expires_at' => now()->addDays(7),
+                'accepted_at' => null,
+            ],
+        );
+
+        return $invitation;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function qaEmails(): array
+    {
+        return [
+            self::OWNER_EMAIL,
+            self::EDITOR_EMAIL,
+            self::VIEWER_EMAIL,
+            self::FREE_EMAIL,
+            self::ADMIN_EMAIL,
+        ];
+    }
+}

@@ -28,6 +28,8 @@
         $kaLabel = $kaInfo ? ($kaInfo['label'].' · Call '.$kaInfo['call_year']) : null;
         $budgetModuleLabel = $this->record->isWritingStage() ? 'Grant estimate' : 'Budget';
         $canManage = $this->record->canBeManagedBy(auth()->user());
+        $ownerLabel = $this->record->ownerLabelFor(auth()->user());
+        $accessLabel = $this->record->accessLabelFor(auth()->user());
         $eur = fn ($value) => number_format((float) $value, 2, '.', ',').' €';
     @endphp
 
@@ -72,6 +74,12 @@
             <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;">
                 <span class="mc-overview-muted" style="font-size:.78rem;font-weight:600;">Project stage</span>
                 <x-filament::badge :color="$status->getColor()" size="lg">{{ $status->getLabel() }}</x-filament::badge>
+                @if ($ownerLabel)
+                    <x-filament::badge color="gray">{{ $ownerLabel }}</x-filament::badge>
+                    <x-filament::badge color="{{ $accessLabel === 'Viewer' ? 'warning' : 'info' }}">{{ $accessLabel }}</x-filament::badge>
+                @else
+                    <x-filament::badge color="success">{{ $accessLabel }}</x-filament::badge>
+                @endif
                 <x-help-tip id="project-lifecycle" title="Project stage">
                     Status controls the recommended workflow and whether Budget opens the grant estimator or the implementation board. Status changes follow the allowed project lifecycle and do not delete project data.
                 </x-help-tip>
