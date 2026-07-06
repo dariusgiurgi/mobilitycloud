@@ -301,6 +301,36 @@ class ProjectAccessTest extends TestCase
         $this->assertSame('owner', $existing->fresh()->currentWorkspace?->roleFor($existing->fresh()));
     }
 
+    public function test_project_invitation_cannot_be_accepted_after_project_is_removed(): void
+    {
+        $workspace = Workspace::create(['name' => 'Removed Invite Workspace']);
+        $existing = User::factory()->create(['email' => 'existing@example.test']);
+        $project = Project::create([
+            'workspace_id' => $workspace->id,
+            'name' => 'Removed Project',
+            'status' => 'writing',
+        ]);
+        $invitation = WorkspaceInvitation::create([
+            'workspace_id' => $workspace->id,
+            'project_id' => $project->id,
+            'email' => 'existing@example.test',
+            'role' => 'project_editor',
+            'token' => str_repeat('d', 64),
+            'expires_at' => now()->addDays(3),
+        ]);
+        $project->delete();
+
+        $this->actingAs($existing)
+            ->get(route('workspace-invitations.accept', $invitation->token))
+            ->assertGone();
+
+        $this->assertNull($invitation->fresh()->accepted_at);
+        $this->assertDatabaseMissing('project_user', [
+            'project_id' => $project->id,
+            'user_id' => $existing->id,
+        ]);
+    }
+
     public function test_project_routes_cannot_cross_workspace_or_restricted_access_boundaries(): void
     {
         $workspace = Workspace::create(['name' => 'Current Workspace']);

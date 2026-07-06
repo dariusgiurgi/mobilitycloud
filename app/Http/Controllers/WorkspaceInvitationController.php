@@ -40,6 +40,8 @@ class WorkspaceInvitationController extends Controller
 
         $isProjectInvitation = $invitation->project_id && str_starts_with($invitation->role, 'project_');
 
+        abort_if($isProjectInvitation && ! $invitation->project, 410, 'This project invitation is no longer available because the project was removed.');
+
         if ($isProjectInvitation) {
             app(AccountWorkspaceService::class)->ensureFor($request->user());
         }

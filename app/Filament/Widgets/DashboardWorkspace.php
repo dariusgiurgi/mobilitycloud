@@ -59,6 +59,7 @@ class DashboardWorkspace extends Widget
             ->whereRaw('LOWER(email) = ?', [strtolower((string) auth()->user()?->email)])
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())
+            ->whereHas('project')
             ->latest()
             ->get();
 

@@ -90,6 +90,7 @@ class ProjectInvitationNotificationService
     {
         return $invitation->isPending()
             && $invitation->project_id !== null
+            && $invitation->project !== null
             && str_starts_with((string) $invitation->role, 'project_');
     }
 
