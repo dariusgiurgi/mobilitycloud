@@ -137,9 +137,6 @@ Route::get('/impersonation/stop', function (Request $request) {
 Route::get('/project-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
     ->name('project-invitations.accept');
 
-Route::get('/workspace-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
-    ->name('workspace-invitations.accept');
-
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {
     Route::get('/projects/{project}/export', [ProjectExportController::class, 'report'])->name('projects.export');
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
