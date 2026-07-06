@@ -8,10 +8,8 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
 use App\Services\ProjectDuplicator;
-use Filament\Facades\Filament;
+use App\Support\PlanCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -22,7 +20,7 @@ class ProjectDuplicationTest extends TestCase
 
     public function test_reusable_structure_is_copied_without_operational_records(): void
     {
-        [$workspace, $user, $source] = $this->sourceProject();
+        [$user, $source] = $this->sourceProject();
         $this->actingAs($user);
         $source->applicationSections()->create([
             'title' => 'Project objectives',
@@ -63,7 +61,8 @@ class ProjectDuplicationTest extends TestCase
             'copy_partners' => true,
         ]);
 
-        $this->assertSame($workspace->id, $copy->workspace_id);
+        $this->assertSame($user->id, $copy->owner_id);
+        $this->assertNull($copy->workspace_id);
         $this->assertSame('Youth Mobility Lab 2027', $copy->name);
         $this->assertSame('writing', $copy->status);
         $this->assertNull($copy->grant_ref);
@@ -83,7 +82,7 @@ class ProjectDuplicationTest extends TestCase
 
     public function test_optional_sections_can_be_excluded_from_the_copy(): void
     {
-        [, $user, $source] = $this->sourceProject();
+        [$user, $source] = $this->sourceProject();
         $this->actingAs($user);
         $source->applicationSections()->create(['title' => 'Original answer', 'content' => 'Text']);
 
@@ -103,22 +102,21 @@ class ProjectDuplicationTest extends TestCase
 
     public function test_duplicate_action_uses_the_authenticated_users_own_project_limit(): void
     {
-        [$workspace, $owner] = $this->workspaceUserAndProject('owner');
+        [$owner, $source] = $this->userAndProject('writer_pro');
         $this->actingAs($owner);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
 
         Livewire::test(ListProjects::class)->assertSee('Duplicate project');
 
-        $member = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'member']);
+        $member = $this->userWithPlan('free');
+        $source->members()->attach($member, ['role' => Project::PROJECT_ROLE_EDITOR]);
         $this->actingAs($member);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($member));
 
         Livewire::test(ListProjects::class)->assertSee('Duplicate project');
 
-        $memberAccount = app(AccountWorkspaceService::class)->ensureFor($member);
         Project::create([
-            'workspace_id' => $memberAccount->id,
+            'owner_id' => $member->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Member Existing Free Project',
             'status' => 'writing',
         ]);
@@ -128,9 +126,8 @@ class ProjectDuplicationTest extends TestCase
 
     public function test_duplicate_action_creates_the_draft_and_redirects_to_it(): void
     {
-        [$workspace, $owner, $source] = $this->workspaceUserAndProject('owner');
+        [$owner, $source] = $this->userAndProject('writer_pro');
         $this->actingAs($owner);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
 
         Livewire::test(ListProjects::class)
             ->callAction('duplicateProject', data: [
@@ -143,17 +140,17 @@ class ProjectDuplicationTest extends TestCase
 
         $copy = Project::query()->where('name', 'Duplicated through action')->firstOrFail();
         $this->assertSame('writing', $copy->status);
-        $this->assertSame($workspace->id, $copy->workspace_id);
+        $this->assertSame($owner->id, $copy->owner_id);
+        $this->assertNull($copy->workspace_id);
     }
 
     public function test_duplicate_action_copies_shared_projects_into_the_users_own_account(): void
     {
-        [$workspace, , $source] = $this->workspaceUserAndProject('owner');
-        $collaborator = User::factory()->create();
+        [$owner, $source] = $this->userAndProject('writer_pro');
+        $collaborator = $this->userWithPlan('free');
         $source->members()->attach($collaborator, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($collaborator);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($collaborator));
 
         Livewire::test(ListProjects::class)
             ->callAction('duplicateProject', data: [
@@ -165,15 +162,15 @@ class ProjectDuplicationTest extends TestCase
             ]);
 
         $copy = Project::query()->where('name', 'Own copied draft')->firstOrFail();
-        $this->assertSame(app(AccountWorkspaceService::class)->ensureFor($collaborator)->id, $copy->workspace_id);
-        $this->assertNotSame($workspace->id, $copy->workspace_id);
+        $this->assertSame($collaborator->id, $copy->owner_id);
+        $this->assertNull($copy->workspace_id);
+        $this->assertNotSame($owner->id, $copy->owner_id);
     }
 
     public function test_duplicate_button_can_mount_its_modal(): void
     {
-        [$workspace, $owner] = $this->workspaceUserAndProject('owner');
+        [$owner] = $this->userAndProject('writer_pro');
         $this->actingAs($owner);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($owner));
 
         Livewire::test(ListProjects::class)
             ->assertSeeHtml('wire:partial="action-modals"')
@@ -183,7 +180,7 @@ class ProjectDuplicationTest extends TestCase
 
     private function sourceProject(): array
     {
-        [$workspace, $user, $project] = $this->workspaceUserAndProject('member');
+        [$user, $project] = $this->userAndProject('writer_pro');
         $project->update([
             'acronym' => 'YML26',
             'grant_ref' => '2026-1-RO01-KA152-000001',
@@ -196,23 +193,32 @@ class ProjectDuplicationTest extends TestCase
             'action_data' => ['estimate' => ['total' => 15000]],
         ]);
 
-        return [$workspace, $user, $project];
+        return [$user, $project];
     }
 
-    private function workspaceUserAndProject(string $role): array
+    private function userAndProject(string $plan): array
     {
-        $workspace = Workspace::create([
-            'name' => 'Duplication Workspace',
-            'plan_limits' => ['projects' => 5],
-        ]);
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
+        $user = $this->userWithPlan($plan);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Youth Mobility Lab 2026',
             'status' => 'writing',
         ]);
 
-        return [$workspace, $user, $project];
+        return [$user, $project];
+    }
+
+    private function userWithPlan(string $plan): User
+    {
+        $defaults = PlanCatalog::accountDefaults($plan);
+
+        return User::factory()->create([
+            'plan' => $defaults['plan'],
+            'subscription_status' => $defaults['subscription_status'],
+            'feature_flags' => $defaults['feature_flags'],
+            'plan_limits' => $defaults['plan_limits'],
+        ]);
     }
 }

@@ -149,6 +149,42 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(projectName).first()).toBeVisible();
   });
 
+  test('project lifecycle actions cover duplicate, archive and restore without workspace context', async ({ page }) => {
+    await login(page, state.users.owner.email, state.password);
+    await page.goto('/app/projects');
+
+    await expect(page.getByText(state.projects.lifecycle.name).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Duplicate project/i })).toBeVisible();
+
+    await page.goto(`/app/projects/${state.projects.lifecycle.id}`);
+    await expect(page.getByRole('tab', { name: /^Settings$/i })).toBeVisible();
+
+    await page.goto(`/app/projects/${state.projects.lifecycle.id}/edit`);
+    await expect(page.getByRole('button', { name: /More actions/i })).toBeVisible();
+    await page.getByRole('button', { name: /More actions/i }).click();
+    await page.getByText(/Archive project/i).click();
+    await Promise.all([
+      page.waitForURL(/\/app\/projects$/),
+      page.getByRole('dialog').getByRole('button', { name: /^Delete$/i }).click(),
+    ]);
+    await expect(page.getByText(state.projects.lifecycle.name)).toHaveCount(0);
+
+    await page.goto('/app/projects?archived=1');
+    const archivedProjectCard = page
+      .locator('.mc-project-list-card')
+      .filter({ hasText: state.projects.archived.name })
+      .first();
+    await expect(archivedProjectCard).toBeVisible();
+    page.once('dialog', dialog => dialog.accept());
+    await archivedProjectCard.getByRole('button', { name: /Restore/i }).click();
+    await expect(
+      page.locator('.mc-project-list-card').filter({ hasText: state.projects.archived.name })
+    ).toHaveCount(0);
+
+    await page.goto('/app/projects');
+    await expect(page.getByText(state.projects.archived.name).first()).toBeVisible();
+  });
+
   test('existing editor accepts an invitation, sees the shared owner label and can still create one owned project', async ({ page }) => {
     await login(page, state.users.editor.email, state.password);
     await page.goto(new URL(state.invitations.editor.url).pathname);

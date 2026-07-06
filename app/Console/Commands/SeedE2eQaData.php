@@ -60,6 +60,9 @@ class SeedE2eQaData extends Command
         $admin = $this->upsertUser(self::ADMIN_EMAIL, 'QA Bot Platform Owner', 'demo', User::ROLE_PLATFORM_OWNER, $password);
 
         $ownedProject = $this->upsertProject($owner, 'QA Bot Owned Project', 'QA-OWN');
+        $lifecycleProject = $this->upsertProject($owner, 'QA Bot Lifecycle Project', 'QA-LIFE');
+        $archivedProject = $this->upsertProject($owner, 'QA Bot Archived Project', 'QA-ARCHIVE');
+        $archivedProject->delete();
         $collaborationProject = $this->upsertProject($owner, 'QA Bot Collaboration Project', 'QA-COLLAB', 'ka152-you');
         $this->syncWritingSections($collaborationProject, 'ka152-you');
         $viewerProject = $this->upsertProject($owner, 'QA Bot Viewer Project', 'QA-VIEW', 'ka152-you');
@@ -93,6 +96,8 @@ class SeedE2eQaData extends Command
             ],
             'projects' => [
                 'owned' => ['id' => $ownedProject->id, 'name' => $ownedProject->name],
+                'lifecycle' => ['id' => $lifecycleProject->id, 'name' => $lifecycleProject->name],
+                'archived' => ['id' => $archivedProject->id, 'name' => $archivedProject->name],
                 'collaboration' => ['id' => $collaborationProject->id, 'name' => $collaborationProject->name],
                 'viewer' => ['id' => $viewerProject->id, 'name' => $viewerProject->name],
                 'writing_ka152' => ['id' => $writingProject->id, 'name' => $writingProject->name],

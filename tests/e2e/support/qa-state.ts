@@ -37,6 +37,8 @@ export type QaState = {
   };
   projects: {
     owned: QaProject;
+    lifecycle: QaProject;
+    archived: QaProject;
     collaboration: QaProject;
     viewer: QaProject;
     writing_ka152: QaProject;

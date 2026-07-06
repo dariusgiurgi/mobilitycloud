@@ -140,14 +140,24 @@ MobilityCloudQA!2026
 - Confirm a Viewer can open documents and download allowed files.
 - Confirm a Viewer cannot see document mutation actions.
 
+### 12. Project lifecycle controls
+
+- Seed a dedicated active lifecycle project and a dedicated archived project.
+- Confirm the project list loads without workspace context.
+- Confirm the Duplicate project entry point is visible for an account that can create projects.
+- Open the project Overview and confirm Settings is reachable for the owner.
+- Archive the project from Settings/Edit project actions.
+- Confirm the archived project disappears from the active list.
+- Open Archived projects and restore the dedicated archived project.
+- Confirm the restored project returns to the active project list.
+- Cover duplicate execution, shared-project duplication and project-limit blocking through feature tests.
+
 ## Next bot scenarios to automate
 
 ### Projects
 
-- Archive project from Settings only.
-- Restore archived project from Archived projects.
-- Duplicate project.
-- Verify owner/editor/viewer action visibility on Overview, Settings and Documents.
+- Execute Duplicate project through the browser modal.
+- Verify finer owner/editor/viewer action visibility on Overview and Settings.
 
 ### Writing
 

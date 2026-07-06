@@ -8,8 +8,6 @@ use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -18,11 +16,10 @@ class ProjectArchiveTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_owner_can_archive_and_restore_a_project(): void
+    public function test_project_owner_can_archive_and_restore_a_project(): void
     {
-        [$workspace, $project, $owner] = $this->workspaceProjectAndUser('owner');
+        [$project, $owner] = $this->projectAndUser();
         $this->actingAs($owner);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertActionDoesNotExist('archiveProject')
@@ -56,10 +53,9 @@ class ProjectArchiveTest extends TestCase
 
     public function test_archive_is_read_only_for_viewers(): void
     {
-        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        [$project, $viewer] = $this->projectAndUser(Project::PROJECT_ROLE_VIEWER);
         $project->delete();
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(ListProjects::class)
             ->set('archived', true)
@@ -69,19 +65,18 @@ class ProjectArchiveTest extends TestCase
 
     public function test_project_editor_cannot_archive_or_restore_a_project(): void
     {
-        $workspace = Workspace::create(['name' => 'Editor Archive Workspace']);
         $owner = User::factory()->create();
         $editor = User::factory()->create();
-        $workspace->users()->attach($owner, ['role' => 'owner']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Editor Archive Candidate',
             'status' => 'writing',
         ]);
         $project->members()->attach($editor, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($editor);
-        Filament::setTenant($workspace);
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertActionHidden('delete');
@@ -101,25 +96,28 @@ class ProjectArchiveTest extends TestCase
         $this->assertSoftDeleted($project);
     }
 
-    public function test_archived_projects_are_isolated_from_active_and_other_workspace_lists(): void
+    public function test_archived_projects_are_isolated_from_active_and_other_account_lists(): void
     {
-        [$workspace, $project, $manager] = $this->workspaceProjectAndUser('owner');
+        [$project, $manager] = $this->projectAndUser();
         $project->delete();
         Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $manager->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Active Project',
             'status' => 'writing',
         ]);
-        $otherWorkspace = Workspace::create(['name' => 'Other Workspace']);
+        $otherOwner = User::factory()->create();
         $otherProject = Project::create([
-            'workspace_id' => $otherWorkspace->id,
+            'owner_id' => $otherOwner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Other Archived Project',
             'status' => 'writing',
         ]);
         $otherProject->delete();
 
         $this->actingAs($manager);
-        Filament::setTenant($workspace);
 
         Livewire::test(ListProjects::class)
             ->assertSee('Active Project')
@@ -130,17 +128,25 @@ class ProjectArchiveTest extends TestCase
             ->assertDontSee('Other Archived Project');
     }
 
-    private function workspaceProjectAndUser(string $role): array
+    private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
-        $workspace = Workspace::create(['name' => 'Archive Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
+        $owner = $role === Project::PROJECT_ROLE_VIEWER
+            ? User::factory()->create()
+            : $user;
+
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Archive Candidate',
             'status' => 'writing',
         ]);
 
-        return [$workspace, $project, $user];
+        if ($role === Project::PROJECT_ROLE_VIEWER) {
+            $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
+        }
+
+        return [$project, $user];
     }
 }
