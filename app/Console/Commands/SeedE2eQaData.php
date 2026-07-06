@@ -3,8 +3,10 @@
 namespace App\Console\Commands;
 
 use App\Models\Project;
+use App\Models\ProjectApplicationSection;
 use App\Models\User;
 use App\Models\WorkspaceInvitation;
+use App\Support\ApplicationTemplates;
 use App\Support\PlanCatalog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -56,6 +58,8 @@ class SeedE2eQaData extends Command
         $ownedProject = $this->upsertProject($owner, 'QA Bot Owned Project', 'QA-OWN');
         $collaborationProject = $this->upsertProject($owner, 'QA Bot Collaboration Project', 'QA-COLLAB');
         $viewerProject = $this->upsertProject($owner, 'QA Bot Viewer Project', 'QA-VIEW');
+        $writingProject = $this->upsertProject($owner, 'QA Bot Writing KA152 Project', 'QA-WRITE', 'ka152-you');
+        $this->syncWritingSections($writingProject, 'ka152-you');
         $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
 
         $editorInvitation = $this->upsertInvitation($owner, $collaborationProject, $editor, Project::PROJECT_ROLE_EDITOR);
@@ -75,6 +79,7 @@ class SeedE2eQaData extends Command
                 'owned' => ['id' => $ownedProject->id, 'name' => $ownedProject->name],
                 'collaboration' => ['id' => $collaborationProject->id, 'name' => $collaborationProject->name],
                 'viewer' => ['id' => $viewerProject->id, 'name' => $viewerProject->name],
+                'writing_ka152' => ['id' => $writingProject->id, 'name' => $writingProject->name],
                 'free_owned' => ['id' => $freeOwnedProject->id, 'name' => $freeOwnedProject->name],
             ],
             'invitations' => [
@@ -175,7 +180,7 @@ class SeedE2eQaData extends Command
         return $user;
     }
 
-    private function upsertProject(User $owner, string $name, string $acronym): Project
+    private function upsertProject(User $owner, string $name, string $acronym, ?string $kaAction = null): Project
     {
         /** @var Project $project */
         $project = Project::withTrashed()->updateOrCreate(
@@ -187,6 +192,7 @@ class SeedE2eQaData extends Command
                 'workspace_id' => null,
                 'access_mode' => 'restricted',
                 'acronym' => $acronym,
+                'ka_action' => $kaAction,
                 'description' => 'Automated QA project. Safe to delete.',
                 'status' => 'writing',
                 'total_budget' => 1000,
@@ -197,6 +203,37 @@ class SeedE2eQaData extends Command
         );
 
         return $project;
+    }
+
+    private function syncWritingSections(Project $project, string $templateKey): void
+    {
+        $sections = ApplicationTemplates::sections($templateKey);
+
+        foreach ($sections as $sortOrder => $section) {
+            ProjectApplicationSection::query()->updateOrCreate(
+                [
+                    'project_id' => $project->id,
+                    'question_key' => $section['key'],
+                ],
+                [
+                    'title' => $section['title'],
+                    'category' => $section['category'] ?? null,
+                    'char_limit' => $section['char_limit'] ?? null,
+                    'content' => $section['key'] === 'summary-objectives'
+                        ? 'QA bot baseline answer for the official KA152 objectives question.'
+                        : '',
+                    'sort_order' => $sortOrder,
+                    'application_tables' => null,
+                    'review_status' => 'draft',
+                    'internal_notes' => null,
+                ],
+            );
+        }
+
+        ProjectApplicationSection::query()
+            ->where('project_id', $project->id)
+            ->whereNotIn('question_key', collect($sections)->pluck('key')->all())
+            ->delete();
     }
 
     private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): WorkspaceInvitation

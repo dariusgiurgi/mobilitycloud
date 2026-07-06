@@ -29,6 +29,40 @@ test.describe.serial('Account-owned projects and project invitations', () => {
       await expect(page.getByText(state.projects.owned.name).first()).toBeVisible();
     }
 
+    await page.goto(`/app/projects/${state.projects.writing_ka152.id}/write`);
+    await expect(page.getByRole('heading', { name: /Application workspace/i })).toBeVisible();
+    await expect(page.getByText(state.projects.writing_ka152.name).first()).toBeVisible();
+    await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/What do you want to achieve by implementing the project/i);
+
+    await page.getByPlaceholder(/Search questions or answers/i).fill('background of the participants');
+    await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/Please describe the background of the participants in each participating group/i);
+    await expect(page.getByText('Participant groups').first()).toBeVisible();
+
+    await page.getByPlaceholder(/Search questions or answers/i).fill('select up to three topics');
+    await expect(page.getByText('Project topics').first()).toBeVisible();
+
+    await page.getByPlaceholder(/Search questions or answers/i).fill('fewer opportunities');
+    await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/participants involved in the activities who face situations/i);
+    await page.getByPlaceholder(/Search questions or answers/i).fill('');
+    await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/What do you want to achieve by implementing the project/i);
+
+    const qaAnswer = `QA browser bot saved this KA152 answer at ${Date.now()}.`;
+    await page.locator('textarea[placeholder^="Write your answer here"]').first().fill(qaAnswer);
+    await page.waitForTimeout(1_200);
+    await page.reload();
+    await expect(page.locator('textarea[placeholder^="Write your answer here"]').first()).toHaveValue(qaAnswer);
+
+    await page.getByPlaceholder(/Search questions or answers/i).fill('background of the participants');
+    const participantTable = page.locator('.mc-wa-table-block').filter({ hasText: 'Participant groups' }).first();
+    await expect(participantTable).toBeVisible();
+    await participantTable.getByRole('button', { name: /Add row/i }).click();
+    await participantTable.getByPlaceholder('Group / country').fill('Romania group');
+    await participantTable.getByPlaceholder('Participants').fill('12 young people');
+    await page.waitForTimeout(1_200);
+    await page.reload();
+    await expect(page.getByPlaceholder('Group / country').first()).toHaveValue('Romania group');
+    await expect(page.getByPlaceholder('Participants').first()).toHaveValue('12 young people');
+
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
 

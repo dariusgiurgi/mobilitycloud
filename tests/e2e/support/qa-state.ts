@@ -32,6 +32,7 @@ export type QaState = {
     owned: QaProject;
     collaboration: QaProject;
     viewer: QaProject;
+    writing_ka152: QaProject;
     free_owned: QaProject;
   };
   invitations: {

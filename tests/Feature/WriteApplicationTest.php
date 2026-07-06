@@ -8,6 +8,7 @@ use App\Models\ProjectApplicationSection;
 use App\Models\ProjectApplicationVersion;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\ApplicationTableDefinitions;
 use App\Support\ApplicationTemplates;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -118,6 +119,87 @@ class WriteApplicationTest extends TestCase
         $this->assertCount(37, ApplicationTemplates::sections('ka220-vet'));
         $this->assertCount(18, ApplicationTemplates::catalog());
         $this->assertSame(['any', 'ka122-sch', 'ka122'], ApplicationTemplates::libraryKeys('ka122-sch'));
+    }
+
+    public function test_verified_template_catalog_is_complete_unique_and_table_safe(): void
+    {
+        $templates = ApplicationTemplates::verifiedTemplates();
+
+        $this->assertNotEmpty($templates);
+
+        foreach ($templates as $templateKey => $template) {
+            $this->assertNotEmpty($template['label'], "Template {$templateKey} is missing a label.");
+            $this->assertNotEmpty($template['action'], "Template {$templateKey} is missing an action.");
+            $this->assertNotEmpty($template['call_year'], "Template {$templateKey} is missing a call year.");
+            $this->assertNotEmpty($template['source_url'], "Template {$templateKey} is missing a source URL.");
+            $this->assertNotEmpty($template['sections'], "Template {$templateKey} has no official questions.");
+
+            $questionKeys = collect($template['sections'])->pluck('key')->all();
+            $this->assertSame(
+                count($questionKeys),
+                count(array_unique($questionKeys)),
+                "Template {$templateKey} has duplicate question keys.",
+            );
+
+            foreach ($template['sections'] as $index => $section) {
+                $questionNumber = $index + 1;
+
+                $this->assertNotEmpty($section['key'] ?? null, "Template {$templateKey} question {$questionNumber} has no key.");
+                $this->assertNotEmpty($section['category'] ?? null, "Template {$templateKey} question {$questionNumber} has no category.");
+                $this->assertNotEmpty($section['title'] ?? null, "Template {$templateKey} question {$questionNumber} has no title.");
+                $this->assertSame(trim($section['title']), $section['title'], "Template {$templateKey} question {$questionNumber} has unsafe title whitespace.");
+
+                if (array_key_exists('char_limit', $section) && $section['char_limit'] !== null) {
+                    $this->assertIsInt($section['char_limit'], "Template {$templateKey} question {$questionNumber} character limit must be an integer.");
+                    $this->assertGreaterThan(0, $section['char_limit'], "Template {$templateKey} question {$questionNumber} character limit must be positive.");
+                }
+
+                $tables = ApplicationTableDefinitions::forSection(new ProjectApplicationSection([
+                    'question_key' => $section['key'],
+                    'title' => $section['title'],
+                    'category' => $section['category'] ?? null,
+                ]));
+
+                foreach ($tables as $table) {
+                    $this->assertNotEmpty($table['key'], "Template {$templateKey} question {$questionNumber} has a table without key.");
+                    $this->assertNotEmpty($table['label'], "Template {$templateKey} question {$questionNumber} has a table without label.");
+                    $this->assertNotEmpty($table['columns'], "Template {$templateKey} question {$questionNumber} table {$table['key']} has no columns.");
+
+                    foreach ($table['columns'] as $column) {
+                        $this->assertNotEmpty($column['field'], "Template {$templateKey} table {$table['key']} has a column without field.");
+                        $this->assertNotEmpty($column['label'], "Template {$templateKey} table {$table['key']} has a column without label.");
+                    }
+                }
+            }
+        }
+
+        $ka152TableLabels = collect(ApplicationTemplates::sections('ka152-you'))
+            ->flatMap(fn (array $section) => ApplicationTableDefinitions::forSection(new ProjectApplicationSection([
+                'question_key' => $section['key'],
+                'title' => $section['title'],
+                'category' => $section['category'] ?? null,
+            ])))
+            ->pluck('label')
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->assertContains('Project topics', $ka152TableLabels);
+        $this->assertContains('Participant groups', $ka152TableLabels);
+        $this->assertContains('Dissemination plan', $ka152TableLabels);
+
+        $ka151TableLabels = collect(ApplicationTemplates::sections('ka151-you'))
+            ->flatMap(fn (array $section) => ApplicationTableDefinitions::forSection(new ProjectApplicationSection([
+                'question_key' => $section['key'],
+                'title' => $section['title'],
+                'category' => $section['category'] ?? null,
+            ])))
+            ->pluck('label')
+            ->unique()
+            ->values()
+            ->all();
+
+        $this->assertContains('Additional funding needs', $ka151TableLabels);
     }
 
     public function test_template_sync_preserves_existing_answers_and_creates_backup(): void
@@ -742,12 +824,19 @@ class WriteApplicationTest extends TestCase
         $workspace = Workspace::create(['name' => 'Application Workspace']);
         $user = User::factory()->create();
         $workspace->users()->attach($user, ['role' => $role]);
+        $owner = $role === 'viewer' ? User::factory()->create() : $user;
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'writing',
             'ka_action' => 'ka152',
         ]);
+
+        if ($role === 'viewer') {
+            $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
+        }
 
         return [$workspace, $project, $user];
     }

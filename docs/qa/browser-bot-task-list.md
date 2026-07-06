@@ -88,6 +88,16 @@ MobilityCloudQA!2026
 - Confirm the platform administration dashboard opens.
 - Confirm the bot does not land in any workspace onboarding/dashboard flow.
 
+### 8. Writing workspace for official KA152 applications
+
+- Seed a dedicated `QA Bot Writing KA152 Project`.
+- Open the Writing module as the project owner.
+- Confirm the official KA152 questions are visible and not truncated.
+- Confirm standard table blocks appear for relevant questions.
+- Search within questions and answers.
+- Save a draft answer, reload the page and confirm it persists.
+- Add a row to a standard application table, reload the page and confirm it persists.
+
 ## Next bot scenarios to automate
 
 ### Projects
@@ -101,10 +111,9 @@ MobilityCloudQA!2026
 
 - Create a project with each supported application template.
 - Verify only the selected template's questions appear.
-- Verify official question text is not truncated.
-- Verify writing table blocks appear where relevant.
-- Save a draft answer and reload it.
 - Export application content.
+- Verify template switching preserves compatible answers and removes old official questions.
+- Verify editor can write and viewer remains read-only in the Writing module.
 
 ### Budget
 
