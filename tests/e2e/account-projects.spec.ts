@@ -5,11 +5,29 @@ import { qaState } from './support/qa-state';
 test.describe.serial('Account-owned projects and project invitations', () => {
   const state = qaState();
 
-  test('owner can sign in, see dashboard projects and create a project without a workspace', async ({ page }) => {
+  test('owner can sign in, see dashboard projects, open core modules and create a project without a workspace', async ({ page }) => {
     await login(page, state.users.owner.email, state.password);
 
     await expect(page.getByRole('heading', { name: /Project dashboard|Platform overview/i })).toBeVisible();
     await expect(page.getByText(state.projects.owned.name).first()).toBeVisible();
+
+    const projectBase = `/app/projects/${state.projects.owned.id}`;
+    const modules = [
+      projectBase,
+      `${projectBase}/write`,
+      `${projectBase}/estimate`,
+      `${projectBase}/mobility`,
+      `${projectBase}/participants`,
+      `${projectBase}/documents`,
+      `${projectBase}/edit`,
+    ];
+
+    for (const path of modules) {
+      await page.goto(path);
+      await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/')));
+      await expect(page.getByText(/Something went wrong|Temporary platform issue|This page is not available/i)).toHaveCount(0);
+      await expect(page.getByText(state.projects.owned.name).first()).toBeVisible();
+    }
 
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
