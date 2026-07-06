@@ -83,6 +83,17 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/Owner: QA Bot Owner/i).first()).toBeVisible();
     await expect(page.getByText(/^\s*Editor\s*$/).last()).toBeVisible();
 
+    await page.goto(`/app/projects/${state.projects.collaboration.id}/write`);
+    await expect(page.getByRole('heading', { name: /Application workspace/i })).toBeVisible();
+    await expect(page.getByText(/Read-only access/i)).toHaveCount(0);
+    await expect(page.locator('textarea:not([placeholder])').first()).toHaveValue(/What do you want to achieve by implementing the project/i);
+
+    const editorAnswer = `QA editor saved this shared project answer at ${Date.now()}.`;
+    await page.locator('textarea[placeholder^="Write your answer here"]').first().fill(editorAnswer);
+    await page.waitForTimeout(1_200);
+    await page.reload();
+    await expect(page.locator('textarea[placeholder^="Write your answer here"]').first()).toHaveValue(editorAnswer);
+
     const projectName = `QA Bot Editor Owned ${Date.now()}`;
     await page.goto('/app/projects/create');
 
@@ -114,6 +125,14 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/Owner: QA Bot Owner/i).first()).toBeVisible();
     await expect(page.getByText(/^\s*Viewer\s*$/).last()).toBeVisible();
     await expect(page.getByRole('link', { name: /^Settings$/i })).toHaveCount(0);
+
+    await page.goto(`/app/projects/${state.projects.viewer.id}/write`);
+    await expect(page.getByRole('heading', { name: /Application workspace/i })).toBeVisible();
+    await expect(page.getByText(/Read-only access/i)).toBeVisible();
+    await expect(page.locator('textarea[placeholder^="Write your answer here"]').first()).toHaveAttribute('readonly', '');
+    await expect(page.locator('textarea:not([placeholder])').first()).toHaveAttribute('readonly', '');
+    await expect(page.getByRole('button', { name: /Template manager/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Add row/i })).toHaveCount(0);
   });
 
   test('platform owner opens the platform administration surface, not a workspace dashboard', async ({ page }) => {

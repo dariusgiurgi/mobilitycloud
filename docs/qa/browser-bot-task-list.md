@@ -97,6 +97,9 @@ MobilityCloudQA!2026
 - Search within questions and answers.
 - Save a draft answer, reload the page and confirm it persists.
 - Add a row to a standard application table, reload the page and confirm it persists.
+- Confirm an invited Editor can write in the shared project.
+- Confirm an invited Viewer can open Writing in read-only mode.
+- Confirm Viewer cannot see template/table edit actions.
 
 ## Next bot scenarios to automate
 
@@ -113,7 +116,7 @@ MobilityCloudQA!2026
 - Verify only the selected template's questions appear.
 - Export application content.
 - Verify template switching preserves compatible answers and removes old official questions.
-- Verify editor can write and viewer remains read-only in the Writing module.
+- Verify Writing export permissions for owner/editor/viewer.
 
 ### Budget
 

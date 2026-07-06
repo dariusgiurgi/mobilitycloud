@@ -56,8 +56,10 @@ class SeedE2eQaData extends Command
         $admin = $this->upsertUser(self::ADMIN_EMAIL, 'QA Bot Platform Owner', 'demo', User::ROLE_PLATFORM_OWNER, $password);
 
         $ownedProject = $this->upsertProject($owner, 'QA Bot Owned Project', 'QA-OWN');
-        $collaborationProject = $this->upsertProject($owner, 'QA Bot Collaboration Project', 'QA-COLLAB');
-        $viewerProject = $this->upsertProject($owner, 'QA Bot Viewer Project', 'QA-VIEW');
+        $collaborationProject = $this->upsertProject($owner, 'QA Bot Collaboration Project', 'QA-COLLAB', 'ka152-you');
+        $this->syncWritingSections($collaborationProject, 'ka152-you');
+        $viewerProject = $this->upsertProject($owner, 'QA Bot Viewer Project', 'QA-VIEW', 'ka152-you');
+        $this->syncWritingSections($viewerProject, 'ka152-you');
         $writingProject = $this->upsertProject($owner, 'QA Bot Writing KA152 Project', 'QA-WRITE', 'ka152-you');
         $this->syncWritingSections($writingProject, 'ka152-you');
         $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
