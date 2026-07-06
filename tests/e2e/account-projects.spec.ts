@@ -32,6 +32,12 @@ async function expectParticipantsCsv(page: Page, projectId: number) {
   expect(body.indexOf('Ionescu;Mara')).toBeLessThan(body.indexOf('Zimmer;Zoe'));
 }
 
+async function expectPrivatePdf(page: Page, path: string) {
+  const response = await page.request.get(path);
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toContain('application/pdf');
+}
+
 test.describe.serial('Account-owned projects and project invitations', () => {
   const state = qaState();
 
@@ -222,6 +228,69 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('button', { name: /Attendance list/i })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /Add participant/i })).toHaveCount(0);
     await expectParticipantsCsv(page, state.projects.viewer.id);
+
+    const documentsProject = state.projects.documents;
+    await page.goto(`/app/projects/${documentsProject.id}/documents`);
+    await expect(page.getByText(documentsProject.name).first()).toBeVisible();
+    await expect(page.getByText('QA Bot attendance list - Mobility workshop').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Add document/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Upload signed copy/i })).toHaveCount(0);
+    await expectPrivatePdf(page, `/projects/${documentsProject.id}/documents/${documentsProject.attendance_document_id}/attendance`);
+  });
+
+  test('documents centre covers generated records, civil conventions and read-only sharing', async ({ page }) => {
+    const project = state.projects.documents;
+
+    await login(page, state.users.owner.email, state.password);
+    await page.goto(`/app/projects/${project.id}/documents`);
+
+    await expect(page.getByRole('heading', { name: /Project document centre/i })).toBeVisible();
+    await expect(page.getByText(/Project readiness/i)).toBeVisible();
+    await expect(page.getByText(/Document readiness/i)).toBeVisible();
+    await expect(page.getByText(project.name).first()).toBeVisible();
+    await expect(page.getByText('QA Bot uploaded grant agreement').first()).toBeVisible();
+    await expect(page.getByText('QA Bot attendance list - Mobility workshop').first()).toBeVisible();
+    await expect(page.getByText('QA Bot official expense report').first()).toBeVisible();
+    await expect(page.getByText(/awaiting signature/i).first()).toBeVisible();
+
+    await page.getByPlaceholder(/Search documents/i).fill('grant');
+    await expect(page.getByText('QA Bot uploaded grant agreement').first()).toBeVisible();
+    await expect(page.getByText('QA Bot attendance list - Mobility workshop')).toHaveCount(0);
+    await page.getByPlaceholder(/Search documents/i).fill('');
+
+    await page.getByRole('button', { name: /View pending signatures/i }).first().click();
+    await expect(page.getByText('QA Bot attendance list - Mobility workshop').first()).toBeVisible();
+    await expect(page.getByText('QA Bot official expense report').first()).toBeVisible();
+    await expect(page.getByText('QA Bot uploaded grant agreement')).toHaveCount(0);
+
+    await page.getByRole('tab', { name: /Civil conventions/i }).click();
+    await expect(page.getByText('QA Bot facilitation civil convention').first()).toBeVisible();
+    await page.getByText('QA Bot facilitation civil convention').first().click();
+    await expect(page.getByText(/Download agreement/i).first()).toBeVisible();
+    await expect(page.getByText(/Upload signed agreement/i).first()).toBeVisible();
+    await expect(page.getByText(/Download payment evidence/i).first()).toBeVisible();
+
+    await page.getByRole('tab', { name: /Dissemination/i }).click();
+    await expect(page.getByText('Scoala de Jocuri').first()).toBeVisible();
+    await expect(page.getByText('Youth Group Spain').first()).toBeVisible();
+    await expect(page.getByText(/Save report/i).first()).toBeVisible();
+    await expect(page.getByText(/Upload evidence/i).first()).toBeVisible();
+
+    await page.getByRole('tab', { name: /Checklist/i }).click();
+    await expect(page.getByText(/Project file checklist/i)).toBeVisible();
+    await expect(page.getByText(/Grant agreement/i).first()).toBeVisible();
+
+    await expectPrivatePdf(page, `/projects/${project.id}/documents/${project.attendance_document_id}/attendance`);
+    await expectPrivatePdf(page, `/projects/${project.id}/documents/${project.expense_report_document_id}/expense-report`);
+    await expectPrivatePdf(page, `/projects/${project.id}/expenses/${project.civil_expense_id}/civil-convention`);
+    await expectPrivatePdf(page, `/projects/${project.id}/expenses/${project.civil_expense_id}/payment-statement`);
+
+    const uploaded = await page.request.get(`/projects/${project.id}/documents/${project.uploaded_document_id}/file`);
+    expect(uploaded.status()).toBe(200);
+
+    const archive = await page.request.get(`/projects/${project.id}/final-archive`);
+    expect(archive.status()).toBe(200);
+    expect(archive.headers()['content-type']).toContain('zip');
   });
 
   test('platform owner opens the platform administration surface, not a workspace dashboard', async ({ page }) => {

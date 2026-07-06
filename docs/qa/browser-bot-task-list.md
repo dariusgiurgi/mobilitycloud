@@ -125,6 +125,21 @@ MobilityCloudQA!2026
 - Confirm Viewer cannot see import, attendance generation or add-participant actions.
 - Confirm accounts without project access cannot export participants.
 
+### 11. Documents centre and final archive
+
+- Seed a dedicated documents project with uploaded, generated and civil convention records.
+- Open the Documents centre as owner.
+- Confirm readiness panels, file search and pending-signature filtering work.
+- Confirm generated attendance and formal expense report records are visible.
+- Confirm civil convention workflow shows agreement, signed-copy and payment evidence actions.
+- Confirm dissemination organisations and evidence actions are visible.
+- Confirm checklist items are visible and reflect seeded file state.
+- Download attendance PDF, expense report PDF, civil convention PDF and payment evidence PDF.
+- Download an uploaded private file.
+- Download the final project archive ZIP.
+- Confirm a Viewer can open documents and download allowed files.
+- Confirm a Viewer cannot see document mutation actions.
+
 ## Next bot scenarios to automate
 
 ### Projects
@@ -157,11 +172,11 @@ MobilityCloudQA!2026
 
 ### Documents
 
-- Generate civil convention.
-- Generate formal expenditure report.
-- Upload signed copy.
-- Verify pending signature state changes.
-- Verify final archive includes generated and uploaded documents in ordered folders.
+- Generate civil convention through the browser modal.
+- Generate formal expenditure report through the browser modal.
+- Upload signed copy through the browser modal.
+- Verify pending signature state changes after upload/remove actions.
+- Inspect the final archive ZIP contents and confirm ordered folders/file names.
 
 ### Dissemination and mobility
 

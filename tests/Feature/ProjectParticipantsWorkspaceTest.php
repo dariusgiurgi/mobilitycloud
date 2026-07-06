@@ -7,8 +7,6 @@ use App\Models\Participant;
 use App\Models\ParticipantAttachment;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -19,7 +17,7 @@ class ProjectParticipantsWorkspaceTest extends TestCase
 
     public function test_register_surfaces_participant_and_document_readiness(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->projectAndUser();
         $ready = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
         foreach (['gdpr', 'agreement'] as $type) {
             ParticipantAttachment::create([
@@ -34,7 +32,6 @@ class ProjectParticipantsWorkspaceTest extends TestCase
         $this->participant($project, 'Mara', 'Ionescu', 'Youth Group', 'RO', '2010-01-01');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
             ->assertSee('Participant register')
@@ -50,9 +47,8 @@ class ProjectParticipantsWorkspaceTest extends TestCase
 
     public function test_manager_can_add_a_participant_from_the_register(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->projectAndUser();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
             ->call('openCreate')
@@ -70,10 +66,9 @@ class ProjectParticipantsWorkspaceTest extends TestCase
 
     public function test_viewer_gets_participant_details_without_mutation_controls(): void
     {
-        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        [$project, $viewer] = $this->projectAndUser(Project::PROJECT_ROLE_VIEWER);
         $participant = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
             ->assertSee('Read-only access')
@@ -87,20 +82,28 @@ class ProjectParticipantsWorkspaceTest extends TestCase
             ->assertDontSee('Upload');
     }
 
-    private function workspaceProjectAndUser(string $role): array
+    private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
-        $workspace = Workspace::create(['name' => 'Participants Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
+        $owner = $role === Project::PROJECT_ROLE_VIEWER
+            ? User::factory()->create()
+            : $user;
+
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'active',
             'ka_action' => 'ka152',
             'mobility_start_date' => '2026-07-01',
         ]);
 
-        return [$workspace, $project, $user];
+        if ($role === Project::PROJECT_ROLE_VIEWER) {
+            $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
+        }
+
+        return [$project, $user];
     }
 
     private function participant(Project $project, string $firstName, string $lastName, string $organisation, string $country, string $birthDate): Participant

@@ -7,11 +7,9 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
-use App\Models\Workspace;
 use App\Services\ExpenseReportSnapshot;
 use App\Services\ProjectDocumentChecklist;
 use Carbon\Carbon;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -22,11 +20,9 @@ class ProjectDocumentsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_workspace_member_can_download_landscape_attendance_pdf(): void
+    public function test_project_owner_can_download_landscape_attendance_pdf(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
         $this->participants($project);
         $document = $this->attendanceDocument($project);
 
@@ -42,7 +38,7 @@ class ProjectDocumentsTest extends TestCase
 
     public function test_outsider_cannot_download_attendance_pdf(): void
     {
-        [, $project] = $this->workspaceAndProject();
+        [$project] = $this->projectAndUser();
         $document = $this->attendanceDocument($project);
 
         $this->actingAs(User::factory()->create())
@@ -53,10 +49,8 @@ class ProjectDocumentsTest extends TestCase
     public function test_signed_copy_is_private_and_requires_membership(): void
     {
         Storage::fake('local');
-        [$workspace, $project] = $this->workspaceAndProject();
-        $member = User::factory()->create();
+        [$project, $member] = $this->projectAndUser(Project::PROJECT_ROLE_VIEWER);
         $outsider = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'viewer']);
         $document = $this->attendanceDocument($project);
         $path = 'project-documents/'.$project->id.'/'.$document->id.'/signed.pdf';
         Storage::disk('local')->put($path, 'signed');
@@ -81,7 +75,7 @@ class ProjectDocumentsTest extends TestCase
     public function test_deleting_document_removes_signed_file(): void
     {
         Storage::fake('local');
-        [, $project] = $this->workspaceAndProject();
+        [$project] = $this->projectAndUser();
         $document = $this->attendanceDocument($project);
         $path = 'project-documents/'.$project->id.'/'.$document->id.'/signed.pdf';
         Storage::disk('local')->put($path, 'signed');
@@ -95,10 +89,8 @@ class ProjectDocumentsTest extends TestCase
     public function test_uploaded_project_file_is_private_and_removed_with_its_record(): void
     {
         Storage::fake('local');
-        [$workspace, $project] = $this->workspaceAndProject();
-        $member = User::factory()->create();
+        [$project, $member] = $this->projectAndUser(Project::PROJECT_ROLE_VIEWER);
         $outsider = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'viewer']);
         $path = 'project-documents/'.$project->id.'/grant.pdf';
         Storage::disk('local')->put($path, 'grant');
         $document = ProjectDocument::create([
@@ -128,7 +120,7 @@ class ProjectDocumentsTest extends TestCase
     public function test_expense_report_snapshot_filters_rows_and_calculates_totals(): void
     {
         Storage::fake('local');
-        [, $project] = $this->workspaceAndProject();
+        [$project] = $this->projectAndUser();
         $travel = $project->budgetLines()->where('title', 'Travel')->firstOrFail();
         $support = $project->budgetLines()->where('title', 'Organisational Support')->firstOrFail();
 
@@ -189,11 +181,9 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame([1, 2], array_column($evidenceFirst['expenses'], 'row_number'));
     }
 
-    public function test_workspace_member_can_download_landscape_expense_report_pdf(): void
+    public function test_project_viewer_can_download_landscape_expense_report_pdf(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'viewer']);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_VIEWER);
         $document = ProjectDocument::create([
             'project_id' => $project->id,
             'type' => ProjectDocument::TYPE_EXPENSE_REPORT,
@@ -236,7 +226,7 @@ class ProjectDocumentsTest extends TestCase
     public function test_document_checklist_reports_file_and_signature_readiness(): void
     {
         Storage::fake('local');
-        [, $project] = $this->workspaceAndProject();
+        [$project] = $this->projectAndUser();
         $project->update(['partner_orgs' => [
             ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => null, 'is_coordinator' => true],
             ['name' => 'Partner Association', 'country' => 'IT', 'oid' => null],
@@ -305,12 +295,9 @@ class ProjectDocumentsTest extends TestCase
 
     public function test_documents_page_switches_between_professional_workspace_tabs(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
         Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSet('activeDocumentTab', 'files')
             ->assertSee('Project document centre')
@@ -333,12 +320,9 @@ class ProjectDocumentsTest extends TestCase
 
     public function test_checklist_actions_open_relevant_document_workflows(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->call('setDocumentTab', 'checklist')
@@ -360,16 +344,13 @@ class ProjectDocumentsTest extends TestCase
     public function test_member_can_save_dissemination_report_and_upload_evidence_per_organisation(): void
     {
         Storage::fake('local');
-        [$workspace, $project] = $this->workspaceAndProject();
+        [$project, $user] = $this->projectAndUser();
         $project->update(['partner_orgs' => [
             ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => 'E10000001', 'is_coordinator' => true],
             ['name' => 'Partner Association', 'country' => 'IT', 'oid' => 'E10000002'],
         ]]);
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->call('setDocumentTab', 'dissemination')
@@ -414,9 +395,7 @@ class ProjectDocumentsTest extends TestCase
 
     public function test_civil_conventions_show_step_workflow_and_direct_actions(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
         $expense = $project->budgetLines()->first()->expenses()->create([
             'description' => 'Facilitation services',
             'amount' => 1200,
@@ -441,7 +420,6 @@ class ProjectDocumentsTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->call('setDocumentTab', 'conventions')
@@ -469,9 +447,7 @@ class ProjectDocumentsTest extends TestCase
     public function test_civil_convention_is_complete_with_signed_agreement_only(): void
     {
         Storage::fake('local');
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
         $agreementPath = 'project-documents/'.$project->id.'/agreement-signed.pdf';
         Storage::disk('local')->put($agreementPath, 'signed');
         $project->budgetLines()->first()->expenses()->create([
@@ -497,7 +473,6 @@ class ProjectDocumentsTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->call('setDocumentTab', 'conventions')
@@ -512,9 +487,7 @@ class ProjectDocumentsTest extends TestCase
 
     public function test_document_command_center_summarises_readiness_and_awaiting_signatures(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
         $signed = $this->attendanceDocument($project);
         $unsigned = ProjectDocument::create([
             'project_id' => $project->id,
@@ -531,7 +504,6 @@ class ProjectDocumentsTest extends TestCase
         $signed->update(['signed_path' => $signedPath, 'signed_disk' => 'local']);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSee('Document readiness')
@@ -549,9 +521,7 @@ class ProjectDocumentsTest extends TestCase
 
     public function test_primary_signed_upload_action_hides_after_document_is_signed(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        [$project, $user] = $this->projectAndUser();
         $document = $this->attendanceDocument($project);
         Storage::fake('local');
         $signedPath = 'project-documents/'.$project->id.'/'.$document->id.'/signed.pdf';
@@ -559,7 +529,6 @@ class ProjectDocumentsTest extends TestCase
         $document->update(['signed_path' => $signedPath, 'signed_disk' => 'local']);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSee('Signed')
@@ -567,17 +536,27 @@ class ProjectDocumentsTest extends TestCase
             ->assertDontSeeHtml('<button wire:click="openSignedUpload('.$document->id.')"');
     }
 
-    private function workspaceAndProject(): array
+    private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
-        $workspace = Workspace::create(['name' => 'Documents Workspace']);
+        $user = User::factory()->create();
+        $owner = $role === Project::PROJECT_ROLE_VIEWER
+            ? User::factory()->create()
+            : $user;
+
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'acronym' => 'YE',
             'status' => 'active',
         ]);
 
-        return [$workspace, $project];
+        if ($role === Project::PROJECT_ROLE_VIEWER) {
+            $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
+        }
+
+        return [$project, $user];
     }
 
     private function attendanceDocument(Project $project): ProjectDocument

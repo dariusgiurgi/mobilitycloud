@@ -12,6 +12,13 @@ type QaProject = {
   name: string;
 };
 
+type QaDocumentsProject = QaProject & {
+  attendance_document_id: number;
+  uploaded_document_id: number;
+  expense_report_document_id: number;
+  civil_expense_id: number;
+};
+
 type QaInvitation = {
   email: string;
   token: string;
@@ -35,6 +42,7 @@ export type QaState = {
     writing_ka152: QaProject;
     budget_active: QaProject;
     participants: QaProject;
+    documents: QaDocumentsProject;
     free_owned: QaProject;
   };
   invitations: {

@@ -4,14 +4,17 @@ namespace App\Console\Commands;
 
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Models\ProjectDocument;
 use App\Models\User;
 use App\Models\WorkspaceInvitation;
+use App\Services\ExpenseReportSnapshot;
 use App\Support\ApplicationTemplates;
 use App\Support\PlanCatalog;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -46,6 +49,7 @@ class SeedE2eQaData extends Command
         if ($this->option('fresh')) {
             $this->purgeQaData();
         }
+        $this->clearQaLoginRateLimiters();
 
         $password = env('E2E_QA_PASSWORD', self::PASSWORD);
 
@@ -67,6 +71,11 @@ class SeedE2eQaData extends Command
         $this->seedBudgetBoard($budgetProject, $owner);
         $participantsProject = $this->upsertProject($owner, 'QA Bot Participants Project', 'QA-PART');
         $this->seedParticipants($participantsProject);
+        $documentsProject = $this->upsertProject($owner, 'QA Bot Documents Project', 'QA-DOCS');
+        $documentsState = $this->seedDocumentsCentre($documentsProject, $owner);
+        $documentsProject->members()->syncWithoutDetaching([
+            $viewer->id => ['role' => Project::PROJECT_ROLE_VIEWER],
+        ]);
         $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
 
         $editorInvitation = $this->upsertInvitation($owner, $collaborationProject, $editor, Project::PROJECT_ROLE_EDITOR);
@@ -89,6 +98,7 @@ class SeedE2eQaData extends Command
                 'writing_ka152' => ['id' => $writingProject->id, 'name' => $writingProject->name],
                 'budget_active' => ['id' => $budgetProject->id, 'name' => $budgetProject->name],
                 'participants' => ['id' => $participantsProject->id, 'name' => $participantsProject->name],
+                'documents' => ['id' => $documentsProject->id, 'name' => $documentsProject->name] + $documentsState,
                 'free_owned' => ['id' => $freeOwnedProject->id, 'name' => $freeOwnedProject->name],
             ],
             'invitations' => [
@@ -117,6 +127,7 @@ class SeedE2eQaData extends Command
     private function purgeQaData(): void
     {
         Cache::flush();
+        $this->clearQaLoginRateLimiters();
 
         DB::transaction(function (): void {
             $emails = $this->qaEmails();
@@ -159,6 +170,13 @@ class SeedE2eQaData extends Command
 
             $qaUsers->each->forceDelete();
         });
+    }
+
+    private function clearQaLoginRateLimiters(): void
+    {
+        foreach (['127.0.0.1', '::1', 'localhost'] as $ip) {
+            RateLimiter::clear('livewire-rate-limiter:'.sha1('Filament\Auth\Pages\Login|authenticate|'.$ip));
+        }
     }
 
     private function upsertUser(string $email, string $name, string $plan, string $role, string $password): User
@@ -352,6 +370,131 @@ class SeedE2eQaData extends Command
                 $row,
             );
         }
+    }
+
+    private function seedDocumentsCentre(Project $project, User $owner): array
+    {
+        $project->update([
+            'status' => 'active',
+            'mobility_start_date' => '2026-08-01',
+            'mobility_end_date' => '2026-08-08',
+            'partner_orgs' => [
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'oid' => 'E10000001', 'is_coordinator' => true],
+                ['name' => 'Youth Group Spain', 'country' => 'Spain', 'oid' => 'E10000002', 'is_coordinator' => false],
+            ],
+        ]);
+
+        $this->seedParticipants($project);
+        $this->seedBudgetBoard($project, $owner);
+
+        $attendance = $project->documents()->updateOrCreate(
+            [
+                'type' => ProjectDocument::TYPE_ATTENDANCE,
+                'title' => 'QA Bot attendance list - Mobility workshop',
+            ],
+            [
+                'activity_title' => 'Mobility workshop',
+                'activity_date' => '2026-08-03',
+                'location' => 'Bucharest',
+                'generated_at' => now(),
+                'signed_path' => null,
+                'signed_name' => null,
+                'signed_size' => 0,
+                'signed_at' => null,
+            ],
+        );
+
+        $grantPath = 'project-documents/'.$project->id.'/qa-grant-agreement.pdf';
+        Storage::disk('local')->put($grantPath, 'QA Bot grant agreement file');
+        $uploaded = $project->documents()->updateOrCreate(
+            [
+                'type' => ProjectDocument::TYPE_UPLOAD,
+                'category' => 'grant_agreement',
+                'title' => 'QA Bot uploaded grant agreement',
+            ],
+            [
+                'document_date' => '2026-07-01',
+                'notes' => 'Seeded uploaded document for browser QA.',
+                'file_path' => $grantPath,
+                'file_disk' => 'local',
+                'file_name' => 'qa-grant-agreement.pdf',
+                'file_size' => strlen('QA Bot grant agreement file'),
+            ],
+        );
+
+        $snapshot = app(ExpenseReportSnapshot::class)->build($project, null, null, 'category');
+        $expenseReport = $project->documents()->updateOrCreate(
+            [
+                'type' => ProjectDocument::TYPE_EXPENSE_REPORT,
+                'title' => 'QA Bot official expense report',
+            ],
+            [
+                'category' => 'report',
+                'document_date' => now()->toDateString(),
+                'notes' => 'Seeded report generated by QA data.',
+                'metadata' => array_merge($snapshot, [
+                    'place' => 'Bucharest',
+                    'prepared_by' => $owner->name,
+                    'prepared_by_role' => 'Project owner',
+                    'page_break_by_category' => true,
+                ]),
+                'generated_at' => now(),
+                'signed_path' => null,
+                'signed_name' => null,
+                'signed_size' => 0,
+                'signed_at' => null,
+            ],
+        );
+
+        $support = $project->budgetLines()->where('title', 'Organisational Support')->firstOrFail();
+        $civilExpense = $support->expenses()->updateOrCreate(
+            ['description' => 'QA Bot facilitation civil convention'],
+            [
+                'reference_nr' => 'QA-CC-001',
+                'expense_date' => '2026-08-04',
+                'amount' => 800,
+                'currency' => 'EUR',
+                'exchange_rate' => 1,
+                'amount_eur' => 800,
+                'is_civil_convention' => true,
+                'position' => 1,
+                'created_by' => $owner->id,
+                'convention_data' => [
+                    'agreement_type' => 'service_agreement',
+                    'convention_number' => 'QA-CC-001',
+                    'contract_date' => '2026-08-01',
+                    'contract_place' => 'Bucharest',
+                    'beneficiary_name' => 'Scoala de Jocuri',
+                    'beneficiary_address' => 'Bucharest, Romania',
+                    'beneficiary_representative' => 'QA Bot Owner',
+                    'beneficiary_representative_role' => 'Legal representative',
+                    'provider_name' => 'Alex Facilitator',
+                    'provider_nationality' => 'Romanian',
+                    'provider_id_type' => 'ID card',
+                    'provider_id_number' => 'QA123456',
+                    'provider_address' => 'Cluj-Napoca, Romania',
+                    'provider_email' => 'alex.facilitator@example.test',
+                    'service_description' => 'Facilitation services during the QA mobility workshop.',
+                    'service_start_date' => '2026-08-03',
+                    'service_end_date' => '2026-08-05',
+                    'service_location' => 'Bucharest',
+                    'gross_amount' => 800,
+                    'currency' => 'EUR',
+                    'payment_due_days' => 10,
+                    'payment_date' => '2026-08-06',
+                    'payment_method' => 'bank_transfer',
+                    'payment_status' => 'paid',
+                    'payment_reference' => 'QA-PAY-001',
+                ],
+            ],
+        );
+
+        return [
+            'attendance_document_id' => $attendance->id,
+            'uploaded_document_id' => $uploaded->id,
+            'expense_report_document_id' => $expenseReport->id,
+            'civil_expense_id' => $civilExpense->id,
+        ];
     }
 
     private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): WorkspaceInvitation
