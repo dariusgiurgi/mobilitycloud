@@ -134,14 +134,21 @@ class ProjectOverviewTest extends TestCase
     private function workspaceProjectAndUser(string $role): array
     {
         $workspace = Workspace::create(['name' => 'Overview Workspace']);
+        $owner = User::factory()->create();
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
+        $workspace->users()->attach($owner, ['role' => 'owner']);
         $project = Project::create([
             'workspace_id' => $workspace->id,
             'name' => 'Youth Exchange',
             'status' => 'writing',
             'ka_action' => 'ka152',
             'total_budget' => 15000,
+        ]);
+
+        $project->members()->attach($user, [
+            'role' => $role === 'viewer'
+                ? Project::PROJECT_ROLE_VIEWER
+                : Project::PROJECT_ROLE_EDITOR,
         ]);
 
         return [$workspace, $project, $user];

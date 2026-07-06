@@ -259,25 +259,16 @@ class ViewProjectOverview extends Page
 
     public function getTaskAssignees()
     {
-        $query = User::query()
+        return User::query()
             ->whereIn('id', $this->projectAssigneeIds())
-            ->orderBy('name');
-
-        if ($this->record->access_mode === 'restricted') {
-            $allowedIds = $this->record->workspace->users()
-                ->whereRaw('workspace_user.role in (?, ?)', ['owner', 'admin'])
-                ->pluck('users.id')
-                ->merge($this->record->members()->pluck('users.id'))
-                ->unique();
-            $query->whereKey($allowedIds);
-        }
-
-        return $query->get();
+            ->orderBy('name')
+            ->get();
     }
 
     private function projectAssigneeIds()
     {
         return $this->record->workspace->users()
+            ->wherePivot('role', 'owner')
             ->pluck('users.id')
             ->merge($this->record->members()->pluck('users.id'))
             ->unique()
@@ -289,7 +280,18 @@ class ViewProjectOverview extends Page
         $workspace = $this->record->workspace;
         $role = in_array($role, array_keys(\App\Models\Project::projectRoleOptions()), true) ? $role : 'editor';
 
-        if ($workspace->users()->whereRaw('LOWER(email) = ?', [$email])->wherePivot('role', 'owner')->exists()) {
+        $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
+
+        if (
+            $workspace->users()->whereRaw('LOWER(email) = ?', [$email])->wherePivot('role', 'owner')->exists()
+            || ($user && $this->record->members()->whereKey($user->id)->exists())
+        ) {
+            Notification::make()
+                ->title('Collaborator already has access')
+                ->body($email.' can already open this project.')
+                ->info()
+                ->send();
+
             return;
         }
 
@@ -311,7 +313,7 @@ class ViewProjectOverview extends Page
         NotificationFacade::route('mail', $email)
             ->notify(new WorkspaceInvitationNotification($invitation));
 
-        if ($user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first()) {
+        if ($user) {
             app(ProjectInvitationNotificationService::class)->notifyExistingAccount($invitation, $user);
         }
     }

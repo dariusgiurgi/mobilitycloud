@@ -220,7 +220,7 @@ class Workspace extends Model
             return false;
         }
 
-        if ($this->users()->whereKey($user->id)->exists()) {
+        if ($this->users()->whereKey($user->id)->wherePivot('role', 'owner')->exists()) {
             return true;
         }
 

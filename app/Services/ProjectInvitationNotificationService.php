@@ -83,7 +83,7 @@ class ProjectInvitationNotificationService
         $user->notifications()
             ->get()
             ->filter(fn ($notification): bool => (int) data_get($notification->data, 'viewData.invitation_id') === (int) $invitation->id)
-            ->each->markAsRead();
+            ->each->delete();
     }
 
     private function canNotify(WorkspaceInvitation $invitation): bool

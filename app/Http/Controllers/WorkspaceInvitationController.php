@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\WorkspaceInvitation;
 use App\Services\AccountWorkspaceService;
 use App\Services\ProjectInvitationNotificationService;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -59,6 +60,13 @@ class WorkspaceInvitationController extends Controller
                     ->title('Project access granted')
                     ->body('You now have access to '.$invitation->project?->name.' as '.Project::projectRoleLabel($projectRole).'.')
                     ->success()
+                    ->actions([
+                        Action::make('openProject')
+                            ->label('Open project')
+                            ->button()
+                            ->markAsRead()
+                            ->url(ProjectResource::projectUrl($invitation->project, 'overview', $request->user())),
+                    ])
                     ->sendToDatabase($request->user(), isEventDispatched: true);
 
                 app(ProjectInvitationNotificationService::class)->markAccepted($invitation, $request->user());

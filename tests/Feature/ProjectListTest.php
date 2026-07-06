@@ -22,7 +22,7 @@ class ProjectListTest extends TestCase
     {
         $workspace = Workspace::create(['name' => 'Projects Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
+        $workspace->users()->attach($user, ['role' => 'owner']);
         Project::create([
             'workspace_id' => $workspace->id,
             'name' => 'Active Mobility',

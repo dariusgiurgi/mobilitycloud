@@ -24,14 +24,13 @@ class ProjectAccessTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_restricted_projects_are_visible_only_to_selected_collaborators_and_workspace_admins(): void
+    public function test_projects_are_visible_only_to_owner_and_selected_collaborators(): void
     {
         $workspace = Workspace::create(['name' => 'Access Workspace']);
-        $admin = User::factory()->create();
+        $owner = User::factory()->create();
         $selected = User::factory()->create();
         $unselected = User::factory()->create();
-        $workspace->users()->attach($admin, ['role' => 'admin']);
-        $workspace->users()->attach($selected, ['role' => 'viewer']);
+        $workspace->users()->attach($owner, ['role' => 'owner']);
         $workspace->users()->attach($unselected, ['role' => 'viewer']);
         $project = Project::create([
             'workspace_id' => $workspace->id,
@@ -41,7 +40,7 @@ class ProjectAccessTest extends TestCase
         ]);
         $project->members()->attach($selected, ['role' => Project::PROJECT_ROLE_VIEWER]);
 
-        $this->assertTrue($project->canBeAccessedBy($admin));
+        $this->assertTrue($project->canBeAccessedBy($owner));
         $this->assertTrue($project->canBeAccessedBy($selected));
         $this->assertFalse($project->canBeAccessedBy($unselected));
 
@@ -280,6 +279,9 @@ class ProjectAccessTest extends TestCase
             'expires_at' => now()->addDays(3),
         ]);
 
+        app(ProjectInvitationNotificationService::class)->notifyExistingAccount($invitation, $existing);
+        $this->assertSame(1, $existing->notifications()->count());
+
         $this->assertDatabaseMissing('project_user', [
             'project_id' => $project->id,
             'user_id' => $existing->id,
@@ -297,6 +299,8 @@ class ProjectAccessTest extends TestCase
             'role' => Project::PROJECT_ROLE_EDITOR,
         ]);
         $this->assertNotNull($invitation->fresh()->accepted_at);
+        $this->assertSame(1, $existing->notifications()->count());
+        $this->assertSame('Project access granted', $existing->notifications()->sole()->data['title']);
         $this->assertNotSame($workspace->id, $existing->fresh()->current_workspace_id);
         $this->assertSame('owner', $existing->fresh()->currentWorkspace?->roleFor($existing->fresh()));
     }

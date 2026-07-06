@@ -16,7 +16,7 @@
     </style>
 
     @if ($projects->isEmpty())
-        <x-filament::section>
+        <x-filament::section wire:poll.5s>
             <div style="padding:2.75rem 1rem;text-align:center;max-width:460px;margin:0 auto;">
                 <span style="display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:.8rem;background:rgba(99,102,241,.1);color:#6366f1;margin-bottom:.9rem;">
                     <x-filament::icon icon="heroicon-o-rectangle-stack" style="width:1.5rem;height:1.5rem;" />

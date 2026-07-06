@@ -128,24 +128,12 @@ class Project extends Model
             return $query->whereRaw('1 = 0');
         }
 
-        $workspace ??= $this->workspace;
-        $role = $workspace?->roleFor($user);
-
-        if (in_array($role, ['owner', 'admin'], true)) {
-            return $query;
-        }
-
-        return $query->where(function (Builder $query) use ($user, $role): void {
-            if ($role !== null) {
-                $query->where(fn (Builder $access) => $access
-                    ->whereNull('access_mode')
-                    ->orWhere('access_mode', 'workspace'))
-                    ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
-
-                return;
-            }
-
-            $query->whereHas('members', fn (Builder $members) => $members->whereKey($user->id));
+        return $query->where(function (Builder $query) use ($user): void {
+            $query
+                ->whereHas('workspace.users', fn (Builder $members) => $members
+                    ->whereKey($user->id)
+                    ->where('workspace_user.role', 'owner'))
+                ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
         });
     }
 
@@ -159,14 +147,7 @@ class Project extends Model
             $query
                 ->whereHas('workspace.users', fn (Builder $members) => $members
                     ->whereKey($user->id)
-                    ->whereRaw('workspace_user.role in (?, ?)', ['owner', 'admin']))
-                ->orWhere(function (Builder $query) use ($user): void {
-                    $query
-                        ->where(fn (Builder $access) => $access
-                            ->whereNull('access_mode')
-                            ->orWhere('access_mode', 'workspace'))
-                        ->whereHas('workspace.users', fn (Builder $members) => $members->whereKey($user->id));
-                })
+                    ->where('workspace_user.role', 'owner'))
                 ->orWhereHas('members', fn (Builder $members) => $members->whereKey($user->id));
         });
     }
@@ -177,18 +158,11 @@ class Project extends Model
             return false;
         }
 
-        $role = $this->workspace->roleFor($user);
-
-        if (in_array($role, ['owner', 'admin'], true)) {
+        if ($this->isOwnedBy($user)) {
             return true;
         }
 
-        if ($role === null) {
-            return $this->members()->whereKey($user->id)->exists();
-        }
-
-        return ($this->access_mode ?: 'workspace') === 'workspace'
-            || $this->members()->whereKey($user->id)->exists();
+        return $this->members()->whereKey($user->id)->exists();
     }
 
     public function budgetLines(): HasMany
@@ -232,7 +206,7 @@ class Project extends Model
             return false;
         }
 
-        if ($this->workspace?->canCreateProjectsBy($user) ?? false) {
+        if ($this->isOwnedBy($user)) {
             return true;
         }
 
@@ -284,20 +258,13 @@ class Project extends Model
             return self::projectRoleLabel(self::normaliseProjectRole($projectRole));
         }
 
-        $workspaceRole = $user ? $this->workspace?->roleFor($user) : null;
-
-        return match ($workspaceRole) {
-            'admin' => 'Admin access',
-            'member' => 'Editor',
-            'viewer' => 'Viewer',
-            default => 'Shared',
-        };
+        return 'Shared';
     }
 
     public function canManageAccessBy(?User $user): bool
     {
         return ! WorkspaceAccess::isReadOnly($this->workspace)
-            && ($this->workspace?->canCreateProjectsBy($user) ?? false);
+            && $this->isOwnedBy($user);
     }
 
     public function canBeCollaboratedOnBy(?User $user): bool
@@ -308,7 +275,7 @@ class Project extends Model
     public function canManageLifecycleBy(?User $user): bool
     {
         return ! WorkspaceAccess::isReadOnly($this->workspace)
-            && ($this->workspace?->canCreateProjectsBy($user) ?? false);
+            && $this->isOwnedBy($user);
     }
 
     public static function normaliseProjectRole(?string $role): string
