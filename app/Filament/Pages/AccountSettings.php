@@ -173,22 +173,12 @@ class AccountSettings extends Page
         abort(404);
     }
 
-    public function updatedSubscriptionWorkspaceId($workspaceId): void
-    {
-        //
-    }
-
-    public function getWorkspaceRowsProperty()
-    {
-        return collect();
-    }
-
-    public function getCurrentWorkspaceProperty(): ?User
+    public function getCurrentAccountProperty(): ?User
     {
         return auth()->user();
     }
 
-    public function getManageableWorkspacesProperty()
+    public function getManageableAccountsProperty()
     {
         return collect([auth()->user()])->filter();
     }

@@ -16,7 +16,6 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use App\Models\User;
 use App\Models\Workspace;
@@ -39,7 +38,6 @@ class PlatformAdminInterfaceTest extends TestCase
         $this->assertTrue(PublicBlockReportResource::shouldRegisterNavigation());
         $this->assertTrue(PublicBlockReportResource::canAccess());
         $this->assertTrue(PlatformUserResource::canAccess());
-        $this->assertTrue(PlatformWorkspaceResource::canAccess());
         $this->assertTrue(PlatformAnnouncementResource::canAccess());
     }
 

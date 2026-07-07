@@ -63,7 +63,6 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertTrue(PlatformHealth::canAccess());
         $this->assertTrue(PlatformActivityResource::canAccess());
         $this->assertTrue(PlatformSubscriptionResource::canAccess());
-        $this->assertTrue(PlatformWorkspaceResource::canAccess());
         $this->assertTrue(PlatformAnnouncementResource::canAccess());
         $this->assertTrue(PlatformAuditLogResource::canAccess());
 
@@ -76,7 +75,6 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertTrue(PlatformHealth::canAccess());
         $this->assertTrue(PlatformActivityResource::canAccess());
         $this->assertTrue(PlatformSubscriptionResource::canAccess());
-        $this->assertTrue(PlatformWorkspaceResource::canAccess());
         $this->assertTrue(PlatformAnnouncementResource::canAccess());
         $this->assertFalse(PlatformAuditLogResource::canAccess());
     }
@@ -92,7 +90,6 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertFalse(PlatformHealth::canAccess());
         $this->assertFalse(PlatformActivityResource::canAccess());
         $this->assertFalse(PlatformSubscriptionResource::canAccess());
-        $this->assertFalse(PlatformWorkspaceResource::canAccess());
         $this->assertFalse(PlatformAnnouncementResource::canAccess());
         $this->assertFalse(PlatformAuditLogResource::canAccess());
     }
@@ -180,6 +177,9 @@ class PlatformAdminPanelTest extends TestCase
             'role' => User::ROLE_USER,
             'name' => 'Detail User',
             'email' => 'detail.user@example.test',
+            'plan' => 'writer_pro',
+            'subscription_status' => 'trial',
+            'trial_ends_at' => now()->addDays(5),
         ]);
         $workspace = Workspace::create([
             'name' => 'Detail Workspace',
@@ -200,11 +200,10 @@ class PlatformAdminPanelTest extends TestCase
             ->assertSee('Operational context')
             ->assertSee('Active account');
 
-        $this->get(PlatformWorkspaceResource::getUrl('view', ['record' => $workspace], panel: 'platform'))
+        $this->get(PlatformSubscriptionResource::getUrl(panel: 'platform'))
             ->assertOk()
-            ->assertSee('Detail Workspace')
-            ->assertSee('Workspace overview')
-            ->assertSee('Subscription &amp; access', false)
+            ->assertSee('Detail User')
+            ->assertSee('detail.user@example.test')
             ->assertSee('Writer Pro')
             ->assertSee('Trial');
     }
@@ -1220,6 +1219,7 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-activities.index'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-subscriptions.index'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-workspaces.index'));
+        $this->assertFalse(PlatformWorkspaceResource::shouldRegisterNavigation());
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-announcements.index'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.public-block-reports.index'));
 
