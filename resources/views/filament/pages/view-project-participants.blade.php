@@ -253,7 +253,7 @@
                                 @endif
                             </td>
                             <td style="padding:9px 12px;text-align:center;">
-                                <button type="button" wire:click="openEdit({{ $p->id }})" title="{{ $canManage ? 'Edit' : 'View' }}"
+                                <button type="button" wire:click="openEdit({{ $p->id }})" title="{{ $canManage ? 'Edit' : 'View' }}" aria-label="{{ $canManage ? 'Edit '.$p->fullName() : 'View '.$p->fullName() }}"
                                         style="width:28px;height:28px;border:none;background:transparent;cursor:pointer;color:#9ca3af;border-radius:6px;"
                                         onmouseover="this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';"
                                         onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
@@ -264,7 +264,7 @@
                                     @endif
                                 </button>
                                 @if($canManage)
-                                <button type="button" wire:click="deleteParticipant({{ $p->id }})" wire:confirm="Remove this participant?" title="Remove"
+                                <button type="button" wire:click="deleteParticipant({{ $p->id }})" wire:confirm="Remove this participant?" title="Remove" aria-label="Remove {{ $p->fullName() }}"
                                         style="width:28px;height:28px;border:none;background:transparent;cursor:pointer;color:#9ca3af;border-radius:6px;"
                                         onmouseover="this.style.background='rgba(239,68,68,.1)';this.style.color='#dc2626';"
                                         onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
@@ -296,21 +296,21 @@
             <div class="mc-part-grid">
                 <div>
                     <label class="mc-part-lbl">First name *</label>
-                    <input type="text" wire:model="data.first_name" class="mc-part-in">
+                    <input type="text" wire:model="data.first_name" class="mc-part-in" aria-label="Participant first name">
                     @error('data.first_name') <span class="mc-part-err">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="mc-part-lbl">Last name *</label>
-                    <input type="text" wire:model="data.last_name" class="mc-part-in">
+                    <input type="text" wire:model="data.last_name" class="mc-part-in" aria-label="Participant last name">
                     @error('data.last_name') <span class="mc-part-err">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="mc-part-lbl">Birth date</label>
-                    <input type="date" wire:model="data.birth_date" class="mc-part-in">
+                    <input type="date" wire:model="data.birth_date" class="mc-part-in" aria-label="Participant birth date">
                 </div>
                 <div>
                     <label class="mc-part-lbl">Gender</label>
-                    <select wire:model="data.gender" class="mc-part-in">
+                    <select wire:model="data.gender" class="mc-part-in" aria-label="Participant gender">
                         <option value="">—</option>
                         <option value="female">Female</option>
                         <option value="male">Male</option>
@@ -320,11 +320,11 @@
                 </div>
                 <div>
                     <label class="mc-part-lbl">Nationality</label>
-                    <input type="text" wire:model="data.nationality" class="mc-part-in">
+                    <input type="text" wire:model="data.nationality" class="mc-part-in" aria-label="Participant nationality">
                 </div>
                 <div>
                     <label class="mc-part-lbl">Role</label>
-                    <select wire:model="data.role" class="mc-part-in">
+                    <select wire:model="data.role" class="mc-part-in" aria-label="Participant role">
                         @foreach($roles as $key => $label)
                             <option value="{{ $key }}">{{ $label }}</option>
                         @endforeach
@@ -338,20 +338,20 @@
                 <div>
                     <label class="mc-part-lbl">Organisation / group</label>
                     @if(count($partnerOrgs) > 0)
-                        <select wire:model="data.partner_organisation" class="mc-part-in">
+                        <select wire:model="data.partner_organisation" class="mc-part-in" aria-label="Participant organisation">
                             <option value="">—</option>
                             @foreach($partnerOrgs as $org)
                                 <option value="{{ $org['name'] }}">{{ $org['label'] }}</option>
                             @endforeach
                         </select>
                     @else
-                        <input type="text" wire:model="data.partner_organisation" class="mc-part-in"
+                        <input type="text" wire:model="data.partner_organisation" class="mc-part-in" aria-label="Participant organisation"
                                placeholder="Add organisations in the Application first">
                     @endif
                 </div>
                 <div>
                     <label class="mc-part-lbl">Country</label>
-                    <input type="text" wire:model="data.country" class="mc-part-in">
+                    <input type="text" wire:model="data.country" class="mc-part-in" aria-label="Participant country">
                 </div>
             </div>
 
@@ -360,16 +360,16 @@
             <div class="mc-part-grid">
                 <div>
                     <label class="mc-part-lbl">Email</label>
-                    <input type="email" wire:model="data.email" class="mc-part-in">
+                    <input type="email" wire:model="data.email" class="mc-part-in" aria-label="Participant email">
                     @error('data.email') <span class="mc-part-err">{{ $message }}</span> @enderror
                 </div>
                 <div>
                     <label class="mc-part-lbl">Phone</label>
-                    <input type="text" wire:model="data.phone" class="mc-part-in">
+                    <input type="text" wire:model="data.phone" class="mc-part-in" aria-label="Participant phone">
                 </div>
                 <div style="grid-column:1 / -1;">
                     <label class="mc-part-lbl">Address</label>
-                    <input type="text" wire:model="data.address" class="mc-part-in">
+                    <input type="text" wire:model="data.address" class="mc-part-in" aria-label="Participant address">
                 </div>
             </div>
 
@@ -378,23 +378,23 @@
             <div class="mc-part-grid">
                 <div>
                     <label class="mc-part-lbl">Medical conditions</label>
-                    <input type="text" wire:model="data.medical_conditions" class="mc-part-in">
+                    <input type="text" wire:model="data.medical_conditions" class="mc-part-in" aria-label="Participant medical conditions">
                 </div>
                 <div>
                     <label class="mc-part-lbl">Allergies</label>
-                    <input type="text" wire:model="data.allergies" class="mc-part-in">
+                    <input type="text" wire:model="data.allergies" class="mc-part-in" aria-label="Participant allergies">
                 </div>
                 <div>
                     <label class="mc-part-lbl">Dietary restrictions</label>
-                    <input type="text" wire:model="data.dietary_restrictions" class="mc-part-in">
+                    <input type="text" wire:model="data.dietary_restrictions" class="mc-part-in" aria-label="Participant dietary restrictions">
                 </div>
                 <div>
                     <label class="mc-part-lbl">Special needs</label>
-                    <input type="text" wire:model="data.special_needs" class="mc-part-in">
+                    <input type="text" wire:model="data.special_needs" class="mc-part-in" aria-label="Participant special needs">
                 </div>
                 <div style="grid-column:1 / -1;">
                     <label style="display:inline-flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
-                        <input type="checkbox" wire:model="data.fewer_opportunities" style="accent-color:#6366f1;">
+                        <input type="checkbox" wire:model="data.fewer_opportunities" style="accent-color:#6366f1;" aria-label="Participant fewer opportunities">
                         Fewer opportunities
                     </label>
                 </div>
@@ -405,11 +405,11 @@
             <div class="mc-part-grid">
                 <div>
                     <label class="mc-part-lbl">Guardian name</label>
-                    <input type="text" wire:model="data.guardian_name" class="mc-part-in">
+                    <input type="text" wire:model="data.guardian_name" class="mc-part-in" aria-label="Participant guardian name">
                 </div>
                 <div>
                     <label class="mc-part-lbl">Guardian contact</label>
-                    <input type="text" wire:model="data.guardian_contact" class="mc-part-in">
+                    <input type="text" wire:model="data.guardian_contact" class="mc-part-in" aria-label="Participant guardian contact">
                 </div>
             </div>
             </fieldset>

@@ -148,6 +148,28 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText('Ana Adams')).toHaveCount(0);
     await page.getByPlaceholder(/Search name/i).fill('');
 
+    const manualParticipantLastName = `Browser${Date.now()}`;
+    await page.getByRole('button', { name: /^Add participant$/i }).click();
+    await expect(page.getByText(/^Add participant$/i)).toBeVisible();
+    await page.getByLabel(/Participant first name/i).fill('QA');
+    await page.getByLabel(/Participant last name/i).fill(manualParticipantLastName);
+    await page.getByLabel(/Participant birth date/i).fill('2010-05-20');
+    await page.getByLabel(/Participant nationality/i).fill('Romanian');
+    await page.getByLabel(/Participant country/i).fill('Romania');
+    await page.getByLabel(/Participant email/i).fill(`qa.${manualParticipantLastName.toLowerCase()}@mobilitycloud.test`);
+    await page.getByLabel(/Participant fewer opportunities/i).check();
+    await page.getByRole('button', { name: /^Save$/i }).click();
+    await expect(page.getByText(`QA ${manualParticipantLastName}`).first()).toBeVisible();
+
+    const manualParticipantRow = page.getByRole('row', { name: new RegExp(`QA ${manualParticipantLastName}`) });
+    await expect(manualParticipantRow.getByText('MINOR')).toBeVisible();
+    await expect(manualParticipantRow.getByText('FO')).toBeVisible();
+    await manualParticipantRow.getByRole('button', { name: new RegExp(`Edit QA ${manualParticipantLastName}`) }).click();
+    await expect(page.getByText(/^Edit participant$/i)).toBeVisible();
+    await page.getByLabel(/Participant last name/i).fill(`${manualParticipantLastName} Edited`);
+    await page.getByRole('button', { name: /^Save$/i }).click();
+    await expect(page.getByText(`QA ${manualParticipantLastName} Edited`).first()).toBeVisible();
+
     await expectParticipantsCsv(page, state.projects.participants.id);
 
     const attendanceActivity = `QA Bot Browser Attendance ${Date.now()}`;

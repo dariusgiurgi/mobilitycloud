@@ -126,6 +126,9 @@ MobilityCloudQA!2026
 - Confirm participant statistics, names, minor and FO badges are visible.
 - Search/filter the participant list by name.
 - Export participant CSV and confirm alphabetical, Excel-safe content.
+- Add a participant manually from the browser.
+- Confirm minor and fewer-opportunity flags appear for the created participant.
+- Edit the browser-created participant and confirm the updated name appears.
 - Generate an attendance list from the Participants page.
 - Confirm the generated attendance PDF downloads.
 - Confirm the generated attendance document appears in the Documents centre.
@@ -182,7 +185,6 @@ MobilityCloudQA!2026
 ### Participants
 
 - Import exported CSV through the browser modal.
-- Add/edit participant manually through the browser modal.
 - Upload signed attendance sheets through Documents.
 
 ### Documents
