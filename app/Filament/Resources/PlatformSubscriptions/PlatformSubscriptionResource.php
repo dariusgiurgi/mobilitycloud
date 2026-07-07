@@ -3,10 +3,10 @@
 namespace App\Filament\Resources\PlatformSubscriptions;
 
 use App\Filament\Resources\PlatformSubscriptions\Pages\ListPlatformSubscriptions;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
+use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\PlatformSubscriptionEvent;
-use App\Models\Workspace;
-use App\Services\DemoWorkspaceResetService;
+use App\Models\User;
+use App\Support\AccountAccess;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAudit;
 use App\Support\PlatformSubscriptionTimeline;
@@ -29,7 +29,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class PlatformSubscriptionResource extends Resource
 {
-    protected static ?string $model = Workspace::class;
+    protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
@@ -39,9 +39,9 @@ class PlatformSubscriptionResource extends Resource
 
     protected static ?int $navigationSort = 10;
 
-    protected static ?string $modelLabel = 'subscription';
+    protected static ?string $modelLabel = 'account subscription';
 
-    protected static ?string $pluralModelLabel = 'subscriptions';
+    protected static ?string $pluralModelLabel = 'account subscriptions';
 
     public static function canAccess(): bool
     {
@@ -67,45 +67,46 @@ class PlatformSubscriptionResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->with(['latestSubscriptionEvent.actor'])
-                ->withCount(['users', 'projects']))
+                ->where('role', User::ROLE_USER)
+                ->with(['latestSubscriptionEvent.actor', 'accessOverrideGrantor', 'suspendedBy'])
+                ->withCount(['ownedProjects', 'projects']))
             ->columns([
                 TextColumn::make('name')
-                    ->label('Workspace')
+                    ->label('Account')
                     ->searchable()
                     ->sortable()
                     ->weight('bold')
-                    ->description(fn (Workspace $record): string => $record->owner()?->email ?? 'No owner account'),
+                    ->description(fn (User $record): string => $record->email),
                 TextColumn::make('access_state')
                     ->label('Access')
                     ->badge()
-                    ->state(fn (Workspace $record): string => PlatformWorkspaceResource::accessStateLabel($record))
-                    ->color(fn (Workspace $record): string => match (PlatformWorkspaceResource::accessStateLabel($record)) {
+                    ->state(fn (User $record): string => self::accessStateLabel($record))
+                    ->color(fn (User $record): string => match (self::accessStateLabel($record)) {
                         'Suspended', 'Expired / read-only' => 'danger',
-                        'Manual access', 'Trial ending soon', 'Demo workspace' => 'warning',
+                        'Manual access', 'Trial ending soon', 'Demo account' => 'warning',
                         default => 'success',
                     })
-                    ->description(fn (Workspace $record): ?string => $record->is_suspended
-                        ? ($record->suspension_category ? (PlatformWorkspaceResource::suspensionCategoryOptions()[$record->suspension_category] ?? $record->suspension_category) : null)
+                    ->description(fn (User $record): ?string => $record->is_suspended
+                        ? ($record->suspension_category ? (self::suspensionCategoryOptions()[$record->suspension_category] ?? $record->suspension_category) : null)
                         : null),
                 TextColumn::make('next_action')
                     ->label('Next action')
-                    ->state(fn (Workspace $record): string => self::nextActionLabel($record))
+                    ->state(fn (User $record): string => self::nextActionLabel($record))
                     ->badge()
-                    ->color(fn (Workspace $record): string => self::nextActionColor($record))
-                    ->description(fn (Workspace $record): ?string => self::nextActionDescription($record))
+                    ->color(fn (User $record): string => self::nextActionColor($record))
+                    ->description(fn (User $record): ?string => self::nextActionDescription($record))
                     ->wrap(),
                 TextColumn::make('latest_subscription_event')
                     ->label('Last event')
-                    ->state(fn (Workspace $record): string => self::latestEventLabel($record))
+                    ->state(fn (User $record): string => self::latestEventLabel($record))
                     ->badge()
-                    ->color(fn (Workspace $record): string => self::latestEventColor($record->latestSubscriptionEvent))
-                    ->description(fn (Workspace $record): ?string => self::latestEventDescription($record))
+                    ->color(fn (User $record): string => self::latestEventColor($record->latestSubscriptionEvent))
+                    ->description(fn (User $record): ?string => self::latestEventDescription($record))
                     ->placeholder('No events yet')
                     ->wrap(),
                 TextColumn::make('plan')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => PlatformWorkspaceResource::planOptions()[$state ?: 'free'] ?? ($state ?: 'Free'))
+                    ->formatStateUsing(fn (?string $state): string => self::planOptions()[$state ?: 'free'] ?? ($state ?: 'Free'))
                     ->color(fn (?string $state): string => match ($state) {
                         'demo' => 'warning',
                         'writer_pro' => 'success',
@@ -115,8 +116,8 @@ class PlatformSubscriptionResource extends Resource
                 TextColumn::make('subscription_status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => PlatformWorkspaceResource::subscriptionStatusOptions()[$state ?: 'active'] ?? ucfirst((string) $state))
-                    ->color(fn (?string $state): string => PlatformWorkspaceResource::subscriptionStatusColor($state ?: 'active')),
+                    ->formatStateUsing(fn (?string $state): string => self::subscriptionStatusOptions()[$state ?: 'active'] ?? ucfirst((string) $state))
+                    ->color(fn (?string $state): string => self::subscriptionStatusColor($state ?: 'active')),
                 TextColumn::make('trial_ends_at')
                     ->label('Trial ends')
                     ->dateTime('d M Y')
@@ -129,13 +130,13 @@ class PlatformSubscriptionResource extends Resource
                     ->sortable(),
                 TextColumn::make('billing_amount')
                     ->label('Billing')
-                    ->state(fn (Workspace $record): string => $record->billing_amount
+                    ->state(fn (User $record): string => $record->billing_amount
                         ? ($record->billing_currency ?: 'EUR').' '.number_format((float) $record->billing_amount, 2).($record->billing_interval ? ' / '.$record->billing_interval : '')
                         : '—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('billing_provider')
                     ->label('Provider')
-                    ->formatStateUsing(fn (?string $state): string => $state ? (PlatformWorkspaceResource::billingProviderOptions()[$state] ?? str($state)->replace('_', ' ')->title()) : '—')
+                    ->formatStateUsing(fn (?string $state): string => $state ? (self::billingProviderOptions()[$state] ?? str($state)->replace('_', ' ')->title()) : '—')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('access_override_ends_at')
@@ -148,14 +149,14 @@ class PlatformSubscriptionResource extends Resource
                     ->dateTime('d M Y, H:i')
                     ->placeholder('Never')
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('users_count')
-                    ->label('Users')
+                TextColumn::make('owned_projects_count')
+                    ->label('Owned projects')
                     ->numeric()
                     ->alignEnd()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('projects_count')
-                    ->label('Projects')
+                    ->label('Shared projects')
                     ->numeric()
                     ->alignEnd()
                     ->sortable()
@@ -163,16 +164,15 @@ class PlatformSubscriptionResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('plan')
-                    ->options(PlatformWorkspaceResource::planOptions()),
+                    ->options(self::planOptions()),
                 SelectFilter::make('subscription_status')
-                    ->options(PlatformWorkspaceResource::subscriptionStatusOptions()),
+                    ->options(self::subscriptionStatusOptions()),
                 Filter::make('needs_attention')
                     ->label('Needs attention')
                     ->query(fn (Builder $query): Builder => $query->where(function (Builder $query): void {
                         $query
                             ->where('is_suspended', true)
-                            ->orWhere('subscription_status', 'expired')
-                            ->orWhere('subscription_status', 'suspended')
+                            ->orWhereIn('subscription_status', ['expired', 'suspended'])
                             ->orWhere(function (Builder $query): void {
                                 $query
                                     ->whereNotNull('subscription_ends_at')
@@ -212,13 +212,13 @@ class PlatformSubscriptionResource extends Resource
                         ->label('View details')
                         ->icon('heroicon-o-eye')
                         ->color('gray')
-                        ->modalHeading(fn (Workspace $record): string => 'Subscription details · '.$record->name)
-                        ->modalContent(fn (Workspace $record) => view('filament.modals.platform-workspace-subscription', [
-                            'record' => $record->loadMissing(['accessOverrideGrantor', 'suspendedBy'])->loadCount(['users', 'projects']),
-                            'planOptions' => PlatformWorkspaceResource::planOptions(),
+                        ->modalHeading(fn (User $record): string => 'Subscription details · '.$record->name)
+                        ->modalContent(fn (User $record) => view('filament.modals.platform-account-subscription', [
+                            'record' => $record->loadMissing(['latestSubscriptionEvent.actor', 'accessOverrideGrantor', 'suspendedBy'])->loadCount(['ownedProjects', 'projects']),
+                            'planOptions' => self::planOptions(),
                             'moduleOptions' => PlanCatalog::moduleOptions(),
-                            'suspensionCategoryOptions' => PlatformWorkspaceResource::suspensionCategoryOptions(),
-                            'accessState' => PlatformWorkspaceResource::accessStateLabel($record),
+                            'suspensionCategoryOptions' => self::suspensionCategoryOptions(),
+                            'accessState' => self::accessStateLabel($record),
                         ]))
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Close'),
@@ -226,9 +226,9 @@ class PlatformSubscriptionResource extends Resource
                         ->label('Edit billing')
                         ->icon('heroicon-o-credit-card')
                         ->color('info')
-                        ->modalHeading(fn (Workspace $record): string => 'Billing readiness · '.$record->name)
+                        ->modalHeading(fn (User $record): string => 'Billing readiness · '.$record->name)
                         ->modalDescription('Internal commercial metadata only. Saving this does not trigger payments or contact a billing provider.')
-                        ->fillForm(fn (Workspace $record): array => [
+                        ->fillForm(fn (User $record): array => [
                             'billing_interval' => $record->billing_interval,
                             'billing_amount' => $record->billing_amount,
                             'billing_currency' => $record->billing_currency ?: 'EUR',
@@ -240,7 +240,7 @@ class PlatformSubscriptionResource extends Resource
                         ->form([
                             Select::make('billing_interval')
                                 ->label('Billing interval')
-                                ->options(PlatformWorkspaceResource::billingIntervalOptions())
+                                ->options(self::billingIntervalOptions())
                                 ->native(false)
                                 ->placeholder('Not set'),
                             TextInput::make('billing_amount')
@@ -258,7 +258,7 @@ class PlatformSubscriptionResource extends Resource
                                 ->columnSpanFull(),
                             Select::make('billing_provider')
                                 ->label('Provider')
-                                ->options(PlatformWorkspaceResource::billingProviderOptions())
+                                ->options(self::billingProviderOptions())
                                 ->native(false)
                                 ->placeholder('Not connected'),
                             TextInput::make('billing_provider_customer_id')
@@ -268,7 +268,7 @@ class PlatformSubscriptionResource extends Resource
                                 ->label('Provider subscription ID')
                                 ->maxLength(255),
                         ])
-                        ->action(function (Workspace $record, array $data): void {
+                        ->action(function (User $record, array $data): void {
                             $record->update([
                                 'billing_interval' => $data['billing_interval'] ?? null,
                                 'billing_amount' => $data['billing_amount'] ?? null,
@@ -279,20 +279,20 @@ class PlatformSubscriptionResource extends Resource
                                 'billing_provider_subscription_id' => $data['billing_provider_subscription_id'] ?? null,
                             ]);
 
-                            PlatformSubscriptionTimeline::record($record, 'billing_updated', 'Billing readiness details updated.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'billing_updated', 'Billing readiness details updated.', [
                                 'billing_interval' => $record->billing_interval,
                                 'billing_amount' => $record->billing_amount,
                                 'billing_currency' => $record->billing_currency,
                                 'billing_provider' => $record->billing_provider,
                                 'billing_reference' => $record->billing_reference,
                             ]);
-                            PlatformAudit::log('workspace.billing_updated', 'Updated billing readiness for '.$record->name, $record);
+                            PlatformAudit::log('account.billing_updated', 'Updated billing readiness for '.$record->email, $record);
                             Notification::make()->title('Billing details updated')->success()->send();
                         }),
                     Action::make('setTrialPeriod')
                         ->label('Set trial period')
                         ->icon('heroicon-o-calendar-days')
-                        ->fillForm(fn (Workspace $record): array => [
+                        ->fillForm(fn (User $record): array => [
                             'trial_ends_at' => $record->trial_ends_at ?: now()->addDays(14),
                         ])
                         ->form([
@@ -301,7 +301,7 @@ class PlatformSubscriptionResource extends Resource
                                 ->required()
                                 ->minDate(now()->subDay()),
                         ])
-                        ->action(function (Workspace $record, array $data): void {
+                        ->action(function (User $record, array $data): void {
                             $record->update([
                                 'subscription_status' => 'trial',
                                 'trial_ends_at' => $data['trial_ends_at'],
@@ -313,18 +313,18 @@ class PlatformSubscriptionResource extends Resource
                                 'suspended_by' => null,
                             ]);
 
-                            PlatformSubscriptionTimeline::record($record, 'trial_updated', 'Trial period updated.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'trial_updated', 'Trial period updated.', [
                                 'trial_ends_at' => $record->trial_ends_at?->toISOString(),
                                 'unblocked' => true,
                             ]);
-                            PlatformAudit::log('workspace.trial_updated', 'Updated trial period for '.$record->name, $record);
+                            PlatformAudit::log('account.trial_updated', 'Updated trial period for '.$record->email, $record);
                             Notification::make()->title('Trial period updated')->success()->send();
                         }),
                     Action::make('activate')
                         ->label('Activate')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
-                        ->action(function (Workspace $record): void {
+                        ->action(function (User $record): void {
                             $record->update([
                                 'subscription_status' => 'active',
                                 'trial_ends_at' => null,
@@ -339,20 +339,20 @@ class PlatformSubscriptionResource extends Resource
                                 'suspended_by' => null,
                             ]);
 
-                            PlatformSubscriptionTimeline::record($record, 'activated', 'Workspace activated and access restored.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'activated', 'Account activated and access restored.', [
                                 'unblocked' => true,
                             ]);
-                            PlatformAudit::log('workspace.activated', 'Activated workspace '.$record->name, $record);
-                            Notification::make()->title('Workspace activated')->success()->send();
+                            PlatformAudit::log('account.activated', 'Activated account '.$record->email, $record);
+                            Notification::make()->title('Account activated')->success()->send();
                         }),
                     Action::make('grantManualAccess')
                         ->label('Owner only · Grant manual access')
                         ->icon('heroicon-o-key')
                         ->color('info')
                         ->visible(fn (): bool => auth()->user()?->canManagePlatformAdmins() ?? false)
-                        ->modalHeading(fn (Workspace $record): string => 'Grant manual access · '.$record->name)
+                        ->modalHeading(fn (User $record): string => 'Grant manual access · '.$record->email)
                         ->modalDescription('Owner-only override. This bypasses normal billing restrictions for support, partner access or commercial exceptions, so include a clear reason and an end date whenever possible.')
-                        ->fillForm(fn (Workspace $record): array => [
+                        ->fillForm(fn (User $record): array => [
                             'plan' => $record->plan ?: 'free',
                             'access_override_ends_at' => $record->access_override_ends_at,
                             'access_override_reason' => $record->access_override_reason,
@@ -361,7 +361,7 @@ class PlatformSubscriptionResource extends Resource
                         ->form([
                             Select::make('plan')
                                 ->label('Plan')
-                                ->options(PlatformWorkspaceResource::planOptions())
+                                ->options(self::planOptions())
                                 ->required()
                                 ->native(false),
                             DateTimePicker::make('access_override_ends_at')
@@ -381,9 +381,9 @@ class PlatformSubscriptionResource extends Resource
                                 ->preload()
                                 ->columnSpanFull(),
                         ])
-                        ->action(function (Workspace $record, array $data): void {
+                        ->action(function (User $record, array $data): void {
                             $record->update([
-                                ...PlanCatalog::workspaceDefaults((string) $data['plan']),
+                                ...PlanCatalog::accountDefaults((string) $data['plan']),
                                 'plan' => $data['plan'],
                                 'subscription_status' => 'active',
                                 'feature_flags' => $data['feature_flags'] ?? PlanCatalog::defaultModules((string) $data['plan']),
@@ -397,12 +397,12 @@ class PlatformSubscriptionResource extends Resource
                                 'suspended_by' => null,
                             ]);
 
-                            PlatformSubscriptionTimeline::record($record, 'manual_access_granted', 'Owner granted manual access.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'manual_access_granted', 'Owner granted manual access.', [
                                 'plan' => $record->plan,
                                 'access_override_ends_at' => $record->access_override_ends_at?->toISOString(),
                                 'reason' => $record->access_override_reason,
                             ]);
-                            PlatformAudit::log('workspace.manual_access_granted', 'Granted manual access for '.$record->name, $record);
+                            PlatformAudit::log('account.manual_access_granted', 'Granted manual access for '.$record->email, $record);
                             Notification::make()->title('Manual access granted')->success()->send();
                         }),
                     Action::make('markDemo')
@@ -410,22 +410,22 @@ class PlatformSubscriptionResource extends Resource
                         ->icon('heroicon-o-beaker')
                         ->color('warning')
                         ->visible(fn (): bool => auth()->user()?->canManagePlatformAdmins() ?? false)
-                        ->modalHeading(fn (Workspace $record): string => 'Turn '.$record->name.' into a demo workspace?')
-                        ->modalDescription('Demo workspaces are for testing and presentations. They get all modules, demo limits and are marked as internal/test. Real client workspaces should not be converted unless this is intentional.')
+                        ->modalHeading(fn (User $record): string => 'Turn '.$record->email.' into a demo account?')
+                        ->modalDescription('Demo accounts are for testing and presentations. They get all modules, demo limits and are marked as internal/test. Real client accounts should not be converted unless this is intentional.')
                         ->form([
-                            Textarea::make('internal_notes')
+                            Textarea::make('support_notes')
                                 ->label('Demo note')
-                                ->default('Demo workspace for testing or product presentation.')
+                                ->default('Demo account for testing or product presentation.')
                                 ->rows(3)
                                 ->maxLength(3000),
                             Select::make('demo_reset_frequency')
                                 ->label('Reset frequency')
-                                ->options(PlatformWorkspaceResource::demoResetFrequencyOptions())
+                                ->options(self::demoResetFrequencyOptions())
                                 ->default('manual')
                                 ->required()
                                 ->native(false),
                         ])
-                        ->action(function (Workspace $record, array $data): void {
+                        ->action(function (User $record, array $data): void {
                             $record->update([
                                 'plan' => 'demo',
                                 'subscription_status' => 'demo',
@@ -434,9 +434,8 @@ class PlatformSubscriptionResource extends Resource
                                 'trial_ends_at' => null,
                                 'subscription_ends_at' => null,
                                 'is_suspended' => false,
-                                'is_internal' => true,
                                 'demo_reset_frequency' => $data['demo_reset_frequency'] ?? 'manual',
-                                'internal_notes' => $data['internal_notes'] ?: 'Demo workspace for testing or product presentation.',
+                                'support_notes' => $data['support_notes'] ?: 'Demo account for testing or product presentation.',
                                 'access_override_ends_at' => null,
                                 'access_override_reason' => null,
                                 'access_override_granted_by' => null,
@@ -446,51 +445,24 @@ class PlatformSubscriptionResource extends Resource
                                 'suspended_by' => null,
                             ]);
 
-                            PlatformSubscriptionTimeline::record($record, 'demo_enabled', 'Workspace marked as demo.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'demo_enabled', 'Account marked as demo.', [
                                 'plan' => 'demo',
                                 'demo_reset_frequency' => $record->demo_reset_frequency,
                                 'limits' => PlanCatalog::defaultLimits('demo'),
                             ]);
-                            PlatformAudit::log('workspace.demo_enabled', 'Marked workspace '.$record->name.' as demo', $record);
-                            Notification::make()->title('Demo workspace enabled')->success()->send();
-                        }),
-                    Action::make('resetDemoData')
-                        ->label('Owner only · Reset demo data')
-                        ->icon('heroicon-o-arrow-path')
-                        ->color('danger')
-                        ->visible(fn (Workspace $record): bool => (auth()->user()?->canManagePlatformAdmins() ?? false) && PlatformWorkspaceResource::isDemoWorkspace($record))
-                        ->modalHeading(fn (Workspace $record): string => 'Reset demo sandbox · '.$record->name)
-                        ->modalDescription('This removes demo projects, private library blocks, saved calculations and invitations. Workspace members, settings, branding and subscription details are preserved. Use it before demos or after test sessions.')
-                        ->form([
-                            TextInput::make('confirmation')
-                                ->label('Type RESET DEMO to confirm')
-                                ->required()
-                                ->rule('in:RESET DEMO'),
-                        ])
-                        ->action(function (Workspace $record, array $data, DemoWorkspaceResetService $resetService): void {
-                            $counts = $resetService->reset($record);
-
-                            PlatformAudit::log('workspace.demo_reset', 'Reset demo data for '.$record->name, $record, [
-                                'counts' => $counts,
-                                'confirmation' => $data['confirmation'],
-                            ]);
-
-                            Notification::make()
-                                ->title('Demo data reset')
-                                ->body($counts['projects'].' projects, '.$counts['content_blocks'].' content blocks, '.$counts['saved_calculations'].' calculations and '.$counts['invitations'].' invitations removed.')
-                                ->success()
-                                ->send();
+                            PlatformAudit::log('account.demo_enabled', 'Marked account '.$record->email.' as demo', $record);
+                            Notification::make()->title('Demo account enabled')->success()->send();
                         }),
                     Action::make('suspend')
                         ->label('Suspend')
                         ->icon('heroicon-o-no-symbol')
                         ->color('danger')
-                        ->modalHeading(fn (Workspace $record): string => 'Suspend '.$record->name.'?')
-                        ->modalDescription('Suspended workspaces lose access to client modules until reactivated or granted manual access. Existing project data is preserved, but normal users are blocked from using the workspace.')
+                        ->modalHeading(fn (User $record): string => 'Suspend '.$record->email.'?')
+                        ->modalDescription('Suspended accounts lose access to paid modules until reactivated or granted manual access. Existing project data is preserved.')
                         ->form([
                             Select::make('suspension_category')
                                 ->label('Reason category')
-                                ->options(PlatformWorkspaceResource::suspensionCategoryOptions())
+                                ->options(self::suspensionCategoryOptions())
                                 ->required()
                                 ->native(false),
                             Textarea::make('suspension_reason')
@@ -505,7 +477,7 @@ class PlatformSubscriptionResource extends Resource
                                 ->rule('in:SUSPEND')
                                 ->helperText('This prevents accidental access blocking from the subscriptions table.'),
                         ])
-                        ->action(function (Workspace $record, array $data): void {
+                        ->action(function (User $record, array $data): void {
                             $record->update([
                                 'subscription_status' => 'suspended',
                                 'is_suspended' => true,
@@ -515,20 +487,20 @@ class PlatformSubscriptionResource extends Resource
                                 'suspended_by' => auth()->id(),
                             ]);
 
-                            PlatformSubscriptionTimeline::record($record, 'suspended', 'Workspace suspended: '.(PlatformWorkspaceResource::suspensionCategoryOptions()[$data['suspension_category']] ?? $data['suspension_category']).'.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'suspended', 'Account suspended: '.(self::suspensionCategoryOptions()[$data['suspension_category']] ?? $data['suspension_category']).'.', [
                                 'category' => $data['suspension_category'],
                                 'reason' => $data['suspension_reason'],
                             ]);
-                            PlatformAudit::log('workspace.suspended', 'Suspended workspace '.$record->name, $record, [
+                            PlatformAudit::log('account.suspended', 'Suspended account '.$record->email, $record, [
                                 'category' => $data['suspension_category'],
                             ]);
-                            Notification::make()->title('Workspace suspended')->success()->send();
+                            Notification::make()->title('Account suspended')->success()->send();
                         }),
                     Action::make('expire')
                         ->label('Expire')
                         ->icon('heroicon-o-exclamation-triangle')
                         ->color('warning')
-                        ->modalHeading(fn (Workspace $record): string => 'Mark '.$record->name.' as expired?')
+                        ->modalHeading(fn (User $record): string => 'Mark '.$record->email.' as expired?')
                         ->modalDescription('This immediately marks the subscription as expired and sets the end date to now. Use this for billing corrections or ended contracts, not for temporary support holds.')
                         ->form([
                             TextInput::make('confirmation')
@@ -536,18 +508,18 @@ class PlatformSubscriptionResource extends Resource
                                 ->required()
                                 ->rule('in:EXPIRE'),
                         ])
-                        ->action(function (Workspace $record): void {
+                        ->action(function (User $record): void {
                             $record->update(['subscription_status' => 'expired', 'subscription_ends_at' => now()]);
-                            PlatformSubscriptionTimeline::record($record, 'expired', 'Workspace marked as expired.', [
+                            PlatformSubscriptionTimeline::recordAccount($record, 'expired', 'Account marked as expired.', [
                                 'subscription_ends_at' => $record->subscription_ends_at?->toISOString(),
                             ]);
-                            PlatformAudit::log('workspace.expired', 'Expired workspace '.$record->name, $record);
-                            Notification::make()->title('Workspace expired')->success()->send();
+                            PlatformAudit::log('account.expired', 'Expired account '.$record->email, $record);
+                            Notification::make()->title('Account expired')->success()->send();
                         }),
-                    Action::make('editWorkspace')
-                        ->label('Open workspace record')
+                    Action::make('editAccount')
+                        ->label('Open account record')
                         ->icon('heroicon-o-arrow-top-right-on-square')
-                        ->url(fn (Workspace $record): string => PlatformWorkspaceResource::getUrl('edit', ['record' => $record], panel: 'platform')),
+                        ->url(fn (User $record): string => PlatformUserResource::getUrl('edit', ['record' => $record], panel: 'platform')),
                 ]),
             ])
             ->defaultSort('subscription_ends_at');
@@ -560,79 +532,168 @@ class PlatformSubscriptionResource extends Resource
         ];
     }
 
-    public static function nextActionLabel(Workspace $workspace): string
+    public static function planOptions(): array
     {
-        if ($workspace->is_suspended || $workspace->subscription_status === 'suspended') {
+        return PlanCatalog::planOptions();
+    }
+
+    public static function subscriptionStatusOptions(): array
+    {
+        return [
+            'active' => 'Active',
+            'demo' => 'Demo',
+            'trial' => 'Trial',
+            'expired' => 'Expired',
+            'suspended' => 'Suspended',
+        ];
+    }
+
+    public static function suspensionCategoryOptions(): array
+    {
+        return PlatformUserResource::suspensionCategoryOptions();
+    }
+
+    public static function billingIntervalOptions(): array
+    {
+        return [
+            'monthly' => 'Monthly',
+            'yearly' => 'Yearly',
+            'manual' => 'Manual / offline',
+        ];
+    }
+
+    public static function billingProviderOptions(): array
+    {
+        return [
+            'manual' => 'Manual / offline',
+            'stripe' => 'Stripe',
+            'bank_transfer' => 'Bank transfer',
+            'other' => 'Other',
+        ];
+    }
+
+    public static function demoResetFrequencyOptions(): array
+    {
+        return [
+            'manual' => 'Manual reset only',
+            'daily' => 'Reset daily',
+            'weekly' => 'Reset weekly',
+        ];
+    }
+
+    public static function isDemoAccount(?User $account): bool
+    {
+        return $account !== null
+            && ($account->plan === 'demo' || $account->subscription_status === 'demo');
+    }
+
+    public static function subscriptionStatusColor(string $state): string
+    {
+        return match ($state) {
+            'expired', 'suspended' => 'danger',
+            'trial', 'demo' => 'warning',
+            default => 'success',
+        };
+    }
+
+    public static function accessStateLabel(User $account): string
+    {
+        if ($account->is_suspended || $account->subscription_status === 'suspended') {
+            return 'Suspended';
+        }
+
+        if (AccountAccess::hasOwnerGrantedAccess($account)) {
+            return 'Manual access';
+        }
+
+        if (self::isDemoAccount($account)) {
+            return 'Demo account';
+        }
+
+        if (AccountAccess::isReadOnly($account)) {
+            return 'Expired / read-only';
+        }
+
+        if ($account->subscription_status === 'trial' && $account->trial_ends_at?->between(now(), now()->addDays(7))) {
+            return 'Trial ending soon';
+        }
+
+        return 'Active';
+    }
+
+    public static function nextActionLabel(User $account): string
+    {
+        if ($account->is_suspended || $account->subscription_status === 'suspended') {
             return 'Review suspension';
         }
 
-        if ($workspace->subscription_status === 'expired' || $workspace->subscription_ends_at?->isPast()) {
+        if ($account->subscription_status === 'expired' || $account->subscription_ends_at?->isPast()) {
             return 'Renew or activate';
         }
 
-        if ($workspace->subscription_status === 'trial') {
-            if ($workspace->trial_ends_at?->isPast()) {
+        if ($account->subscription_status === 'trial') {
+            if ($account->trial_ends_at?->isPast()) {
                 return 'Trial expired';
             }
 
-            if ($workspace->trial_ends_at?->between(now(), now()->addDays(7))) {
+            if ($account->trial_ends_at?->between(now(), now()->addDays(7))) {
                 return 'Extend or convert';
             }
         }
 
-        if (PlatformWorkspaceResource::isDemoWorkspace($workspace)) {
+        if (self::isDemoAccount($account)) {
             return 'Reset when needed';
         }
 
-        if (filled($workspace->access_override_reason)) {
-            if ($workspace->access_override_ends_at === null) {
+        if (filled($account->access_override_reason)) {
+            if ($account->access_override_ends_at === null) {
                 return 'Review manual access';
             }
 
-            if ($workspace->access_override_ends_at->isPast()) {
+            if ($account->access_override_ends_at->isPast()) {
                 return 'Manual access expired';
             }
 
-            if ($workspace->access_override_ends_at->between(now(), now()->addDays(14))) {
+            if ($account->access_override_ends_at->between(now(), now()->addDays(14))) {
                 return 'Manual access ending';
             }
         }
 
-        if ($workspace->subscription_ends_at?->between(now(), now()->addDays(14))) {
+        if ($account->subscription_ends_at?->between(now(), now()->addDays(14))) {
             return 'Renew soon';
         }
 
         return 'No action needed';
     }
 
-    public static function nextActionColor(Workspace $workspace): string
+    public static function nextActionColor(User $account): string
     {
-        return match (self::nextActionLabel($workspace)) {
+        return match (self::nextActionLabel($account)) {
             'Review suspension', 'Renew or activate', 'Trial expired', 'Manual access expired' => 'danger',
             'Extend or convert', 'Reset when needed', 'Review manual access', 'Manual access ending', 'Renew soon' => 'warning',
             default => 'success',
         };
     }
 
-    public static function nextActionDescription(Workspace $workspace): ?string
+    public static function nextActionDescription(User $account): ?string
     {
-        return match (self::nextActionLabel($workspace)) {
-            'Review suspension' => $workspace->suspension_reason ?: 'Access is blocked until reactivated.',
+        return match (self::nextActionLabel($account)) {
+            'Review suspension' => $account->suspension_reason ?: 'Access is blocked until reactivated.',
             'Renew or activate' => 'Expired access should be renewed, activated or granted manually.',
-            'Trial expired' => 'Trial ended '.$workspace->trial_ends_at?->diffForHumans().'.',
-            'Extend or convert' => 'Trial ends '.$workspace->trial_ends_at?->diffForHumans().'.',
-            'Reset when needed' => 'Demo reset: '.(PlatformWorkspaceResource::demoResetFrequencyOptions()[$workspace->demo_reset_frequency ?: 'manual'] ?? 'Manual reset only').'.',
+            'Trial expired' => 'Trial ended '.$account->trial_ends_at?->diffForHumans().'.',
+            'Extend or convert' => 'Trial ends '.$account->trial_ends_at?->diffForHumans().'.',
+            'Reset when needed' => 'Demo reset: '.(self::demoResetFrequencyOptions()[$account->demo_reset_frequency ?: 'manual'] ?? 'Manual reset only').'.',
             'Review manual access' => 'Owner-granted access has no end date.',
-            'Manual access expired' => 'Manual access ended '.$workspace->access_override_ends_at?->diffForHumans().'.',
-            'Manual access ending' => 'Manual access ends '.$workspace->access_override_ends_at?->diffForHumans().'.',
-            'Renew soon' => 'Subscription ends '.$workspace->subscription_ends_at?->diffForHumans().'.',
+            'Manual access expired' => 'Manual access ended '.$account->access_override_ends_at?->diffForHumans().'.',
+            'Manual access ending' => 'Manual access ends '.$account->access_override_ends_at?->diffForHumans().'.',
+            'Renew soon' => 'Subscription ends '.$account->subscription_ends_at?->diffForHumans().'.',
             default => null,
         };
     }
 
-    public static function latestEventLabel(Workspace $workspace): string
+    public static function latestEventLabel(User $account): string
     {
-        $event = $workspace->latestSubscriptionEvent;
+        $event = $account->latestSubscriptionEvent;
 
         if (! $event) {
             return 'No events yet';
@@ -643,9 +704,9 @@ class PlatformSubscriptionResource extends Resource
         return $label.' · '.$event->created_at?->diffForHumans();
     }
 
-    public static function latestEventDescription(Workspace $workspace): ?string
+    public static function latestEventDescription(User $account): ?string
     {
-        $event = $workspace->latestSubscriptionEvent;
+        $event = $account->latestSubscriptionEvent;
 
         if (! $event) {
             return null;

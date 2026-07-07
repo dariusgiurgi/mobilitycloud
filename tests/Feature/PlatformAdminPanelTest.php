@@ -555,19 +555,22 @@ class PlatformAdminPanelTest extends TestCase
     public function test_platform_subscriptions_command_center_lists_access_statuses(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        Workspace::create([
-            'name' => 'Active Client Workspace',
+        User::factory()->create([
+            'name' => 'Active Client Account',
+            'email' => 'active.client@example.test',
             'plan' => 'writer',
             'subscription_status' => 'active',
         ]);
-        Workspace::create([
-            'name' => 'Trial Client Workspace',
+        User::factory()->create([
+            'name' => 'Trial Client Account',
+            'email' => 'trial.client@example.test',
             'plan' => 'free',
             'subscription_status' => 'trial',
             'trial_ends_at' => now()->addDays(3),
         ]);
-        Workspace::create([
-            'name' => 'Demo Client Workspace',
+        User::factory()->create([
+            'name' => 'Demo Client Account',
+            'email' => 'demo.client@example.test',
             'plan' => 'demo',
             'subscription_status' => 'demo',
         ]);
@@ -580,14 +583,14 @@ class PlatformAdminPanelTest extends TestCase
             ->assertSee('Subscription command center')
             ->assertSee('Active subscriptions')
             ->assertSee('Trials')
-            ->assertSee('Demo workspaces')
+            ->assertSee('Demo accounts')
             ->assertSee('Needs attention')
             ->assertSee('Next action')
             ->assertSee('Extend or convert')
             ->assertSee('Reset when needed')
-            ->assertSee('Active Client Workspace')
-            ->assertSee('Trial Client Workspace')
-            ->assertSee('Demo Client Workspace')
+            ->assertSee('Active Client Account')
+            ->assertSee('Trial Client Account')
+            ->assertSee('Demo Client Account')
             ->assertDontSee('wire:poll.5s', false);
     }
 
@@ -721,23 +724,23 @@ class PlatformAdminPanelTest extends TestCase
     public function test_platform_subscriptions_command_center_has_quick_view_tabs(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        Workspace::create([
-            'name' => 'Visible Trial Workspace',
+        User::factory()->create([
+            'name' => 'Visible Trial Account',
             'subscription_status' => 'trial',
             'trial_ends_at' => now()->addDays(4),
         ]);
-        Workspace::create([
-            'name' => 'Visible Demo Workspace',
+        User::factory()->create([
+            'name' => 'Visible Demo Account',
             'plan' => 'demo',
             'subscription_status' => 'demo',
         ]);
-        Workspace::create([
-            'name' => 'Visible Manual Workspace',
+        User::factory()->create([
+            'name' => 'Visible Manual Account',
             'subscription_status' => 'active',
             'access_override_reason' => 'Founder pilot.',
         ]);
-        Workspace::create([
-            'name' => 'Visible Blocked Workspace',
+        User::factory()->create([
+            'name' => 'Visible Blocked Account',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDay(),
         ]);
@@ -753,37 +756,41 @@ class PlatformAdminPanelTest extends TestCase
             ->assertSee('Manual access')
             ->assertSee('Expired / suspended')
             ->set('activeTab', 'trial')
-            ->assertSee('Visible Trial Workspace')
-            ->assertDontSee('Visible Demo Workspace')
+            ->assertSee('Visible Trial Account')
+            ->assertDontSee('Visible Demo Account')
             ->set('activeTab', 'demo')
-            ->assertSee('Visible Demo Workspace')
-            ->assertDontSee('Visible Trial Workspace')
+            ->assertSee('Visible Demo Account')
+            ->assertDontSee('Visible Trial Account')
             ->set('activeTab', 'manual_access')
-            ->assertSee('Visible Manual Workspace')
-            ->assertDontSee('Visible Trial Workspace')
+            ->assertSee('Visible Manual Account')
+            ->assertDontSee('Visible Trial Account')
             ->set('activeTab', 'blocked')
-            ->assertSee('Visible Blocked Workspace')
-            ->assertDontSee('Visible Demo Workspace');
+            ->assertSee('Visible Blocked Account')
+            ->assertDontSee('Visible Demo Account');
     }
 
     public function test_platform_subscriptions_command_center_shows_latest_subscription_event(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN, 'name' => 'Admin Operator']);
-        $workspace = Workspace::create([
-            'name' => 'Eventful Subscription Workspace',
+        $account = User::factory()->create([
+            'name' => 'Eventful Subscription Account',
+            'email' => 'eventful.subscription@example.test',
             'subscription_status' => 'active',
         ]);
-        $workspace->subscriptionEvents()->create([
+        $workspace = app(\App\Services\AccountWorkspaceService::class)->ensureFor($account);
+        $account->subscriptionEvents()->create([
+            'workspace_id' => $workspace->id,
             'actor_id' => null,
             'event_type' => 'trial_updated',
             'summary' => 'Old trial event.',
             'created_at' => now()->subDays(2),
             'updated_at' => now()->subDays(2),
         ]);
-        $workspace->subscriptionEvents()->create([
+        $account->subscriptionEvents()->create([
+            'workspace_id' => $workspace->id,
             'actor_id' => $admin->id,
             'event_type' => 'activated',
-            'summary' => 'Workspace activated and access restored.',
+            'summary' => 'Account activated and access restored.',
             'created_at' => now()->subHour(),
             'updated_at' => now()->subHour(),
         ]);
@@ -795,15 +802,16 @@ class PlatformAdminPanelTest extends TestCase
             ->assertSee('Last event')
             ->assertSee('Activated')
             ->assertSee('Admin Operator')
-            ->assertSee('Workspace activated and access restored.')
+            ->assertSee('Account activated and access restored.')
             ->assertDontSee('Old trial event.');
     }
 
     public function test_admin_can_edit_billing_metadata_from_subscriptions_command_center(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Subscription Billing Workspace',
+        $account = User::factory()->create([
+            'name' => 'Subscription Billing Account',
+            'email' => 'billing.account@example.test',
             'subscription_status' => 'active',
         ]);
 
@@ -811,8 +819,8 @@ class PlatformAdminPanelTest extends TestCase
         $this->usePlatformPanel();
 
         Livewire::test(ListPlatformSubscriptions::class)
-            ->assertTableActionVisible('editBilling', $workspace)
-            ->callTableAction('editBilling', $workspace, data: [
+            ->assertTableActionVisible('editBilling', $account)
+            ->callTableAction('editBilling', $account, data: [
                 'billing_interval' => 'monthly',
                 'billing_amount' => 99,
                 'billing_currency' => 'ron',
@@ -823,21 +831,21 @@ class PlatformAdminPanelTest extends TestCase
             ])
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('monthly', $workspace->billing_interval);
-        $this->assertSame('99.00', $workspace->billing_amount);
-        $this->assertSame('RON', $workspace->billing_currency);
-        $this->assertSame('MC-MONTHLY-99', $workspace->billing_reference);
-        $this->assertSame('manual', $workspace->billing_provider);
+        $account->refresh();
+        $this->assertSame('monthly', $account->billing_interval);
+        $this->assertSame('99.00', $account->billing_amount);
+        $this->assertSame('RON', $account->billing_currency);
+        $this->assertSame('MC-MONTHLY-99', $account->billing_reference);
+        $this->assertSame('manual', $account->billing_provider);
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $admin->id,
             'event_type' => 'billing_updated',
             'summary' => 'Billing readiness details updated.',
         ]);
         $this->assertDatabaseHas('platform_audit_logs', [
-            'action' => 'workspace.billing_updated',
-            'subject_id' => $workspace->id,
+            'action' => 'account.billing_updated',
+            'subject_id' => $account->id,
         ]);
     }
 
@@ -849,8 +857,9 @@ class PlatformAdminPanelTest extends TestCase
             'role' => User::ROLE_PLATFORM_ADMIN,
             'is_suspended' => true,
         ]);
-        $workspace = Workspace::create([
-            'name' => 'Trial Alert Workspace',
+        $account = User::factory()->create([
+            'name' => 'Trial Alert Account',
+            'email' => 'trial.alert@example.test',
             'subscription_status' => 'trial',
             'trial_ends_at' => now()->addDays(3),
         ]);
@@ -859,13 +868,13 @@ class PlatformAdminPanelTest extends TestCase
             ->expectsOutput('1 subscription alert queued.')
             ->assertSuccessful();
 
-        $workspace->refresh();
-        $this->assertNotNull($workspace->trial_ending_alerted_at);
+        $account->refresh();
+        $this->assertNotNull($account->trial_ending_alerted_at);
         $this->assertSame(1, $owner->notifications()->count());
         $this->assertSame(1, $admin->notifications()->count());
         $this->assertSame(0, $suspendedAdmin->notifications()->count());
         $this->assertSame('Trial ending soon', $owner->notifications()->first()->data['title']);
-        $this->assertStringContainsString('Trial Alert Workspace', $owner->notifications()->first()->data['body']);
+        $this->assertStringContainsString('Trial Alert Account', $owner->notifications()->first()->data['body']);
 
         $this->artisan('subscriptions:send-alerts')
             ->expectsOutput('0 subscription alerts queued.')
@@ -879,19 +888,19 @@ class PlatformAdminPanelTest extends TestCase
     {
         $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
 
-        Workspace::create([
-            'name' => 'Expired Paid Workspace',
+        User::factory()->create([
+            'name' => 'Expired Paid Account',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDay(),
         ]);
-        Workspace::create([
-            'name' => 'Manual Access Workspace',
+        User::factory()->create([
+            'name' => 'Manual Access Account',
             'subscription_status' => 'active',
             'access_override_reason' => 'Pilot access.',
             'access_override_ends_at' => now()->addDays(2),
         ]);
-        Workspace::create([
-            'name' => 'Stale Demo Workspace',
+        User::factory()->create([
+            'name' => 'Stale Demo Account',
             'plan' => 'demo',
             'subscription_status' => 'demo',
             'demo_reset_frequency' => 'weekly',
@@ -913,8 +922,9 @@ class PlatformAdminPanelTest extends TestCase
     public function test_admin_can_activate_workspace_from_subscriptions_command_center(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Expired Subscription Workspace',
+        $account = User::factory()->create([
+            'name' => 'Expired Subscription Account',
+            'email' => 'expired.subscription@example.test',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDays(5),
             'is_suspended' => true,
@@ -924,15 +934,15 @@ class PlatformAdminPanelTest extends TestCase
         $this->usePlatformPanel();
 
         Livewire::test(ListPlatformSubscriptions::class)
-            ->callTableAction('activate', $workspace)
+            ->callTableAction('activate', $account)
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('active', $workspace->subscription_status);
-        $this->assertFalse($workspace->is_suspended);
-        $this->assertNull($workspace->subscription_ends_at);
+        $account->refresh();
+        $this->assertSame('active', $account->subscription_status);
+        $this->assertFalse($account->is_suspended);
+        $this->assertNull($account->subscription_ends_at);
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $admin->id,
             'event_type' => 'activated',
         ]);

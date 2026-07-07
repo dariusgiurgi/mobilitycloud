@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -20,6 +21,11 @@ class User extends Authenticatable implements FilamentUser
         'name', 'email', 'password', 'current_workspace_id', 'notification_preferences', 'role',
         'plan', 'subscription_status', 'trial_ends_at', 'subscription_ends_at', 'feature_flags',
         'plan_limits', 'currencies', 'document_settings', 'access_override_ends_at', 'access_override_reason',
+        'access_override_granted_by', 'billing_interval', 'billing_amount', 'billing_currency', 'billing_reference',
+        'billing_provider', 'billing_provider_customer_id', 'billing_provider_subscription_id',
+        'demo_reset_frequency', 'demo_last_reset_at', 'trial_ending_alerted_at', 'trial_expired_alerted_at',
+        'subscription_ending_alerted_at', 'subscription_expired_alerted_at', 'manual_access_ending_alerted_at',
+        'demo_reset_stale_alerted_at',
         'is_suspended', 'suspension_category', 'suspension_reason', 'suspended_at', 'suspended_by',
         'archived_at', 'archived_by', 'archived_reason', 'must_change_password', 'support_notes', 'last_login_at',
     ];
@@ -41,6 +47,14 @@ class User extends Authenticatable implements FilamentUser
             'trial_ends_at' => 'datetime',
             'subscription_ends_at' => 'datetime',
             'access_override_ends_at' => 'datetime',
+            'billing_amount' => 'decimal:2',
+            'demo_last_reset_at' => 'datetime',
+            'trial_ending_alerted_at' => 'datetime',
+            'trial_expired_alerted_at' => 'datetime',
+            'subscription_ending_alerted_at' => 'datetime',
+            'subscription_expired_alerted_at' => 'datetime',
+            'manual_access_ending_alerted_at' => 'datetime',
+            'demo_reset_stale_alerted_at' => 'datetime',
             'is_suspended' => 'boolean',
             'suspended_at' => 'datetime',
             'archived_at' => 'datetime',
@@ -78,6 +92,16 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasMany(PlatformSupportNote::class);
     }
 
+    public function subscriptionEvents(): HasMany
+    {
+        return $this->hasMany(PlatformSubscriptionEvent::class);
+    }
+
+    public function latestSubscriptionEvent(): HasOne
+    {
+        return $this->hasOne(PlatformSubscriptionEvent::class)->latestOfMany();
+    }
+
     public function authoredSupportNotes(): HasMany
     {
         return $this->hasMany(PlatformSupportNote::class, 'author_id');
@@ -86,6 +110,11 @@ class User extends Authenticatable implements FilamentUser
     public function suspendedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'suspended_by');
+    }
+
+    public function accessOverrideGrantor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'access_override_granted_by');
     }
 
     public function archivedBy(): BelongsTo

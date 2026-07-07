@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
 use App\Models\User;
-use App\Models\Workspace;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\Builder;
@@ -22,11 +21,12 @@ class SubscriptionAlertService
 
         $sent = 0;
 
-        Workspace::query()
+        User::query()
+            ->where('role', User::ROLE_USER)
             ->orderBy('id')
-            ->chunkById(100, function (Collection $workspaces) use ($recipients, &$sent): void {
-                foreach ($workspaces as $workspace) {
-                    $sent += $this->dispatchForWorkspace($workspace, $recipients);
+            ->chunkById(100, function (Collection $accounts) use ($recipients, &$sent): void {
+                foreach ($accounts as $account) {
+                    $sent += $this->dispatchForAccount($account, $recipients);
                 }
             });
 
@@ -36,18 +36,18 @@ class SubscriptionAlertService
     /**
      * @param Collection<int, User> $recipients
      */
-    private function dispatchForWorkspace(Workspace $workspace, Collection $recipients): int
+    private function dispatchForAccount(User $account, Collection $recipients): int
     {
         $sent = 0;
 
-        foreach ($this->alertsFor($workspace) as $alert) {
-            if ($workspace->{$alert['timestamp']}) {
+        foreach ($this->alertsFor($account) as $alert) {
+            if ($account->{$alert['timestamp']}) {
                 continue;
             }
 
-            $this->send($recipients, $workspace, $alert['title'], $alert['body'], $alert['level']);
+            $this->send($recipients, $alert['title'], $alert['body'], $alert['level']);
 
-            $workspace->forceFill([$alert['timestamp'] => now()])->saveQuietly();
+            $account->forceFill([$alert['timestamp'] => now()])->saveQuietly();
             $sent++;
         }
 
@@ -57,67 +57,68 @@ class SubscriptionAlertService
     /**
      * @return array<int, array{timestamp: string, title: string, body: string, level: string}>
      */
-    private function alertsFor(Workspace $workspace): array
+    private function alertsFor(User $account): array
     {
         $alerts = [];
+        $name = $account->name ?: $account->email;
 
-        if ($workspace->subscription_status === 'trial' && $workspace->trial_ends_at) {
-            if ($workspace->trial_ends_at->isPast()) {
+        if ($account->subscription_status === 'trial' && $account->trial_ends_at) {
+            if ($account->trial_ends_at->isPast()) {
                 $alerts[] = [
                     'timestamp' => 'trial_expired_alerted_at',
                     'title' => 'Trial expired',
-                    'body' => $workspace->name.' trial ended '.$workspace->trial_ends_at->diffForHumans().'.',
+                    'body' => $name.' trial ended '.$account->trial_ends_at->diffForHumans().'.',
                     'level' => 'danger',
                 ];
-            } elseif ($workspace->trial_ends_at->between(now(), now()->addDays(7))) {
+            } elseif ($account->trial_ends_at->between(now(), now()->addDays(7))) {
                 $alerts[] = [
                     'timestamp' => 'trial_ending_alerted_at',
                     'title' => 'Trial ending soon',
-                    'body' => $workspace->name.' trial ends '.$workspace->trial_ends_at->diffForHumans().'.',
+                    'body' => $name.' trial ends '.$account->trial_ends_at->diffForHumans().'.',
                     'level' => 'warning',
                 ];
             }
         }
 
-        if ($workspace->subscription_ends_at) {
-            if ($workspace->subscription_ends_at->isPast() || $workspace->subscription_status === 'expired') {
+        if ($account->subscription_ends_at) {
+            if ($account->subscription_ends_at->isPast() || $account->subscription_status === 'expired') {
                 $alerts[] = [
                     'timestamp' => 'subscription_expired_alerted_at',
                     'title' => 'Subscription expired',
-                    'body' => $workspace->name.' subscription ended '.$workspace->subscription_ends_at->diffForHumans().'.',
+                    'body' => $name.' subscription ended '.$account->subscription_ends_at->diffForHumans().'.',
                     'level' => 'danger',
                 ];
-            } elseif ($workspace->subscription_ends_at->between(now(), now()->addDays(14))) {
+            } elseif ($account->subscription_ends_at->between(now(), now()->addDays(14))) {
                 $alerts[] = [
                     'timestamp' => 'subscription_ending_alerted_at',
                     'title' => 'Subscription ending soon',
-                    'body' => $workspace->name.' subscription ends '.$workspace->subscription_ends_at->diffForHumans().'.',
+                    'body' => $name.' subscription ends '.$account->subscription_ends_at->diffForHumans().'.',
                     'level' => 'warning',
                 ];
             }
-        } elseif ($workspace->subscription_status === 'expired') {
+        } elseif ($account->subscription_status === 'expired') {
             $alerts[] = [
                 'timestamp' => 'subscription_expired_alerted_at',
                 'title' => 'Subscription expired',
-                'body' => $workspace->name.' is marked as expired.',
+                'body' => $name.' is marked as expired.',
                 'level' => 'danger',
             ];
         }
 
-        if ($workspace->access_override_reason && $workspace->access_override_ends_at?->between(now(), now()->addDays(7))) {
+        if ($account->access_override_reason && $account->access_override_ends_at?->between(now(), now()->addDays(7))) {
             $alerts[] = [
                 'timestamp' => 'manual_access_ending_alerted_at',
                 'title' => 'Manual access ending soon',
-                'body' => $workspace->name.' manual access ends '.$workspace->access_override_ends_at->diffForHumans().'.',
+                'body' => $name.' manual access ends '.$account->access_override_ends_at->diffForHumans().'.',
                 'level' => 'warning',
             ];
         }
 
-        if ($this->demoResetIsStale($workspace)) {
+        if ($this->demoResetIsStale($account)) {
             $alerts[] = [
                 'timestamp' => 'demo_reset_stale_alerted_at',
                 'title' => 'Demo reset may be stale',
-                'body' => $workspace->name.' demo workspace has not been reset according to its configured frequency.',
+                'body' => $name.' demo account has not been reset according to its configured frequency.',
                 'level' => 'warning',
             ];
         }
@@ -125,23 +126,23 @@ class SubscriptionAlertService
         return $alerts;
     }
 
-    private function demoResetIsStale(Workspace $workspace): bool
+    private function demoResetIsStale(User $account): bool
     {
-        if (! in_array($workspace->demo_reset_frequency, ['daily', 'weekly'], true)) {
+        if (! in_array($account->demo_reset_frequency, ['daily', 'weekly'], true)) {
             return false;
         }
 
-        if ($workspace->plan !== 'demo' && $workspace->subscription_status !== 'demo') {
+        if ($account->plan !== 'demo' && $account->subscription_status !== 'demo') {
             return false;
         }
 
-        if (! $workspace->demo_last_reset_at) {
+        if (! $account->demo_last_reset_at) {
             return true;
         }
 
-        return $workspace->demo_reset_frequency === 'daily'
-            ? $workspace->demo_last_reset_at->lte(now()->subDay())
-            : $workspace->demo_last_reset_at->lte(now()->subWeek());
+        return $account->demo_reset_frequency === 'daily'
+            ? $account->demo_last_reset_at->lte(now()->subDay())
+            : $account->demo_last_reset_at->lte(now()->subWeek());
     }
 
     /**
@@ -163,7 +164,7 @@ class SubscriptionAlertService
     /**
      * @param Collection<int, User> $recipients
      */
-    private function send(Collection $recipients, Workspace $workspace, string $title, string $body, string $level): void
+    private function send(Collection $recipients, string $title, string $body, string $level): void
     {
         foreach ($recipients as $recipient) {
             $notification = Notification::make()

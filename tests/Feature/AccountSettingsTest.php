@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Filament\Pages\AccountSettings;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
 use App\Support\PlanCatalog;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,7 +46,7 @@ class AccountSettingsTest extends TestCase
         $this->assertArrayHasKey('accountSettings', $items);
         $this->assertSame('My account', $items['accountSettings']->getLabel());
         $this->assertSame(
-            AccountSettings::getUrl(tenant: app(AccountWorkspaceService::class)->ensureFor($user)),
+            AccountSettings::getUrl(),
             $items['accountSettings']->getUrl(),
         );
     }
@@ -94,36 +93,38 @@ class AccountSettingsTest extends TestCase
         $this->assertSame('compact', $preferences['platform']['interface_density']);
     }
 
-    public function test_workspace_owner_can_change_subscription_plan_from_account_center(): void
+    public function test_user_can_change_account_subscription_plan_from_account_center(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('owner', ['plan' => 'free']);
+        [$workspace, $user] = $this->workspaceAndUser('owner');
+        $user->update(['plan' => 'free']);
+
         $this->actingAs($user);
         Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
             ->assertSee('Project plan')
-            ->set('subscriptionWorkspaceId', $workspace->id)
             ->set('subscriptionPlan', 'writer_pro')
             ->call('saveSubscriptionPlan');
 
-        $this->assertSame('writer_pro', $workspace->fresh()->plan);
-        $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $workspace->fresh()->feature_flags);
-        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $workspace->fresh()->plan_limits);
+        $this->assertSame('writer_pro', $user->fresh()->plan);
+        $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $user->fresh()->feature_flags);
+        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $user->fresh()->plan_limits);
     }
 
-    public function test_workspace_viewer_cannot_change_subscription_plan(): void
+    public function test_platform_admin_panel_cannot_change_public_subscription_plan(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('viewer', ['plan' => 'free']);
+        [$workspace, $user] = $this->workspaceAndUser('viewer');
+        $user->update(['plan' => 'free', 'role' => User::ROLE_PLATFORM_ADMIN]);
+
         $this->actingAs($user);
-        Filament::setTenant($workspace);
+        Filament::setCurrentPanel('platform');
 
         Livewire::test(AccountSettings::class)
-            ->set('subscriptionWorkspaceId', $workspace->id)
             ->set('subscriptionPlan', 'writer')
             ->call('saveSubscriptionPlan')
-            ->assertForbidden();
+            ->assertStatus(404);
 
-        $this->assertSame('free', $workspace->fresh()->plan);
+        $this->assertSame('free', $user->fresh()->plan);
     }
 
     public function test_account_center_hides_workspace_switching_from_regular_users(): void

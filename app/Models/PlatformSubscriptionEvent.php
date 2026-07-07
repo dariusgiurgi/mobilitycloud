@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PlatformSubscriptionEvent extends Model
 {
     protected $fillable = [
-        'workspace_id', 'actor_id', 'event_type', 'summary', 'metadata',
+        'workspace_id', 'user_id', 'actor_id', 'event_type', 'summary', 'metadata',
     ];
 
     protected $casts = [
@@ -18,6 +18,16 @@ class PlatformSubscriptionEvent extends Model
     public function workspace(): BelongsTo
     {
         return $this->belongsTo(Workspace::class);
+    }
+
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->account();
     }
 
     public function actor(): BelongsTo

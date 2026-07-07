@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Workspace;
+use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,17 +17,17 @@ class PlatformSubscriptionsOverview extends BaseWidget
     {
         return [
             Stat::make('Active subscriptions', number_format(
-                Workspace::query()->where('subscription_status', 'active')->count()
+                $this->accountQuery()->where('subscription_status', 'active')->count()
             ))
-                ->description('Workspaces with normal access')
+                ->description('Accounts with normal access')
                 ->color('success'),
             Stat::make('Trials', number_format(
-                Workspace::query()->where('subscription_status', 'trial')->count()
+                $this->accountQuery()->where('subscription_status', 'trial')->count()
             ))
-                ->description('Evaluation workspaces')
+                ->description('Evaluation accounts')
                 ->color('info'),
-            Stat::make('Demo workspaces', number_format(
-                Workspace::query()
+            Stat::make('Demo accounts', number_format(
+                $this->accountQuery()
                     ->where(fn (Builder $query): Builder => $query
                         ->where('plan', 'demo')
                         ->orWhere('subscription_status', 'demo'))
@@ -36,7 +36,7 @@ class PlatformSubscriptionsOverview extends BaseWidget
                 ->description('Internal/test environments')
                 ->color('warning'),
             Stat::make('Needs attention', number_format(
-                Workspace::query()
+                $this->accountQuery()
                     ->where(function (Builder $query): void {
                         $query
                             ->where('is_suspended', true)
@@ -58,5 +58,10 @@ class PlatformSubscriptionsOverview extends BaseWidget
                 ->description('Expired, suspended or ending soon')
                 ->color('danger'),
         ];
+    }
+
+    private function accountQuery(): Builder
+    {
+        return User::query()->where('role', User::ROLE_USER);
     }
 }

@@ -26,6 +26,7 @@ class NotificationPreferencesTest extends TestCase
             'name' => 'Preferences Project',
             'status' => 'active',
         ]);
+        $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
         $task = $project->tasks()->create([
             'title' => 'Confirm venue',
             'assigned_to' => $user->id,

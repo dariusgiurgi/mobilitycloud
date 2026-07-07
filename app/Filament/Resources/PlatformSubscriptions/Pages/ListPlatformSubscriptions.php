@@ -14,7 +14,7 @@ class ListPlatformSubscriptions extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Subscription command center for trials, demo workspaces, manual access and accounts needing attention.';
+        return 'Subscription command center for account plans, trials, demo access, manual overrides and accounts needing attention.';
     }
 
     protected function getHeaderWidgets(): array

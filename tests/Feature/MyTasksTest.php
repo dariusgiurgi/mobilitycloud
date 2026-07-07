@@ -29,6 +29,7 @@ class MyTasksTest extends TestCase
         $otherWorkspace = Workspace::create(['name' => 'Other Workspace']);
         $otherWorkspace->users()->attach($user, ['role' => 'viewer']);
         $otherProject = Project::create(['workspace_id' => $otherWorkspace->id, 'name' => 'Other Project', 'status' => 'active']);
+        $otherProject->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
         $otherProject->tasks()->create(['title' => 'Other workspace task', 'assigned_to' => $user->id]);
 
         $this->actingAs($user);
@@ -111,9 +112,16 @@ class MyTasksTest extends TestCase
         $workspace->users()->attach($user, ['role' => $role]);
         $project = Project::create([
             'workspace_id' => $workspace->id,
+            'owner_id' => $role === 'owner' ? $user->id : null,
             'name' => 'Youth Exchange',
             'status' => 'active',
         ]);
+
+        if ($role !== 'owner') {
+            $project->members()->attach($user, [
+                'role' => $role === 'viewer' ? Project::PROJECT_ROLE_VIEWER : Project::PROJECT_ROLE_EDITOR,
+            ]);
+        }
 
         return [$workspace, $project, $user];
     }
