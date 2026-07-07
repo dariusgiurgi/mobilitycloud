@@ -590,16 +590,16 @@
                 @endphp
 
                 <label style="{{ $reportLabelStyle }}">Report title *</label>
-                <input wire:model="reportTitle" style="{{ $reportFieldStyle }}margin-bottom:.8rem;">
+                <input wire:model="reportTitle" aria-label="Expense report title" style="{{ $reportFieldStyle }}margin-bottom:.8rem;">
                 @error('reportTitle') <span style="display:block;color:#dc2626;font-size:11px;margin-top:-7px;margin-bottom:7px;">{{ $message }}</span> @enderror
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.8rem;">
                     <div><label style="{{ $reportLabelStyle }}">Period start</label><input type="date" wire:model="reportStartDate" style="{{ $reportFieldStyle }}"></div>
                     <div><label style="{{ $reportLabelStyle }}">Period end</label><input type="date" wire:model="reportEndDate" style="{{ $reportFieldStyle }}"></div>
                     <div><label style="{{ $reportLabelStyle }}">Report date *</label><input type="date" wire:model="reportDate" style="{{ $reportFieldStyle }}"></div>
-                    <div><label style="{{ $reportLabelStyle }}">Place</label><input wire:model="reportPlace" style="{{ $reportFieldStyle }}"></div>
-                    <div><label style="{{ $reportLabelStyle }}">Prepared by *</label><input wire:model="reportPreparedBy" style="{{ $reportFieldStyle }}"></div>
-                    <div><label style="{{ $reportLabelStyle }}">Role</label><input wire:model="reportPreparedByRole" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Place</label><input wire:model="reportPlace" aria-label="Expense report place" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Prepared by *</label><input wire:model="reportPreparedBy" aria-label="Expense report prepared by" style="{{ $reportFieldStyle }}"></div>
+                    <div><label style="{{ $reportLabelStyle }}">Role</label><input wire:model="reportPreparedByRole" aria-label="Expense report prepared by role" style="{{ $reportFieldStyle }}"></div>
                 </div>
                 @error('reportEndDate') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
                 @error('reportDate') <span style="display:block;color:#dc2626;font-size:11px;margin-bottom:7px;">{{ $message }}</span> @enderror
@@ -623,7 +623,7 @@
                 </div>
 
                 <label style="{{ $reportLabelStyle }}">Notes / reporting context</label>
-                <textarea rows="3" wire:model="reportNotes" style="{{ $reportFieldStyle }}resize:vertical;"></textarea>
+                <textarea rows="3" wire:model="reportNotes" aria-label="Expense report notes" style="{{ $reportFieldStyle }}resize:vertical;"></textarea>
 
                 <div class="mc-modal-actions">
                     <button type="button" wire:click="closeExpenseReportGenerator" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
