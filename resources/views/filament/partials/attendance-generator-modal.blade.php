@@ -14,18 +14,18 @@
             <div style="display:flex;flex-direction:column;gap:.85rem;">
                 <div>
                     <label class="mc-att-label">Activity</label>
-                    <input type="text" wire:model="attendanceActivity" class="mc-att-input">
+                    <input type="text" wire:model="attendanceActivity" class="mc-att-input" aria-label="Attendance activity">
                     @error('attendanceActivity') <span class="mc-part-err">{{ $message }}</span> @enderror
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.85rem;">
                     <div>
                         <label class="mc-att-label">Date</label>
-                        <input type="date" wire:model="attendanceDate" class="mc-att-input">
+                        <input type="date" wire:model="attendanceDate" class="mc-att-input" aria-label="Attendance date">
                         @error('attendanceDate') <span class="mc-part-err">{{ $message }}</span> @enderror
                     </div>
                     <div>
                         <label class="mc-att-label">Location</label>
-                        <input type="text" wire:model="attendanceLocation" class="mc-att-input" placeholder="Optional">
+                        <input type="text" wire:model="attendanceLocation" class="mc-att-input" placeholder="Optional" aria-label="Attendance location">
                         @error('attendanceLocation') <span class="mc-part-err">{{ $message }}</span> @enderror
                     </div>
                 </div>

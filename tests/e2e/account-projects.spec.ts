@@ -150,6 +150,21 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     await expectParticipantsCsv(page, state.projects.participants.id);
 
+    const attendanceActivity = `QA Bot Browser Attendance ${Date.now()}`;
+    await page.getByRole('button', { name: /^Attendance list$/i }).click();
+    await expect(page.getByText(/Generate attendance list/i)).toBeVisible();
+    await page.getByLabel(/Attendance activity/i).fill(attendanceActivity);
+    await page.getByLabel(/Attendance date/i).fill('2026-08-12');
+    await page.getByLabel(/Attendance location/i).fill('Cluj-Napoca');
+    const attendanceDownload = page.waitForEvent('download');
+    await page.getByRole('button', { name: /^Generate PDF$/i }).click();
+    const downloadedAttendance = await attendanceDownload;
+    expect(downloadedAttendance.suggestedFilename()).toContain('attendance_');
+
+    await page.goto(`/app/projects/${state.projects.participants.id}/documents`);
+    await expect(page.getByText(`Attendance list - ${attendanceActivity}`).first()).toBeVisible();
+    await expect(page.getByText(/Cluj-Napoca/i).first()).toBeVisible();
+
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
 

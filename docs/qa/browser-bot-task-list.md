@@ -126,6 +126,9 @@ MobilityCloudQA!2026
 - Confirm participant statistics, names, minor and FO badges are visible.
 - Search/filter the participant list by name.
 - Export participant CSV and confirm alphabetical, Excel-safe content.
+- Generate an attendance list from the Participants page.
+- Confirm the generated attendance PDF downloads.
+- Confirm the generated attendance document appears in the Documents centre.
 - Confirm Viewer can open the register in read-only mode.
 - Confirm Viewer cannot see import, attendance generation or add-participant actions.
 - Confirm accounts without project access cannot export participants.
@@ -178,7 +181,6 @@ MobilityCloudQA!2026
 
 ### Participants
 
-- Generate attendance sheets grouped by association.
 - Import exported CSV through the browser modal.
 - Add/edit participant manually through the browser modal.
 - Upload signed attendance sheets through Documents.
