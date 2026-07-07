@@ -145,6 +145,7 @@ MobilityCloudQA!2026
 - Confirm readiness panels, file search and pending-signature filtering work.
 - Confirm generated attendance and formal expense report records are visible.
 - Confirm civil convention workflow shows agreement, signed-copy and payment evidence actions.
+- Edit civil convention details through the browser modal and confirm the saved values persist.
 - Confirm dissemination organisations and evidence actions are visible.
 - Confirm checklist items are visible and reflect seeded file state.
 - Download attendance PDF, expense report PDF, civil convention PDF and payment evidence PDF.
@@ -189,7 +190,6 @@ MobilityCloudQA!2026
 
 ### Documents
 
-- Generate civil convention through the browser modal.
 - Generate formal expenditure report through the browser modal.
 - Upload and remove signed copies for formal expense reports through the browser modal.
 - Inspect the final archive ZIP contents and confirm ordered folders/file names.

@@ -391,10 +391,29 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     await page.getByRole('tab', { name: /Civil conventions/i }).click();
     await expect(page.getByText('QA Bot facilitation civil convention').first()).toBeVisible();
-    await page.getByText('QA Bot facilitation civil convention').first().click();
+    const civilConventionSummary = page
+      .locator('summary')
+      .filter({ hasText: 'QA Bot facilitation civil convention' })
+      .first();
+    await civilConventionSummary.click();
     await expect(page.getByText(/Download agreement/i).first()).toBeVisible();
     await expect(page.getByText(/Upload signed agreement/i).first()).toBeVisible();
     await expect(page.getByText(/Download payment evidence/i).first()).toBeVisible();
+    await page.getByRole('button', { name: /Edit details/i }).click();
+    await expect(page.getByRole('heading', { name: /Civil convention details/i })).toBeVisible();
+    await page.getByLabel(/Civil convention number/i).fill('QA-CC-001-BOT');
+    await page.getByLabel(/Provider full name/i).fill('Alex Facilitator Updated');
+    await page.getByLabel(/Service description/i).fill('Updated QA facilitation services during the browser automation check.');
+    await page.getByLabel(/Payment reference/i).fill('QA-PAY-BROWSER');
+    await page.getByRole('button', { name: /Save details/i }).click();
+    await expect(page.getByText(/Civil convention details saved/i)).toBeVisible();
+    await civilConventionSummary.click();
+    await page.getByRole('button', { name: /Edit details/i }).click();
+    await expect(page.getByLabel(/Civil convention number/i)).toHaveValue('QA-CC-001-BOT');
+    await expect(page.getByLabel(/Provider full name/i)).toHaveValue('Alex Facilitator Updated');
+    await expect(page.getByLabel(/Service description/i)).toHaveValue('Updated QA facilitation services during the browser automation check.');
+    await expect(page.getByLabel(/Payment reference/i)).toHaveValue('QA-PAY-BROWSER');
+    await page.getByRole('button', { name: /^Cancel$/i }).click();
 
     await page.getByRole('tab', { name: /Dissemination/i }).click();
     await expect(page.getByText('Scoala de Jocuri').first()).toBeVisible();

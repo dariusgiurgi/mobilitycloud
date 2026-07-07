@@ -658,7 +658,7 @@
 
                 <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:0 0 .7rem;text-transform:uppercase;">Contract</h3>
                 <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.8rem;margin-bottom:1.2rem;">
-                    <div><label style="{{ $labelStyle }}">Number *</label><input wire:model="conventionData.convention_number" style="{{ $fieldStyle }}"></div>
+                    <div><label style="{{ $labelStyle }}">Number *</label><input wire:model="conventionData.convention_number" aria-label="Civil convention number" style="{{ $fieldStyle }}"></div>
                     <div><label style="{{ $labelStyle }}">Date *</label><input type="date" wire:model="conventionData.contract_date" style="{{ $fieldStyle }}"></div>
                     <div><label style="{{ $labelStyle }}">Place</label><input wire:model="conventionData.contract_place" style="{{ $fieldStyle }}"></div>
                 </div>
@@ -674,7 +674,7 @@
 
                 <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:0 0 .7rem;text-transform:uppercase;">Service provider</h3>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1.2rem;">
-                    <div><label style="{{ $labelStyle }}">Full name *</label><input wire:model="conventionData.provider_name" style="{{ $fieldStyle }}"></div>
+                    <div><label style="{{ $labelStyle }}">Full name *</label><input wire:model="conventionData.provider_name" aria-label="Provider full name" style="{{ $fieldStyle }}"></div>
                     <div><label style="{{ $labelStyle }}">Nationality</label><input wire:model="conventionData.provider_nationality" style="{{ $fieldStyle }}"></div>
                     <div><label style="{{ $labelStyle }}">ID type</label><input wire:model="conventionData.provider_id_type" style="{{ $fieldStyle }}"></div>
                     <div><label style="{{ $labelStyle }}">ID number *</label><input wire:model="conventionData.provider_id_number" style="{{ $fieldStyle }}"></div>
@@ -696,7 +696,7 @@
                         <label style="display:flex;align-items:center;gap:7px;font-size:12px;"><input type="checkbox" wire:model="conventionData.rights_exclusive"> Exclusive assignment</label>
                         <label style="display:flex;align-items:center;gap:7px;font-size:12px;"><input type="checkbox" wire:model="conventionData.right_to_sublicense"> Right to sublicense</label>
                     @else
-                        <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Service description *</label><textarea rows="3" wire:model="conventionData.service_description" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
+                        <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Service description *</label><textarea rows="3" wire:model="conventionData.service_description" aria-label="Service description" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>
                         <div><label style="{{ $labelStyle }}">Start date *</label><input type="date" wire:model="conventionData.service_start_date" style="{{ $fieldStyle }}"></div>
                         <div><label style="{{ $labelStyle }}">End date *</label><input type="date" wire:model="conventionData.service_end_date" style="{{ $fieldStyle }}"></div>
                         <div><label style="{{ $labelStyle }}">Service location</label><input wire:model="conventionData.service_location" style="{{ $fieldStyle }}"></div>
@@ -715,7 +715,7 @@
                 <h3 class="text-gray-950 dark:text-white" style="font-size:12px;font-weight:700;margin:1.3rem 0 .7rem;text-transform:uppercase;">Payment record</h3>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
                     <div><label style="{{ $labelStyle }}">Payment date</label><input type="date" wire:model="conventionData.payment_date" style="{{ $fieldStyle }}"></div>
-                    <div><label style="{{ $labelStyle }}">Payment reference</label><input wire:model="conventionData.payment_reference" style="{{ $fieldStyle }}"></div>
+                    <div><label style="{{ $labelStyle }}">Payment reference</label><input wire:model="conventionData.payment_reference" aria-label="Payment reference" style="{{ $fieldStyle }}"></div>
                     <div><label style="{{ $labelStyle }}">Payment method</label><select wire:model="conventionData.payment_method" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::PAYMENT_METHODS as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
                     <div><label style="{{ $labelStyle }}">Payment status</label><select wire:model="conventionData.payment_status" style="{{ $fieldStyle }}">@foreach(\App\Models\Expense::PAYMENT_STATUSES as $key => $label)<option value="{{ $key }}">{{ $label }}</option>@endforeach</select></div>
                     <div style="grid-column:1/-1;"><label style="{{ $labelStyle }}">Payment notes</label><textarea rows="2" wire:model="conventionData.payment_notes" style="{{ $fieldStyle }}resize:vertical;"></textarea></div>

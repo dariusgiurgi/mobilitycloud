@@ -50,17 +50,17 @@ class CivilConventionTest extends TestCase
         $this->assertTrue($expense->fresh()->hasCompleteConventionData());
     }
 
-    public function test_workspace_member_can_generate_service_agreement_pdf(): void
+    public function test_project_member_can_generate_service_agreement_pdf(): void
     {
-        $workspace = Workspace::create(['name' => 'Convention Workspace']);
+        $owner = User::factory()->create();
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
             'name' => 'Youth Exchange',
             'status' => 'active',
             'withholding_tax_rate' => 10,
         ]);
         $member = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'viewer']);
+        $project->members()->attach($member, ['role' => Project::PROJECT_ROLE_VIEWER]);
         $expense = Expense::create([
             'budget_line_id' => $project->budgetLines()->first()->id,
             'description' => 'Facilitation services',
@@ -147,15 +147,15 @@ class CivilConventionTest extends TestCase
     public function test_signed_convention_documents_are_private_and_removed_with_expense(): void
     {
         Storage::fake('local');
-        $workspace = Workspace::create(['name' => 'Convention Workspace']);
+        $owner = User::factory()->create();
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
             'name' => 'Youth Exchange',
             'status' => 'active',
         ]);
         $member = User::factory()->create();
         $outsider = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'viewer']);
+        $project->members()->attach($member, ['role' => Project::PROJECT_ROLE_VIEWER]);
         $agreementPath = 'project-documents/'.$project->id.'/civil-conventions/1/agreement.pdf';
         $acceptancePath = 'project-documents/'.$project->id.'/civil-conventions/1/acceptance.pdf';
         $paymentPath = 'project-documents/'.$project->id.'/civil-conventions/1/payment.pdf';
