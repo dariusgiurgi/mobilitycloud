@@ -1,8 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
+import { execFileSync } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { login, logoutByClearingSession } from './support/auth';
+import { login } from './support/auth';
 import { qaState } from './support/qa-state';
 
 async function expectApplicationExports(page: Page, projectId: number, expectedText: string) {
@@ -39,6 +40,37 @@ async function expectPrivatePdf(page: Page, path: string) {
   const response = await page.request.get(path);
   expect(response.status()).toBe(200);
   expect(response.headers()['content-type']).toContain('application/pdf');
+}
+
+async function archiveEntries(page: Page, projectId: number): Promise<string[]> {
+  const archive = await page.request.get(`/projects/${projectId}/final-archive`);
+  expect(archive.status()).toBe(200);
+  expect(archive.headers()['content-type']).toContain('zip');
+
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'mobilitycloud-archive-'));
+  const archivePath = path.join(directory, 'final-archive.zip');
+
+  try {
+    await writeFile(archivePath, await archive.body());
+
+    return execFileSync('unzip', ['-Z1', archivePath], { encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+}
+
+function expectArchiveEntry(entries: string[], pattern: RegExp) {
+  expect(entries.some((entry) => pattern.test(entry))).toBeTruthy();
+}
+
+async function setLivewireFile(page: Page, selector: string, filePath: string) {
+  const upload = page.waitForResponse((response) =>
+    response.url().includes('/livewire/upload-file') && response.status() < 400
+  );
+  await page.locator(selector).setInputFiles(filePath);
+  await upload;
 }
 
 const MINIMAL_SIGNED_PDF = `%PDF-1.4
@@ -89,6 +121,16 @@ test.describe.serial('Account-owned projects and project invitations', () => {
       await expect(page.getByText(/Something went wrong|Temporary platform issue|This page is not available/i)).toHaveCount(0);
       await expect(page.getByText(state.projects.owned.name).first()).toBeVisible();
     }
+
+    await page.goto('/app/account-settings');
+    await expect(page.getByRole('heading', { name: /Account Center/i })).toBeVisible();
+    await expect(page.getByText(/Project plan/i).first()).toBeVisible();
+    await expect(page.getByText(/Plans are applied directly to this email account/i)).toBeVisible();
+    await expect(page.getByText(/Billing and limits count only projects owned by your account/i)).toBeVisible();
+    await page.getByLabel(/Default landing/i).selectOption('projects');
+    await page.getByLabel(/Interface density/i).selectOption('compact');
+    await page.getByRole('button', { name: /^Save preferences$/i }).click();
+    await expect(page.getByText(/Account preferences saved/i)).toBeVisible();
 
     await page.goto(`/app/projects/${state.projects.writing_ka152.id}/write`);
     await expect(page.getByRole('heading', { name: /Application workspace/i })).toBeVisible();
@@ -421,6 +463,29 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/Save report/i).first()).toBeVisible();
     await expect(page.getByText(/Upload evidence/i).first()).toBeVisible();
 
+    const disseminationDirectory = await mkdtemp(path.join(os.tmpdir(), 'mobilitycloud-dissemination-'));
+    const disseminationEvidencePath = path.join(disseminationDirectory, 'qa-dissemination-evidence.pdf');
+
+    try {
+      await writeFile(disseminationEvidencePath, MINIMAL_SIGNED_PDF);
+
+      const disseminationReport = page.getByLabel(/Dissemination report for Youth Group Spain/i);
+      const disseminationCard = disseminationReport.locator('xpath=ancestor::div[contains(@class, "fi-section")][1]');
+
+      await disseminationReport.fill('QA Bot verified that Youth Group Spain delivered a local dissemination session and saved proof.');
+      await disseminationCard.getByRole('button', { name: /^Save report$/i }).click();
+      await expect(page.getByText(/Dissemination report saved/i)).toBeVisible();
+
+      await disseminationCard.getByRole('button', { name: /^Upload evidence$/i }).click();
+      await expect(page.getByRole('heading', { name: /Upload dissemination evidence/i })).toBeVisible();
+      await setLivewireFile(page, 'input[type="file"][wire\\:model="disseminationUpload"]', disseminationEvidencePath);
+      await page.locator('.mc-modal-panel').getByRole('button', { name: /^Upload evidence$/i }).click();
+      await expect(page.getByText(/Dissemination evidence uploaded/i)).toBeVisible();
+      await expect(disseminationCard.getByText('qa-dissemination-evidence.pdf')).toBeVisible();
+    } finally {
+      await rm(disseminationDirectory, { recursive: true, force: true });
+    }
+
     await page.getByRole('tab', { name: /Checklist/i }).click();
     await expect(page.getByText(/Project file checklist/i)).toBeVisible();
     await expect(page.getByText(/Grant agreement/i).first()).toBeVisible();
@@ -457,6 +522,28 @@ test.describe.serial('Account-owned projects and project invitations', () => {
       await page.getByRole('tab', { name: /Files/i }).click();
       await page.getByRole('button', { name: /View pending signatures/i }).first().click();
 
+      const expenseReportDocument = page
+        .locator('div[style*="padding:1rem 1.1rem"]')
+        .filter({ hasText: 'QA Bot official expense report' })
+        .first();
+
+      await expect(expenseReportDocument).toBeVisible();
+      await expenseReportDocument.getByRole('button', { name: /Upload signed copy/i }).click();
+      await setLivewireFile(page, 'input[type="file"][wire\\:model="signedUpload"]', signedCopyPath);
+      await page.getByRole('button', { name: /^Upload$/i }).click();
+      await expect(page.getByText(/Signed copy uploaded/i)).toBeVisible();
+      await expectPrivatePdf(page, `/projects/${project.id}/documents/${project.expense_report_document_id}/signed`);
+
+      await page.getByRole('combobox').first().selectOption('all');
+      await expect(expenseReportDocument).toContainText('Signed');
+      await expenseReportDocument.getByRole('button', { name: /Document actions/i }).click();
+      page.once('dialog', dialog => dialog.accept());
+      await page.getByText(/Remove signed copy/i).click();
+      await expect(page.getByText(/Signed copy removed/i)).toBeVisible();
+      await expect(expenseReportDocument.getByRole('button', { name: /Upload signed copy/i }).first()).toBeVisible();
+
+      await page.getByRole('button', { name: /View pending signatures/i }).first().click();
+
       const attendanceDocument = page
         .locator('div[style*="padding:1rem 1.1rem"]')
         .filter({ hasText: 'QA Bot attendance list - Mobility workshop' })
@@ -481,9 +568,36 @@ test.describe.serial('Account-owned projects and project invitations', () => {
       await rm(signedDirectory, { recursive: true, force: true });
     }
 
-    const archive = await page.request.get(`/projects/${project.id}/final-archive`);
-    expect(archive.status()).toBe(200);
-    expect(archive.headers()['content-type']).toContain('zip');
+    const mobilityDirectory = await mkdtemp(path.join(os.tmpdir(), 'mobilitycloud-mobility-'));
+    const mobilityDocumentPath = path.join(mobilityDirectory, 'qa-mobility-worksheet.pdf');
+
+    try {
+      await writeFile(mobilityDocumentPath, MINIMAL_SIGNED_PDF);
+
+      await page.goto(`/app/projects/${project.id}/mobility`);
+      await expect(page.getByRole('heading', { name: /Mobility workspace/i })).toBeVisible();
+      await page
+        .getByLabel(/Mobility implementation report/i)
+        .fill('QA Bot confirmed the mobility implementation report and uploaded a worksheet for the final archive.');
+      await page.getByRole('button', { name: /^Save report$/i }).click();
+      await expect(page.getByText(/Mobility report saved/i)).toBeVisible();
+
+      await page.getByLabel(/Mobility document title/i).fill('QA Bot mobility worksheet');
+      await page.getByLabel(/Mobility document category/i).selectOption('mobility_material');
+      await page.getByLabel(/Mobility document notes/i).fill('Worksheet used during the QA browser mobility check.');
+      await setLivewireFile(page, 'input[type="file"][wire\\:model="documentUpload"]', mobilityDocumentPath);
+      await page.getByRole('button', { name: /^Upload document$/i }).click();
+      await expect(page.getByText(/Mobility document uploaded/i)).toBeVisible();
+      await expect(page.getByText('QA Bot mobility worksheet').first()).toBeVisible();
+    } finally {
+      await rm(mobilityDirectory, { recursive: true, force: true });
+    }
+
+    const entries = await archiveEntries(page, project.id);
+    expectArchiveEntry(entries, /\/00-project-data\/project-data\.json$/);
+    expectArchiveEntry(entries, /\/06-generated-records\/attendance\/.+\/signed-signed-attendance\.pdf$/);
+    expectArchiveEntry(entries, /\/07-mobility\/mobility-material-worksheet\/.+\/original-qa-mobility-worksheet\.pdf$/);
+    expectArchiveEntry(entries, /\/08-dissemination\/youth-group-spain\/.+\/original-qa-dissemination-evidence\.pdf$/);
   });
 
   test('platform owner opens the platform administration surface, not a workspace dashboard', async ({ page }) => {
@@ -491,8 +605,41 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     await expect(page.getByRole('heading', { name: /Platform administration/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /workspace/i })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Announcements', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Plans & entitlements', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Audit log', exact: true })).toBeVisible();
+    await expect(page.getByText(/No access deadlines or blocked accounts need attention/i)).toBeVisible();
 
-    await logoutByClearingSession(page);
-    await expect(page.getByLabel(/email/i)).toBeVisible();
+    await page.goto('/platform/account-settings');
+    await expect(page.getByRole('heading', { name: /Account Center/i })).toBeVisible();
+    await expect(page.getByText(/platform administrator profile/i)).toBeVisible();
+    await expect(page.getByText(/Project plan/i)).toHaveCount(0);
+    await page.getByLabel(/Default landing/i).selectOption('audit');
+    await page.getByLabel(/Interface density/i).selectOption('compact');
+    await page.getByRole('button', { name: /^Save preferences$/i }).click();
+    await expect(page.getByText(/Account preferences saved/i)).toBeVisible();
+
+    await page.goto('/platform/platform-users');
+    await expect(page.getByRole('heading', { name: /Accounts/i })).toBeVisible();
+    await expect(page.getByText(state.users.owner.email).first()).toBeVisible();
+    await expect(page.getByText(state.users.editor.email).first()).toBeVisible();
+    await expect(page.getByText(/QA Bot Owner/i).first()).toBeVisible();
+    await expect(page.getByText(/Writer Pro|Free|Demo/i).first()).toBeVisible();
+
+    const announcementTitle = `QA Bot platform notice ${Date.now()}`;
+    await page.goto('/platform/platform-announcements/create');
+    await expect(page.getByRole('heading', { name: /Create account/i })).toHaveCount(0);
+    await page.getByRole('textbox', { name: /Title/i }).fill(announcementTitle);
+    await page.getByRole('textbox', { name: /Message/i }).fill('QA Bot verifies that platform owners can create operational announcements from the admin panel.');
+    await page.getByRole('button', { name: /^Create$/i }).click();
+    await expect(page).toHaveURL(/\/platform\/platform-announcements$/);
+    await expect(page.getByText(announcementTitle).first()).toBeVisible();
+
+    await page.goto('/platform/platform-audit-logs');
+    await expect(page.getByRole('heading', { name: /Audit log/i })).toBeVisible();
+    const auditRow = page.getByRole('row').filter({ hasText: announcementTitle }).first();
+    await expect(auditRow).toBeVisible();
+    await expect(auditRow).toContainText('announcement.created');
   });
 });

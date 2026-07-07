@@ -35,6 +35,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
 use App\Support\PlanCatalog;
+use App\Support\AccountAccess;
 use App\Support\WorkspaceAccess;
 use Filament\Auth\Notifications\ResetPassword;
 use Filament\Auth\Pages\Login;
@@ -139,8 +140,8 @@ class PlatformAdminPanelTest extends TestCase
                 'billing_address' => 'Bucharest',
                 'plan' => 'writer_pro',
                 'subscription_status' => 'trial',
-                'trial_ends_at' => '2026-07-15 10:00:00',
-                'subscription_ends_at' => '2026-08-15 10:00:00',
+                'trial_ends_at' => now()->addDays(10)->startOfMinute()->format('Y-m-d H:i:s'),
+                'subscription_ends_at' => now()->addDays(40)->startOfMinute()->format('Y-m-d H:i:s'),
                 'is_suspended' => false,
                 'is_internal' => false,
                 'internal_notes' => 'Manual support override.',
@@ -152,7 +153,7 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertSame('writer_pro', $clientWorkspace->plan);
         $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $clientWorkspace->feature_flags);
         $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $clientWorkspace->plan_limits);
-        $this->assertSame('trial', $clientWorkspace->subscription_status);
+        $this->assertSame('active', $clientWorkspace->subscription_status);
         $this->assertSame('Manual support override.', $clientWorkspace->internal_notes);
         $this->assertDatabaseHas('platform_audit_logs', [
             'action' => 'workspace.updated',
@@ -990,20 +991,22 @@ class PlatformAdminPanelTest extends TestCase
         ]);
     }
 
-    public function test_workspace_feature_flags_can_disable_a_module(): void
+    public function test_account_feature_flags_can_disable_a_module(): void
     {
         $workspace = Workspace::create([
             'name' => 'Feature Workspace',
+        ]);
+        $user = User::factory()->create([
+            'role' => User::ROLE_USER,
             'feature_flags' => array_values(array_diff(array_keys(PlanCatalog::moduleOptions()), [PlanCatalog::MODULE_CURRENCIES])),
         ]);
-        $user = User::factory()->create(['role' => User::ROLE_USER]);
         $workspace->users()->attach($user, ['role' => 'admin']);
 
         $this->actingAs($user);
         Filament::setTenant($workspace);
 
         $this->assertFalse(ManageCurrencies::canAccess());
-        $this->assertFalse(WorkspaceAccess::moduleEnabled($workspace, PlanCatalog::MODULE_CURRENCIES));
+        $this->assertFalse(AccountAccess::moduleEnabled($user, PlanCatalog::MODULE_CURRENCIES));
     }
 
     public function test_workspace_project_limit_blocks_new_project_creation(): void
@@ -1797,10 +1800,11 @@ class PlatformAdminPanelTest extends TestCase
             'plans' => ['writer_pro'],
             'is_active' => true,
         ]);
-        $user = User::factory()->create();
+        $writerProUser = User::factory()->create(['plan' => 'writer_pro']);
+        $freeUser = User::factory()->create(['plan' => 'free']);
 
-        $this->assertTrue($announcement->isVisibleFor($user, Workspace::create(['name' => 'Pro', 'plan' => 'writer_pro'])));
-        $this->assertFalse($announcement->isVisibleFor($user, Workspace::create(['name' => 'Free', 'plan' => 'free'])));
+        $this->assertTrue($announcement->isVisibleFor($writerProUser, null));
+        $this->assertFalse($announcement->isVisibleFor($freeUser, null));
     }
 
     private function usePlatformPanel(): void

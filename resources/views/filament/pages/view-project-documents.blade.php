@@ -389,6 +389,7 @@
 
                     <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.28rem;">Dissemination report</label>
                     <textarea rows="5" wire:model.defer="disseminationReports.{{ $organisation['key'] }}"
+                              aria-label="Dissemination report for {{ $organisation['name'] }}"
                               placeholder="Describe what dissemination was carried out by this organisation: activities, audience, dates, channels, reach and concrete results."
                               style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.28);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
                     @error('disseminationReports.'.$organisation['key']) <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
@@ -741,7 +742,7 @@
                 <p class="mc-modal-description">
                     {{ $selectedDisseminationOrg['name'] ?? 'Selected organisation' }} · PDF, image, Word or spreadsheet file, maximum 20 MB.
                 </p>
-                <input type="file" wire:model="disseminationUpload" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" style="width:100%;font-size:13px;">
+                <input type="file" wire:model="disseminationUpload" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" aria-label="Dissemination evidence file" style="width:100%;font-size:13px;">
                 @error('disseminationUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                 <div class="mc-modal-actions">
                     <button type="button" wire:click="closeDisseminationUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
@@ -762,13 +763,13 @@
                 <h2 class="mc-modal-heading" style="margin-bottom:1rem;">Upload project document</h2>
 
                 <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">TITLE *</label>
-                <input type="text" wire:model="documentTitle" style="width:100%;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;margin-bottom:.8rem;background:transparent;">
+                <input type="text" wire:model="documentTitle" aria-label="Project document title" style="width:100%;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;margin-bottom:.8rem;background:transparent;">
                 @error('documentTitle') <span style="display:block;color:#dc2626;font-size:11px;margin-top:-8px;margin-bottom:8px;">{{ $message }}</span> @enderror
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:.8rem;">
                     <div>
                         <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">CATEGORY *</label>
-                        <select wire:model="documentCategory" style="width:100%;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;background:transparent;">
+                        <select wire:model="documentCategory" aria-label="Project document category" style="width:100%;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;background:transparent;">
                             @foreach($documentCategories as $key => $label)
                                 <option value="{{ $key }}">{{ $label }}</option>
                             @endforeach
@@ -783,7 +784,7 @@
                 <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">NOTES</label>
                 <textarea wire:model="documentNotes" rows="3" style="width:100%;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:7px;margin-bottom:.8rem;background:transparent;resize:vertical;"></textarea>
 
-                <input type="file" wire:model="documentUpload" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" style="width:100%;font-size:13px;">
+                <input type="file" wire:model="documentUpload" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" aria-label="Project document file" style="width:100%;font-size:13px;">
                 @error('documentUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin:.5rem 0 0;">PDF, image, Word or Excel; maximum 20 MB. Files are stored privately.</p>
 

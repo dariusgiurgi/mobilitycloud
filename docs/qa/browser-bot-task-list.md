@@ -87,6 +87,11 @@ MobilityCloudQA!2026
 - Sign in as `qa.platform-owner@mobilitycloud.test`.
 - Confirm the platform administration dashboard opens.
 - Confirm the bot does not land in any workspace onboarding/dashboard flow.
+- Confirm the platform admin Account Center loads without client project-plan controls.
+- Confirm the account list shows seeded users and account plan/status data.
+- Create a platform announcement from the browser.
+- Confirm the announcement is listed.
+- Confirm the announcement creation is written to the owner-only audit log.
 
 ### 8. Writing workspace for official KA152 applications
 
@@ -151,10 +156,16 @@ MobilityCloudQA!2026
 - Download attendance PDF, expense report PDF, civil convention PDF and payment evidence PDF.
 - Download an uploaded private file.
 - Generate a formal expense report through the browser modal with basket/category ordering.
+- Upload and remove a signed formal expense report copy through the browser modal.
+- Add a dissemination report for an organisation.
+- Upload dissemination evidence for an organisation.
 - Upload a signed attendance copy through the browser Documents modal.
 - Confirm pending-signature filtering updates after the signed copy is uploaded.
 - Download the uploaded signed attendance copy.
+- Save the mobility implementation report.
+- Upload a mobility material/document.
 - Download the final project archive ZIP.
+- Inspect the final archive ZIP contents and confirm generated records, signed attendance, mobility material and dissemination evidence are exported in ordered folders.
 - Confirm a Viewer can open documents and download allowed files.
 - Confirm a Viewer cannot see document mutation actions.
 
@@ -191,15 +202,13 @@ MobilityCloudQA!2026
 
 ### Documents
 
-- Upload and remove signed copies for formal expense reports through the browser modal.
-- Inspect the final archive ZIP contents and confirm ordered folders/file names.
+- Upload signed civil convention copies through the browser modal.
+- Upload civil convention payment evidence through the browser modal.
 
 ### Dissemination and mobility
 
-- Add dissemination report per organisation.
-- Upload dissemination evidence per organisation.
-- Add mobility materials/documents.
-- Verify final archive includes dissemination and mobility evidence.
+- Repeat dissemination report/evidence coverage for every seeded partner organisation.
+- Verify Viewer read-only access for dissemination and mobility pages.
 
 ### Account and subscription
 
@@ -210,9 +219,9 @@ MobilityCloudQA!2026
 
 ### Platform admin
 
-- Verify user list, account details and plan fields.
+- Verify account details pages and support-note relation manager.
 - Verify owner-only actions cannot be used by platform admins.
-- Verify announcements create/update/archive.
+- Verify announcements update/archive.
 - Verify audit log entries are written for sensitive actions.
 - Verify no workspace management appears in the admin navigation.
 

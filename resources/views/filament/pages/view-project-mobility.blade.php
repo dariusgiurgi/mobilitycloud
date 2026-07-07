@@ -35,6 +35,7 @@
     <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.72fr);gap:1rem;margin-top:1rem;align-items:start;">
         <x-filament::section heading="Mobility implementation report" description="Use this for a short internal report about what happened during the mobility." icon="heroicon-o-clipboard-document-check">
             <textarea rows="8" wire:model.defer="mobilityReport"
+                      aria-label="Mobility implementation report"
                       placeholder="Describe the mobility implementation: what was delivered, materials created, participant outputs, unexpected changes, learning moments and evidence kept in the archive."
                       style="width:100%;padding:.75rem .85rem;border:1px solid rgba(100,116,139,.28);border-radius:.75rem;background:transparent;font-size:.82rem;resize:vertical;"></textarea>
             @error('mobilityReport') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
@@ -56,14 +57,14 @@
                 <div style="display:grid;gap:.65rem;">
                     <div>
                         <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Title *</label>
-                        <input type="text" wire:model="documentTitle" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                        <input type="text" wire:model="documentTitle" aria-label="Mobility document title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                         @error('documentTitle') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                     </div>
 
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;">
                         <div>
                             <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Category *</label>
-                            <select wire:model="documentCategory" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                            <select wire:model="documentCategory" aria-label="Mobility document category" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                                 @foreach($categories as $key => $label)
                                     <option value="{{ $key }}">{{ $label }}</option>
                                 @endforeach
@@ -77,12 +78,12 @@
 
                     <div>
                         <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Notes</label>
-                        <textarea rows="3" wire:model="documentNotes" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;resize:vertical;"></textarea>
+                        <textarea rows="3" wire:model="documentNotes" aria-label="Mobility document notes" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;resize:vertical;"></textarea>
                     </div>
 
                     <div>
                         <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">File *</label>
-                        <input type="file" wire:model="documentUpload" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" style="width:100%;font-size:.78rem;">
+                        <input type="file" wire:model="documentUpload" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" aria-label="Mobility document file" style="width:100%;font-size:.78rem;">
                         @error('documentUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                     </div>
 

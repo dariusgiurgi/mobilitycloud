@@ -95,12 +95,11 @@ class ProjectListTest extends TestCase
             ->assertSee('New project');
 
         $userAccount = app(AccountWorkspaceService::class)->ensureFor($user);
-        $this->assertStringContainsString(
-            $userAccount->slug.'/projects/create',
-            Livewire::test(ListProjects::class)->html(),
-        );
+        $this->assertStringContainsString('/app/projects/create', Livewire::test(ListProjects::class)->html());
+        $this->assertStringNotContainsString($invitingWorkspace->slug.'/projects/create', Livewire::test(ListProjects::class)->html());
         Project::create([
             'workspace_id' => $userAccount->id,
+            'owner_id' => $user->id,
             'name' => 'My Free Plan Project',
             'status' => 'writing',
         ]);
@@ -125,7 +124,8 @@ class ProjectListTest extends TestCase
         $this->actingAs($user);
 
         $this->get(ProjectResource::getUrl('create', tenant: $invitingWorkspace))
-            ->assertRedirect(ProjectResource::getUrl('create', tenant: $userAccount));
+            ->assertOk()
+            ->assertSee('Create a new project');
     }
 
     public function test_old_project_links_under_the_owner_workspace_redirect_to_the_users_account_workspace(): void
@@ -145,7 +145,9 @@ class ProjectListTest extends TestCase
         $this->actingAs($user);
 
         $this->get(ProjectResource::getUrl('overview', ['record' => $project], tenant: $ownerWorkspace))
-            ->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], tenant: $userAccount));
+            ->assertOk()
+            ->assertSee('Externally Owned Project')
+            ->assertSee('Editor');
     }
 
     public function test_project_created_after_external_collaboration_is_stored_under_the_users_account_workspace(): void
@@ -174,9 +176,10 @@ class ProjectListTest extends TestCase
             ->assertHasNoFormErrors();
 
         $project = Project::query()->where('name', 'My Account Project')->firstOrFail();
-        $this->assertSame($userAccount->id, $project->workspace_id);
+        $this->assertSame($user->id, $project->owner_id);
+        $this->assertNull($project->workspace_id);
         $this->assertTrue($project->canBeAccessedBy($user));
-        $component->assertRedirect(ProjectResource::getUrl('overview', ['record' => $project], tenant: $userAccount));
+        $component->assertRedirect(ProjectResource::projectUrl($project));
     }
 
     public function test_project_list_shows_accessible_projects_across_internal_containers(): void

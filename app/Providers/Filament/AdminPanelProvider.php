@@ -53,6 +53,8 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Indigo,
             ])
             ->sidebarCollapsibleOnDesktop()
+            ->tenantSwitcher(false)
+            ->tenantMenu(false)
             ->databaseNotifications()
             ->databaseNotificationsPolling(null)
             ->renderHook(
