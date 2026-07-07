@@ -7,9 +7,6 @@ use App\Filament\Resources\Projects\Pages\ViewProjectBoard;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -20,9 +17,8 @@ class ProjectSettingsTest extends TestCase
 
     public function test_settings_are_grouped_by_operational_impact(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('owner');
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertSee('Project identity')
@@ -38,9 +34,8 @@ class ProjectSettingsTest extends TestCase
 
     public function test_settings_validate_dates_and_financial_percentages(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm([
@@ -62,9 +57,8 @@ class ProjectSettingsTest extends TestCase
 
     public function test_expense_prefix_is_saved_in_a_consistent_format(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm(['expense_prefix' => 'eras-26'])
@@ -76,9 +70,8 @@ class ProjectSettingsTest extends TestCase
 
     public function test_application_template_is_saved_as_normalised_action_key(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertFormSet(['ka_action' => 'ka152-you'])
@@ -91,9 +84,8 @@ class ProjectSettingsTest extends TestCase
 
     public function test_application_template_can_be_cleared_for_manual_projects(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm(['ka_action' => null])
@@ -105,12 +97,21 @@ class ProjectSettingsTest extends TestCase
 
     public function test_project_settings_manage_project_currencies_and_recalculate_project_expenses(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
+        $otherOwner = User::factory()->create();
         $otherProject = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $otherOwner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Other project',
             'status' => 'active',
             'currencies' => [['code' => 'RON', 'rate' => 5.07]],
+        ]);
+        $otherLine = $otherProject->budgetLines()->create([
+            'title' => 'Other travel',
+            'emoji' => '✈️',
+            'allocated_budget' => 1000,
+            'sort_order' => 0,
         ]);
         $project->update(['currencies' => [['code' => 'RON', 'rate' => 5.07]]]);
         $expense = $project->budgetLines()->first()->expenses()->create([
@@ -120,7 +121,7 @@ class ProjectSettingsTest extends TestCase
             'exchange_rate' => 5.07,
             'amount_eur' => 100,
         ]);
-        $otherExpense = $otherProject->budgetLines()->first()->expenses()->create([
+        $otherExpense = $otherLine->expenses()->create([
             'description' => 'Other venue',
             'amount' => 507,
             'currency' => 'RON',
@@ -129,7 +130,6 @@ class ProjectSettingsTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm([
@@ -148,10 +148,9 @@ class ProjectSettingsTest extends TestCase
         $this->assertSame('100.00', $otherExpense->fresh()->amount_eur);
     }
 
-    public function test_budget_uses_project_currencies_not_workspace_currencies(): void
+    public function test_budget_uses_project_currencies_only(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser(Project::PROJECT_ROLE_EDITOR);
-        $workspace->update(['currencies' => ['RON' => 5.07]]);
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $project->update(['currencies' => [['code' => 'USD', 'rate' => 1.08]]]);
         $project->budgetLines()->first()->expenses()->create([
             'description' => 'Visible expense',
@@ -161,7 +160,6 @@ class ProjectSettingsTest extends TestCase
             'amount_eur' => 10,
         ]);
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
             ->assertSee('USD')
@@ -170,36 +168,45 @@ class ProjectSettingsTest extends TestCase
 
     public function test_viewer_cannot_see_or_open_project_settings(): void
     {
-        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        [$project, $viewer] = $this->projectAndUser(Project::PROJECT_ROLE_VIEWER);
         $this->actingAs($viewer);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($viewer));
 
         $this->assertFalse($project->canBeManagedBy($viewer));
 
         $this->get(ProjectResource::projectUrl($project, 'edit', $viewer))
-            ->assertNotFound();
+            ->assertForbidden();
     }
 
-    private function workspaceProjectAndUser(string $role): array
+    private function projectAndUser(string $role): array
     {
-        $workspace = Workspace::create(['name' => 'Settings Workspace']);
         $user = User::factory()->create();
+        $owner = $role === Project::PROJECT_ROLE_VIEWER
+            ? User::factory()->create()
+            : $user;
+
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'writing',
-            'ka_action' => 'ka152',
+            'ka_action' => 'ka152-you',
             'total_budget' => 15000,
             'first_tranche_pct' => 80,
             'withholding_tax_rate' => 10,
         ]);
 
-        if (in_array($role, [Project::PROJECT_ROLE_EDITOR, Project::PROJECT_ROLE_VIEWER], true)) {
+        $project->budgetLines()->create([
+            'title' => 'Travel',
+            'emoji' => '✈️',
+            'allocated_budget' => 15000,
+            'sort_order' => 0,
+        ]);
+
+        if ($role === Project::PROJECT_ROLE_VIEWER) {
             $project->members()->attach($user, ['role' => $role]);
-        } else {
-            $workspace->users()->attach($user, ['role' => $role]);
         }
 
-        return [$workspace, $project, $user];
+        return [$project, $user];
     }
 }

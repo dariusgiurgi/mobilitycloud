@@ -115,6 +115,8 @@ MobilityCloudQA!2026
 - Confirm approved budget, spent amount and seeded expenses are visible.
 - Confirm the project budget PDF export works for the owner.
 - Confirm accounts without project access cannot export the budget report.
+- Cover add-basket, add-expense and project-rate currency conversion through feature tests.
+- Cover project currency updates recalculating only that project's expenses through feature tests.
 
 ### 10. Participant register and CSV export
 
@@ -170,9 +172,8 @@ MobilityCloudQA!2026
 
 ### Budget
 
-- Change project currency rate and verify project totals update.
-- Add/edit/delete budget baskets through the board.
-- Add/edit expenses in EUR and a secondary currency through the board.
+- Execute add/edit/delete budget basket flows through the browser.
+- Execute add/edit expenses in EUR and a secondary currency through the browser.
 - Generate formal expenditure report from Documents.
 
 ### Participants
