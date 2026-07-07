@@ -1,4 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { login, logoutByClearingSession } from './support/auth';
 import { qaState } from './support/qa-state';
 
@@ -171,6 +174,22 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(`QA ${manualParticipantLastName} Edited`).first()).toBeVisible();
 
     await expectParticipantsCsv(page, state.projects.participants.id);
+
+    const csvImportDir = await mkdtemp(path.join(os.tmpdir(), 'mobilitycloud-participants-'));
+    const csvImportPath = path.join(csvImportDir, 'participants-import.csv');
+    const importedParticipantLastName = `Imported${Date.now()}`;
+    await writeFile(csvImportPath, [
+      '"Last name";"First name";Organisation;Role;Country;"Birth date";Nationality;Gender;Email;"Fewer opportunities"',
+      `${importedParticipantLastName};CSV;QA CSV Association;Participant;Romania;2001-02-03;Romanian;female;csv.${importedParticipantLastName.toLowerCase()}@mobilitycloud.test;No`,
+    ].join('\n'));
+
+    await page.getByRole('button', { name: /^Import CSV$/i }).click();
+    await expect(page.getByText(/Import participants/i)).toBeVisible();
+    await page.getByLabel(/Participants CSV file/i).setInputFiles(csvImportPath);
+    await page.getByRole('button', { name: /^Import$/i }).click();
+    await expect(page.getByText(`CSV ${importedParticipantLastName}`).first()).toBeVisible();
+    await expect(page.getByText('QA CSV Association').first()).toBeVisible();
+    await rm(csvImportDir, { recursive: true, force: true });
 
     const attendanceActivity = `QA Bot Browser Attendance ${Date.now()}`;
     await page.getByRole('button', { name: /^Attendance list$/i }).click();
