@@ -149,6 +149,9 @@ MobilityCloudQA!2026
 - Confirm checklist items are visible and reflect seeded file state.
 - Download attendance PDF, expense report PDF, civil convention PDF and payment evidence PDF.
 - Download an uploaded private file.
+- Upload a signed attendance copy through the browser Documents modal.
+- Confirm pending-signature filtering updates after the signed copy is uploaded.
+- Download the uploaded signed attendance copy.
 - Download the final project archive ZIP.
 - Confirm a Viewer can open documents and download allowed files.
 - Confirm a Viewer cannot see document mutation actions.
@@ -184,16 +187,11 @@ MobilityCloudQA!2026
 - Execute add/edit expenses in EUR and a secondary currency through the browser.
 - Generate formal expenditure report from Documents.
 
-### Participants
-
-- Upload signed attendance sheets through Documents.
-
 ### Documents
 
 - Generate civil convention through the browser modal.
 - Generate formal expenditure report through the browser modal.
-- Upload signed copy through the browser modal.
-- Verify pending signature state changes after upload/remove actions.
+- Upload and remove signed copies for formal expense reports through the browser modal.
 - Inspect the final archive ZIP contents and confirm ordered folders/file names.
 
 ### Dissemination and mobility

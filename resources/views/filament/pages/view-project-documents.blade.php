@@ -805,7 +805,7 @@
             <div class="mc-modal-panel"><div class="mc-modal-body">
                 <h2 class="mc-modal-heading">Upload signed copy</h2>
                 <p class="mc-modal-description">PDF, JPG or PNG, maximum 20 MB. A previous signed copy will be replaced.</p>
-                <input type="file" wire:model="signedUpload" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;font-size:13px;">
+                <input type="file" wire:model="signedUpload" accept=".pdf,.jpg,.jpeg,.png" aria-label="Signed copy file" style="width:100%;font-size:13px;">
                 @error('signedUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                 <div class="mc-modal-actions">
                     <button type="button" wire:click="closeSignedUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
