@@ -6,10 +6,7 @@ use App\Filament\Pages\DocumentTemplates;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -23,11 +20,10 @@ class DocumentTemplatesTest extends TestCase
     public function test_admin_can_configure_branding_and_generated_document_uses_it(): void
     {
         Storage::fake('local');
-        $workspace = Workspace::create(['name' => 'Brand Workspace']);
         $admin = User::factory()->create();
-        $workspace->users()->attach($admin, ['role' => 'admin']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $admin->id,
+            'workspace_id' => null,
             'name' => 'Branded Project',
             'status' => 'writing',
         ]);
@@ -38,7 +34,6 @@ class DocumentTemplatesTest extends TestCase
         ]);
 
         $this->actingAs($admin);
-        Filament::setTenant($workspace);
 
         Livewire::test(DocumentTemplates::class)
             ->set('brandName', 'Scoala de Jocuri Association')
@@ -54,36 +49,32 @@ class DocumentTemplatesTest extends TestCase
             ->call('save')
             ->assertHasNoErrors();
 
-        $workspace->refresh();
-        $this->assertSame('Scoala de Jocuri Association', $workspace->documentSetting('brand_name'));
-        $this->assertSame('#123456', $workspace->documentSetting('accent_color'));
-        $this->assertSame('RO12345678', $workspace->billing_vat);
-        Storage::disk('local')->assertExists($workspace->document_logo_path);
+        $admin->refresh();
+        $this->assertSame('Scoala de Jocuri Association', data_get($admin->document_settings, 'brand_name'));
+        $this->assertSame('#123456', data_get($admin->document_settings, 'accent_color'));
+        $this->assertSame('RO12345678', data_get($admin->document_settings, 'vat_number'));
+        Storage::disk('local')->assertExists(data_get($admin->document_settings, 'logo_path'));
 
         $html = view('pdf.application-report', [
-            'project' => $project->load('workspace'),
+            'project' => $project->refresh()->load('ownerAccount'),
             'sections' => collect([$section]),
         ])->render();
         $this->assertStringContainsString('Scoala de Jocuri Association', $html);
         $this->assertStringContainsString('Official Erasmus+ record', $html);
         $this->assertStringContainsString('#123456', $html);
         $this->assertStringStartsWith('%PDF', Pdf::loadView('pdf.application-report', [
-            'project' => $project,
+            'project' => $project->refresh()->load('ownerAccount'),
             'sections' => collect([$section]),
         ])->output());
     }
 
-    public function test_viewer_cannot_open_document_template_settings(): void
+    public function test_regular_user_can_open_account_document_template_settings(): void
     {
-        $workspace = Workspace::create(['name' => 'Protected Brand']);
-        $viewer = User::factory()->create();
-        $workspace->users()->attach($viewer, ['role' => 'viewer']);
-        $this->actingAs($viewer);
-        Filament::setTenant($workspace);
-        $accountWorkspace = app(AccountWorkspaceService::class)->ensureFor($viewer);
+        $user = User::factory()->create();
+        $this->actingAs($user);
 
-        $this->assertFalse(DocumentTemplates::canAccess());
-        $this->get(DocumentTemplates::getUrl(tenant: $workspace))
-            ->assertRedirect(DocumentTemplates::getUrl(tenant: $accountWorkspace));
+        $this->assertTrue(DocumentTemplates::canAccess());
+        $this->get(DocumentTemplates::getUrl())
+            ->assertOk();
     }
 }

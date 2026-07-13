@@ -20,7 +20,8 @@ class ContentLibraryTest extends TestCase
     {
         [$workspace, $user] = $this->workspaceAndUser();
         ContentBlock::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
+            'workspace_id' => null,
             'title' => 'Participant safety approach',
             'category' => 'safety',
             'ka_action' => 'ka152',

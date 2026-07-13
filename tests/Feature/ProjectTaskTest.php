@@ -22,7 +22,7 @@ class ProjectTaskTest extends TestCase
     {
         [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');
         $assignee = User::factory()->create();
-        $workspace->users()->attach($assignee, ['role' => 'viewer']);
+        $project->members()->attach($assignee, ['role' => Project::PROJECT_ROLE_VIEWER]);
         $this->actingAs($member);
         Filament::setTenant($workspace);
 
@@ -122,12 +122,15 @@ class ProjectTaskTest extends TestCase
     {
         $workspace = Workspace::create(['name' => 'Task Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
+        $workspace->users()->attach($user, ['role' => 'owner']);
         $project = Project::create([
+            'owner_id' => $role === 'member' ? null : User::factory()->create()->id,
             'workspace_id' => $workspace->id,
             'name' => 'Task Project',
             'status' => 'writing',
         ]);
+        $projectRole = $role === 'viewer' ? Project::PROJECT_ROLE_VIEWER : Project::PROJECT_ROLE_EDITOR;
+        $project->members()->attach($user, ['role' => $projectRole]);
 
         return [$workspace, $project, $user];
     }

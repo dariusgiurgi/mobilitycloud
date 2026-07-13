@@ -6,7 +6,9 @@ use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Middleware\RedirectSuspendedAccount;
+use App\Http\Controllers\WorkspaceBackupController;
 use App\Http\Controllers\WorkspaceInvitationController;
+use App\Http\Controllers\WorkspaceReportController;
 use App\Support\AuthSessionHash;
 use App\Models\User;
 use App\Support\PlatformAudit;
@@ -138,6 +140,10 @@ Route::get('/project-invitations/{token}', [WorkspaceInvitationController::class
     ->name('project-invitations.accept');
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {
+    Route::get('/account/backup', [WorkspaceBackupController::class, 'account'])->name('account.backup');
+    Route::get('/account/report.csv', [WorkspaceReportController::class, 'accountCsv'])->name('account.report.csv');
+    Route::get('/workspaces/{workspace}/backup', [WorkspaceBackupController::class, 'download'])->name('workspaces.backup');
+    Route::get('/workspaces/{workspace}/report.csv', [WorkspaceReportController::class, 'csv'])->name('workspaces.report.csv');
     Route::get('/projects/{project}/export', [ProjectExportController::class, 'report'])->name('projects.export');
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
     Route::get('/projects/{project}/export-application-word', [ProjectExportController::class, 'exportApplicationWord'])->name('projects.export-application-word');

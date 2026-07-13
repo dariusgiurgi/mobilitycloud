@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -23,11 +22,10 @@ class TaskNotificationTest extends TestCase
 
     public function test_assignee_receives_an_in_app_notification_for_a_new_task(): void
     {
-        [$workspace, $project, $manager] = $this->workspaceProjectAndManager();
+        [$project, $manager] = $this->projectAndManager();
         $assignee = User::factory()->create();
-        $workspace->users()->attach($assignee, ['role' => 'viewer']);
+        $project->members()->attach($assignee, ['role' => Project::PROJECT_ROLE_VIEWER]);
         $this->actingAs($manager);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->set('taskTitle', 'Collect partner mandates')
@@ -44,7 +42,7 @@ class TaskNotificationTest extends TestCase
 
     public function test_reminder_command_notifies_once_for_due_and_overdue_tasks(): void
     {
-        [$workspace, $project, $manager] = $this->workspaceProjectAndManager();
+        [$project, $manager] = $this->projectAndManager();
         $dueSoon = $project->tasks()->create([
             'title' => 'Confirm transport',
             'due_date' => today()->addDays(2),
@@ -82,17 +80,16 @@ class TaskNotificationTest extends TestCase
         $this->assertNull($panel->getDatabaseNotificationsPollingInterval());
     }
 
-    private function workspaceProjectAndManager(): array
+    private function projectAndManager(): array
     {
-        $workspace = Workspace::create(['name' => 'Notification Workspace']);
         $manager = User::factory()->create();
-        $workspace->users()->attach($manager, ['role' => 'owner']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $manager->id,
+            'workspace_id' => null,
             'name' => 'Notification Project',
             'status' => 'active',
         ]);
 
-        return [$workspace, $project, $manager];
+        return [$project, $manager];
     }
 }

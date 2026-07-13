@@ -153,6 +153,17 @@ class User extends Authenticatable implements FilamentUser
         };
     }
 
+    /**
+     * Legacy Filament tenancy compatibility. Workspaces are no longer a visible
+     * product concept, but some older tests and internal helpers still ask if an
+     * account can enter the hidden project container.
+     */
+    public function canAccessTenant(mixed $tenant): bool
+    {
+        return $tenant instanceof Workspace
+            && $tenant->hasProjectAccessFor($this);
+    }
+
     public const ROLE_USER = 'user';
 
     public const ROLE_PLATFORM_OWNER = 'platform_owner';

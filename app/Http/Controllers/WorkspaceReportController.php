@@ -10,17 +10,36 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkspaceReportController extends Controller
 {
+    public function accountCsv(Request $request, WorkspaceReportService $reports): StreamedResponse
+    {
+        $data = $this->validatedFilters($request);
+        $report = $reports->build(null, $request->user(), $data);
+        $filename = 'account-project-report-'.now()->format('Y-m-d').'.csv';
+
+        return $this->streamReport($report, $filename);
+    }
+
     public function csv(Request $request, Workspace $workspace, WorkspaceReportService $reports): StreamedResponse
     {
         abort_unless($workspace->users()->whereKey(auth()->id())->exists(), 403);
-        $data = $request->validate([
+        $data = $this->validatedFilters($request);
+        $report = $reports->build($workspace, auth()->user(), $data);
+        $filename = 'workspace-report-'.Str::slug($workspace->name).'-'.now()->format('Y-m-d').'.csv';
+
+        return $this->streamReport($report, $filename);
+    }
+
+    private function validatedFilters(Request $request): array
+    {
+        return $request->validate([
             'status' => ['nullable', 'in:all,writing,submitted,rejected,revise,approved,active,completed'],
             'start' => ['nullable', 'date'],
             'end' => ['nullable', 'date', 'after_or_equal:start'],
         ]);
-        $report = $reports->build($workspace, auth()->user(), $data);
-        $filename = 'workspace-report-'.Str::slug($workspace->name).'-'.now()->format('Y-m-d').'.csv';
+    }
 
+    private function streamReport(array $report, string $filename): StreamedResponse
+    {
         return response()->streamDownload(function () use ($report): void {
             $out = fopen('php://output', 'wb');
             fwrite($out, "\xEF\xBB\xBF");

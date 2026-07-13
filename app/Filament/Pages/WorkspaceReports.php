@@ -6,7 +6,6 @@ use App\Services\WorkspaceReportService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 
@@ -49,8 +48,7 @@ class WorkspaceReports extends Page
 
     public function getCsvUrlProperty(): string
     {
-        return route('workspaces.report.csv', [
-            'workspace' => Filament::getTenant(),
+        return route('account.report.csv', [
             'status' => $this->status,
             'start' => $this->startDate,
             'end' => $this->endDate,

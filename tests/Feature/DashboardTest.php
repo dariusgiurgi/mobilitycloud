@@ -8,9 +8,7 @@ use App\Filament\Widgets\ProjectStatsOverview;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -21,7 +19,7 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_surfaces_current_work_and_real_attention_items(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser();
+        [$project, $user] = $this->projectAndOwner();
         $project->update([
             'status' => 'active',
             'approved_budget' => 12000,
@@ -46,7 +44,6 @@ class DashboardTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(DashboardWorkspace::class)
             ->assertSee('Needs attention')
@@ -67,9 +64,8 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_uses_the_professional_widget_order(): void
     {
-        [$workspace, , $user] = $this->workspaceProjectAndUser();
+        [, $user] = $this->projectAndOwner();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $dashboard = app(Dashboard::class);
 
@@ -85,16 +81,18 @@ class DashboardTest extends TestCase
 
     public function test_dashboard_lists_pending_project_invitations_for_account_email(): void
     {
-        [$workspace, , $user] = $this->workspaceProjectAndUser();
-        $invitingWorkspace = Workspace::create(['name' => 'Inviting Portfolio']);
+        [, $user] = $this->projectAndOwner();
+        $inviter = User::factory()->create(['name' => 'Inviting Portfolio']);
         $invitedProject = Project::create([
-            'workspace_id' => $invitingWorkspace->id,
+            'owner_id' => $inviter->id,
+            'workspace_id' => null,
             'name' => 'Shared Project',
             'status' => 'writing',
         ]);
         WorkspaceInvitation::create([
-            'workspace_id' => $invitingWorkspace->id,
+            'workspace_id' => null,
             'project_id' => $invitedProject->id,
+            'invited_by' => $inviter->id,
             'email' => $user->email,
             'role' => 'project_editor',
             'token' => str_repeat('d', 64),
@@ -102,7 +100,6 @@ class DashboardTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
         $this->assertSame(0, $user->notifications()->count());
 
         Livewire::test(DashboardWorkspace::class)
@@ -118,12 +115,11 @@ class DashboardTest extends TestCase
 
     public function test_project_stats_render_for_project_only_collaborators(): void
     {
-        $workspace = Workspace::create(['name' => 'External Stats Workspace']);
         $owner = User::factory()->create();
         $user = User::factory()->create();
-        $workspace->users()->attach($owner, ['role' => 'owner']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
             'name' => 'External Active Project',
             'status' => 'active',
             'approved_budget' => 5000,
@@ -131,7 +127,6 @@ class DashboardTest extends TestCase
         $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ProjectStatsOverview::class)
             ->assertSee('Active projects')
@@ -141,16 +136,15 @@ class DashboardTest extends TestCase
 
     public function test_workspace_member_can_render_the_complete_dashboard_page(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser();
+        [$project, $user] = $this->projectAndOwner();
         $project->update([
             'status' => 'active',
             'approved_budget' => 12000,
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
-        $this->get(Dashboard::getUrl(tenant: $workspace))
+        $this->get(Dashboard::getUrl())
             ->assertOk()
             ->assertSee('Project dashboard')
             ->assertSee('Approved funding')
@@ -161,18 +155,17 @@ class DashboardTest extends TestCase
             ->assertDontSee('wire:poll.30s', false);
     }
 
-    private function workspaceProjectAndUser(): array
+    private function projectAndOwner(): array
     {
-        $workspace = Workspace::create(['name' => 'Dashboard Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'owner']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
+            'workspace_id' => null,
             'name' => 'Youth Exchange',
             'status' => 'writing',
             'total_budget' => 15000,
         ]);
 
-        return [$workspace, $project, $user];
+        return [$project, $user];
     }
 }

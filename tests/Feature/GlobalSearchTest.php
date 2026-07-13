@@ -7,8 +7,6 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -19,11 +17,10 @@ class GlobalSearchTest extends TestCase
 
     public function test_search_finds_multiple_record_types_without_leaking_restricted_projects(): void
     {
-        $workspace = Workspace::create(['name' => 'Search Workspace']);
         $viewer = User::factory()->create();
-        $workspace->users()->attach($viewer, ['role' => 'viewer']);
         $visible = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $viewer->id,
+            'workspace_id' => null,
             'name' => 'Aurora Exchange',
             'status' => 'active',
         ]);
@@ -38,15 +35,16 @@ class GlobalSearchTest extends TestCase
             'type' => ProjectDocument::TYPE_UPLOAD,
             'title' => 'Aurora mandate',
         ]);
+        $otherUser = User::factory()->create();
         $hidden = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $otherUser->id,
+            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Aurora Confidential',
             'status' => 'active',
         ]);
 
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(GlobalSearch::class)
             ->set('search', 'Aurora')
@@ -58,17 +56,17 @@ class GlobalSearchTest extends TestCase
 
     public function test_search_uses_the_full_accessible_project_portfolio(): void
     {
-        $home = Workspace::create(['name' => 'Home Portfolio']);
-        $sharedWorkspace = Workspace::create(['name' => 'Shared Portfolio']);
         $user = User::factory()->create();
-        $home->users()->attach($user, ['role' => 'owner']);
+        $owner = User::factory()->create();
         $homeProject = Project::create([
-            'workspace_id' => $home->id,
+            'owner_id' => $user->id,
+            'workspace_id' => null,
             'name' => 'Home Aurora',
             'status' => 'active',
         ]);
         $sharedProject = Project::create([
-            'workspace_id' => $sharedWorkspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
             'name' => 'Shared Aurora',
             'status' => 'active',
         ]);
@@ -81,7 +79,6 @@ class GlobalSearchTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($home);
 
         Livewire::test(GlobalSearch::class)
             ->set('search', 'Aurora')

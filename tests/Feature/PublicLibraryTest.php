@@ -7,7 +7,6 @@ use App\Models\ContentBlock;
 use App\Models\PublicContentBlock;
 use App\Models\User;
 use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -26,7 +25,6 @@ class PublicLibraryTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(PublicLibrary::class)
             ->assertSee('Shared knowledge, reusable safely')
@@ -43,14 +41,13 @@ class PublicLibraryTest extends TestCase
         $block = $this->publicBlock($workspace, $author);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(PublicLibrary::class)
             ->call('import', $block->id)
             ->assertSee('In my library')
             ->call('import', $block->id);
 
-        $this->assertSame(1, ContentBlock::where('workspace_id', $workspace->id)->count());
+        $this->assertSame(1, ContentBlock::where('owner_id', $user->id)->whereNull('workspace_id')->count());
         $this->assertSame(1, $block->fresh()->import_count);
     }
 
@@ -61,7 +58,6 @@ class PublicLibraryTest extends TestCase
         $this->publicBlock($workspace, $author, ['title' => 'Community draft', 'is_proven' => false]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(PublicLibrary::class)
             ->assertSee('Community draft')
@@ -75,7 +71,6 @@ class PublicLibraryTest extends TestCase
         $workspace = Workspace::create(['name' => 'Public Library Workspace']);
         $user = User::factory()->create();
         $author = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
 
         return [$workspace, $user, $author];
     }

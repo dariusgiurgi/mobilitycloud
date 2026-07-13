@@ -50,7 +50,7 @@ class WorkspaceData extends Page
 
     public function getBackupUrlProperty(): string
     {
-        return route('workspaces.backup', Filament::getTenant());
+        return route('account.backup');
     }
 
     public function restore(WorkspaceRestoreService $restores): void

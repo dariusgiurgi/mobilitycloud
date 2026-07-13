@@ -120,6 +120,39 @@ class WorkspaceBackupTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_account_backup_contains_account_visible_projects_without_workspace_membership(): void
+    {
+        $owner = User::factory()->create();
+        $project = Project::create([
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
+            'name' => 'Account Owned Project',
+            'status' => 'active',
+        ]);
+        $workspaceProject = Project::create([
+            'workspace_id' => Workspace::create(['name' => 'Legacy Workspace'])->id,
+            'name' => 'Hidden Legacy Project',
+            'status' => 'active',
+        ]);
+
+        $this->actingAs($owner);
+
+        $path = app(WorkspaceBackupService::class)->createForAccount(
+            $owner,
+            app(\App\Services\AccountWorkspaceService::class)->ensureFor($owner),
+        );
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($path) === true);
+        $payload = json_decode($zip->getFromName('workspace-data.json'), true, flags: JSON_THROW_ON_ERROR);
+
+        $this->assertSame('Account backup - '.$owner->email, $payload['workspace']['name']);
+        $this->assertContains($project->id, collect($payload['projects'])->pluck('project.id')->all());
+        $this->assertNotContains($workspaceProject->id, collect($payload['projects'])->pluck('project.id')->all());
+
+        $zip->close();
+        unlink($path);
+    }
+
     public function test_legacy_version_one_backup_remains_restorable(): void
     {
         Storage::fake('local');

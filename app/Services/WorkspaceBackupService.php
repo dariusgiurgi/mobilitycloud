@@ -3,9 +3,13 @@
 namespace App\Services;
 
 use App\Models\BudgetTransfer;
+use App\Models\ContentBlock;
+use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\SavedCalculation;
+use App\Models\User;
 use App\Models\Workspace;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -14,6 +18,49 @@ use ZipArchive;
 class WorkspaceBackupService
 {
     public function create(Workspace $workspace): string
+    {
+        $projects = $this->projectQuery($workspace->projects())->get();
+
+        return $this->archive($workspace, $projects, [
+            'workspace' => $workspace->toArray(),
+            'team' => $workspace->users()->orderBy('name')->get()->map(fn ($user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->pivot->role,
+                'joined_at' => $user->pivot->joined_at,
+            ])->all(),
+            'content_library' => $workspace->contentBlocks()->get()->toArray(),
+            'saved_calculations' => SavedCalculation::query()->where('workspace_id', $workspace->id)->get()->toArray(),
+        ]);
+    }
+
+    public function createForAccount(User $user, Workspace $workspace): string
+    {
+        $projects = $this->projectQuery(Project::query()->visibleToAccount($user))->get();
+
+        return $this->archive($workspace, $projects, [
+            'workspace' => [
+                ...$workspace->toArray(),
+                'name' => 'Account backup - '.$user->email,
+                'account_id' => $user->id,
+                'account_email' => $user->email,
+                'document_settings' => $user->document_settings ?? [],
+                'document_logo_path' => data_get($user->document_settings, 'logo_path'),
+            ],
+            'team' => [[
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => 'owner',
+                'joined_at' => $user->created_at?->toDateTimeString(),
+            ]],
+            'content_library' => ContentBlock::query()->where('owner_id', $user->id)->get()->toArray(),
+            'saved_calculations' => SavedCalculation::query()->where('created_by', $user->id)->get()->toArray(),
+        ]);
+    }
+
+    private function archive(Workspace $workspace, Collection $projects, array $metadata): string
     {
         $path = tempnam(sys_get_temp_dir(), 'mobilitycloud-backup-');
         if ($path === false) {
@@ -25,35 +72,10 @@ class WorkspaceBackupService
             throw new RuntimeException('Could not open the backup archive.');
         }
 
-        $projects = $workspace->projects()->withTrashed()->with([
-            'members:id,name,email',
-            'applicationSections',
-            'budgetLines' => fn ($query) => $query->orderBy('sort_order'),
-            'budgetLines.expenses' => fn ($query) => $query->withTrashed(),
-            'participants.attachments',
-            'documents' => fn ($query) => $query
-                ->orderBy('category')
-                ->orderByRaw('document_date is null')
-                ->orderBy('document_date')
-                ->orderBy('title')
-                ->orderBy('id'),
-            'tasks',
-            'activityLogs',
-        ])->get();
-
         $payload = [
             'exported_at' => now()->toIso8601String(),
             'format_version' => 2,
-            'workspace' => $workspace->toArray(),
-            'team' => $workspace->users()->orderBy('name')->get()->map(fn ($user): array => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->pivot->role,
-                'joined_at' => $user->pivot->joined_at,
-            ])->all(),
-            'content_library' => $workspace->contentBlocks()->get()->toArray(),
-            'saved_calculations' => SavedCalculation::query()->where('workspace_id', $workspace->id)->get()->toArray(),
+            ...$metadata,
             'projects' => $projects->map(fn ($project): array => [
                 'project' => $project->attributesToArray(),
                 'member_ids' => $project->members->pluck('id')->all(),
@@ -100,6 +122,9 @@ class WorkspaceBackupService
             }
         }
 
+        $documentLogoPath = data_get($payload, 'workspace.document_logo_path')
+            ?: data_get($payload, 'workspace.document_settings.logo_path');
+
         $this->addStoredFile(
             $zip,
             $fileIndex,
@@ -107,9 +132,9 @@ class WorkspaceBackupService
             $workspace->id,
             'document_logo',
             'local',
-            $workspace->document_logo_path,
-            'files/workspace/document-logo-'.$this->safeFilename($workspace->document_logo_path),
-            $workspace->document_logo_path ? basename($workspace->document_logo_path) : null,
+            $documentLogoPath,
+            'files/workspace/document-logo-'.$this->safeFilename($documentLogoPath),
+            $documentLogoPath ? basename($documentLogoPath) : null,
         );
 
         $payload['file_index'] = $fileIndex;
@@ -122,6 +147,25 @@ class WorkspaceBackupService
         $zip->close();
 
         return $path;
+    }
+
+    private function projectQuery($query)
+    {
+        return $query->withTrashed()->with([
+            'members:id,name,email',
+            'applicationSections',
+            'budgetLines' => fn ($query) => $query->orderBy('sort_order'),
+            'budgetLines.expenses' => fn ($query) => $query->withTrashed(),
+            'participants.attachments',
+            'documents' => fn ($query) => $query
+                ->orderBy('category')
+                ->orderByRaw('document_date is null')
+                ->orderBy('document_date')
+                ->orderBy('title')
+                ->orderBy('id'),
+            'tasks',
+            'activityLogs',
+        ]);
     }
 
     private function addStoredFile(

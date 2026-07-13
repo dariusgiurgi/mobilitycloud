@@ -17,11 +17,10 @@ class WorkspaceReportsTest extends TestCase
 
     public function test_reports_aggregate_only_accessible_projects_and_export_csv(): void
     {
-        $workspace = Workspace::create(['name' => 'Report Workspace']);
         $viewer = User::factory()->create();
-        $workspace->users()->attach($viewer, ['role' => 'viewer']);
         $visible = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $viewer->id,
+            'workspace_id' => null,
             'name' => 'Visible Portfolio Project',
             'status' => 'active',
             'approved_budget' => 10000,
@@ -34,8 +33,10 @@ class WorkspaceReportsTest extends TestCase
             'exchange_rate' => 1,
             'amount_eur' => 1200,
         ]);
+        $owner = User::factory()->create();
         Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Hidden Portfolio Project',
             'status' => 'active',
@@ -43,7 +44,6 @@ class WorkspaceReportsTest extends TestCase
         ]);
 
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(WorkspaceReports::class)
             ->set('startDate', '2026-07-01')
@@ -52,8 +52,7 @@ class WorkspaceReportsTest extends TestCase
             ->assertSee('1,200.00')
             ->assertDontSee('Hidden Portfolio Project');
 
-        $this->get(route('workspaces.report.csv', [
-            'workspace' => $workspace,
+        $this->get(route('account.report.csv', [
             'start' => '2026-07-01',
             'end' => '2026-07-31',
         ]))->assertOk()->assertDownload();

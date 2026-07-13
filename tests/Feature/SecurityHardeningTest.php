@@ -8,7 +8,6 @@ use App\Models\ParticipantAttachment;
 use App\Models\Project;
 use App\Models\PublicContentBlock;
 use App\Models\User;
-use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -20,9 +19,9 @@ class SecurityHardeningTest extends TestCase
 
     public function test_viewer_can_view_but_cannot_manage_a_project(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
+        $project = $this->project();
         $viewer = User::factory()->create();
-        $workspace->users()->attach($viewer, ['role' => 'viewer']);
+        $project->members()->attach($viewer, ['role' => Project::PROJECT_ROLE_VIEWER]);
 
         $this->assertTrue(Gate::forUser($viewer)->allows('view', $project));
         $this->assertFalse(Gate::forUser($viewer)->allows('update', $project));
@@ -31,7 +30,7 @@ class SecurityHardeningTest extends TestCase
 
     public function test_project_editor_can_manage_a_project(): void
     {
-        [$workspace, $project] = $this->workspaceAndProject();
+        $project = $this->project();
         $editor = User::factory()->create();
         $project->members()->attach($editor, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
@@ -39,13 +38,13 @@ class SecurityHardeningTest extends TestCase
         $this->assertTrue($project->canBeManagedBy($editor));
     }
 
-    public function test_participant_attachment_download_requires_workspace_membership(): void
+    public function test_participant_attachment_download_requires_project_access(): void
     {
         Storage::fake('local');
-        [$workspace, $project] = $this->workspaceAndProject();
+        $project = $this->project();
         $member = User::factory()->create();
         $outsider = User::factory()->create();
-        $workspace->users()->attach($member, ['role' => 'viewer']);
+        $project->members()->attach($member, ['role' => Project::PROJECT_ROLE_VIEWER]);
 
         $participant = Participant::create([
             'project_id' => $project->id,
@@ -76,7 +75,7 @@ class SecurityHardeningTest extends TestCase
     public function test_deleting_a_participant_removes_its_private_files(): void
     {
         Storage::fake('local');
-        [, $project] = $this->workspaceAndProject();
+        $project = $this->project();
         $participant = Participant::create([
             'project_id' => $project->id,
             'first_name' => 'Mara',
@@ -101,7 +100,7 @@ class SecurityHardeningTest extends TestCase
     public function test_force_deleting_project_removes_participant_and_expense_files(): void
     {
         Storage::fake('local');
-        [, $project] = $this->workspaceAndProject();
+        $project = $this->project();
         $participant = Participant::create([
             'project_id' => $project->id,
             'first_name' => 'Dan',
@@ -145,15 +144,16 @@ class SecurityHardeningTest extends TestCase
         $this->assertTrue($block->fresh()->is_hidden);
     }
 
-    private function workspaceAndProject(): array
+    private function project(): Project
     {
-        $workspace = Workspace::create(['name' => 'Test Workspace']);
+        $owner = User::factory()->create();
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
+            'workspace_id' => null,
             'name' => 'Test Project',
             'status' => 'writing',
         ]);
 
-        return [$workspace, $project];
+        return $project;
     }
 }
