@@ -19,23 +19,19 @@ use App\Filament\Resources\PlatformUsers\Pages\CreatePlatformUser;
 use App\Filament\Resources\PlatformUsers\Pages\EditPlatformUser;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\PlatformUsers\RelationManagers\SupportNotesRelationManager;
-use App\Filament\Resources\PlatformWorkspaces\Pages\EditPlatformWorkspace;
-use App\Filament\Resources\PlatformWorkspaces\Pages\ListPlatformWorkspaces;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
-use App\Filament\Resources\PlatformWorkspaces\RelationManagers\SubscriptionEventsRelationManager;
-use App\Filament\Resources\PlatformWorkspaces\RelationManagers\WorkspaceNotesRelationManager;
 use App\Models\ContentBlock;
 use App\Models\PlatformAnnouncement;
 use App\Models\PlatformAuditLog;
 use App\Models\PlatformSupportNote;
-use App\Models\PlatformWorkspaceNote;
 use App\Models\Project;
 use App\Models\SavedCalculation;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
+use App\Services\DemoWorkspaceResetService;
 use App\Support\PlanCatalog;
 use App\Support\AccountAccess;
+use App\Support\PlatformSubscriptionTimeline;
 use App\Support\WorkspaceAccess;
 use Filament\Auth\Notifications\ResetPassword;
 use Filament\Auth\Pages\Login;
@@ -121,52 +117,41 @@ class PlatformAdminPanelTest extends TestCase
         ]);
     }
 
-    public function test_platform_admin_can_update_workspace_subscription_controls(): void
+    public function test_platform_admin_can_update_account_subscription_controls(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $clientWorkspace = Workspace::create(['name' => 'Client Org', 'plan' => 'free']);
+        $client = User::factory()->create([
+            'name' => 'Client Org',
+            'email' => 'client.org@example.test',
+            'plan' => 'free',
+            'subscription_status' => 'expired',
+            'subscription_ends_at' => now()->subDays(10),
+            'is_suspended' => true,
+        ]);
+        $trialEnd = now()->addDays(10)->startOfMinute();
 
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(EditPlatformWorkspace::class, ['record' => $clientWorkspace->id])
-            ->fillForm([
-                'name' => 'Client Org',
-                'billing_name' => 'Client Legal Org',
-                'billing_vat' => 'RO123',
-                'billing_address' => 'Bucharest',
-                'plan' => 'writer_pro',
-                'subscription_status' => 'trial',
-                'trial_ends_at' => now()->addDays(10)->startOfMinute()->format('Y-m-d H:i:s'),
-                'subscription_ends_at' => now()->addDays(40)->startOfMinute()->format('Y-m-d H:i:s'),
-                'is_suspended' => false,
-                'is_internal' => false,
-                'internal_notes' => 'Manual support override.',
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('setTrialPeriod', $client, data: [
+                'trial_ends_at' => $trialEnd->format('Y-m-d H:i:s'),
             ])
-            ->call('save')
-            ->assertHasNoFormErrors();
+            ->assertHasNoTableActionErrors();
 
-        $clientWorkspace->refresh();
-        $this->assertSame('writer_pro', $clientWorkspace->plan);
-        $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $clientWorkspace->feature_flags);
-        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $clientWorkspace->plan_limits);
-        $this->assertSame('active', $clientWorkspace->subscription_status);
-        $this->assertSame('Manual support override.', $clientWorkspace->internal_notes);
+        $client->refresh();
+        $this->assertSame('trial', $client->subscription_status);
+        $this->assertFalse($client->is_suspended);
+        $this->assertNull($client->subscription_ends_at);
+        $this->assertTrue($trialEnd->equalTo($client->trial_ends_at));
         $this->assertDatabaseHas('platform_audit_logs', [
-            'action' => 'workspace.updated',
-            'subject_id' => $clientWorkspace->id,
+            'action' => 'account.trial_updated',
+            'subject_id' => $client->id,
         ]);
-        $auditLog = PlatformAuditLog::query()
-            ->where('action', 'workspace.updated')
-            ->where('subject_id', $clientWorkspace->id)
-            ->latest()
-            ->firstOrFail();
-        $this->assertSame('free', data_get($auditLog->metadata, 'changes.plan.from'));
-        $this->assertSame('writer_pro', data_get($auditLog->metadata, 'changes.plan.to'));
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $clientWorkspace->id,
+            'user_id' => $client->id,
             'actor_id' => $admin->id,
-            'event_type' => 'plan_changed',
+            'event_type' => 'trial_updated',
         ]);
     }
 
@@ -208,11 +193,12 @@ class PlatformAdminPanelTest extends TestCase
             ->assertSee('Trial');
     }
 
-    public function test_platform_admin_can_prepare_workspace_billing_metadata(): void
+    public function test_platform_admin_can_prepare_account_billing_metadata(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Billing Ready Workspace',
+        $account = User::factory()->create([
+            'name' => 'Billing Ready Account',
+            'email' => 'billing.ready@example.test',
             'plan' => 'writer',
             'subscription_status' => 'active',
         ]);
@@ -220,13 +206,8 @@ class PlatformAdminPanelTest extends TestCase
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(EditPlatformWorkspace::class, ['record' => $workspace->id])
-            ->fillForm([
-                'name' => 'Billing Ready Workspace',
-                'plan' => 'writer',
-                'subscription_status' => 'active',
-                'is_suspended' => false,
-                'is_internal' => false,
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('editBilling', $account, data: [
                 'billing_interval' => 'yearly',
                 'billing_amount' => 1200,
                 'billing_currency' => 'eur',
@@ -235,58 +216,61 @@ class PlatformAdminPanelTest extends TestCase
                 'billing_provider_customer_id' => 'cus_test_123',
                 'billing_provider_subscription_id' => 'sub_test_456',
             ])
-            ->call('save')
-            ->assertHasNoFormErrors();
+            ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('yearly', $workspace->billing_interval);
-        $this->assertSame('1200.00', $workspace->billing_amount);
-        $this->assertSame('EUR', $workspace->billing_currency);
-        $this->assertSame('MC-2026-001', $workspace->billing_reference);
-        $this->assertSame('stripe', $workspace->billing_provider);
-        $this->assertSame('cus_test_123', $workspace->billing_provider_customer_id);
-        $this->assertSame('sub_test_456', $workspace->billing_provider_subscription_id);
+        $account->refresh();
+        $this->assertSame('yearly', $account->billing_interval);
+        $this->assertSame('1200.00', $account->billing_amount);
+        $this->assertSame('EUR', $account->billing_currency);
+        $this->assertSame('MC-2026-001', $account->billing_reference);
+        $this->assertSame('stripe', $account->billing_provider);
+        $this->assertSame('cus_test_123', $account->billing_provider_customer_id);
+        $this->assertSame('sub_test_456', $account->billing_provider_subscription_id);
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $admin->id,
             'event_type' => 'billing_updated',
         ]);
     }
 
-    public function test_extend_trial_table_action_restores_access_for_expired_suspended_workspace(): void
+    public function test_set_trial_action_restores_access_for_expired_suspended_account(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Blocked Trial Workspace',
+        $account = User::factory()->create([
+            'name' => 'Blocked Trial Account',
+            'email' => 'blocked.trial@example.test',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDays(10),
             'is_suspended' => true,
         ]);
 
-        $this->assertFalse(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertTrue(WorkspaceAccess::isReadOnly($workspace));
+        $this->assertFalse(AccountAccess::isSubscriptionActive($account));
+        $this->assertTrue(AccountAccess::isReadOnly($account));
 
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->callTableAction('extendTrial', $workspace)
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('setTrialPeriod', $account, data: [
+                'trial_ends_at' => now()->addDays(14)->format('Y-m-d H:i:s'),
+            ])
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('trial', $workspace->subscription_status);
-        $this->assertFalse($workspace->is_suspended);
-        $this->assertNull($workspace->subscription_ends_at);
-        $this->assertTrue($workspace->trial_ends_at->isFuture());
-        $this->assertTrue(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertFalse(WorkspaceAccess::isReadOnly($workspace));
+        $account->refresh();
+        $this->assertSame('trial', $account->subscription_status);
+        $this->assertFalse($account->is_suspended);
+        $this->assertNull($account->subscription_ends_at);
+        $this->assertTrue($account->trial_ends_at->isFuture());
+        $this->assertTrue(AccountAccess::isSubscriptionActive($account));
+        $this->assertFalse(AccountAccess::isReadOnly($account));
     }
 
-    public function test_admin_can_set_custom_trial_period_from_workspace_table(): void
+    public function test_admin_can_set_custom_trial_period_from_subscriptions_table(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Custom Trial Workspace',
+        $account = User::factory()->create([
+            'name' => 'Custom Trial Account',
+            'email' => 'custom.trial@example.test',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDays(10),
             'is_suspended' => true,
@@ -296,32 +280,33 @@ class PlatformAdminPanelTest extends TestCase
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->callTableAction('setTrialPeriod', $workspace, data: [
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('setTrialPeriod', $account, data: [
                 'trial_ends_at' => $trialEnd->format('Y-m-d H:i:s'),
             ])
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('trial', $workspace->subscription_status);
-        $this->assertFalse($workspace->is_suspended);
-        $this->assertNull($workspace->subscription_ends_at);
-        $this->assertTrue($trialEnd->equalTo($workspace->trial_ends_at));
-        $this->assertTrue(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertFalse(WorkspaceAccess::isReadOnly($workspace));
+        $account->refresh();
+        $this->assertSame('trial', $account->subscription_status);
+        $this->assertFalse($account->is_suspended);
+        $this->assertNull($account->subscription_ends_at);
+        $this->assertTrue($trialEnd->equalTo($account->trial_ends_at));
+        $this->assertTrue(AccountAccess::isSubscriptionActive($account));
+        $this->assertFalse(AccountAccess::isReadOnly($account));
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $admin->id,
             'event_type' => 'trial_updated',
         ]);
     }
 
-    public function test_owner_can_mark_workspace_as_demo_subscription(): void
+    public function test_owner_can_mark_account_as_demo_subscription(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
         $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
-        $workspace = Workspace::create([
-            'name' => 'Demo Candidate Workspace',
+        $account = User::factory()->create([
+            'name' => 'Demo Candidate Account',
+            'email' => 'demo.candidate@example.test',
             'plan' => 'free',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDays(10),
@@ -331,41 +316,41 @@ class PlatformAdminPanelTest extends TestCase
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->assertTableActionHidden('markDemo', $workspace);
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->assertTableActionHidden('markDemo', $account);
 
         $this->actingAs($owner);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
+        Livewire::test(ListPlatformSubscriptions::class)
             ->assertSee('Owner only · Mark as demo')
-            ->callTableAction('markDemo', $workspace, data: [
-                'internal_notes' => 'Demo for sales presentation.',
+            ->callTableAction('markDemo', $account, data: [
+                'support_notes' => 'Demo for sales presentation.',
+                'demo_reset_frequency' => 'weekly',
             ])
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('demo', $workspace->plan);
-        $this->assertSame('demo', $workspace->subscription_status);
-        $this->assertTrue($workspace->is_internal);
-        $this->assertFalse($workspace->is_suspended);
-        $this->assertSame('Demo for sales presentation.', $workspace->internal_notes);
-        $this->assertNull($workspace->trial_ends_at);
-        $this->assertNull($workspace->subscription_ends_at);
-        $this->assertSame(PlanCatalog::defaultModules('demo'), $workspace->feature_flags);
-        $this->assertSame(PlanCatalog::defaultLimits('demo'), $workspace->plan_limits);
-        $this->assertTrue(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertFalse(WorkspaceAccess::isReadOnly($workspace));
+        $account->refresh();
+        $this->assertSame('demo', $account->plan);
+        $this->assertSame('demo', $account->subscription_status);
+        $this->assertFalse($account->is_suspended);
+        $this->assertSame('Demo for sales presentation.', $account->support_notes);
+        $this->assertSame('weekly', $account->demo_reset_frequency);
+        $this->assertNull($account->trial_ends_at);
+        $this->assertNull($account->subscription_ends_at);
+        $this->assertSame(PlanCatalog::defaultModules('demo'), $account->feature_flags);
+        $this->assertSame(PlanCatalog::defaultLimits('demo'), $account->plan_limits);
+        $this->assertTrue(AccountAccess::isSubscriptionActive($account));
+        $this->assertFalse(AccountAccess::isReadOnly($account));
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $owner->id,
             'event_type' => 'demo_enabled',
         ]);
     }
 
-    public function test_owner_can_reset_demo_workspace_sandbox_data(): void
+    public function test_demo_workspace_sandbox_data_can_be_reset_by_internal_service(): void
     {
-        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
         $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
         $member = User::factory()->create(['role' => User::ROLE_USER]);
         $workspace = Workspace::create([
@@ -400,20 +385,9 @@ class PlatformAdminPanelTest extends TestCase
             'expires_at' => now()->addDays(7),
         ]);
 
-        $this->actingAs($admin);
-        $this->usePlatformPanel();
-
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->assertTableActionHidden('resetDemoData', $workspace);
-
         $this->actingAs($owner);
-        $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->callTableAction('resetDemoData', $workspace, data: [
-                'confirmation' => 'RESET DEMO',
-            ])
-            ->assertHasNoTableActionErrors();
+        app(DemoWorkspaceResetService::class)->reset($workspace);
 
         $workspace->refresh();
         $this->assertDatabaseMissing('projects', ['workspace_id' => $workspace->id, 'name' => 'Sandbox Project']);
@@ -467,76 +441,79 @@ class PlatformAdminPanelTest extends TestCase
         ]);
     }
 
-    public function test_activate_table_action_restores_access_for_expired_suspended_workspace(): void
+    public function test_activate_table_action_restores_access_for_expired_suspended_account(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Blocked Active Workspace',
+        $account = User::factory()->create([
+            'name' => 'Blocked Active Account',
+            'email' => 'blocked.active@example.test',
             'subscription_status' => 'expired',
             'trial_ends_at' => now()->subDays(20),
             'subscription_ends_at' => now()->subDays(10),
             'is_suspended' => true,
         ]);
 
-        $this->assertFalse(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertTrue(WorkspaceAccess::isReadOnly($workspace));
+        $this->assertFalse(AccountAccess::isSubscriptionActive($account));
+        $this->assertTrue(AccountAccess::isReadOnly($account));
 
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->callTableAction('activate', $workspace)
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('activate', $account)
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('active', $workspace->subscription_status);
-        $this->assertFalse($workspace->is_suspended);
-        $this->assertNull($workspace->trial_ends_at);
-        $this->assertNull($workspace->subscription_ends_at);
-        $this->assertTrue(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertFalse(WorkspaceAccess::isReadOnly($workspace));
+        $account->refresh();
+        $this->assertSame('active', $account->subscription_status);
+        $this->assertFalse($account->is_suspended);
+        $this->assertNull($account->trial_ends_at);
+        $this->assertNull($account->subscription_ends_at);
+        $this->assertTrue(AccountAccess::isSubscriptionActive($account));
+        $this->assertFalse(AccountAccess::isReadOnly($account));
     }
 
-    public function test_admin_can_suspend_workspace_with_structured_reason(): void
+    public function test_admin_can_suspend_account_with_structured_reason(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Billing Problem Workspace',
+        $account = User::factory()->create([
+            'name' => 'Billing Problem Account',
+            'email' => 'billing.problem@example.test',
             'subscription_status' => 'active',
         ]);
 
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->callTableAction('suspend', $workspace, data: [
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('suspend', $account, data: [
                 'suspension_category' => 'billing_issue',
                 'suspension_reason' => 'Invoice unpaid after repeated reminders.',
                 'confirmation' => 'SUSPEND',
             ])
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('suspended', $workspace->subscription_status);
-        $this->assertTrue($workspace->is_suspended);
-        $this->assertSame('billing_issue', $workspace->suspension_category);
-        $this->assertSame('Invoice unpaid after repeated reminders.', $workspace->suspension_reason);
-        $this->assertSame($admin->id, $workspace->suspended_by);
-        $this->assertNotNull($workspace->suspended_at);
-        $this->assertFalse(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertTrue(WorkspaceAccess::isReadOnly($workspace));
+        $account->refresh();
+        $this->assertSame('suspended', $account->subscription_status);
+        $this->assertTrue($account->is_suspended);
+        $this->assertSame('billing_issue', $account->suspension_category);
+        $this->assertSame('Invoice unpaid after repeated reminders.', $account->suspension_reason);
+        $this->assertSame($admin->id, $account->suspended_by);
+        $this->assertNotNull($account->suspended_at);
+        $this->assertFalse(AccountAccess::isSubscriptionActive($account));
+        $this->assertTrue(AccountAccess::isReadOnly($account));
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $admin->id,
             'event_type' => 'suspended',
         ]);
     }
 
-    public function test_admin_can_access_subscription_detail_action_from_workspace_table(): void
+    public function test_admin_can_access_subscription_detail_action_from_account_table(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create([
-            'name' => 'Subscription Detail Workspace',
+        $account = User::factory()->create([
+            'name' => 'Subscription Detail Account',
+            'email' => 'subscription.detail@example.test',
             'plan' => 'writer',
             'subscription_status' => 'trial',
             'trial_ends_at' => now()->addDays(3),
@@ -545,10 +522,10 @@ class PlatformAdminPanelTest extends TestCase
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->assertTableActionVisible('viewSubscription', $workspace)
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->assertTableActionVisible('viewSubscription', $account)
             ->assertSee('Trial ending soon')
-            ->assertSee('View subscription');
+            ->assertSee('View details');
     }
 
     public function test_platform_subscriptions_command_center_lists_access_statuses(): void
@@ -947,12 +924,13 @@ class PlatformAdminPanelTest extends TestCase
         ]);
     }
 
-    public function test_only_owner_can_grant_manual_access_from_workspace_table(): void
+    public function test_only_owner_can_grant_manual_access_from_subscriptions_table(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
         $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
-        $workspace = Workspace::create([
-            'name' => 'Pilot Access Workspace',
+        $account = User::factory()->create([
+            'name' => 'Pilot Access Account',
+            'email' => 'pilot.access@example.test',
             'subscription_status' => 'expired',
             'subscription_ends_at' => now()->subDays(20),
             'is_suspended' => true,
@@ -965,36 +943,36 @@ class PlatformAdminPanelTest extends TestCase
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->assertTableActionHidden('grantManualAccess', $workspace);
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->assertTableActionHidden('grantManualAccess', $account);
 
         $this->actingAs($owner);
         $this->usePlatformPanel();
 
-        Livewire::test(ListPlatformWorkspaces::class)
-            ->callTableAction('grantManualAccess', $workspace, data: [
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('grantManualAccess', $account, data: [
                 'plan' => 'writer_pro',
                 'access_override_ends_at' => now()->addDays(30)->format('Y-m-d H:i:s'),
-                'access_override_reason' => 'Founder granted a pilot workspace for onboarding.',
+                'access_override_reason' => 'Founder granted a pilot account for onboarding.',
                 'feature_flags' => [PlanCatalog::MODULE_PROJECTS, PlanCatalog::MODULE_WRITING],
             ])
             ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('writer_pro', $workspace->plan);
-        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $workspace->plan_limits);
-        $this->assertSame('active', $workspace->subscription_status);
-        $this->assertFalse($workspace->is_suspended);
-        $this->assertNull($workspace->suspension_category);
-        $this->assertNull($workspace->suspension_reason);
-        $this->assertSame($owner->id, $workspace->access_override_granted_by);
-        $this->assertSame('Founder granted a pilot workspace for onboarding.', $workspace->access_override_reason);
-        $this->assertContains(PlanCatalog::MODULE_PROJECTS, $workspace->feature_flags);
-        $this->assertContains(PlanCatalog::MODULE_WRITING, $workspace->feature_flags);
-        $this->assertTrue(WorkspaceAccess::isSubscriptionActive($workspace));
-        $this->assertFalse(WorkspaceAccess::isReadOnly($workspace));
+        $account->refresh();
+        $this->assertSame('writer_pro', $account->plan);
+        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $account->plan_limits);
+        $this->assertSame('active', $account->subscription_status);
+        $this->assertFalse($account->is_suspended);
+        $this->assertNull($account->suspension_category);
+        $this->assertNull($account->suspension_reason);
+        $this->assertSame($owner->id, $account->access_override_granted_by);
+        $this->assertSame('Founder granted a pilot account for onboarding.', $account->access_override_reason);
+        $this->assertContains(PlanCatalog::MODULE_PROJECTS, $account->feature_flags);
+        $this->assertContains(PlanCatalog::MODULE_WRITING, $account->feature_flags);
+        $this->assertTrue(AccountAccess::isSubscriptionActive($account));
+        $this->assertFalse(AccountAccess::isReadOnly($account));
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $owner->id,
             'event_type' => 'manual_access_granted',
         ]);
@@ -1066,46 +1044,40 @@ class PlatformAdminPanelTest extends TestCase
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
         $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
-        $workspace = Workspace::create(['name' => 'Manual Access Workspace']);
+        $account = User::factory()->create([
+            'name' => 'Manual Access Account',
+            'email' => 'manual.access@example.test',
+            'subscription_status' => 'expired',
+            'subscription_ends_at' => now()->subDays(12),
+            'is_suspended' => true,
+        ]);
 
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(EditPlatformWorkspace::class, ['record' => $workspace->id])
-            ->fillForm([
-                'name' => 'Manual Access Workspace',
-                'plan' => 'free',
-                'subscription_status' => 'active',
-                'is_suspended' => false,
-                'is_internal' => false,
-                'access_override_reason' => 'Admin should not be able to set this.',
-                'access_override_ends_at' => now()->addDays(7)->format('Y-m-d H:i:s'),
-            ])
-            ->call('save')
-            ->assertHasNoFormErrors();
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->assertTableActionHidden('grantManualAccess', $account);
 
-        $workspace->refresh();
-        $this->assertNull($workspace->access_override_reason);
+        $account->refresh();
+        $this->assertNull($account->access_override_reason);
 
         $this->actingAs($owner);
         $this->usePlatformPanel();
 
-        Livewire::test(EditPlatformWorkspace::class, ['record' => $workspace->id])
-            ->fillForm([
-                'name' => 'Manual Access Workspace',
-                'plan' => 'free',
-                'subscription_status' => 'active',
-                'is_suspended' => false,
-                'is_internal' => false,
+        Livewire::test(ListPlatformSubscriptions::class)
+            ->callTableAction('grantManualAccess', $account, data: [
+                'plan' => 'writer',
                 'access_override_reason' => 'Owner granted pilot access.',
                 'access_override_ends_at' => now()->addDays(7)->format('Y-m-d H:i:s'),
+                'feature_flags' => [PlanCatalog::MODULE_PROJECTS],
             ])
-            ->call('save')
-            ->assertHasNoFormErrors();
+            ->assertHasNoTableActionErrors();
 
-        $workspace->refresh();
-        $this->assertSame('Owner granted pilot access.', $workspace->access_override_reason);
-        $this->assertSame($owner->id, $workspace->access_override_granted_by);
+        $account->refresh();
+        $this->assertSame('Owner granted pilot access.', $account->access_override_reason);
+        $this->assertSame($owner->id, $account->access_override_granted_by);
+        $this->assertSame('writer', $account->plan);
+        $this->assertSame('active', $account->subscription_status);
     }
 
     public function test_suspended_account_is_visible_and_cannot_access_panels(): void
@@ -1218,8 +1190,7 @@ class PlatformAdminPanelTest extends TestCase
         $this->assertTrue($routeNames->contains('filament.platform.pages.platform-plans'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-activities.index'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-subscriptions.index'));
-        $this->assertTrue($routeNames->contains('filament.platform.resources.platform-workspaces.index'));
-        $this->assertFalse(PlatformWorkspaceResource::shouldRegisterNavigation());
+        $this->assertFalse($routeNames->contains('filament.platform.resources.platform-workspaces.index'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.platform-announcements.index'));
         $this->assertTrue($routeNames->contains('filament.platform.resources.public-block-reports.index'));
 
@@ -1631,67 +1602,22 @@ class PlatformAdminPanelTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_add_workspace_note_from_workspace_record(): void
-    {
-        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create(['name' => 'Workspace With Notes']);
-
-        $note = $workspace->platformNotes()->create([
-            'author_id' => $admin->id,
-            'category' => 'commercial',
-            'body' => 'Manual access promised during onboarding.',
-            'is_pinned' => true,
-        ]);
-
-        $this->assertInstanceOf(PlatformWorkspaceNote::class, $note);
-        $this->assertSame('commercial', $note->category);
-        $this->assertTrue($note->is_pinned);
-
-        $this->actingAs($admin);
-        $this->usePlatformPanel();
-
-        Livewire::test(WorkspaceNotesRelationManager::class, [
-            'ownerRecord' => $workspace,
-            'pageClass' => EditPlatformWorkspace::class,
-        ])
-            ->callTableAction('create', data: [
-                'category' => 'billing',
-                'is_pinned' => false,
-                'body' => 'Billing contact asked for yearly invoice.',
-            ])
-            ->assertHasNoTableActionErrors();
-
-        $this->assertDatabaseHas('platform_workspace_notes', [
-            'workspace_id' => $workspace->id,
-            'author_id' => $admin->id,
-            'category' => 'billing',
-        ]);
-        $this->assertDatabaseHas('platform_audit_logs', [
-            'action' => 'workspace_note.created',
-            'subject_id' => $workspace->id,
-        ]);
-    }
-
     public function test_admin_can_add_manual_subscription_timeline_note(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
-        $workspace = Workspace::create(['name' => 'Client Workspace']);
+        $account = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Timeline Client',
+            'email' => 'timeline.client@example.test',
+        ]);
 
         $this->actingAs($admin);
         $this->usePlatformPanel();
 
-        Livewire::test(SubscriptionEventsRelationManager::class, [
-            'ownerRecord' => $workspace,
-            'pageClass' => EditPlatformWorkspace::class,
-        ])
-            ->callTableAction('create', data: [
-                'event_type' => 'manual_note',
-                'summary' => 'Client requested annual billing.',
-            ])
-            ->assertHasNoTableActionErrors();
+        PlatformSubscriptionTimeline::recordAccount($account, 'manual_note', 'Client requested annual billing.');
 
         $this->assertDatabaseHas('platform_subscription_events', [
-            'workspace_id' => $workspace->id,
+            'user_id' => $account->id,
             'actor_id' => $admin->id,
             'event_type' => 'manual_note',
             'summary' => 'Client requested annual billing.',

@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\SavedCalculation;
 use App\Models\Workspace;
 use App\Models\WorkspaceInvitation;
+use App\Support\PlatformAudit;
 use App\Support\PlatformSubscriptionTimeline;
 use Illuminate\Support\Facades\DB;
 
@@ -59,6 +60,9 @@ class DemoWorkspaceResetService
             $workspace->forceFill(['demo_last_reset_at' => now()])->save();
 
             PlatformSubscriptionTimeline::record($workspace, 'demo_reset', 'Demo workspace sandbox data reset.', [
+                'counts' => $counts,
+            ]);
+            PlatformAudit::log('workspace.demo_reset', 'Demo workspace sandbox data reset for '.$workspace->name, $workspace, [
                 'counts' => $counts,
             ]);
 

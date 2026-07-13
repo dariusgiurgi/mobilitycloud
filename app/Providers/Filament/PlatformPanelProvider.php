@@ -12,7 +12,6 @@ use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformAuditLogs\PlatformAuditLogResource;
 use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
-use App\Filament\Resources\PlatformWorkspaces\PlatformWorkspaceResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Http\Middleware\RedirectPlatformLoginToUnifiedLogin;
@@ -99,7 +98,6 @@ class PlatformPanelProvider extends PanelProvider
                 PlatformUserResource::class,
                 PlatformActivityResource::class,
                 PlatformSubscriptionResource::class,
-                PlatformWorkspaceResource::class,
                 PlatformAnnouncementResource::class,
                 PublicBlockReportResource::class,
                 PlatformAuditLogResource::class,
