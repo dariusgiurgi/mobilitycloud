@@ -19,6 +19,11 @@ class PlatformAccess
         return true;
     }
 
+    public static function canPreview(string $module): bool
+    {
+        return self::usesWorkspaceInterface();
+    }
+
     public static function isReadOnly(): bool
     {
         return AccountAccess::isReadOnly(auth()->user());

@@ -115,6 +115,7 @@ class AdminPanelProvider extends PanelProvider
                 AccountSettings::class,
                 DocumentTemplates::class,
                 GlobalSearch::class,
+                IndividualSupportCalculator::class,
                 MyTasks::class,
                 NotificationPreferences::class,
                 PublicLibrary::class,

@@ -88,6 +88,10 @@ class AccountAccess
             return false;
         }
 
+        if (in_array($module, PlanCatalog::freeModules(), true)) {
+            return true;
+        }
+
         $enabled = $user->feature_flags;
 
         if (! is_array($enabled)) {

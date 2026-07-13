@@ -14,7 +14,7 @@ class IndividualSupportCalculator extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static ?string $navigationLabel = 'Individual Support Calculator';
+    protected static ?string $navigationLabel = 'Individual Support';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Planning tools';
 
@@ -26,12 +26,12 @@ class IndividualSupportCalculator extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return PlatformAccess::canPreview(PlanCatalog::MODULE_CALCULATOR);
     }
 
     public static function canAccess(): bool
     {
-        return PlatformAccess::canUse(PlanCatalog::MODULE_CALCULATOR);
+        return PlatformAccess::canPreview(PlanCatalog::MODULE_CALCULATOR);
     }
 
     public const TRAVEL_BANDS = [

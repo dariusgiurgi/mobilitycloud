@@ -1,8 +1,37 @@
 <x-filament-panels::page>
     <x-ui-polish />
+
+    @php
+        $hasCalculatorAccess = \App\Support\PlatformAccess::canUse(\App\Support\PlanCatalog::MODULE_CALCULATOR);
+    @endphp
+
+    @if (! $hasCalculatorAccess)
+        <x-filament::section>
+            <div style="display:grid;gap:1rem;max-width:760px;">
+                <div style="display:flex;align-items:center;gap:.75rem;">
+                    <div style="width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(99,102,241,.12);color:#4f46e5;">
+                        <x-filament::icon icon="heroicon-o-lock-closed" style="width:22px;height:22px;" />
+                    </div>
+                    <div>
+                        <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:700;">Individual Support is available as an add-on</h2>
+                        <p class="text-gray-500 dark:text-gray-400" style="font-size:.82rem;margin-top:.25rem;">This calculator estimates Individual Support, travel and organisational support using Erasmus+ unit rates. Enable it from your plan to save scenarios and export clean planning PDFs.</p>
+                    </div>
+                </div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+                    <x-filament::button tag="a" :href="\App\Filament\Pages\AccountSettings::getUrl()" icon="heroicon-o-sparkles">
+                        View account plan
+                    </x-filament::button>
+                    <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::getUrl()" color="gray" icon="heroicon-o-rectangle-stack">
+                        Back to projects
+                    </x-filament::button>
+                </div>
+            </div>
+        </x-filament::section>
+    @else
+
     @php
         $band = $this::TRAVEL_BANDS[$travelBandIndex] ?? $this::TRAVEL_BANDS[0];
-        $canManage = auth()->check() && $this::canAccess() && ! \App\Support\PlatformAccess::isReadOnly();
+        $canManage = auth()->check() && $hasCalculatorAccess && ! \App\Support\PlatformAccess::isReadOnly();
         $exportUrl = route('calc.export', ['type' => 'is']).'?'.http_build_query([
             'participants' => $participants,
             'days' => $days,
@@ -250,5 +279,6 @@
                 </div>
             </div>
         </div>
+    @endif
     @endif
 </x-filament-panels::page>

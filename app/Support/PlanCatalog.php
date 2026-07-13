@@ -193,6 +193,16 @@ class PlanCatalog
         ];
     }
 
+    public static function freeModules(): array
+    {
+        return [
+            self::MODULE_TASKS,
+            self::MODULE_PUBLIC_LIBRARY,
+            self::MODULE_CONTENT_LIBRARY,
+            self::MODULE_CALCULATOR,
+        ];
+    }
+
     public static function defaultModules(string $plan): array
     {
         return self::plans()[$plan]['modules'] ?? self::plans()['free']['modules'];

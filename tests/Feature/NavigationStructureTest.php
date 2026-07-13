@@ -16,6 +16,7 @@ use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
+use App\Models\User;
 use Filament\Facades\Filament;
 use Tests\TestCase;
 
@@ -38,6 +39,7 @@ class NavigationStructureTest extends TestCase
         $this->assertSame('Writing Library', ContentBlockResource::getNavigationLabel());
         $this->assertSame(10, ContentBlockResource::getNavigationSort());
         $this->assertFalse(IndividualSupportCalculator::shouldRegisterNavigation());
+        $this->assertSame('Individual Support', IndividualSupportCalculator::getNavigationLabel());
 
         $this->assertSame('Community', PublicLibrary::getNavigationGroup());
         $this->assertSame(10, PublicLibrary::getNavigationSort());
@@ -62,6 +64,17 @@ class NavigationStructureTest extends TestCase
     public function test_technical_public_library_resource_stays_out_of_the_sidebar(): void
     {
         $this->assertFalse(PublicContentBlockResource::shouldRegisterNavigation());
+    }
+
+    public function test_individual_support_registers_for_active_client_accounts(): void
+    {
+        $this->actingAs((new User())->forceFill([
+            'name' => 'Client',
+            'email' => 'client@example.test',
+            'subscription_status' => 'active',
+        ]));
+
+        $this->assertTrue(IndividualSupportCalculator::shouldRegisterNavigation());
     }
 
     public function test_panel_registers_navigation_groups_in_priority_order(): void

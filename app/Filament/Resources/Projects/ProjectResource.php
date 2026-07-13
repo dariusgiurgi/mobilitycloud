@@ -92,13 +92,6 @@ class ProjectResource extends Resource
         $record = $page->getRecord();
         $canViewManagementModules = $record->canViewManagementModulesBy(auth()->user());
 
-        // While writing, this is a grant estimate. Once the project is managed,
-        // the same module becomes the implementation budget board.
-        $budgetUrl = $record->isManagementStage()
-            ? static::projectUrl($record, 'board')
-            : static::projectUrl($record, 'estimate');
-        $budgetLabel = $record->isManagementStage() ? 'Budget' : 'Estimate';
-
         return [
             NavigationItem::make('Overview')
                 ->icon(Heroicon::OutlinedHome)
@@ -110,9 +103,9 @@ class ProjectResource extends Resource
                 ->url(static::projectUrl($record, 'write'))
                 ->isActiveWhen(fn () => $page instanceof WriteApplication),
 
-            NavigationItem::make($budgetLabel)
+            NavigationItem::make('Budget')
                 ->icon(Heroicon::OutlinedBanknotes)
-                ->url($budgetUrl)
+                ->url(static::projectUrl($record, 'board'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectEstimate || $page instanceof ViewProjectBoard),
 
             NavigationItem::make('Mobility')

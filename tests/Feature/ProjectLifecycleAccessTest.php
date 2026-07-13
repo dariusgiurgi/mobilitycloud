@@ -43,7 +43,9 @@ class ProjectLifecycleAccessTest extends TestCase
 
         $this->assertSame(8, $project->fresh()->action_data['estimate']['inputs']['persons']);
 
-        $this->get(ProjectResource::getUrl('board', ['record' => $project]))->assertNotFound();
+        $this->get(ProjectResource::getUrl('board', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('Budget opens after project approval');
         $this->get(ProjectResource::getUrl('participants', ['record' => $project]))->assertNotFound();
         $this->get(ProjectResource::getUrl('documents', ['record' => $project]))->assertNotFound();
         $this->get(ProjectResource::getUrl('mobility', ['record' => $project]))->assertNotFound();
