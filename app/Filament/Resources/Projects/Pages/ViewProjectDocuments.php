@@ -101,6 +101,7 @@ class ViewProjectDocuments extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'documents');
+        $this->authorizeManagementModuleAccess();
         $this->disseminationReports = $this->storedDisseminationReports();
     }
 
@@ -282,7 +283,7 @@ class ViewProjectDocuments extends Page
 
     public function saveDisseminationReport(string $organisationKey): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
 
         $this->validate([
@@ -302,7 +303,7 @@ class ViewProjectDocuments extends Page
 
     public function openDisseminationUpload(string $organisationKey): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
 
         $this->resetValidation('disseminationUpload');
@@ -320,7 +321,7 @@ class ViewProjectDocuments extends Page
 
     public function uploadDisseminationEvidence(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'disseminationUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx'],
         ]);
@@ -431,7 +432,7 @@ class ViewProjectDocuments extends Page
 
     public function openExpenseReportGenerator(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->resetValidation();
         $this->reportTitle = 'Official expense report';
         $this->reportStartDate = $this->record->start_date?->format('Y-m-d');
@@ -453,7 +454,7 @@ class ViewProjectDocuments extends Page
 
     public function generateExpenseReport(ExpenseReportSnapshot $snapshotBuilder): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $validated = $this->validate([
             'reportTitle' => ['required', 'string', 'max:255'],
             'reportStartDate' => ['nullable', 'date'],
@@ -493,7 +494,7 @@ class ViewProjectDocuments extends Page
 
     public function openConvention(int $expenseId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;
@@ -555,7 +556,7 @@ class ViewProjectDocuments extends Page
 
     public function saveConventionDetails(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $expense = $this->findConventionExpense($this->conventionExpenseId);
         if (! $expense) {
             $this->closeConvention();
@@ -630,7 +631,7 @@ class ViewProjectDocuments extends Page
 
     public function openConventionSignedUpload(int $expenseId, string $kind): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
@@ -662,7 +663,7 @@ class ViewProjectDocuments extends Page
 
     public function uploadConventionSignedCopy(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'conventionSignedKind' => ['required', 'in:agreement,payment'],
             'conventionSignedUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png'],
@@ -709,7 +710,7 @@ class ViewProjectDocuments extends Page
 
     public function deleteConventionSignedCopy(int $expenseId, string $kind): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
@@ -731,7 +732,7 @@ class ViewProjectDocuments extends Page
 
     public function openDocumentUpload(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->resetValidation();
         $this->documentTitle = '';
         $this->documentCategory = 'other';
@@ -760,7 +761,7 @@ class ViewProjectDocuments extends Page
 
     public function uploadProjectDocument(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'documentTitle' => ['required', 'string', 'max:255'],
             'documentCategory' => ['required', 'in:'.implode(',', array_keys(ProjectDocument::CATEGORIES))],
@@ -803,7 +804,7 @@ class ViewProjectDocuments extends Page
 
     public function openSignedUpload(int $documentId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $document = $this->findDocument($documentId);
         if (! $document) {
             return;
@@ -823,7 +824,7 @@ class ViewProjectDocuments extends Page
 
     public function uploadSignedCopy(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'signedUpload' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png',
         ]);
@@ -861,7 +862,7 @@ class ViewProjectDocuments extends Page
 
     public function deleteSignedCopy(int $documentId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $document = $this->findDocument($documentId);
         if (! $document) {
             return;
@@ -883,7 +884,7 @@ class ViewProjectDocuments extends Page
 
     public function deleteDocument(int $documentId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $document = $this->findDocument($documentId);
         $document?->delete();
         Notification::make()->title('Document removed')->success()->send();

@@ -8,6 +8,7 @@ use App\Models\PlatformSubscriptionEvent;
 use App\Models\User;
 use App\Support\AccountAccess;
 use App\Support\PlanCatalog;
+use App\Support\PlatformAccountNotificationAction;
 use App\Support\PlatformAudit;
 use App\Support\PlatformSubscriptionTimeline;
 use BackedEnum;
@@ -222,6 +223,7 @@ class PlatformSubscriptionResource extends Resource
                         ]))
                         ->modalSubmitAction(false)
                         ->modalCancelActionLabel('Close'),
+                    PlatformAccountNotificationAction::make(),
                     Action::make('editBilling')
                         ->label('Edit billing')
                         ->icon('heroicon-o-credit-card')

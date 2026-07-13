@@ -151,7 +151,10 @@ class ProjectSettingsTest extends TestCase
     public function test_budget_uses_project_currencies_only(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
-        $project->update(['currencies' => [['code' => 'USD', 'rate' => 1.08]]]);
+        $project->update([
+            'status' => 'active',
+            'currencies' => [['code' => 'USD', 'rate' => 1.08]],
+        ]);
         $project->budgetLines()->first()->expenses()->create([
             'description' => 'Visible expense',
             'amount' => 10,

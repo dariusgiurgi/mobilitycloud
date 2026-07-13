@@ -26,7 +26,8 @@
         $ka = \App\Support\ApplicationTemplates::normaliseKey($this->record->ka_action);
         $kaInfo = $ka ? \App\Support\ApplicationTemplates::get($ka) : null;
         $kaLabel = $kaInfo ? ($kaInfo['label'].' · Call '.$kaInfo['call_year']) : null;
-        $budgetModuleLabel = $this->record->isWritingStage() ? 'Grant estimate' : 'Budget';
+        $isManagementStage = $this->record->isManagementStage();
+        $budgetModuleLabel = $isManagementStage ? 'Budget' : 'Grant estimate';
         $canManage = $this->record->canBeManagedBy(auth()->user());
         $ownerLabel = $this->record->ownerLabelFor(auth()->user());
         $accessLabel = $this->record->accessLabelFor(auth()->user());
@@ -231,10 +232,10 @@
                 <span style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:.55rem;background:rgba(16,185,129,.1);color:#059669;">
                     <x-filament::icon icon="heroicon-o-banknotes" style="width:1.05rem;height:1.05rem;" />
                 </span>
-                <span class="mc-overview-muted" style="font-size:.68rem;">{{ $this->record->isWritingStage() ? 'Estimate' : $this->record->progress.'% spent' }}</span>
+                <span class="mc-overview-muted" style="font-size:.68rem;">{{ $isManagementStage ? $this->record->progress.'% spent' : 'Estimate' }}</span>
             </div>
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">{{ $budgetModuleLabel }}</h3>
-            @if ($this->record->isWritingStage())
+            @if (! $isManagementStage)
                 <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $eur($this->record->effective_budget) }}</p>
                 <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">Requested grant currently saved</p>
             @else
@@ -255,8 +256,10 @@
             </div>
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Participants</h3>
             <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $participants['total'] }}</p>
-            <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">{{ $participants['total'] > 0 ? $participants['complete'].' records have all required files' : 'No participants added yet' }}</p>
-            <span style="font-size:.72rem;font-weight:600;color:#6366f1;margin-top:auto;padding-top:.7rem;">Open participants →</span>
+            <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">
+                {{ $isManagementStage ? ($participants['total'] > 0 ? $participants['complete'].' records have all required files' : 'No participants added yet') : 'Available after project approval' }}
+            </p>
+            <span style="font-size:.72rem;font-weight:600;color:{{ $isManagementStage ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $isManagementStage ? 'Open participants →' : 'Locked until approval' }}</span>
         </a>
 
         <a href="{{ $urls['documents'] }}" class="mc-overview-card">
@@ -271,9 +274,9 @@
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Documents</h3>
             <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $documents['files'] }} files</p>
             <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">
-                {{ $documents['checklist_applies'] ? $documents['complete'].' checklist items complete' : 'Project files and generated records' }}
+                {{ $isManagementStage ? ($documents['checklist_applies'] ? $documents['complete'].' checklist items complete' : 'Project files and generated records') : 'Available after project approval' }}
             </p>
-            <span style="font-size:.72rem;font-weight:600;color:#6366f1;margin-top:auto;padding-top:.7rem;">Open documents →</span>
+            <span style="font-size:.72rem;font-weight:600;color:{{ $isManagementStage ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $isManagementStage ? 'Open documents →' : 'Locked until approval' }}</span>
         </a>
     </div>
 

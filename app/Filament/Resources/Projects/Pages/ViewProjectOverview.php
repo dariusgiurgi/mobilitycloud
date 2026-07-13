@@ -467,11 +467,13 @@ class ViewProjectOverview extends Page
 
     public function getModuleUrls(): array
     {
+        $managementUrl = ProjectResource::projectUrl($this->record);
+
         return [
             'application' => ProjectResource::projectUrl($this->record, 'write'),
-            'budget' => ProjectResource::projectUrl($this->record, $this->record->isWritingStage() ? 'estimate' : 'board'),
-            'participants' => ProjectResource::projectUrl($this->record, 'participants'),
-            'documents' => ProjectResource::projectUrl($this->record, 'documents'),
+            'budget' => ProjectResource::projectUrl($this->record, $this->record->isManagementStage() ? 'board' : 'estimate'),
+            'participants' => $this->record->isManagementStage() ? ProjectResource::projectUrl($this->record, 'participants') : $managementUrl,
+            'documents' => $this->record->isManagementStage() ? ProjectResource::projectUrl($this->record, 'documents') : $managementUrl,
             'settings' => ProjectResource::projectUrl($this->record, 'edit'),
         ];
     }

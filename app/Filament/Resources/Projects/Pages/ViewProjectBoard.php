@@ -62,6 +62,7 @@ class ViewProjectBoard extends Page
         $this->record = $this->resolveRecord($record);
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'board');
+        $this->authorizeManagementModuleAccess();
     }
 
     public function getTitle(): string
@@ -94,7 +95,7 @@ class ViewProjectBoard extends Page
     // ═══════════ BUGET COȘ (inline) ═══════════
     public function updateBasketBudget(int $basketId, $value): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $line = BudgetLine::where('project_id', $this->record->id)->find($basketId);
         if (! $line) {
             return;
@@ -129,7 +130,7 @@ class ViewProjectBoard extends Page
 
     public function saveBasket(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $data = [
             'title' => trim($this->basketTitle) ?: 'Untitled',
             'emoji' => trim($this->basketEmoji) ?: '📁',
@@ -152,7 +153,7 @@ class ViewProjectBoard extends Page
 
     public function deleteBasket(int $basketId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $line = BudgetLine::where('project_id', $this->record->id)->with('expenses')->find($basketId);
         if (! $line) {
             return;
@@ -165,7 +166,7 @@ class ViewProjectBoard extends Page
     // ═══════════ CHELTUIELI ═══════════
     public function addExpense(int $budgetLineId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $line = BudgetLine::where('project_id', $this->record->id)->findOrFail($budgetLineId);
         $maxPos = Expense::where('budget_line_id', $line->id)->max('position') ?? -1;
 
@@ -186,7 +187,7 @@ class ViewProjectBoard extends Page
 
     public function updateExpense(int $expenseId, string $field, $value): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($expenseId);
         if (! $expense) {
             return;
@@ -232,7 +233,7 @@ class ViewProjectBoard extends Page
 
     public function deleteExpense(int $expenseId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($expenseId);
         $expense?->delete();
         $this->reload();
@@ -257,7 +258,7 @@ class ViewProjectBoard extends Page
 
     public function saveNotes(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($this->notesExpenseId);
         if ($expense) {
             $expense->notes = $this->notesText;
@@ -270,7 +271,7 @@ class ViewProjectBoard extends Page
     // ═══════════ ATAȘAMENTE ═══════════
     public function updatedUploadFile(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         if (! $this->uploadFile || ! $this->uploadExpenseId) {
             return;
         }
@@ -306,7 +307,7 @@ class ViewProjectBoard extends Page
 
     public function deleteAttachment(int $expenseId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($expenseId);
         if ($expense && $expense->attachmentExists()) {
             Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
@@ -339,7 +340,7 @@ class ViewProjectBoard extends Page
 
     public function saveTransfer(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'transferFromId' => 'required|different:transferToId',
             'transferToId' => 'required',
@@ -375,7 +376,7 @@ class ViewProjectBoard extends Page
 
     public function reverseTransfer(int $transferId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $transfer = BudgetTransfer::where('project_id', $this->record->id)->find($transferId);
         if (! $transfer || ! $transfer->isActive()) {
             return;

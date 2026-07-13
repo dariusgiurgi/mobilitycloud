@@ -3,19 +3,15 @@
 namespace App\Filament\Pages;
 
 use App\Models\SavedCalculation;
-use App\Support\AuthorizesWorkspaceManagement;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
-use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 
 class IndividualSupportCalculator extends Page
 {
-    use AuthorizesWorkspaceManagement;
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
     protected static ?string $navigationLabel = 'Individual Support Calculator';
@@ -107,7 +103,9 @@ class IndividualSupportCalculator extends Page
     // ─── Saved calculations ───
     public function getSavedProperty()
     {
-        return SavedCalculation::where('workspace_id', Filament::getTenant()?->id)
+        return SavedCalculation::query()
+            ->where('created_by', auth()->id())
+            ->whereNull('workspace_id')
             ->where('type', 'individual_support')
             ->latest()
             ->get();
@@ -121,11 +119,12 @@ class IndividualSupportCalculator extends Page
 
     public function saveCalculation(): void
     {
-        $this->authorizeWorkspaceManagement();
+        abort_unless(auth()->check() && static::canAccess() && ! PlatformAccess::isReadOnly(), 403);
+
         $this->validate(['saveName' => 'required|min:2|max:255']);
 
         SavedCalculation::create([
-            'workspace_id' => Filament::getTenant()?->id,
+            'workspace_id' => null,
             'created_by' => auth()->id(),
             'name' => $this->saveName,
             'type' => 'individual_support',
@@ -154,7 +153,12 @@ class IndividualSupportCalculator extends Page
 
     public function loadCalculation(int $id): void
     {
-        $calc = SavedCalculation::where('workspace_id', Filament::getTenant()?->id)->find($id);
+        $calc = SavedCalculation::query()
+            ->where('created_by', auth()->id())
+            ->whereNull('workspace_id')
+            ->where('type', 'individual_support')
+            ->find($id);
+
         if (! $calc) {
             return;
         }
@@ -175,8 +179,15 @@ class IndividualSupportCalculator extends Page
 
     public function deleteCalculation(int $id): void
     {
-        $this->authorizeWorkspaceManagement();
-        SavedCalculation::where('workspace_id', Filament::getTenant()?->id)->where('id', $id)->delete();
+        abort_unless(auth()->check() && static::canAccess() && ! PlatformAccess::isReadOnly(), 403);
+
+        SavedCalculation::query()
+            ->where('created_by', auth()->id())
+            ->whereNull('workspace_id')
+            ->where('type', 'individual_support')
+            ->whereKey($id)
+            ->delete();
+
         Notification::make()->title('Deleted')->send();
     }
 }

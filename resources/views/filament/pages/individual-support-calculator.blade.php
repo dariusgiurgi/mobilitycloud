@@ -2,7 +2,7 @@
     <x-ui-polish />
     @php
         $band = $this::TRAVEL_BANDS[$travelBandIndex] ?? $this::TRAVEL_BANDS[0];
-        $canManage = \Filament\Facades\Filament::getTenant()?->canBeManagedBy(auth()->user()) ?? false;
+        $canManage = auth()->check() && $this::canAccess() && ! \App\Support\PlatformAccess::isReadOnly();
         $exportUrl = route('calc.export', ['type' => 'is']).'?'.http_build_query([
             'participants' => $participants,
             'days' => $days,

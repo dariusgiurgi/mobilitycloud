@@ -90,13 +90,14 @@ class ProjectResource extends Resource
     public static function getRecordSubNavigation(Page $page): array
     {
         $record = $page->getRecord();
+        $canViewManagementModules = $record->canViewManagementModulesBy(auth()->user());
 
         // While writing, this is a grant estimate. Once the project is managed,
         // the same module becomes the implementation budget board.
-        $budgetUrl = $record->isWritingStage()
-            ? static::projectUrl($record, 'estimate')
-            : static::projectUrl($record, 'board');
-        $budgetLabel = $record->isWritingStage() ? 'Estimate' : 'Budget';
+        $budgetUrl = $record->isManagementStage()
+            ? static::projectUrl($record, 'board')
+            : static::projectUrl($record, 'estimate');
+        $budgetLabel = $record->isManagementStage() ? 'Budget' : 'Estimate';
 
         return [
             NavigationItem::make('Overview')
@@ -117,16 +118,19 @@ class ProjectResource extends Resource
             NavigationItem::make('Mobility')
                 ->icon(Heroicon::OutlinedMap)
                 ->url(static::projectUrl($record, 'mobility'))
+                ->visible(fn (): bool => $canViewManagementModules)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
 
             NavigationItem::make('Participants')
                 ->icon(Heroicon::OutlinedUsers)
                 ->url(static::projectUrl($record, 'participants'))
+                ->visible(fn (): bool => $canViewManagementModules)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
 
             NavigationItem::make('Documents')
                 ->icon(Heroicon::OutlinedDocumentDuplicate)
                 ->url(static::projectUrl($record, 'documents'))
+                ->visible(fn (): bool => $canViewManagementModules)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectDocuments),
 
             NavigationItem::make('Settings')

@@ -2,6 +2,10 @@
 
 namespace App\Support;
 
+use App\Models\PlatformPlan;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
+
 class PlanCatalog
 {
     public const MODULE_PROJECTS = 'projects';
@@ -20,12 +24,74 @@ class PlanCatalog
 
     public static function plans(): array
     {
+        $codedPlans = self::codedPlans();
+
+        try {
+            if (! Schema::hasTable('platform_plans')) {
+                return $codedPlans;
+            }
+
+            $records = PlatformPlan::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('label')
+                ->get();
+
+            if ($records->isEmpty()) {
+                return $codedPlans;
+            }
+
+            $plans = [];
+            $moduleKeys = array_keys(self::moduleOptions());
+
+            foreach ($records as $record) {
+                $defaults = $codedPlans[$record->key] ?? [];
+                $modules = collect($record->modules ?: ($defaults['modules'] ?? []))
+                    ->filter(fn (string $module): bool => in_array($module, $moduleKeys, true))
+                    ->values()
+                    ->all();
+
+                $limits = collect([
+                    ...($defaults['limits'] ?? []),
+                    ...($record->limits ?: []),
+                ])
+                    ->map(fn (mixed $value): int => max(0, (int) $value))
+                    ->all();
+
+                $plans[$record->key] = [
+                    'label' => $record->label,
+                    'visibility' => $record->visibility ?: ($defaults['visibility'] ?? 'public'),
+                    'description' => $record->description,
+                    'recommended' => (bool) $record->recommended,
+                    'modules' => $modules,
+                    'limits' => $limits,
+                    'monthly_price' => $record->monthly_price === null ? null : (float) $record->monthly_price,
+                    'yearly_price' => $record->yearly_price === null ? null : (float) $record->yearly_price,
+                    'currency' => strtoupper((string) ($record->currency ?: 'EUR')),
+                ];
+            }
+
+            foreach ($codedPlans as $key => $plan) {
+                $plans[$key] ??= $plan;
+            }
+
+            return $plans;
+        } catch (Throwable) {
+            return $codedPlans;
+        }
+    }
+
+    public static function codedPlans(): array
+    {
         return [
             'demo' => [
                 'label' => 'Demo',
                 'visibility' => 'internal',
                 'description' => 'Internal sandbox plan for product testing, demos and onboarding presentations.',
                 'modules' => array_keys(self::moduleOptions()),
+                'monthly_price' => null,
+                'yearly_price' => null,
+                'currency' => 'EUR',
                 'limits' => [
                     'projects' => 10,
                     'members' => 10,
@@ -40,6 +106,9 @@ class PlanCatalog
                 'visibility' => 'public',
                 'description' => 'Entry plan for initial evaluation with strict account limits.',
                 'modules' => array_keys(self::moduleOptions()),
+                'monthly_price' => 0,
+                'yearly_price' => 0,
+                'currency' => 'EUR',
                 'limits' => [
                     'projects' => 1,
                     'members' => 2,
@@ -67,6 +136,9 @@ class PlanCatalog
                     self::MODULE_TEAM,
                     self::MODULE_SETTINGS,
                 ],
+                'monthly_price' => null,
+                'yearly_price' => null,
+                'currency' => 'EUR',
                 'limits' => [
                     'projects' => 5,
                     'members' => 5,
@@ -82,6 +154,9 @@ class PlanCatalog
                 'description' => 'Full platform access for larger organisations with higher document, export and AI usage.',
                 'recommended' => true,
                 'modules' => array_keys(self::moduleOptions()),
+                'monthly_price' => null,
+                'yearly_price' => null,
+                'currency' => 'EUR',
                 'limits' => [
                     'projects' => 50,
                     'members' => 25,

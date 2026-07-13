@@ -64,6 +64,7 @@ class ViewProjectParticipants extends Page
         $this->record = $this->resolveRecord($record);
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'participants');
+        $this->authorizeManagementModuleAccess();
     }
 
     public function getTitle(): string
@@ -177,7 +178,7 @@ class ViewProjectParticipants extends Page
 
     public function openImport(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->resetValidation('importFile');
         $this->importFile = null;
         $this->showImportModal = true;
@@ -185,7 +186,7 @@ class ViewProjectParticipants extends Page
 
     public function importParticipants(ParticipantCsvImporter $importer): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'importFile' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
@@ -216,7 +217,7 @@ class ViewProjectParticipants extends Page
 
     public function openCreate(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->editingId = null;
         $this->data = $this->blankData();
         $this->showModal = true;
@@ -254,7 +255,7 @@ class ViewProjectParticipants extends Page
 
     public function save(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'data.first_name' => 'required|string|max:255',
             'data.last_name' => 'required|string|max:255',
@@ -286,14 +287,14 @@ class ViewProjectParticipants extends Page
 
     public function deleteParticipant(int $id): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         Participant::where('project_id', $this->record->id)->where('id', $id)->delete();
         Notification::make()->title('Participant removed')->success()->send();
     }
 
     public function setGdprConsent(int $id): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $p = Participant::where('project_id', $this->record->id)->find($id);
         if (! $p) {
             return;
@@ -317,7 +318,7 @@ class ViewProjectParticipants extends Page
 
     public function uploadAttachment(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'uploadFile' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx', // 10 MB
             'uploadType' => 'required|in:'.implode(',', array_keys(ParticipantAttachment::TYPES)),
@@ -374,7 +375,7 @@ class ViewProjectParticipants extends Page
 
     public function deleteAttachment(int $attachmentId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $att = ParticipantAttachment::find($attachmentId);
         // Verificam ca apartine unui participant din acest proiect.
         if ($att && $att->participant && $att->participant->project_id === $this->record->id) {

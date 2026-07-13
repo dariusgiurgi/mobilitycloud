@@ -16,7 +16,7 @@ trait GeneratesAttendanceSheets
 
     public function openAttendanceGenerator(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->attendanceActivity = $this->attendanceActivity ?: $this->record->name;
         $this->attendanceDate = $this->attendanceDate
             ?: $this->record->mobility_start_date?->format('Y-m-d')
@@ -31,7 +31,7 @@ trait GeneratesAttendanceSheets
 
     public function generateAttendanceSheet()
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'attendanceActivity' => 'required|string|max:255',
             'attendanceDate' => 'required|date',

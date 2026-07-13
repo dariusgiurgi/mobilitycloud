@@ -9,7 +9,7 @@
         $submissionChecklist = $this->getSubmissionChecklist();
         $quality = $this->getQualityReview();
         $reviewActionSummary = $this->getReviewActionSummary();
-        $canManage = $record->canBeManagedBy(auth()->user());
+        $canManage = $record->canEditApplicationBy(auth()->user());
         $categories = $sections->groupBy(fn ($section) => $section->category ?: 'Custom sections');
         $isActivityTableTemplate = $this->isActivityTableTemplate();
         $activityTableChecklist = $this->getActivityTableChecklist();
@@ -140,6 +140,13 @@
         @media (max-width:1100px) { .mc-wa-layout { grid-template-columns:1fr;height:auto;overflow:visible; }.mc-wa-main-scroll { overflow:visible;padding-right:0; }.mc-wa-editor-controls { position:static; }.mc-wa-sidebar { grid-row:1;max-height:none;overflow:visible;padding-right:0; }.mc-wa-outline-list { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:none; }.mc-template-manager { grid-template-columns:1fr; }.mc-template-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.mc-template-audit-grid { grid-template-columns:1fr; }.mc-review-panel { grid-template-columns:1fr; }.mc-review-detail-grid { grid-template-columns:1fr; }.mc-review-detail-list { max-height:none; } }
         @media (max-width:650px) { .mc-wa-outline-list { grid-template-columns:1fr; }.mc-template-stat-grid { grid-template-columns:1fr; }.mc-version-diff-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.mc-review-issue { grid-template-columns:1fr; }.mc-quality-criteria { grid-template-columns:1fr; } }
     </style>
+
+    @if(! $canManage && $record->canBeManagedBy(auth()->user()))
+        <div style="margin-bottom:1rem;padding:.9rem 1rem;border:1px solid rgba(59,130,246,.22);border-radius:.9rem;background:rgba(59,130,246,.08);color:#1d4ed8;font-size:.82rem;line-height:1.55;">
+            <strong>Application locked.</strong>
+            This project is no longer in the writing/revision stage, so the application is read-only. Use the management modules after approval for budget, participants, documents and mobility evidence.
+        </div>
+    @endif
 
     <div class="mc-wa">
 

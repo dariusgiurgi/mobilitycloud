@@ -139,7 +139,7 @@ class DashboardWorkspace extends Widget
                 ));
             }
 
-            if ($project->mobility_start_date) {
+            if ($status->isManagementStage() && $project->mobility_start_date) {
                 $days = $today->diffInDays($project->mobility_start_date, false);
                 if ($days >= 0 && $days <= 30) {
                     $items->push($this->attentionItem(
@@ -152,46 +152,48 @@ class DashboardWorkspace extends Widget
                 }
             }
 
-            $participantsMissingDocuments = $project->participants
-                ->filter(fn ($participant): bool => ! $participant->hasCompleteDocs())
-                ->count();
+            if ($status->isManagementStage()) {
+                $participantsMissingDocuments = $project->participants
+                    ->filter(fn ($participant): bool => ! $participant->hasCompleteDocs())
+                    ->count();
 
-            if ($participantsMissingDocuments > 0) {
-                $items->push($this->attentionItem(
-                    $project,
-                    $participantsMissingDocuments.' participant '.str('record')->plural($participantsMissingDocuments).' incomplete',
-                    'Required participant documents are missing.',
-                    'warning',
-                    'participants',
-                ));
-            }
+                if ($participantsMissingDocuments > 0) {
+                    $items->push($this->attentionItem(
+                        $project,
+                        $participantsMissingDocuments.' participant '.str('record')->plural($participantsMissingDocuments).' incomplete',
+                        'Required participant documents are missing.',
+                        'warning',
+                        'participants',
+                    ));
+                }
 
-            $expenses = $project->budgetLines->flatMap->expenses;
-            $missingEvidence = $expenses->whereNull('attachment_path')->count();
+                $expenses = $project->budgetLines->flatMap->expenses;
+                $missingEvidence = $expenses->whereNull('attachment_path')->count();
 
-            if ($missingEvidence > 0) {
-                $items->push($this->attentionItem(
-                    $project,
-                    $missingEvidence.' '.str('expense')->plural($missingEvidence).' without evidence',
-                    'Upload the supporting invoice or receipt.',
-                    'warning',
-                    'board',
-                ));
-            }
+                if ($missingEvidence > 0) {
+                    $items->push($this->attentionItem(
+                        $project,
+                        $missingEvidence.' '.str('expense')->plural($missingEvidence).' without evidence',
+                        'Upload the supporting invoice or receipt.',
+                        'warning',
+                        'board',
+                    ));
+                }
 
-            $unsignedDocuments = $project->documents
-                ->filter(fn ($document): bool => in_array($document->type, ['attendance', 'expense_report'], true))
-                ->whereNull('signed_path')
-                ->count();
+                $unsignedDocuments = $project->documents
+                    ->filter(fn ($document): bool => in_array($document->type, ['attendance', 'expense_report'], true))
+                    ->whereNull('signed_path')
+                    ->count();
 
-            if ($unsignedDocuments > 0) {
-                $items->push($this->attentionItem(
-                    $project,
-                    $unsignedDocuments.' generated '.str('document')->plural($unsignedDocuments).' awaiting signature',
-                    'Upload the signed copy when available.',
-                    'info',
-                    'documents',
-                ));
+                if ($unsignedDocuments > 0) {
+                    $items->push($this->attentionItem(
+                        $project,
+                        $unsignedDocuments.' generated '.str('document')->plural($unsignedDocuments).' awaiting signature',
+                        'Upload the signed copy when available.',
+                        'info',
+                        'documents',
+                    ));
+                }
             }
 
             foreach ($project->tasks->where('status', 'open')->whereNotNull('due_date') as $task) {
@@ -296,9 +298,9 @@ class DashboardWorkspace extends Widget
     {
         return match ($target) {
             'application' => $this->projectUrl($project, 'write'),
-            'budget' => $this->projectUrl($project, $project->isWritingStage() ? 'estimate' : 'board'),
-            'participants' => $this->projectUrl($project, 'participants'),
-            'documents' => $this->projectUrl($project, 'documents'),
+            'budget' => $this->projectUrl($project, $project->isManagementStage() ? 'board' : 'estimate'),
+            'participants' => $this->projectUrl($project, $project->isManagementStage() ? 'participants' : 'overview'),
+            'documents' => $this->projectUrl($project, $project->isManagementStage() ? 'documents' : 'overview'),
             'settings' => $this->projectUrl($project, 'edit'),
             default => $this->projectUrl($project, 'overview'),
         };

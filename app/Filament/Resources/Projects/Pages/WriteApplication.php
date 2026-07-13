@@ -199,7 +199,7 @@ class WriteApplication extends Page
 
     public function markAnsweredSectionsReady(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $updated = 0;
 
         foreach ($this->getSections() as $section) {
@@ -225,7 +225,7 @@ class WriteApplication extends Page
 
     public function sendIssueSectionsToReview(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $issuesBySection = collect($this->getConsistencyReview()['issues'])
             ->filter(fn (array $issue) => filled($issue['section_id'] ?? null))
             ->groupBy('section_id');
@@ -267,7 +267,7 @@ class WriteApplication extends Page
 
     public function generateReviewNotesFromChecks(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $issuesBySection = collect($this->getConsistencyReview()['issues'])
             ->filter(fn (array $issue) => filled($issue['section_id'] ?? null))
             ->groupBy('section_id');
@@ -1429,7 +1429,7 @@ class WriteApplication extends Page
 
     protected function persistField(int $id, string $field, string $value): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $sec = $this->sectionsQuery()->find($id);
         if (! $sec) {
             return;
@@ -1441,7 +1441,7 @@ class WriteApplication extends Page
 
     protected function persistTables(int $id): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $sec = $this->sectionsQuery()->find($id);
         if (! $sec) {
             return;
@@ -1513,7 +1513,7 @@ class WriteApplication extends Page
 
     public function autofillTable(int $sectionId, string $tableKey): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
 
         $section = $this->sectionsQuery()->find($sectionId);
         if (! $section || ! collect($this->getQuestionTables($section))->firstWhere('key', $tableKey)) {
@@ -1854,14 +1854,14 @@ class WriteApplication extends Page
 
     public function addActivityFlow(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $this->activityFlows[] = $this->blankActivityFlow(count($this->activityFlows) + 1);
         $this->persistActivityFlows();
     }
 
     public function removeActivityFlow(int $index): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         if (! isset($this->activityFlows[$index])) {
             return;
         }
@@ -1877,7 +1877,7 @@ class WriteApplication extends Page
 
     public function syncActivityFlowDurations(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $this->activityFlows = collect($this->activityFlows)
             ->map(function (array $flow, int $index) {
                 $flow = array_merge($this->blankActivityFlow($index + 1), $flow);
@@ -1898,7 +1898,7 @@ class WriteApplication extends Page
 
     public function generateActivityFlowsFromParticipants(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $generated = $this->defaultActivityFlows(true);
 
         if (empty($generated)) {
@@ -2045,7 +2045,7 @@ class WriteApplication extends Page
 
     protected function persistActivityFlows(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $this->activityFlows = $this->normaliseActivityFlows($this->activityFlows);
         $actionData = $this->record->action_data ?? [];
         $actionData['application_flows'] = $this->activityFlows;
@@ -2177,7 +2177,7 @@ class WriteApplication extends Page
 
     public function insertAnswerScaffold(int $sectionId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $section = $this->sectionsQuery()->find($sectionId);
         if (! $section) {
             return;
@@ -2239,7 +2239,7 @@ class WriteApplication extends Page
 
     public function insertBlock(int $blockId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $block = ContentBlock::where('owner_id', auth()->id())->find($blockId);
         if (! $block || ! $this->libraryTargetId) {
             return;
@@ -2307,7 +2307,7 @@ class WriteApplication extends Page
 
     public function loadTemplate(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         if (! ApplicationTemplates::isOfficiallyVerified($this->selectedTemplate)) {
             Notification::make()
                 ->title('Template not verified')
@@ -2462,7 +2462,7 @@ class WriteApplication extends Page
 
     public function saveVersion(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $label = trim($this->versionLabel) ?: 'Manual version '.now()->format('d M Y, H:i');
         $this->createSnapshot($label);
         $this->versionLabel = '';
@@ -2635,7 +2635,7 @@ class WriteApplication extends Page
 
     public function restoreVersion(int $versionId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $version = ProjectApplicationVersion::where('project_id', $this->record->id)->findOrFail($versionId);
         $this->createSnapshot('Automatic backup before restore');
 
@@ -2656,7 +2656,7 @@ class WriteApplication extends Page
 
     public function addSection(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $maxSort = ProjectApplicationSection::where('project_id', $this->record->id)->max('sort_order') ?? -1;
         ProjectApplicationSection::create([
             'project_id' => $this->record->id,
@@ -2671,7 +2671,7 @@ class WriteApplication extends Page
 
     public function deleteSection(int $id): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         ProjectApplicationSection::where('project_id', $this->record->id)->where('id', $id)->delete();
 
         $this->loadState();
@@ -2683,7 +2683,7 @@ class WriteApplication extends Page
      */
     public function moveSection(int $id, int $direction): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeApplicationEditing();
         $sections = $this->sectionsQuery()->get()->values();
 
         $index = $sections->search(fn ($s) => $s->id === $id);

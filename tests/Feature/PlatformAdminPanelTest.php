@@ -22,6 +22,7 @@ use App\Filament\Resources\PlatformUsers\RelationManagers\SupportNotesRelationMa
 use App\Models\ContentBlock;
 use App\Models\PlatformAnnouncement;
 use App\Models\PlatformAuditLog;
+use App\Models\PlatformPlan;
 use App\Models\PlatformSupportNote;
 use App\Models\Project;
 use App\Models\SavedCalculation;
@@ -31,6 +32,7 @@ use App\Models\WorkspaceInvitation;
 use App\Services\DemoWorkspaceResetService;
 use App\Support\PlanCatalog;
 use App\Support\AccountAccess;
+use App\Support\PlatformAccountNotificationAction;
 use App\Support\PlatformSubscriptionTimeline;
 use App\Support\WorkspaceAccess;
 use Filament\Auth\Notifications\ResetPassword;
@@ -153,6 +155,56 @@ class PlatformAdminPanelTest extends TestCase
             'actor_id' => $admin->id,
             'event_type' => 'trial_updated',
         ]);
+    }
+
+    public function test_platform_admin_can_leave_in_app_notification_for_user_account(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN, 'name' => 'Support Admin']);
+        $client = User::factory()->create([
+            'name' => 'Client Account',
+            'email' => 'client-notice@example.test',
+        ]);
+
+        $this->actingAs($admin);
+        $this->usePlatformPanel();
+
+        Livewire::test(ListPlatformUsers::class)
+            ->callTableAction('sendAccountNotification', $client, data: [
+                'title' => 'Please review your billing details',
+                'body' => 'We noticed your billing profile is missing invoice information. Please update it before the next renewal.',
+                'tone' => 'warning',
+                'url' => 'https://mobilitycloud.eu/app/account',
+                'action_label' => 'Open account',
+            ])
+            ->assertHasNoTableActionErrors();
+
+        $notification = $client->notifications()->sole();
+        $this->assertSame('Please review your billing details', $notification->data['title']);
+        $this->assertStringContainsString('billing profile', $notification->data['body']);
+        $this->assertSame('platform_account_message', data_get($notification->data, 'viewData.kind'));
+        $this->assertSame('warning', data_get($notification->data, 'viewData.tone'));
+        $this->assertSame($admin->id, data_get($notification->data, 'viewData.sent_by'));
+        $this->assertNotEmpty($notification->data['actions']);
+
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'actor_id' => $admin->id,
+            'subject_id' => $client->id,
+            'action' => 'account.notification_sent',
+        ]);
+    }
+
+    public function test_platform_admin_cannot_notify_platform_staff_accounts(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+
+        $this->actingAs($admin);
+
+        $this->assertFalse(PlatformAccountNotificationAction::canSendTo($owner));
+
+        $this->actingAs($owner);
+
+        $this->assertTrue(PlatformAccountNotificationAction::canSendTo($admin));
     }
 
     public function test_platform_account_and_workspace_have_read_only_detail_pages(): void
@@ -570,7 +622,7 @@ class PlatformAdminPanelTest extends TestCase
             ->assertDontSee('wire:poll.5s', false);
     }
 
-    public function test_platform_plans_page_shows_read_only_entitlements(): void
+    public function test_platform_plans_page_shows_catalog_without_edit_controls_for_admins(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_ADMIN]);
 
@@ -580,7 +632,7 @@ class PlatformAdminPanelTest extends TestCase
         $this->get(PlatformPlans::getUrl(panel: 'platform'))
             ->assertOk()
             ->assertSee('Plans &amp; entitlements', false)
-            ->assertSee('Read-only catalogue')
+            ->assertSee('Only the platform owner can edit global plan definitions')
             ->assertSee('Free')
             ->assertSee('Writer')
             ->assertSee('Writer Pro')
@@ -590,7 +642,56 @@ class PlatformAdminPanelTest extends TestCase
             ->assertSee('Recommended')
             ->assertSee('Documents / month')
             ->assertSee('Individual Support Calculator')
+            ->assertDontSee('Create plan')
+            ->assertDontSee('Edit plan')
             ->assertDontSee('wire:poll.5s', false);
+    }
+
+    public function test_platform_owner_can_edit_global_plan_definitions_and_sync_accounts(): void
+    {
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $client = User::factory()->create([
+            'plan' => 'free',
+            'feature_flags' => [PlanCatalog::MODULE_PROJECTS],
+            'plan_limits' => ['projects' => 1],
+        ]);
+
+        $this->actingAs($owner);
+        $this->usePlatformPanel();
+
+        Livewire::test(PlatformPlans::class)
+            ->assertSee('Create plan')
+            ->assertSee('Edit plan')
+            ->call('openEditPlan', 'free')
+            ->assertSet('form.key', 'free')
+            ->set('form.label', 'Starter')
+            ->set('form.monthly_price', 7.5)
+            ->set('form.yearly_price', 75)
+            ->set('form.limits.projects', 3)
+            ->set('form.modules', [
+                PlanCatalog::MODULE_PROJECTS,
+                PlanCatalog::MODULE_WRITING,
+                PlanCatalog::MODULE_CALCULATOR,
+            ])
+            ->set('syncExistingAccounts', true)
+            ->call('savePlan')
+            ->assertSet('showPlanModal', false);
+
+        $plan = PlatformPlan::query()->where('key', 'free')->firstOrFail();
+        $this->assertSame('Starter', $plan->label);
+        $this->assertSame('7.50', $plan->monthly_price);
+        $this->assertSame(3, $plan->limits['projects']);
+        $this->assertSame(3, PlanCatalog::defaultLimits('free')['projects']);
+        $this->assertSame([
+            PlanCatalog::MODULE_PROJECTS,
+            PlanCatalog::MODULE_WRITING,
+            PlanCatalog::MODULE_CALCULATOR,
+        ], $client->fresh()->feature_flags);
+        $this->assertSame(3, $client->fresh()->plan_limits['projects']);
+        $this->assertDatabaseHas('platform_audit_logs', [
+            'action' => 'platform_plan.updated',
+            'subject_id' => $plan->id,
+        ]);
     }
 
     public function test_platform_activity_center_shows_audited_operations(): void

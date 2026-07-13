@@ -42,6 +42,7 @@ class ViewProjectMobility extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'mobility');
+        $this->authorizeManagementModuleAccess();
         $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
         $this->documentDate = now()->toDateString();
     }
@@ -96,7 +97,7 @@ class ViewProjectMobility extends Page
 
     public function saveMobilityReport(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'mobilityReport' => ['nullable', 'string', 'max:12000'],
         ]);
@@ -114,7 +115,7 @@ class ViewProjectMobility extends Page
 
     public function uploadMobilityDocument(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $this->validate([
             'documentTitle' => ['required', 'string', 'max:255'],
             'documentCategory' => ['required', 'in:'.implode(',', array_keys(ProjectDocument::MOBILITY_CATEGORIES))],
@@ -164,7 +165,7 @@ class ViewProjectMobility extends Page
 
     public function deleteMobilityDocument(int $documentId): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation();
         $document = $this->record->documents()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))

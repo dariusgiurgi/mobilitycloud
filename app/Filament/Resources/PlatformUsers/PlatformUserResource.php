@@ -8,6 +8,7 @@ use App\Filament\Resources\PlatformUsers\Pages\ListPlatformUsers;
 use App\Filament\Resources\PlatformUsers\Pages\ViewPlatformUser;
 use App\Filament\Resources\PlatformUsers\RelationManagers\SupportNotesRelationManager;
 use App\Models\User;
+use App\Support\PlatformAccountNotificationAction;
 use App\Support\PlatformAudit;
 use App\Support\PlanCatalog;
 use BackedEnum;
@@ -364,6 +365,7 @@ class PlatformUserResource extends Resource
                 EditAction::make()
                     ->visible(fn (User $record): bool => blank($record->archived_at) && ! $record->trashed() && static::canManageAccount($record)),
                 ActionGroup::make([
+                    PlatformAccountNotificationAction::make(),
                     Action::make('impersonate')
                         ->label('Impersonate')
                         ->icon('heroicon-o-eye')

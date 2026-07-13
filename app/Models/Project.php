@@ -233,6 +233,24 @@ class Project extends Model
             && $this->normaliseProjectRole($projectRole) === self::PROJECT_ROLE_EDITOR;
     }
 
+    public function canEditApplicationBy(?User $user): bool
+    {
+        return $this->isWritingStage()
+            && $this->canBeManagedBy($user);
+    }
+
+    public function canViewManagementModulesBy(?User $user): bool
+    {
+        return $this->isManagementStage()
+            && $this->canBeAccessedBy($user);
+    }
+
+    public function canManageManagementModulesBy(?User $user): bool
+    {
+        return $this->isManagementStage()
+            && $this->canBeManagedBy($user);
+    }
+
     public function owner(): ?User
     {
         if ($this->relationLoaded('ownerAccount')) {
