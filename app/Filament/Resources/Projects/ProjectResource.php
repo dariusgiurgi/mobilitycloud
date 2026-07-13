@@ -90,7 +90,6 @@ class ProjectResource extends Resource
     public static function getRecordSubNavigation(Page $page): array
     {
         $record = $page->getRecord();
-        $canViewManagementModules = $record->canViewManagementModulesBy(auth()->user());
 
         return [
             NavigationItem::make('Overview')
@@ -111,19 +110,16 @@ class ProjectResource extends Resource
             NavigationItem::make('Mobility')
                 ->icon(Heroicon::OutlinedMap)
                 ->url(static::projectUrl($record, 'mobility'))
-                ->visible(fn (): bool => $canViewManagementModules)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
 
             NavigationItem::make('Participants')
                 ->icon(Heroicon::OutlinedUsers)
                 ->url(static::projectUrl($record, 'participants'))
-                ->visible(fn (): bool => $canViewManagementModules)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
 
             NavigationItem::make('Documents')
                 ->icon(Heroicon::OutlinedDocumentDuplicate)
                 ->url(static::projectUrl($record, 'documents'))
-                ->visible(fn (): bool => $canViewManagementModules)
                 ->isActiveWhen(fn () => $page instanceof ViewProjectDocuments),
 
             NavigationItem::make('Settings')

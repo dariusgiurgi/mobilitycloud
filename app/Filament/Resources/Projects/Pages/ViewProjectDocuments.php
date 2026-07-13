@@ -101,7 +101,7 @@ class ViewProjectDocuments extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'documents');
-        $this->authorizeManagementModuleAccess();
+        $this->authorizeProjectAccess();
         $this->disseminationReports = $this->storedDisseminationReports();
     }
 

@@ -1,5 +1,18 @@
 <x-filament-panels::page>
     <x-ui-polish />
+    @if (! $record->isManagementStage())
+        @include('filament.pages.partials.project-module-locked', [
+            'record' => $record,
+            'module' => 'Mobility',
+            'icon' => 'heroicon-o-map',
+            'accent' => '#0f766e',
+            'features' => [
+                ['title' => 'Mobility report', 'body' => 'Write an implementation note about what happened during the mobility and what changed.'],
+                ['title' => 'Activity evidence', 'body' => 'Upload plans, worksheets, participant outputs, photos and supporting files.'],
+                ['title' => 'Final archive', 'body' => 'Mobility files are included in the final project archive in an ordered structure.'],
+            ],
+        ])
+    @else
     @php
         $summary = $this->getMobilitySummary();
         $documents = $this->getMobilityDocuments();
@@ -147,4 +160,5 @@
             </div>
         @endforelse
     </x-filament::section>
+    @endif
 </x-filament-panels::page>

@@ -64,7 +64,7 @@ class ViewProjectParticipants extends Page
         $this->record = $this->resolveRecord($record);
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'participants');
-        $this->authorizeManagementModuleAccess();
+        $this->authorizeProjectAccess();
     }
 
     public function getTitle(): string

@@ -42,7 +42,7 @@ class ViewProjectMobility extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'mobility');
-        $this->authorizeManagementModuleAccess();
+        $this->authorizeProjectAccess();
         $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
         $this->documentDate = now()->toDateString();
     }

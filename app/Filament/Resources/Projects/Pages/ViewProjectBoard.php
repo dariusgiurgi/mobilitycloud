@@ -62,7 +62,7 @@ class ViewProjectBoard extends Page
         $this->record = $this->resolveRecord($record);
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'board');
-        $this->authorizeProjectManagement();
+        $this->authorizeProjectAccess();
     }
 
     public function getTitle(): string

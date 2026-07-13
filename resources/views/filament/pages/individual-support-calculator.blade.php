@@ -30,18 +30,27 @@
     @else
 
     @php
-        $band = $this::TRAVEL_BANDS[$travelBandIndex] ?? $this::TRAVEL_BANDS[0];
+        $viewParticipants = is_numeric($participants ?? null) ? max(1, (int) $participants) : 1;
+        $viewDays = is_numeric($days ?? null) ? max(1, (int) $days) : 7;
+        $viewIsRate = is_numeric($isRate ?? null) ? max(0, (float) $isRate) : 79.0;
+        $viewTravelDays = is_numeric($travelDays ?? null) ? max(0, (int) $travelDays) : 2;
+        $viewIsTravelDaysIncluded = filter_var($isTravelDaysIncluded ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+        $viewTravelBandIndex = is_numeric($travelBandIndex ?? null) ? max(0, (int) $travelBandIndex) : 2;
+        $viewGreenTravel = filter_var($greenTravel ?? false, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
+        $viewOsRate = is_numeric($osRate ?? null) ? max(0, (float) $osRate) : 100.0;
+        $viewIncludeOS = filter_var($includeOS ?? true, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+        $band = $this::TRAVEL_BANDS[$viewTravelBandIndex] ?? $this::TRAVEL_BANDS[0];
         $canManage = auth()->check() && $hasCalculatorAccess && ! \App\Support\PlatformAccess::isReadOnly();
         $exportUrl = route('calc.export', ['type' => 'is']).'?'.http_build_query([
-            'participants' => $participants,
-            'days' => $days,
-            'isRate' => $isRate,
-            'travelDays' => $travelDays,
-            'isTravelDaysIncluded' => $isTravelDaysIncluded ? 1 : 0,
-            'travelBandIndex' => $travelBandIndex,
-            'greenTravel' => $greenTravel ? 1 : 0,
-            'osRate' => $osRate,
-            'includeOS' => $includeOS ? 1 : 0,
+            'participants' => $viewParticipants,
+            'days' => $viewDays,
+            'isRate' => $viewIsRate,
+            'travelDays' => $viewTravelDays,
+            'isTravelDaysIncluded' => $viewIsTravelDaysIncluded ? 1 : 0,
+            'travelBandIndex' => $viewTravelBandIndex,
+            'greenTravel' => $viewGreenTravel ? 1 : 0,
+            'osRate' => $viewOsRate,
+            'includeOS' => $viewIncludeOS ? 1 : 0,
         ]);
     @endphp
 
@@ -133,7 +142,7 @@
                                 Some actions allow Individual Support for a limited number of travel days. Enter only the days permitted by your programme rules; enter 0 when none are eligible.
                             </x-help-tip>
                         </div>
-                        <input id="calc-travel-days" type="number" min="0" wire:model.live="travelDays" class="mc-inp text-gray-950 dark:text-white" @disabled(! $isTravelDaysIncluded)>
+                        <input id="calc-travel-days" type="number" min="0" wire:model.live="travelDays" class="mc-inp text-gray-950 dark:text-white" @disabled(! $viewIsTravelDaysIncluded)>
                     </div>
                 </div>
                 <label style="display:flex;align-items:center;gap:.5rem;margin-top:.8rem;font-size:.8rem;cursor:pointer;" class="text-gray-700 dark:text-gray-300">
@@ -141,7 +150,7 @@
                     Include eligible travel days in Individual Support
                 </label>
                 <div class="mc-formula">
-                    {{ $participants }} people × {{ $this->eligibleDays }} eligible days × {{ number_format($isRate, 2) }} € = <strong>{{ number_format($this->isTotal, 2) }} €</strong>
+                    {{ $viewParticipants }} people × {{ $this->eligibleDays }} eligible days × {{ number_format($viewIsRate, 2) }} € = <strong>{{ number_format($this->isTotal, 2) }} €</strong>
                 </div>
             </x-filament::section>
 
@@ -154,7 +163,7 @@
                 </div>
                 <select id="calc-distance" wire:model.live="travelBandIndex" class="mc-inp text-gray-950 dark:text-white">
                     @foreach ($this::TRAVEL_BANDS as $index => $travelBand)
-                        <option value="{{ $index }}">{{ $travelBand['label'] }} — {{ number_format($greenTravel ? $travelBand['green'] : $travelBand['standard'], 2) }} € / person</option>
+                        <option value="{{ $index }}">{{ $travelBand['label'] }} — {{ number_format($viewGreenTravel ? $travelBand['green'] : $travelBand['standard'], 2) }} € / person</option>
                     @endforeach
                 </select>
                 <label style="display:flex;align-items:center;gap:.5rem;margin-top:.8rem;font-size:.8rem;cursor:pointer;" class="text-gray-700 dark:text-gray-300">
@@ -165,7 +174,7 @@
                     </x-help-tip>
                 </label>
                 <div class="mc-formula">
-                    {{ $participants }} people × {{ number_format($this->travelPerParticipant, 2) }} € for {{ $band['label'] }}{{ $greenTravel ? ' green travel' : '' }} = <strong>{{ number_format($this->travelTotal, 2) }} €</strong>
+                    {{ $viewParticipants }} people × {{ number_format($this->travelPerParticipant, 2) }} € for {{ $band['label'] }}{{ $viewGreenTravel ? ' green travel' : '' }} = <strong>{{ number_format($this->travelTotal, 2) }} €</strong>
                 </div>
             </x-filament::section>
 
@@ -177,15 +186,15 @@
                             A unit contribution for preparation, implementation and follow-up by the organisation. It is separate from the amount intended for each participant's daily costs.
                         </x-help-tip>
                     </div>
-                    <input id="calc-os-rate" type="number" step="0.01" min="0" wire:model.live="osRate" class="mc-inp text-gray-950 dark:text-white" @disabled(! $includeOS)>
+                    <input id="calc-os-rate" type="number" step="0.01" min="0" wire:model.live="osRate" class="mc-inp text-gray-950 dark:text-white" @disabled(! $viewIncludeOS)>
                 </div>
                 <label style="display:flex;align-items:center;gap:.5rem;margin-top:.8rem;font-size:.8rem;cursor:pointer;" class="text-gray-700 dark:text-gray-300">
                     <input type="checkbox" wire:model.live="includeOS" style="width:15px;height:15px;accent-color:#6366f1;">
                     Include Organisational Support
                 </label>
                 <div class="mc-formula">
-                    @if ($includeOS)
-                        {{ $participants }} people × {{ number_format($osRate, 2) }} € = <strong>{{ number_format($this->osTotal, 2) }} €</strong>
+                    @if ($viewIncludeOS)
+                        {{ $viewParticipants }} people × {{ number_format($viewOsRate, 2) }} € = <strong>{{ number_format($this->osTotal, 2) }} €</strong>
                     @else
                         Organisational Support is excluded from this estimate.
                     @endif
@@ -198,21 +207,21 @@
                 <div class="mc-result-row">
                     <div>
                         <span class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;font-weight:600;">Individual Support</span>
-                        <span class="mc-calc-note">{{ $participants }} × {{ $this->eligibleDays }} × {{ number_format($isRate, 2) }} €</span>
+                        <span class="mc-calc-note">{{ $viewParticipants }} × {{ $this->eligibleDays }} × {{ number_format($viewIsRate, 2) }} €</span>
                     </div>
                     <strong class="text-gray-950 dark:text-white" style="font-size:.86rem;white-space:nowrap;">{{ number_format($this->isTotal, 2) }} €</strong>
                 </div>
                 <div class="mc-result-row">
                     <div>
                         <span class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;font-weight:600;">Travel grant</span>
-                        <span class="mc-calc-note">{{ $band['label'] }}{{ $greenTravel ? ' · green' : '' }}</span>
+                        <span class="mc-calc-note">{{ $band['label'] }}{{ $viewGreenTravel ? ' · green' : '' }}</span>
                     </div>
                     <strong class="text-gray-950 dark:text-white" style="font-size:.86rem;white-space:nowrap;">{{ number_format($this->travelTotal, 2) }} €</strong>
                 </div>
                 <div class="mc-result-row">
                     <div>
                         <span class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;font-weight:600;">Organisational Support</span>
-                        <span class="mc-calc-note">{{ $includeOS ? $participants.' × '.number_format($osRate, 2).' €' : 'Not included' }}</span>
+                        <span class="mc-calc-note">{{ $viewIncludeOS ? $viewParticipants.' × '.number_format($viewOsRate, 2).' €' : 'Not included' }}</span>
                     </div>
                     <strong class="text-gray-950 dark:text-white" style="font-size:.86rem;white-space:nowrap;">{{ number_format($this->osTotal, 2) }} €</strong>
                 </div>

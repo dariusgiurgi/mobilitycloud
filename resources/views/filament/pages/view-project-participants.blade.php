@@ -1,5 +1,18 @@
 <x-filament-panels::page>
     <x-ui-polish />
+    @if (! $record->isManagementStage())
+        @include('filament.pages.partials.project-module-locked', [
+            'record' => $record,
+            'module' => 'Participants',
+            'icon' => 'heroicon-o-users',
+            'accent' => '#4f46e5',
+            'features' => [
+                ['title' => 'Participant register', 'body' => 'Track participant data, partner organisations, roles, countries and fewer-opportunities markers.'],
+                ['title' => 'Readiness checks', 'body' => 'See missing GDPR, agreements and parental consent documents before the archive is prepared.'],
+                ['title' => 'Attendance sheets', 'body' => 'Generate signature-ready attendance lists grouped by organisation.'],
+            ],
+        ])
+    @else
     @php
         $participants = $this->getParticipants();
         $roles = $this->getRoles();
@@ -504,4 +517,5 @@
         .dark .mc-part-in option { background:#27303f; color:#f4f4f5; }
     </style>
     @include('filament.partials.attendance-generator-modal')
+    @endif
 </x-filament-panels::page>

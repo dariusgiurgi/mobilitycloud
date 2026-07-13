@@ -45,54 +45,67 @@ class IndividualSupportCalculator extends Page
         ['label' => '8000+ km',      'green' => 1735, 'standard' => 1735],
     ];
 
-    public int $participants = 1;
+    public $participants = 1;
 
-    public int $days = 7;
+    public $days = 7;
 
-    public float $isRate = 79;
+    public $isRate = 79;
 
-    public int $travelDays = 2;
+    public $travelDays = 2;
 
-    public bool $isTravelDaysIncluded = true;
+    public $isTravelDaysIncluded = true;
 
-    public int $travelBandIndex = 2;
+    public $travelBandIndex = 2;
 
-    public bool $greenTravel = false;
+    public $greenTravel = false;
 
-    public float $osRate = 100;
+    public $osRate = 100;
 
-    public bool $includeOS = true;
+    public $includeOS = true;
 
     // Save state
     public bool $showSaveModal = false;
 
     public string $saveName = '';
 
+    public function mount(): void
+    {
+        $this->ensureCalculatorState();
+    }
+
+    public function hydrate(): void
+    {
+        $this->ensureCalculatorState();
+    }
+
     public function getEligibleDaysProperty(): int
     {
-        return $this->days + ($this->isTravelDaysIncluded ? $this->travelDays : 0);
+        return $this->intValue('days', 7, 1)
+            + ($this->boolValue('isTravelDaysIncluded', true) ? $this->intValue('travelDays', 2, 0) : 0);
     }
 
     public function getIsTotalProperty(): float
     {
-        return round($this->participants * $this->eligibleDays * $this->isRate, 2);
+        return round($this->intValue('participants', 1, 1) * $this->eligibleDays * $this->floatValue('isRate', 79, 0), 2);
     }
 
     public function getTravelPerParticipantProperty(): float
     {
-        $band = self::TRAVEL_BANDS[$this->travelBandIndex] ?? self::TRAVEL_BANDS[0];
+        $band = self::TRAVEL_BANDS[$this->intValue('travelBandIndex', 2, 0)] ?? self::TRAVEL_BANDS[0];
 
-        return (float) ($this->greenTravel ? $band['green'] : $band['standard']);
+        return (float) ($this->boolValue('greenTravel', false) ? $band['green'] : $band['standard']);
     }
 
     public function getTravelTotalProperty(): float
     {
-        return round($this->participants * $this->travelPerParticipant, 2);
+        return round($this->intValue('participants', 1, 1) * $this->travelPerParticipant, 2);
     }
 
     public function getOsTotalProperty(): float
     {
-        return $this->includeOS ? round($this->participants * $this->osRate, 2) : 0.0;
+        return $this->boolValue('includeOS', true)
+            ? round($this->intValue('participants', 1, 1) * $this->floatValue('osRate', 100, 0), 2)
+            : 0.0;
     }
 
     public function getGrandTotalProperty(): float
@@ -129,15 +142,15 @@ class IndividualSupportCalculator extends Page
             'name' => $this->saveName,
             'type' => 'individual_support',
             'inputs' => [
-                'participants' => $this->participants,
-                'days' => $this->days,
-                'isRate' => $this->isRate,
-                'travelDays' => $this->travelDays,
-                'isTravelDaysIncluded' => $this->isTravelDaysIncluded,
-                'travelBandIndex' => $this->travelBandIndex,
-                'greenTravel' => $this->greenTravel,
-                'osRate' => $this->osRate,
-                'includeOS' => $this->includeOS,
+                'participants' => $this->intValue('participants', 1, 1),
+                'days' => $this->intValue('days', 7, 1),
+                'isRate' => $this->floatValue('isRate', 79, 0),
+                'travelDays' => $this->intValue('travelDays', 2, 0),
+                'isTravelDaysIncluded' => $this->boolValue('isTravelDaysIncluded', true),
+                'travelBandIndex' => $this->intValue('travelBandIndex', 2, 0),
+                'greenTravel' => $this->boolValue('greenTravel', false),
+                'osRate' => $this->floatValue('osRate', 100, 0),
+                'includeOS' => $this->boolValue('includeOS', true),
             ],
             'results' => [
                 'is' => $this->isTotal,
@@ -189,5 +202,58 @@ class IndividualSupportCalculator extends Page
             ->delete();
 
         Notification::make()->title('Deleted')->send();
+    }
+
+    private function ensureCalculatorState(): void
+    {
+        foreach ($this->calculatorDefaults() as $property => $default) {
+            if (! isset($this->{$property}) || $this->{$property} === '') {
+                $this->{$property} = $default;
+            }
+        }
+    }
+
+    private function calculatorDefaults(): array
+    {
+        return [
+            'participants' => 1,
+            'days' => 7,
+            'isRate' => 79,
+            'travelDays' => 2,
+            'isTravelDaysIncluded' => true,
+            'travelBandIndex' => 2,
+            'greenTravel' => false,
+            'osRate' => 100,
+            'includeOS' => true,
+        ];
+    }
+
+    private function intValue(string $property, int $default, int $min = 0): int
+    {
+        $value = isset($this->{$property}) ? $this->{$property} : $default;
+
+        if ($value === '' || $value === null || ! is_numeric($value)) {
+            $value = $default;
+        }
+
+        return max($min, (int) $value);
+    }
+
+    private function floatValue(string $property, float $default, float $min = 0): float
+    {
+        $value = isset($this->{$property}) ? $this->{$property} : $default;
+
+        if ($value === '' || $value === null || ! is_numeric($value)) {
+            $value = $default;
+        }
+
+        return max($min, (float) $value);
+    }
+
+    private function boolValue(string $property, bool $default): bool
+    {
+        $value = isset($this->{$property}) ? $this->{$property} : $default;
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? $default;
     }
 }

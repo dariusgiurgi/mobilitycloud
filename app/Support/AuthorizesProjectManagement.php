@@ -4,6 +4,14 @@ namespace App\Support;
 
 trait AuthorizesProjectManagement
 {
+    protected function authorizeProjectAccess(): void
+    {
+        abort_unless(
+            isset($this->record) && $this->record->canBeAccessedBy(auth()->user()),
+            403
+        );
+    }
+
     protected function authorizeProjectManagement(): void
     {
         abort_unless(

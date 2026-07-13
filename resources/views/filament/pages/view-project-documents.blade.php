@@ -1,5 +1,18 @@
 <x-filament-panels::page>
     <x-ui-polish />
+    @if (! $record->isManagementStage())
+        @include('filament.pages.partials.project-module-locked', [
+            'record' => $record,
+            'module' => 'Documents',
+            'icon' => 'heroicon-o-document-duplicate',
+            'accent' => '#7c3aed',
+            'features' => [
+                ['title' => 'Generated documents', 'body' => 'Create attendance sheets, official expense reports and civil convention files from project data.'],
+                ['title' => 'Signed copy tracking', 'body' => 'Upload signed versions and keep evidence organised by document type and status.'],
+                ['title' => 'Final archive readiness', 'body' => 'Follow checklist signals so the project archive is complete before reporting.'],
+            ],
+        ])
+    @else
     @php
         $documents = $this->getDocuments();
         $documentCategories = $this->getDocumentCategories();
@@ -815,5 +828,6 @@
                 </div>
             </div></div>
         </div>
+    @endif
     @endif
 </x-filament-panels::page>

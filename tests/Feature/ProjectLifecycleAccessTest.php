@@ -46,9 +46,15 @@ class ProjectLifecycleAccessTest extends TestCase
         $this->get(ProjectResource::getUrl('board', ['record' => $project]))
             ->assertOk()
             ->assertSee('Budget opens after project approval');
-        $this->get(ProjectResource::getUrl('participants', ['record' => $project]))->assertNotFound();
-        $this->get(ProjectResource::getUrl('documents', ['record' => $project]))->assertNotFound();
-        $this->get(ProjectResource::getUrl('mobility', ['record' => $project]))->assertNotFound();
+        $this->get(ProjectResource::getUrl('participants', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('Participants opens after project approval');
+        $this->get(ProjectResource::getUrl('documents', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('Documents opens after project approval');
+        $this->get(ProjectResource::getUrl('mobility', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('Mobility opens after project approval');
     }
 
     public function test_approved_stage_locks_application_and_opens_management_modules(): void

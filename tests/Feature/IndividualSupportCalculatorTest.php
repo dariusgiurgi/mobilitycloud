@@ -50,6 +50,20 @@ class IndividualSupportCalculatorTest extends TestCase
             ->assertSee('1,422.00');
     }
 
+    public function test_calculator_tolerates_live_numeric_input_updates(): void
+    {
+        [$workspace, $user] = $this->workspaceAndUser();
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(IndividualSupportCalculator::class)
+            ->set('participants', '3')
+            ->assertSee('3 people × 9 eligible days × 79.00 €')
+            ->assertSee('3,066.00')
+            ->set('participants', '')
+            ->assertSee('1 people × 9 eligible days × 79.00 €');
+    }
+
     private function workspaceAndUser(): array
     {
         $workspace = Workspace::create(['name' => 'Calculator Workspace']);
