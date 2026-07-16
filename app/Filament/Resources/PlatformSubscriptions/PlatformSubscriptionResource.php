@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PlatformSubscriptions;
 use App\Filament\Resources\PlatformSubscriptions\Pages\ListPlatformSubscriptions;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\PlatformSubscriptionEvent;
+use App\Models\Project;
 use App\Models\User;
 use App\Support\AccountAccess;
 use App\Support\PlanCatalog;
@@ -290,6 +291,97 @@ class PlatformSubscriptionResource extends Resource
                             ]);
                             PlatformAudit::log('account.billing_updated', 'Updated billing readiness for '.$record->email, $record);
                             Notification::make()->title('Billing details updated')->success()->send();
+                        }),
+                    Action::make('manageProjectInvoice')
+                        ->label('Project invoice')
+                        ->icon('heroicon-o-document-currency-euro')
+                        ->color('warning')
+                        ->modalHeading(fn (User $record): string => 'Project invoice · '.$record->email)
+                        ->modalDescription('Manual fiscal invoice workflow. Updating the approved grant recalculates the 1% platform fee with the €100 minimum.')
+                        ->form([
+                            Select::make('project_id')
+                                ->label('Owned project')
+                                ->options(fn (User $record): array => $record->ownedProjects()
+                                    ->orderByDesc('updated_at')
+                                    ->pluck('name', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required()
+                                ->native(false),
+                            TextInput::make('approved_grant_amount')
+                                ->label('Approved grant amount')
+                                ->numeric()
+                                ->prefix('€')
+                                ->minValue(1)
+                                ->required(),
+                            Select::make('invoice_status')
+                                ->label('Invoice status')
+                                ->options(Project::invoiceStatusOptions())
+                                ->default(Project::INVOICE_PENDING)
+                                ->required()
+                                ->native(false),
+                            TextInput::make('invoice_number')
+                                ->label('Invoice number')
+                                ->maxLength(255),
+                            DateTimePicker::make('invoice_due_at')
+                                ->label('Payment due date')
+                                ->seconds(false),
+                        ])
+                        ->action(function (User $record, array $data): void {
+                            /** @var Project $project */
+                            $project = $record->ownedProjects()->whereKey($data['project_id'])->firstOrFail();
+                            $amount = round(max(0, (float) ($data['approved_grant_amount'] ?? 0)), 2);
+                            $status = $data['invoice_status'] ?? Project::INVOICE_PENDING;
+
+                            abort_unless($amount > 0, 422);
+
+                            $attributes = [
+                                'approved_budget' => $amount,
+                                'approved_grant_amount' => $amount,
+                                'approved_grant_currency' => 'EUR',
+                                'approved_declared_at' => $project->approved_declared_at ?: now(),
+                                'approved_declared_by' => $project->approved_declared_by ?: $record->id,
+                                'activation_fee_amount' => Project::calculateActivationFee($amount),
+                                'activation_fee_currency' => 'EUR',
+                                'invoice_status' => $status,
+                                'invoice_number' => filled($data['invoice_number'] ?? null) ? trim($data['invoice_number']) : null,
+                                'invoice_due_at' => $data['invoice_due_at'] ?? $project->invoice_due_at,
+                            ];
+
+                            if ($status === Project::INVOICE_SENT && ! $project->invoice_sent_at) {
+                                $attributes['invoice_sent_at'] = now();
+                            }
+
+                            if ($status === Project::INVOICE_PAID) {
+                                $attributes['status'] = 'active';
+                                $attributes['payment_confirmed_at'] = now();
+                                $attributes['payment_confirmed_by'] = auth()->id();
+                            } elseif ($status === Project::INVOICE_OVERDUE) {
+                                $attributes['status'] = 'payment_overdue';
+                                $attributes['payment_confirmed_at'] = null;
+                                $attributes['payment_confirmed_by'] = null;
+                            } elseif ($project->status === 'payment_overdue') {
+                                $attributes['status'] = 'approved';
+                                $attributes['payment_confirmed_at'] = null;
+                                $attributes['payment_confirmed_by'] = null;
+                            } elseif (! $project->statusEnum()->isManagementStage()) {
+                                $attributes['status'] = 'approved';
+                            }
+
+                            $project->update($attributes);
+
+                            PlatformAudit::log('project.invoice_updated', 'Updated project invoice for '.$project->name, $project, [
+                                'account' => $record->email,
+                                'invoice_status' => $status,
+                                'approved_grant_amount' => $amount,
+                                'activation_fee_amount' => $attributes['activation_fee_amount'],
+                            ]);
+
+                            Notification::make()
+                                ->title('Project invoice updated')
+                                ->body($project->name.' · '.(Project::invoiceStatusOptions()[$status] ?? $status))
+                                ->success()
+                                ->send();
                         }),
                     Action::make('setTrialPeriod')
                         ->label('Set trial period')

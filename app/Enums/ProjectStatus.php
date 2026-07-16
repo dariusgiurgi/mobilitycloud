@@ -13,6 +13,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
     case Revise = 'revise';
     case Approved = 'approved';
     case Active = 'active';
+    case PaymentOverdue = 'payment_overdue';
     case Completed = 'completed';
 
     public function getLabel(): string
@@ -24,6 +25,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
             self::Revise => 'Revising',
             self::Approved => 'Approved',
             self::Active => 'Active',
+            self::PaymentOverdue => 'Payment overdue',
             self::Completed => 'Completed',
         };
     }
@@ -37,6 +39,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
             self::Revise => 'warning',
             self::Approved => 'success',
             self::Active => 'primary',
+            self::PaymentOverdue => 'danger',
             self::Completed => 'success',
         };
     }
@@ -56,7 +59,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
      */
     public function isManagementStage(): bool
     {
-        return in_array($this, [self::Approved, self::Active, self::Completed], true);
+        return in_array($this, [self::Approved, self::Active, self::PaymentOverdue, self::Completed], true);
     }
 
     /**
@@ -68,12 +71,13 @@ enum ProjectStatus: string implements HasColor, HasLabel
     public function allowedTransitions(): array
     {
         return match ($this) {
-            self::Writing => [self::Submitted],
+            self::Writing => [self::Submitted, self::Approved],
             self::Submitted => [self::Approved, self::Rejected],
             self::Rejected => [self::Revise],
-            self::Revise => [self::Submitted],
+            self::Revise => [self::Submitted, self::Approved],
             self::Approved => [self::Active],
             self::Active => [self::Completed],
+            self::PaymentOverdue => [],
             self::Completed => [],
         };
     }

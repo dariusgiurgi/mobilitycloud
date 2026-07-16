@@ -27,7 +27,8 @@
         $kaInfo = $ka ? \App\Support\ApplicationTemplates::get($ka) : null;
         $kaLabel = $kaInfo ? ($kaInfo['label'].' · Call '.$kaInfo['call_year']) : null;
         $isManagementStage = $this->record->isManagementStage();
-        $budgetModuleLabel = $isManagementStage ? 'Budget' : 'Grant estimate';
+        $implementationAvailable = $this->record->implementationModulesAvailable();
+        $budgetModuleLabel = $implementationAvailable ? 'Budget' : 'Grant estimate';
         $canManage = $this->record->canBeManagedBy(auth()->user());
         $ownerLabel = $this->record->ownerLabelFor(auth()->user());
         $accessLabel = $this->record->accessLabelFor(auth()->user());
@@ -90,6 +91,11 @@
                 @if ($this->record->is_activated)
                     <x-filament::badge color="success">Activated</x-filament::badge>
                 @endif
+                @if ($this->record->invoice_status && $this->record->invoice_status !== \App\Models\Project::INVOICE_NOT_REQUIRED)
+                    <x-filament::badge color="{{ $this->record->hasPaymentOverdue() ? 'danger' : ($this->record->invoice_status === \App\Models\Project::INVOICE_PAID ? 'success' : 'warning') }}">
+                        {{ \App\Models\Project::invoiceStatusOptions()[$this->record->invoice_status] ?? str($this->record->invoice_status)->headline() }}
+                    </x-filament::badge>
+                @endif
             </div>
 
             @if ($canManage)
@@ -109,6 +115,39 @@
             @endif
         </div>
     </x-filament::section>
+
+    @if ($this->record->approvedGrantAmount() > 0 && $this->record->invoice_status !== \App\Models\Project::INVOICE_NOT_REQUIRED)
+        <x-filament::section style="margin-top:1rem;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+                <div style="display:flex;align-items:flex-start;gap:.85rem;max-width:760px;">
+                    <span style="width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.7rem;background:{{ $this->record->hasPaymentOverdue() ? 'rgba(239,68,68,.12)' : 'rgba(245,158,11,.12)' }};color:{{ $this->record->hasPaymentOverdue() ? '#dc2626' : '#d97706' }};">
+                        <x-filament::icon :icon="$this->record->hasPaymentOverdue() ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-document-currency-euro'" style="width:1.25rem;height:1.25rem;" />
+                    </span>
+                    <div>
+                        <p style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:{{ $this->record->hasPaymentOverdue() ? '#dc2626' : '#d97706' }};">Project activation</p>
+                        <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;margin-top:.15rem;">
+                            {{ $this->record->hasPaymentOverdue() ? 'Access paused until payment is confirmed' : 'Fiscal invoice pending' }}
+                        </h2>
+                        <p class="mc-overview-muted" style="font-size:.78rem;line-height:1.5;margin-top:.25rem;">
+                            Approved grant: <strong>{{ $eur($this->record->approvedGrantAmount()) }}</strong>.
+                            Platform fee: <strong>{{ $eur($this->record->activation_fee_amount) }}</strong>
+                            @if ($this->record->invoice_due_at)
+                                · Payment due by {{ $this->record->invoice_due_at->format('d M Y') }}.
+                            @endif
+                            @if ($this->record->hasPaymentOverdue())
+                                Implementation modules are unavailable for this project until support confirms payment.
+                            @else
+                                You can continue implementation while the fiscal invoice is handled manually.
+                            @endif
+                        </p>
+                    </div>
+                </div>
+                @if ($this->record->invoice_number)
+                    <x-filament::badge color="gray">Invoice {{ $this->record->invoice_number }}</x-filament::badge>
+                @endif
+            </div>
+        </x-filament::section>
+    @endif
 
     <x-filament::section style="margin-top:1rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
@@ -257,9 +296,9 @@
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Participants</h3>
             <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $participants['total'] }}</p>
             <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">
-                {{ $isManagementStage ? ($participants['total'] > 0 ? $participants['complete'].' records have all required files' : 'No participants added yet') : 'Available after project approval' }}
+                {{ $implementationAvailable ? ($participants['total'] > 0 ? $participants['complete'].' records have all required files' : 'No participants added yet') : ($this->record->hasPaymentOverdue() ? 'Paused until payment is confirmed' : 'Available after project approval') }}
             </p>
-            <span style="font-size:.72rem;font-weight:600;color:{{ $isManagementStage ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $isManagementStage ? 'Open participants →' : 'Locked until approval' }}</span>
+            <span style="font-size:.72rem;font-weight:600;color:{{ $implementationAvailable ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $implementationAvailable ? 'Open participants →' : ($this->record->hasPaymentOverdue() ? 'Paused for payment' : 'Preview module →') }}</span>
         </a>
 
         <a href="{{ $urls['documents'] }}" class="mc-overview-card">
@@ -274,9 +313,9 @@
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Documents</h3>
             <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $documents['files'] }} files</p>
             <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">
-                {{ $isManagementStage ? ($documents['checklist_applies'] ? $documents['complete'].' checklist items complete' : 'Project files and generated records') : 'Available after project approval' }}
+                {{ $implementationAvailable ? ($documents['checklist_applies'] ? $documents['complete'].' checklist items complete' : 'Project files and generated records') : ($this->record->hasPaymentOverdue() ? 'Paused until payment is confirmed' : 'Available after project approval') }}
             </p>
-            <span style="font-size:.72rem;font-weight:600;color:{{ $isManagementStage ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $isManagementStage ? 'Open documents →' : 'Locked until approval' }}</span>
+            <span style="font-size:.72rem;font-weight:600;color:{{ $implementationAvailable ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $implementationAvailable ? 'Open documents →' : ($this->record->hasPaymentOverdue() ? 'Paused for payment' : 'Preview module →') }}</span>
         </a>
     </div>
 
@@ -299,7 +338,7 @@
             </div>
             <div>
                 <p class="mc-overview-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;">Funding</p>
-                <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:550;margin-top:.2rem;">{{ $approved > 0 ? $eur($approved).' approved' : $eur($requested).' requested' }}</p>
+                <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:550;margin-top:.2rem;">{{ $this->record->approvedGrantAmount() > 0 ? $eur($this->record->approvedGrantAmount()).' approved' : $eur($requested).' requested' }}</p>
             </div>
             <div>
                 <p class="mc-overview-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;">Project period</p>
@@ -460,6 +499,53 @@
                     <div class="mc-modal-actions">
                         <x-filament::button wire:click="closeTransitionReadinessModal" color="gray" size="sm">Cancel</x-filament::button>
                         <x-filament::button wire:click="confirmPendingTransition" color="warning" size="sm">Continue anyway</x-filament::button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    @if($showApprovalModal)
+        @php
+            $previewFee = \App\Models\Project::calculateActivationFee($approvedGrantAmount);
+        @endphp
+        <div class="mc-modal-backdrop" wire:click.self="closeApprovalModal">
+            <div class="mc-modal-panel">
+                <div class="mc-modal-body">
+                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;">
+                        <div>
+                            <h3 class="mc-modal-heading">Declare approved grant</h3>
+                            <p class="mc-modal-description">
+                                Enter the exact approved grant amount. After confirmation, this amount is locked and can only be changed by support.
+                            </p>
+                        </div>
+                        <button type="button" class="mc-iconbtn" wire:click="closeApprovalModal">✕</button>
+                    </div>
+
+                    <label for="approved-grant-amount" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin-bottom:.35rem;">Approved grant amount</label>
+                    <input id="approved-grant-amount" type="number" min="1" step="0.01" wire:model.live="approvedGrantAmount" class="mc-task-field text-gray-950 dark:text-white" placeholder="e.g. 25000">
+                    @error('approvedGrantAmount')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+
+                    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;margin-top:1rem;">
+                        <div class="mc-readiness-group">
+                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Platform fee</p>
+                            <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $eur($previewFee) }}</p>
+                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">1% of grant, minimum €100</p>
+                        </div>
+                        <div class="mc-readiness-group">
+                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Payment term</p>
+                            <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">14 days</p>
+                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">Fiscal invoice issued manually</p>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:.9rem;padding:.7rem .8rem;border-radius:.7rem;background:rgba(245,158,11,.1);color:#92400e;font-size:.72rem;line-height:1.45;">
+                        By confirming, you state that this is the exact approved amount. If it is wrong later, contact support; normal project settings will not allow changing it.
+                    </div>
+
+                    <div class="mc-modal-actions">
+                        <x-filament::button wire:click="closeApprovalModal" color="gray" size="sm">Cancel</x-filament::button>
+                        <x-filament::button wire:click="confirmApprovedGrant" wire:loading.attr="disabled" wire:target="confirmApprovedGrant" color="success" size="sm">Confirm approval</x-filament::button>
                     </div>
                 </div>
             </div>

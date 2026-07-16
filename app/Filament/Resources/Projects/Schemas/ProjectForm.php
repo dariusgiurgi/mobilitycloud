@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
-use App\Enums\ProjectStatus;
 use App\Support\ApplicationTemplates;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -12,17 +11,12 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 class ProjectForm
 {
     public static function configure(Schema $schema): Schema
     {
-        $statusOptions = Collection::make(ProjectStatus::cases())
-            ->mapWithKeys(fn (ProjectStatus $s) => [$s->value => $s->getLabel()])
-            ->all();
-
         return $schema
             ->components([
                 Section::make('Project identity')
@@ -50,6 +44,22 @@ class ProjectForm
                     ->description('Optional. Choose an official application template only when this project also needs structured Writing questions.')
                     ->columns(2)
                     ->schema([
+                        Toggle::make('create_as_approved')
+                            ->label('This project is already approved')
+                            ->helperText('Use this when you want to manage an already approved project without going through Writing first.')
+                            ->live()
+                            ->inline(false)
+                            ->visible(fn (string $operation): bool => $operation === 'create')
+                            ->dehydrated(true),
+                        TextInput::make('approved_grant_declaration')
+                            ->label('Approved grant amount')
+                            ->numeric()
+                            ->prefix('€')
+                            ->minValue(1)
+                            ->required(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
+                            ->visible(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
+                            ->helperText('This amount becomes locked after creation and is used to calculate the platform activation fee.')
+                            ->dehydrated(true),
                         Select::make('ka_action')
                             ->label('Application template')
                             ->options(ApplicationTemplates::list())
@@ -112,23 +122,39 @@ class ProjectForm
                             ->columnSpanFull(),
                     ]),
 
-                Section::make('Funding and taxation')
-                    ->description('Requested funding is used before approval; the approved grant becomes the spending baseline after confirmation.')
+                Section::make('Official approval and invoice')
+                    ->description('The approved grant is declared only when the project is marked as approved. After confirmation, normal users cannot change it from settings.')
                     ->columns(3)
                     ->schema([
-                        TextInput::make('total_budget')
-                            ->label('Total budget (€)')
-                            ->numeric()
-                            ->default(0)
+                        TextInput::make('approved_grant_amount')
+                            ->label('Approved grant')
                             ->prefix('€')
-                            ->minValue(0)
-                            ->required(),
-                        TextInput::make('approved_budget')
-                            ->label('Approved budget (€)')
-                            ->numeric()
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->placeholder('Not declared yet'),
+                        TextInput::make('activation_fee_amount')
+                            ->label('Platform fee')
                             ->prefix('€')
-                            ->minValue(0)
-                            ->helperText('Leave empty until confirmed by the funder.'),
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->helperText('Calculated as 1% of the approved grant, minimum €100.'),
+                        Select::make('invoice_status')
+                            ->label('Invoice status')
+                            ->options(\App\Models\Project::invoiceStatusOptions())
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->native(false),
+                        TextInput::make('invoice_number')
+                            ->label('Invoice number')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->placeholder('Added by support after fiscal invoice is issued.'),
+                    ]),
+
+                Section::make('Operational finance settings')
+                    ->description('Internal percentages and tax settings used by generated project documents. Approved grant amounts are not edited here.')
+                    ->columns(2)
+                    ->schema([
                         TextInput::make('first_tranche_pct')
                             ->label('1st tranche (%)')
                             ->numeric()
@@ -195,17 +221,11 @@ class ProjectForm
                     ]),
 
                 Section::make('Advanced controls')
-                    ->description('Lifecycle overrides and expense numbering affect several project modules. Change them deliberately.')
-                    ->columns(3)
+                    ->description('Expense numbering affects generated records and exports. Lifecycle changes are handled from Project overview.')
+                    ->columns(2)
                     ->collapsible()
                     ->collapsed()
                     ->schema([
-                        Select::make('status')
-                            ->options($statusOptions)
-                            ->default('writing')
-                            ->required()
-                            ->native(false)
-                            ->helperText('Normally changed from Overview.'),
                         TextInput::make('expense_prefix')
                             ->label('Expense prefix')
                             ->default('EXP')

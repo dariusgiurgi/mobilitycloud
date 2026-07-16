@@ -26,10 +26,14 @@ class ProjectSettingsTest extends TestCase
             ->assertSee('Application template')
             ->assertSee('Timeline')
             ->assertSee('Involved organisations')
-            ->assertSee('Funding and taxation')
+            ->assertSee('Official approval and invoice')
+            ->assertSee('Operational finance settings')
             ->assertSee('Project currencies')
             ->assertSee('Advanced controls')
-            ->assertSee('More actions');
+            ->assertSee('More actions')
+            ->assertDontSee('Funding and taxation')
+            ->assertDontSee('Total budget (€)')
+            ->assertDontSee('Approved budget (€)');
     }
 
     public function test_settings_validate_dates_and_financial_percentages(): void

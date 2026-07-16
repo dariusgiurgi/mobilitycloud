@@ -78,6 +78,49 @@ class ProjectOverviewTest extends TestCase
         $this->assertSame('submitted', $project->fresh()->status);
     }
 
+    public function test_marking_a_project_as_approved_requires_and_locks_the_approved_grant(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertSee('Mark as Approved')
+            ->call('requestTransitionTo', 'approved')
+            ->assertSet('showApprovalModal', true)
+            ->assertSee('Declare approved grant')
+            ->set('approvedGrantAmount', 25000)
+            ->call('confirmApprovedGrant')
+            ->assertSet('showApprovalModal', false)
+            ->assertSee('Fiscal invoice pending')
+            ->assertSee('250.00 €');
+
+        $project->refresh();
+
+        $this->assertSame('approved', $project->status);
+        $this->assertSame('25000.00', $project->approved_grant_amount);
+        $this->assertSame('25000.00', $project->approved_budget);
+        $this->assertSame('250.00', $project->activation_fee_amount);
+        $this->assertSame(Project::INVOICE_PENDING, $project->invoice_status);
+        $this->assertNotNull($project->approved_declared_at);
+        $this->assertNotNull($project->invoice_due_at);
+        $this->assertTrue($project->implementationModulesAvailable());
+    }
+
+    public function test_approved_grant_fee_has_a_one_hundred_euro_minimum(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->call('requestTransitionTo', 'approved')
+            ->set('approvedGrantAmount', 4500)
+            ->call('confirmApprovedGrant');
+
+        $this->assertSame('100.00', $project->fresh()->activation_fee_amount);
+    }
+
     public function test_readiness_transition_warning_can_be_cancelled(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');

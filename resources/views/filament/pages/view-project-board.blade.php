@@ -31,18 +31,23 @@
         @media (max-width:600px) { .mc-budget-stats { grid-template-columns:1fr; } }
     </style>
 
-    @if (! $record->isManagementStage())
+    @if (! $record->implementationModulesAvailable())
+        @php $isPaymentOverdue = $record->hasPaymentOverdue(); @endphp
         <x-filament::section>
             <div style="display:grid;gap:1rem;max-width:820px;">
                 <div style="display:flex;align-items:flex-start;gap:.85rem;">
-                    <div style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:rgba(245,158,11,.14);color:#d97706;flex:0 0 auto;">
-                        <x-filament::icon icon="heroicon-o-lock-closed" style="width:22px;height:22px;" />
+                    <div style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:{{ $isPaymentOverdue ? 'rgba(239,68,68,.12)' : 'rgba(245,158,11,.14)' }};color:{{ $isPaymentOverdue ? '#dc2626' : '#d97706' }};flex:0 0 auto;">
+                        <x-filament::icon :icon="$isPaymentOverdue ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-lock-closed'" style="width:22px;height:22px;" />
                     </div>
                     <div>
-                        <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:700;">Budget opens after project approval</h2>
+                        <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:700;">{{ $isPaymentOverdue ? 'Budget is paused until payment is confirmed' : 'Budget opens after project approval' }}</h2>
                         <p class="text-gray-500 dark:text-gray-400" style="font-size:.84rem;line-height:1.55;margin-top:.3rem;">
-                            During the writing stage, keep the financial planning in the application and use the Individual Support calculator for scenarios.
-                            Once the project is marked as approved, this module becomes the implementation budget with baskets, expenses, supporting files, transfers and exports.
+                            @if ($isPaymentOverdue)
+                                This project has an overdue activation invoice. Existing budget data is safe, but implementation access is paused until support confirms payment.
+                            @else
+                                During the writing stage, keep the financial planning in the application and use the Individual Support calculator for scenarios.
+                                Once the project is marked as approved, this module becomes the implementation budget with baskets, expenses, supporting files, transfers and exports.
+                            @endif
                         </p>
                     </div>
                 </div>
@@ -58,14 +63,16 @@
                     </div>
                     <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:1rem;">
                         <p class="text-gray-500 dark:text-gray-400" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;font-weight:700;">Budget board</p>
-                        <p class="text-gray-950 dark:text-white" style="font-size:.95rem;font-weight:700;margin-top:.25rem;">Locked until approved</p>
+                        <p class="text-gray-950 dark:text-white" style="font-size:.95rem;font-weight:700;margin-top:.25rem;">{{ $isPaymentOverdue ? 'Paused for payment' : 'Locked until approved' }}</p>
                     </div>
                 </div>
 
                 <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                    <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::projectUrl($record, 'write')" icon="heroicon-o-document-text">
-                        Continue application
-                    </x-filament::button>
+                    @if (! $isPaymentOverdue)
+                        <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::projectUrl($record, 'write')" icon="heroicon-o-document-text">
+                            Continue application
+                        </x-filament::button>
+                    @endif
                     <x-filament::button tag="a" :href="\App\Filament\Pages\IndividualSupportCalculator::getUrl()" color="gray" icon="heroicon-o-calculator">
                         Individual Support
                     </x-filament::button>

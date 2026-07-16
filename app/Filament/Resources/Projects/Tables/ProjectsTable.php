@@ -26,10 +26,11 @@ class ProjectsTable
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'draft' => 'gray',
+                        'writing' => 'gray',
                         'submitted' => 'warning',
                         'approved' => 'info',
-                        'activated' => 'success',
+                        'active' => 'success',
+                        'payment_overdue' => 'danger',
                         'completed' => 'primary',
                         'archived' => 'gray',
                         default => 'gray',
@@ -60,12 +61,14 @@ class ProjectsTable
             ->filters([
                 SelectFilter::make('status')
                     ->options([
-                        'draft' => 'Draft',
+                        'writing' => 'Writing',
                         'submitted' => 'Submitted',
+                        'rejected' => 'Rejected',
+                        'revise' => 'Revising',
                         'approved' => 'Approved',
-                        'activated' => 'Activated',
+                        'active' => 'Active',
+                        'payment_overdue' => 'Payment overdue',
                         'completed' => 'Completed',
-                        'archived' => 'Archived',
                     ]),
             ])
             ->recordActions([

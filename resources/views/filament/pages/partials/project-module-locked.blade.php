@@ -7,15 +7,24 @@
 ])
 
 <x-filament::section>
+    @php
+        $isPaymentOverdue = $record->hasPaymentOverdue();
+    @endphp
     <div style="display:grid;gap:1rem;max-width:860px;">
         <div style="display:flex;align-items:flex-start;gap:.85rem;">
             <div style="width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:color-mix(in srgb, {{ $accent }} 14%, transparent);color:{{ $accent }};flex:0 0 auto;">
-                <x-filament::icon :icon="$icon" style="width:22px;height:22px;" />
+                <x-filament::icon :icon="$isPaymentOverdue ? 'heroicon-o-exclamation-triangle' : $icon" style="width:22px;height:22px;" />
             </div>
             <div>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:700;">{{ $module }} opens after project approval</h2>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:700;">
+                    {{ $isPaymentOverdue ? $module.' is paused until payment is confirmed' : $module.' opens after project approval' }}
+                </h2>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.84rem;line-height:1.55;margin-top:.3rem;">
-                    This module is part of the implementation workspace. It becomes editable once the project is marked as approved, so writing stays focused on the application while the management tools are ready and visible.
+                    @if ($isPaymentOverdue)
+                        This project has an overdue activation invoice. Your data is safe, but implementation modules are unavailable until support confirms payment.
+                    @else
+                        This module is part of the implementation workspace. It becomes editable once the project is marked as approved, so writing stays focused on the application while the management tools are ready and visible.
+                    @endif
                 </p>
             </div>
         </div>
@@ -32,9 +41,11 @@
         @endif
 
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-            <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::projectUrl($record, 'write')" icon="heroicon-o-document-text">
-                Continue application
-            </x-filament::button>
+            @if (! $isPaymentOverdue)
+                <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::projectUrl($record, 'write')" icon="heroicon-o-document-text">
+                    Continue application
+                </x-filament::button>
+            @endif
             <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::projectUrl($record)" color="gray" icon="heroicon-o-home">
                 Project overview
             </x-filament::button>

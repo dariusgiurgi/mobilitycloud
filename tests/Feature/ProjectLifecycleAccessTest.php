@@ -97,6 +97,57 @@ class ProjectLifecycleAccessTest extends TestCase
             ->assertSee('Mobility');
     }
 
+    public function test_overdue_invoice_pauses_management_modules_without_hiding_the_project(): void
+    {
+        [$project, $owner] = $this->projectAndOwner('payment_overdue');
+        $project->update([
+            'approved_grant_amount' => 15000,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 150,
+            'invoice_status' => Project::INVOICE_OVERDUE,
+            'invoice_due_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($owner);
+
+        $this->assertTrue($project->fresh()->isManagementStage());
+        $this->assertFalse($project->fresh()->implementationModulesAvailable());
+
+        $this->get(ProjectResource::getUrl('board', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('Budget is paused until payment is confirmed');
+        $this->get(ProjectResource::getUrl('participants', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('paused until payment is confirmed');
+        $this->get(ProjectResource::getUrl('documents', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('paused until payment is confirmed');
+        $this->get(ProjectResource::getUrl('mobility', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('paused until payment is confirmed');
+    }
+
+    public function test_unpaid_invoice_pauses_modules_automatically_after_due_date(): void
+    {
+        [$project, $owner] = $this->projectAndOwner('active');
+        $project->update([
+            'approved_grant_amount' => 15000,
+            'approved_declared_at' => now()->subDays(15),
+            'activation_fee_amount' => 150,
+            'invoice_status' => Project::INVOICE_SENT,
+            'invoice_due_at' => now()->subMinute(),
+        ]);
+
+        $this->actingAs($owner);
+
+        $this->assertTrue($project->fresh()->hasPaymentOverdue());
+        $this->assertFalse($project->fresh()->implementationModulesAvailable());
+
+        $this->get(ProjectResource::getUrl('board', ['record' => $project]))
+            ->assertOk()
+            ->assertSee('Budget is paused until payment is confirmed');
+    }
+
     public function test_global_individual_support_calculator_saves_scenarios_to_the_user_account(): void
     {
         $user = User::factory()->create();

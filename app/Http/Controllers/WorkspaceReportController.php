@@ -32,7 +32,7 @@ class WorkspaceReportController extends Controller
     private function validatedFilters(Request $request): array
     {
         return $request->validate([
-            'status' => ['nullable', 'in:all,writing,submitted,rejected,revise,approved,active,completed'],
+            'status' => ['nullable', 'in:all,writing,submitted,rejected,revise,approved,active,payment_overdue,completed'],
             'start' => ['nullable', 'date'],
             'end' => ['nullable', 'date', 'after_or_equal:start'],
         ]);

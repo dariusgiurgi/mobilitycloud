@@ -16,6 +16,20 @@ class Project extends Model
 {
     use SoftDeletes;
 
+    public const ACTIVATION_FEE_RATE = 0.01;
+
+    public const ACTIVATION_FEE_MINIMUM = 100.0;
+
+    public const INVOICE_NOT_REQUIRED = 'not_required';
+
+    public const INVOICE_PENDING = 'pending';
+
+    public const INVOICE_SENT = 'sent';
+
+    public const INVOICE_PAID = 'paid';
+
+    public const INVOICE_OVERDUE = 'overdue';
+
     /** @deprecated Project managers are now treated as editors. */
     public const PROJECT_ROLE_MANAGER = 'manager';
 
@@ -33,7 +47,9 @@ class Project extends Model
 
     protected $fillable = [
         'owner_id', 'workspace_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
-        'total_budget', 'approved_budget', 'first_tranche_pct', 'withholding_tax_rate', 'currencies',
+        'total_budget', 'approved_budget', 'approved_grant_amount', 'approved_grant_currency', 'approved_declared_at', 'approved_declared_by',
+        'activation_fee_amount', 'activation_fee_currency', 'invoice_status', 'invoice_number', 'invoice_sent_at', 'invoice_due_at',
+        'payment_confirmed_at', 'payment_confirmed_by', 'first_tranche_pct', 'withholding_tax_rate', 'currencies',
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
         'expense_prefix', 'expense_pad_length',
         'start_date', 'end_date', 'mobility_start_date', 'mobility_end_date', 'partner_org', 'partner_orgs', 'notes',
@@ -43,6 +59,12 @@ class Project extends Model
     protected $casts = [
         'total_budget' => 'decimal:2',
         'approved_budget' => 'decimal:2',
+        'approved_grant_amount' => 'decimal:2',
+        'approved_declared_at' => 'datetime',
+        'activation_fee_amount' => 'decimal:2',
+        'invoice_sent_at' => 'datetime',
+        'invoice_due_at' => 'datetime',
+        'payment_confirmed_at' => 'datetime',
         'is_activated' => 'boolean',
         'activated_at' => 'datetime',
         'activation_snapshot' => 'array',
@@ -242,12 +264,14 @@ class Project extends Model
     public function canViewManagementModulesBy(?User $user): bool
     {
         return $this->isManagementStage()
+            && $this->implementationModulesAvailable()
             && $this->canBeAccessedBy($user);
     }
 
     public function canManageManagementModulesBy(?User $user): bool
     {
         return $this->isManagementStage()
+            && $this->implementationModulesAvailable()
             && $this->canBeManagedBy($user);
     }
 
@@ -359,9 +383,84 @@ class Project extends Model
      */
     public function getEffectiveBudgetAttribute(): float
     {
-        $approved = (float) $this->approved_budget;
+        $approved = (float) ($this->approved_grant_amount ?: $this->approved_budget);
 
         return $approved > 0 ? $approved : (float) $this->total_budget;
+    }
+
+    public static function invoiceStatusOptions(): array
+    {
+        return [
+            self::INVOICE_NOT_REQUIRED => 'Not required',
+            self::INVOICE_PENDING => 'Invoice pending',
+            self::INVOICE_SENT => 'Invoice sent',
+            self::INVOICE_PAID => 'Paid',
+            self::INVOICE_OVERDUE => 'Payment overdue',
+        ];
+    }
+
+    public static function calculateActivationFee(float|int|string|null $approvedGrantAmount): float
+    {
+        $amount = max(0, (float) $approvedGrantAmount);
+
+        if ($amount <= 0) {
+            return 0.0;
+        }
+
+        return round(max(self::ACTIVATION_FEE_MINIMUM, $amount * self::ACTIVATION_FEE_RATE), 2);
+    }
+
+    public function approvedGrantAmount(): float
+    {
+        return (float) ($this->approved_grant_amount ?: $this->approved_budget);
+    }
+
+    public function hasDeclaredApprovedGrant(): bool
+    {
+        return $this->approvedGrantAmount() > 0 && $this->approved_declared_at !== null;
+    }
+
+    public function hasPaymentOverdue(): bool
+    {
+        if ($this->statusEnum() === ProjectStatus::PaymentOverdue
+            || $this->invoice_status === self::INVOICE_OVERDUE) {
+            return true;
+        }
+
+        return in_array($this->invoice_status, [self::INVOICE_PENDING, self::INVOICE_SENT], true)
+            && $this->invoice_due_at !== null
+            && $this->invoice_due_at->isPast();
+    }
+
+    public function implementationModulesAvailable(): bool
+    {
+        return $this->isManagementStage()
+            && ! $this->hasPaymentOverdue();
+    }
+
+    public function declareApprovedGrant(float|int|string $amount, ?User $declaredBy = null, int $paymentTermDays = 14): void
+    {
+        $amount = round(max(0, (float) $amount), 2);
+
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Approved grant amount must be greater than zero.');
+        }
+
+        $this->forceFill([
+            'status' => ProjectStatus::Approved->value,
+            // Compatibility with older reports/widgets that still read approved_budget.
+            'approved_budget' => $amount,
+            'approved_grant_amount' => $amount,
+            'approved_grant_currency' => 'EUR',
+            'approved_declared_at' => now(),
+            'approved_declared_by' => $declaredBy?->id,
+            'activation_fee_amount' => self::calculateActivationFee($amount),
+            'activation_fee_currency' => 'EUR',
+            'invoice_status' => self::INVOICE_PENDING,
+            'invoice_due_at' => now()->addDays($paymentTermDays),
+            'payment_confirmed_at' => null,
+            'payment_confirmed_by' => null,
+        ])->save();
     }
 
     /**

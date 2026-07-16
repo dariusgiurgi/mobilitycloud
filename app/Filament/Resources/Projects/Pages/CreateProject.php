@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 
@@ -31,17 +32,34 @@ class CreateProject extends CreateRecord
         $data['owner_id'] = auth()->id();
         $data['workspace_id'] = null;
         $data['access_mode'] = 'restricted';
+        $data['status'] = ! empty($data['create_as_approved']) ? 'approved' : 'writing';
 
         return $data;
     }
 
     protected function handleRecordCreation(array $data): Model
     {
+        $approvedGrantDeclaration = $data['approved_grant_declaration'] ?? null;
+        $createAsApproved = (bool) ($data['create_as_approved'] ?? false);
+
         $data['owner_id'] = auth()->id();
         $data['workspace_id'] = null;
+        $data['status'] = $createAsApproved ? 'approved' : 'writing';
+
+        unset($data['create_as_approved'], $data['approved_grant_declaration']);
 
         $record = new Project($data);
         $record->save();
+
+        if ($createAsApproved) {
+            $record->declareApprovedGrant($approvedGrantDeclaration, auth()->user());
+
+            Notification::make()
+                ->title('Approved project created')
+                ->body('The approved grant was locked and the platform fee was calculated. A fiscal invoice can now be issued manually.')
+                ->success()
+                ->send();
+        }
 
         return $record;
     }

@@ -58,6 +58,10 @@ class ViewProjectOverview extends Page
 
     public array $pendingTransitionSummary = [];
 
+    public bool $showApprovalModal = false;
+
+    public $approvedGrantAmount = null;
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -467,13 +471,11 @@ class ViewProjectOverview extends Page
 
     public function getModuleUrls(): array
     {
-        $managementUrl = ProjectResource::projectUrl($this->record);
-
         return [
             'application' => ProjectResource::projectUrl($this->record, 'write'),
-            'budget' => ProjectResource::projectUrl($this->record, $this->record->isManagementStage() ? 'board' : 'estimate'),
-            'participants' => $this->record->isManagementStage() ? ProjectResource::projectUrl($this->record, 'participants') : $managementUrl,
-            'documents' => $this->record->isManagementStage() ? ProjectResource::projectUrl($this->record, 'documents') : $managementUrl,
+            'budget' => ProjectResource::projectUrl($this->record, $this->record->implementationModulesAvailable() ? 'board' : 'estimate'),
+            'participants' => ProjectResource::projectUrl($this->record, 'participants'),
+            'documents' => ProjectResource::projectUrl($this->record, 'documents'),
             'settings' => ProjectResource::projectUrl($this->record, 'edit'),
         ];
     }
@@ -554,6 +556,16 @@ class ViewProjectOverview extends Page
             return;
         }
 
+        if ($targetEnum === ProjectStatus::Approved) {
+            $this->approvedGrantAmount = $this->record->approvedGrantAmount() > 0
+                ? (string) $this->record->approvedGrantAmount()
+                : null;
+            $this->pendingTransitionTarget = $targetEnum->value;
+            $this->showApprovalModal = true;
+
+            return;
+        }
+
         $readiness = $this->getProjectReadiness();
         $issues = collect($readiness['items'])
             ->filter(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true))
@@ -616,12 +628,19 @@ class ViewProjectOverview extends Page
             return;
         }
 
+        if ($targetEnum === ProjectStatus::Approved && ! $this->record->hasDeclaredApprovedGrant()) {
+            $this->approvedGrantAmount = $this->record->approvedGrantAmount() > 0
+                ? (string) $this->record->approvedGrantAmount()
+                : null;
+            $this->pendingTransitionTarget = $targetEnum->value;
+            $this->showApprovalModal = true;
+
+            return;
+        }
+
         $this->record->status = $targetEnum->value;
         $this->record->save();
 
-        // The magic moment: approval pre-fills the grant and seeds the baskets
-        // from the budget estimate (only where not already set, so manual edits
-        // are never overwritten).
         if ($targetEnum === ProjectStatus::Approved) {
             $this->applyEstimateToBudget();
         }
@@ -634,7 +653,48 @@ class ViewProjectOverview extends Page
             ->send();
     }
 
-    protected function applyEstimateToBudget(): void
+    public function confirmApprovedGrant(): void
+    {
+        $this->authorizeProjectManagement();
+
+        $this->validate([
+            'approvedGrantAmount' => ['required', 'numeric', 'min:1'],
+        ]);
+
+        $current = $this->record->statusEnum();
+        if (! $current->canTransitionTo(ProjectStatus::Approved)) {
+            Notification::make()
+                ->title('This project cannot be marked as approved from '.$current->getLabel())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $this->record->declareApprovedGrant($this->approvedGrantAmount, auth()->user());
+        $this->applyEstimateToBudget(seedApprovedGrant: false);
+
+        $this->record->refresh();
+        $this->showApprovalModal = false;
+        $this->pendingTransitionTarget = null;
+        $this->approvedGrantAmount = null;
+
+        Notification::make()
+            ->title('Project marked as approved')
+            ->body('The approved grant was locked and the platform activation fee was calculated.')
+            ->success()
+            ->send();
+    }
+
+    public function closeApprovalModal(): void
+    {
+        $this->showApprovalModal = false;
+        $this->pendingTransitionTarget = null;
+        $this->approvedGrantAmount = null;
+        $this->resetErrorBag('approvedGrantAmount');
+    }
+
+    protected function applyEstimateToBudget(bool $seedApprovedGrant = true): void
     {
         $estimate = $this->record->action_data['estimate'] ?? null;
         if (! is_array($estimate)) {
@@ -648,9 +708,10 @@ class ViewProjectOverview extends Page
             return;
         }
 
-        // Pre-fill grant figures only when still empty.
+        // Pre-fill requested figures only where still empty. The approved grant
+        // is a locked declaration and must not be inferred from the estimator.
         $dirty = false;
-        if ((float) $this->record->approved_budget <= 0) {
+        if ($seedApprovedGrant && (float) $this->record->approved_budget <= 0) {
             $this->record->approved_budget = $total;
             $dirty = true;
         }
@@ -679,7 +740,7 @@ class ViewProjectOverview extends Page
 
         Notification::make()
             ->title('Grant and baskets pre-filled from your estimate')
-            ->body('Review them in the Budget board; adjust the confirmed grant in Settings if needed.')
+            ->body('Review the budget baskets in the Budget board. The approved grant amount remains locked.')
             ->success()
             ->send();
     }

@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <x-ui-polish />
-    @if (! $record->isManagementStage())
+    @if (! $record->implementationModulesAvailable())
         @include('filament.pages.partials.project-module-locked', [
             'record' => $record,
             'module' => 'Mobility',
