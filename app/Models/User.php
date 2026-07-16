@@ -23,6 +23,7 @@ class User extends Authenticatable implements FilamentUser
         'plan_limits', 'currencies', 'document_settings', 'access_override_ends_at', 'access_override_reason',
         'access_override_granted_by', 'billing_interval', 'billing_amount', 'billing_currency', 'billing_reference',
         'billing_provider', 'billing_provider_customer_id', 'billing_provider_subscription_id',
+        'billing_name', 'billing_vat', 'billing_country', 'billing_address',
         'demo_reset_frequency', 'demo_last_reset_at', 'trial_ending_alerted_at', 'trial_expired_alerted_at',
         'subscription_ending_alerted_at', 'subscription_expired_alerted_at', 'manual_access_ending_alerted_at',
         'demo_reset_stale_alerted_at',
@@ -217,5 +218,30 @@ class User extends Authenticatable implements FilamentUser
     public function canModerate(): bool
     {
         return $this->isPlatformAdmin();
+    }
+
+    public function isUnlimitedAccount(): bool
+    {
+        return $this->plan === 'unlimited'
+            || data_get($this->plan_limits, 'unlimited') === true
+            || in_array('unlimited', $this->feature_flags ?: [], true);
+    }
+
+    public function hasBillingDetails(): bool
+    {
+        return filled($this->billing_name)
+            && filled($this->billing_country)
+            && filled($this->billing_address);
+    }
+
+    public function billingDetailsForDisplay(): array
+    {
+        return [
+            'Billing name' => $this->billing_name ?: '—',
+            'VAT / registration' => $this->billing_vat ?: '—',
+            'Country' => $this->billing_country ?: '—',
+            'Address' => $this->billing_address ?: '—',
+            'Email' => $this->email ?: '—',
+        ];
     }
 }

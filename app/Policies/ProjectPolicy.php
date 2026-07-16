@@ -24,6 +24,10 @@ class ProjectPolicy
             return false;
         }
 
+        if (! $user->isUnlimitedAccount() && ! $user->hasBillingDetails()) {
+            return false;
+        }
+
         $projectLimit = AccountAccess::limit($user, 'projects');
         $ownedProjectCount = $user->ownedProjects()->count();
 

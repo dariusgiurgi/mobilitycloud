@@ -48,6 +48,10 @@ class ManagePlatformUser extends Command
                 'email' => $email,
                 'password' => Hash::make($password),
                 'role' => $role,
+                'plan' => 'unlimited',
+                'subscription_status' => 'active',
+                'feature_flags' => ['unlimited'],
+                'plan_limits' => ['unlimited' => true],
             ]);
 
             $this->info('Created '.$user->email.' as '.User::platformRoleOptions()[$role].'.');

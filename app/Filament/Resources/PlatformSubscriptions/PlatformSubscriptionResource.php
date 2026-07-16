@@ -37,13 +37,13 @@ class PlatformSubscriptionResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Billing & access';
 
-    protected static ?string $navigationLabel = 'Subscriptions';
+    protected static ?string $navigationLabel = 'Account access';
 
     protected static ?int $navigationSort = 10;
 
-    protected static ?string $modelLabel = 'account subscription';
+    protected static ?string $modelLabel = 'account access';
 
-    protected static ?string $pluralModelLabel = 'account subscriptions';
+    protected static ?string $pluralModelLabel = 'account access';
 
     public static function canAccess(): bool
     {

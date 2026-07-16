@@ -25,15 +25,11 @@ class AccountAccess
             return false;
         }
 
-        if (self::hasOwnerGrantedAccess($user)) {
-            return true;
-        }
-
         if ($user->is_suspended || $user->subscription_status === 'suspended') {
             return false;
         }
 
-        if ($user->plan === 'demo' || $user->subscription_status === 'demo') {
+        if ($user->isUnlimitedAccount() || self::hasOwnerGrantedAccess($user)) {
             return true;
         }
 
@@ -71,7 +67,7 @@ class AccountAccess
             return true;
         }
 
-        if ($user->plan === 'demo' || $user->subscription_status === 'demo') {
+        if ($user->isUnlimitedAccount()) {
             return false;
         }
 
@@ -88,6 +84,10 @@ class AccountAccess
             return false;
         }
 
+        if ($user->isUnlimitedAccount()) {
+            return true;
+        }
+
         if (in_array($module, PlanCatalog::freeModules(), true)) {
             return true;
         }
@@ -95,7 +95,7 @@ class AccountAccess
         $enabled = $user->feature_flags;
 
         if (! is_array($enabled)) {
-            $enabled = PlanCatalog::defaultModules((string) ($user->plan ?: 'free'));
+            $enabled = PlanCatalog::defaultModules((string) ($user->plan ?: 'standard'));
         }
 
         return in_array($module, $enabled, true);
@@ -108,7 +108,7 @@ class AccountAccess
         }
 
         return [
-            ...PlanCatalog::defaultLimits((string) ($user->plan ?: 'free')),
+            ...PlanCatalog::defaultLimits((string) ($user->plan ?: 'standard')),
             ...($user->plan_limits ?: []),
         ];
     }

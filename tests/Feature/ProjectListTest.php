@@ -47,7 +47,7 @@ class ProjectListTest extends TestCase
             ->assertSee('Open project');
     }
 
-    public function test_project_creation_uses_the_authenticated_users_own_plan(): void
+    public function test_project_creation_depends_on_the_authenticated_users_billing_details(): void
     {
         $workspace = Workspace::create(['name' => 'Creation Workspace']);
         $owner = User::factory()->create();
@@ -70,10 +70,39 @@ class ProjectListTest extends TestCase
             'status' => 'writing',
         ]);
 
-        Livewire::test(ListProjects::class)->assertDontSee('New project');
+        Livewire::test(ListProjects::class)
+            ->assertSee('Member Own Free Project')
+            ->assertSee('New project');
     }
 
-    public function test_invited_projects_do_not_consume_the_free_project_limit(): void
+    public function test_project_creation_requires_billing_details_unless_account_is_unlimited(): void
+    {
+        $standard = User::factory()->create([
+            'billing_name' => null,
+            'billing_country' => null,
+            'billing_address' => null,
+            'plan' => 'standard',
+        ]);
+
+        $this->actingAs($standard);
+        $this->assertFalse($standard->can('create', Project::class));
+        Livewire::test(ListProjects::class)->assertDontSee('New project');
+
+        $unlimited = User::factory()->create([
+            'billing_name' => null,
+            'billing_country' => null,
+            'billing_address' => null,
+            'plan' => 'unlimited',
+            'feature_flags' => ['unlimited'],
+            'plan_limits' => ['unlimited' => true],
+        ]);
+
+        $this->actingAs($unlimited);
+        $this->assertTrue($unlimited->can('create', Project::class));
+        Livewire::test(ListProjects::class)->assertSee('New project');
+    }
+
+    public function test_invited_projects_do_not_limit_the_users_owned_project_creation(): void
     {
         $invitingWorkspace = Workspace::create(['name' => 'External Owner']);
         $owner = User::factory()->create();
@@ -104,7 +133,11 @@ class ProjectListTest extends TestCase
             'status' => 'writing',
         ]);
 
-        Livewire::test(ListProjects::class)->assertDontSee('New project');
+        Livewire::test(ListProjects::class)
+            ->assertSee('Shared External Project')
+            ->assertSee('My Free Plan Project')
+            ->assertSee('New project')
+            ->assertSee('Duplicate project');
     }
 
     public function test_create_project_route_under_an_invited_workspace_redirects_to_the_users_account_workspace(): void

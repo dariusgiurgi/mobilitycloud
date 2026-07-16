@@ -2,11 +2,11 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Pages\PlatformPlans;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Pages\PlatformHealth;
 use App\Filament\Pages\PlatformPermissions;
+use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Models\PlatformAuditLog;
@@ -37,12 +37,6 @@ class PlatformOperationsOverview extends Widget
                                 ->whereNotNull('subscription_ends_at')
                                 ->where('subscription_ends_at', '<=', now()->addDays(30));
                         })
-                        ->orWhere(function ($query): void {
-                            $query
-                                ->where('subscription_status', 'trial')
-                                ->whereNotNull('trial_ends_at')
-                                ->where('trial_ends_at', '<=', now()->addDays(14));
-                        })
                         ->orWhere('is_suspended', true)
                         ->orWhere('subscription_status', 'expired');
                 })
@@ -64,8 +58,8 @@ class PlatformOperationsOverview extends Widget
                 [
                     'label' => 'Billing & access',
                     'links' => [
-                        ['label' => 'Account subscriptions', 'url' => PlatformUserResource::getUrl(), 'detail' => 'Plans, trials, manual access, expiry'],
-                        ['label' => 'Plans & entitlements', 'url' => PlatformPlans::getUrl(), 'detail' => 'Plan modules and limits'],
+                        ['label' => 'Project payments', 'url' => PlatformProjectPaymentResource::getUrl(), 'detail' => 'Approved grants, invoices and payment unlocks'],
+                        ['label' => 'Account access', 'url' => PlatformUserResource::getUrl(), 'detail' => 'Standard/unlimited access and billing details'],
                     ],
                 ],
                 [
@@ -89,9 +83,9 @@ class PlatformOperationsOverview extends Widget
                 'detail' => 'Expired or suspended access',
             ],
             [
-                'label' => 'Owner-granted access',
-                'count' => User::query()->get()->filter(fn (User $user): bool => AccountAccess::hasOwnerGrantedAccess($user))->count(),
-                'detail' => 'Manual access outside subscription rules',
+                'label' => 'Unlimited accounts',
+                'count' => User::query()->get()->filter(fn (User $user): bool => $user->isUnlimitedAccount())->count(),
+                'detail' => 'Full access granted by platform owner',
             ],
             [
                 'label' => 'Recent impersonations',
@@ -135,17 +129,6 @@ class PlatformOperationsOverview extends Widget
                 'detail' => 'Accounts with blocked or ended access',
                 'url' => PlatformUserResource::getUrl(),
                 'level' => 'danger',
-            ],
-            [
-                'label' => 'Trials ending soon',
-                'count' => User::query()
-                    ->where('subscription_status', 'trial')
-                    ->whereNotNull('trial_ends_at')
-                    ->whereBetween('trial_ends_at', [now(), now()->addDays(7)])
-                    ->count(),
-                'detail' => 'Needs renewal, conversion or extension',
-                'url' => PlatformUserResource::getUrl(),
-                'level' => 'warning',
             ],
             [
                 'label' => 'Pending moderation reports',

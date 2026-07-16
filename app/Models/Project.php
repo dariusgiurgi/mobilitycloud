@@ -434,6 +434,10 @@ class Project extends Model
 
     public function implementationModulesAvailable(): bool
     {
+        if ($this->owner()?->isUnlimitedAccount()) {
+            return $this->isManagementStage();
+        }
+
         return $this->isManagementStage()
             && ! $this->hasPaymentOverdue();
     }

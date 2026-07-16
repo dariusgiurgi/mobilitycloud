@@ -36,13 +36,17 @@ class PlatformActivityOverview extends BaseWidget
             ))
                 ->description('Created, edited, suspended or deleted')
                 ->color('info'),
-            Stat::make('Subscription changes · 7 days', number_format(
+            Stat::make('Billing/access changes · 7 days', number_format(
                 PlatformAuditLog::query()
-                    ->where('action', 'like', 'workspace.%')
+                    ->where(function ($query): void {
+                        $query
+                            ->where('action', 'like', 'project.invoice_%')
+                            ->orWhere('action', 'like', 'account.%');
+                    })
                     ->where('created_at', '>=', now()->subDays(7))
                     ->count()
             ))
-                ->description('Plans, trials, billing, demo or access')
+                ->description('Account access or project payment updates')
                 ->color('success'),
         ];
     }

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
+use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -62,44 +62,26 @@ class SubscriptionAlertService
         $alerts = [];
         $name = $account->name ?: $account->email;
 
-        if ($account->subscription_status === 'trial' && $account->trial_ends_at) {
-            if ($account->trial_ends_at->isPast()) {
-                $alerts[] = [
-                    'timestamp' => 'trial_expired_alerted_at',
-                    'title' => 'Trial expired',
-                    'body' => $name.' trial ended '.$account->trial_ends_at->diffForHumans().'.',
-                    'level' => 'danger',
-                ];
-            } elseif ($account->trial_ends_at->between(now(), now()->addDays(7))) {
-                $alerts[] = [
-                    'timestamp' => 'trial_ending_alerted_at',
-                    'title' => 'Trial ending soon',
-                    'body' => $name.' trial ends '.$account->trial_ends_at->diffForHumans().'.',
-                    'level' => 'warning',
-                ];
-            }
-        }
-
         if ($account->subscription_ends_at) {
             if ($account->subscription_ends_at->isPast() || $account->subscription_status === 'expired') {
                 $alerts[] = [
                     'timestamp' => 'subscription_expired_alerted_at',
-                    'title' => 'Subscription expired',
-                    'body' => $name.' subscription ended '.$account->subscription_ends_at->diffForHumans().'.',
+                    'title' => 'Account access expired',
+                    'body' => $name.' account access ended '.$account->subscription_ends_at->diffForHumans().'.',
                     'level' => 'danger',
                 ];
             } elseif ($account->subscription_ends_at->between(now(), now()->addDays(14))) {
                 $alerts[] = [
                     'timestamp' => 'subscription_ending_alerted_at',
-                    'title' => 'Subscription ending soon',
-                    'body' => $name.' subscription ends '.$account->subscription_ends_at->diffForHumans().'.',
+                    'title' => 'Account access ending soon',
+                    'body' => $name.' account access ends '.$account->subscription_ends_at->diffForHumans().'.',
                     'level' => 'warning',
                 ];
             }
         } elseif ($account->subscription_status === 'expired') {
             $alerts[] = [
                 'timestamp' => 'subscription_expired_alerted_at',
-                'title' => 'Subscription expired',
+                'title' => 'Account access expired',
                 'body' => $name.' is marked as expired.',
                 'level' => 'danger',
             ];
@@ -114,35 +96,7 @@ class SubscriptionAlertService
             ];
         }
 
-        if ($this->demoResetIsStale($account)) {
-            $alerts[] = [
-                'timestamp' => 'demo_reset_stale_alerted_at',
-                'title' => 'Demo reset may be stale',
-                'body' => $name.' demo account has not been reset according to its configured frequency.',
-                'level' => 'warning',
-            ];
-        }
-
         return $alerts;
-    }
-
-    private function demoResetIsStale(User $account): bool
-    {
-        if (! in_array($account->demo_reset_frequency, ['daily', 'weekly'], true)) {
-            return false;
-        }
-
-        if ($account->plan !== 'demo' && $account->subscription_status !== 'demo') {
-            return false;
-        }
-
-        if (! $account->demo_last_reset_at) {
-            return true;
-        }
-
-        return $account->demo_reset_frequency === 'daily'
-            ? $account->demo_last_reset_at->lte(now()->subDay())
-            : $account->demo_last_reset_at->lte(now()->subWeek());
     }
 
     /**
@@ -170,7 +124,7 @@ class SubscriptionAlertService
             $notification = Notification::make()
                 ->title($title)
                 ->body($body)
-                ->actions([$this->viewSubscriptionsAction()]);
+                ->actions([$this->viewAccountAccessAction()]);
 
             match ($level) {
                 'danger' => $notification->danger(),
@@ -182,12 +136,12 @@ class SubscriptionAlertService
         }
     }
 
-    private function viewSubscriptionsAction(): Action
+    private function viewAccountAccessAction(): Action
     {
-        return Action::make('viewSubscriptions')
-            ->label('Open subscriptions')
+        return Action::make('viewAccountAccess')
+            ->label('Open account access')
             ->button()
             ->markAsRead()
-            ->url(PlatformSubscriptionResource::getUrl(panel: 'platform'));
+            ->url(PlatformUserResource::getUrl(panel: 'platform'));
     }
 }

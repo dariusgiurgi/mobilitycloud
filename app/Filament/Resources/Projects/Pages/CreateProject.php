@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Pages;
 
+use App\Filament\Pages\AccountSettings;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use Filament\Notifications\Notification;
@@ -14,6 +15,20 @@ class CreateProject extends CreateRecord
 
     public function mount(): void
     {
+        $user = auth()->user();
+
+        if ($user && ! $user->isUnlimitedAccount() && ! $user->hasBillingDetails()) {
+            Notification::make()
+                ->title('Billing details required')
+                ->body('Complete your fiscal billing details before creating a project. These details are used for project approval invoices.')
+                ->warning()
+                ->send();
+
+            $this->redirect(AccountSettings::getUrl());
+
+            return;
+        }
+
         parent::mount();
     }
 

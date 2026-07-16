@@ -1,7 +1,7 @@
 <x-filament-panels::page>
     <x-ui-polish />
     <style>
-        .mc-account{display:grid;gap:1rem}.mc-account-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:1rem}.mc-account-stack{display:grid;gap:1rem}.mc-account-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.mc-account-field label{display:block;margin-bottom:.35rem;color:#64748b;font-size:.66rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.mc-account-field input,.mc-account-field select{width:100%;border:1px solid rgba(100,116,139,.26);border-radius:.65rem;background:transparent;padding:.62rem .72rem;font-size:.8rem}.mc-account-field-full{grid-column:1/-1}.mc-account-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.82rem 0;border-top:1px solid rgba(100,116,139,.14)}.mc-account-row:first-child{border-top:0;padding-top:0}.mc-switch{width:2.7rem;height:1.5rem;appearance:none;border-radius:9999px;background:#cbd5e1;position:relative;cursor:pointer;transition:.18s;flex:0 0 auto}.mc-switch:after{content:"";position:absolute;width:1.1rem;height:1.1rem;left:.2rem;top:.2rem;border-radius:9999px;background:white;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:.18s}.mc-switch:checked{background:#6366f1}.mc-switch:checked:after{transform:translateX(1.2rem)}.mc-pill{display:inline-flex;align-items:center;border-radius:999px;padding:.15rem .5rem;font-size:.62rem;font-weight:750;background:rgba(99,102,241,.1);color:#4f46e5}.mc-plan-card{padding:1rem;border:1px solid rgba(99,102,241,.18);border-radius:.8rem;background:linear-gradient(135deg,rgba(99,102,241,.09),rgba(14,165,233,.06))}.mc-muted{color:#64748b}.mc-help{font-size:.72rem;line-height:1.5}.mc-account-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-top:1rem}@media(max-width:950px){.mc-account-grid{grid-template-columns:1fr}.mc-account-fields{grid-template-columns:1fr}}
+        .mc-account{display:grid;gap:1rem}.mc-account-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:1rem}.mc-account-stack{display:grid;gap:1rem}.mc-account-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}.mc-account-field label{display:block;margin-bottom:.35rem;color:#64748b;font-size:.66rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em}.mc-account-field input,.mc-account-field select,.mc-account-field textarea{width:100%;border:1px solid rgba(100,116,139,.26);border-radius:.65rem;background:transparent;padding:.62rem .72rem;font-size:.8rem}.mc-account-field textarea{min-height:6rem;resize:vertical}.mc-account-field-full{grid-column:1/-1}.mc-account-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.82rem 0;border-top:1px solid rgba(100,116,139,.14)}.mc-account-row:first-child{border-top:0;padding-top:0}.mc-switch{width:2.7rem;height:1.5rem;appearance:none;border-radius:9999px;background:#cbd5e1;position:relative;cursor:pointer;transition:.18s;flex:0 0 auto}.mc-switch:after{content:"";position:absolute;width:1.1rem;height:1.1rem;left:.2rem;top:.2rem;border-radius:9999px;background:white;box-shadow:0 1px 3px rgba(15,23,42,.25);transition:.18s}.mc-switch:checked{background:#6366f1}.mc-switch:checked:after{transform:translateX(1.2rem)}.mc-pill{display:inline-flex;align-items:center;border-radius:999px;padding:.15rem .5rem;font-size:.62rem;font-weight:750;background:rgba(99,102,241,.1);color:#4f46e5}.mc-plan-card{padding:1rem;border:1px solid rgba(99,102,241,.18);border-radius:.8rem;background:linear-gradient(135deg,rgba(99,102,241,.09),rgba(14,165,233,.06))}.mc-muted{color:#64748b}.mc-help{font-size:.72rem;line-height:1.5}.mc-account-actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-top:1rem}@media(max-width:950px){.mc-account-grid{grid-template-columns:1fr}.mc-account-fields{grid-template-columns:1fr}}
     </style>
 
     <div class="mc-account">
@@ -46,6 +46,36 @@
                         <x-filament::button wire:click="updatePassword" wire:loading.attr="disabled" wire:target="updatePassword" icon="heroicon-o-key">Update password</x-filament::button>
                     </div>
                 </x-filament::section>
+
+                @unless($this->isPlatformPanel())
+                    <x-filament::section heading="Billing details" description="Required before creating owned projects. These are the fiscal details used for approved-project invoices." icon="heroicon-o-building-office-2">
+                        <div class="mc-account-fields">
+                            <div class="mc-account-field">
+                                <label for="billing-name">Billing name</label>
+                                <input id="billing-name" type="text" wire:model="billingName" class="text-gray-950 dark:text-white" placeholder="Organisation or person">
+                                @error('billingName')<p style="font-size:.68rem;margin-top:.25rem;color:#dc2626;">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="mc-account-field">
+                                <label for="billing-vat">VAT / registration</label>
+                                <input id="billing-vat" type="text" wire:model="billingVat" class="text-gray-950 dark:text-white" placeholder="Optional">
+                                @error('billingVat')<p style="font-size:.68rem;margin-top:.25rem;color:#dc2626;">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="mc-account-field">
+                                <label for="billing-country">Country</label>
+                                <input id="billing-country" type="text" wire:model="billingCountry" class="text-gray-950 dark:text-white" placeholder="Romania">
+                                @error('billingCountry')<p style="font-size:.68rem;margin-top:.25rem;color:#dc2626;">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="mc-account-field mc-account-field-full">
+                                <label for="billing-address">Billing address</label>
+                                <textarea id="billing-address" wire:model="billingAddress" class="text-gray-950 dark:text-white" placeholder="Street, number, city, postal code"></textarea>
+                                @error('billingAddress')<p style="font-size:.68rem;margin-top:.25rem;color:#dc2626;">{{ $message }}</p>@enderror
+                            </div>
+                        </div>
+                        <div class="mc-account-actions">
+                            <x-filament::button wire:click="saveBillingDetails" wire:loading.attr="disabled" wire:target="saveBillingDetails" icon="heroicon-o-check">Save billing details</x-filament::button>
+                        </div>
+                    </x-filament::section>
+                @endunless
 
                 <x-filament::section
                     heading="{{ $this->isPlatformPanel() ? 'Platform admin preferences' : 'Platform preferences' }}"
@@ -97,31 +127,16 @@
 
             @unless($this->isPlatformPanel())
                 <div class="mc-account-stack">
-                    <x-filament::section heading="Project plan" description="Plans are applied directly to this email account and only limit projects owned by you." icon="heroicon-o-credit-card">
+                    <x-filament::section heading="Account access" description="Access is attached to this email account. Approved projects are billed separately through manual fiscal invoices." icon="heroicon-o-credit-card">
                         @if($this->currentAccount)
                             <div class="mc-plan-card">
-                                <span class="mc-muted" style="font-size:.65rem;font-weight:750;text-transform:uppercase;">Current project plan</span>
-                                <strong class="text-gray-950 dark:text-white" style="display:block;font-size:1rem;margin-top:.2rem;">{{ $this->planOptions()[$this->currentAccount->plan] ?? ucfirst($this->currentAccount->plan) }}</strong>
-                                <p class="mc-muted mc-help" style="margin-top:.35rem;">Billing and limits count only projects owned by your account, not projects shared with you.</p>
+                                <span class="mc-muted" style="font-size:.65rem;font-weight:750;text-transform:uppercase;">Current access</span>
+                                <strong class="text-gray-950 dark:text-white" style="display:block;font-size:1rem;margin-top:.2rem;">{{ $this->currentAccount->isUnlimitedAccount() ? 'Unlimited' : 'Standard' }}</strong>
+                                <p class="mc-muted mc-help" style="margin-top:.35rem;">
+                                    Standard accounts can use the platform and are billed manually after projects are approved.
+                                    Unlimited accounts are owner-granted exceptions with full access.
+                                </p>
                             </div>
-                        @endif
-
-                        @if($this->manageableAccounts->isNotEmpty())
-                            <div class="mc-account-fields" style="margin-top:1rem;">
-                                <div class="mc-account-field mc-account-field-full">
-                                    <label for="subscription-plan">Plan</label>
-                                    <select id="subscription-plan" wire:model="subscriptionPlan" class="text-gray-950 dark:text-white">
-                                        @foreach($this->planOptions() as $value => $label)
-                                            <option value="{{ $value }}">{{ $label }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="mc-account-actions">
-                                <x-filament::button wire:click="saveSubscriptionPlan" wire:loading.attr="disabled" wire:target="saveSubscriptionPlan" icon="heroicon-o-arrow-path">Update plan</x-filament::button>
-                            </div>
-                        @else
-                            <p class="mc-muted mc-help">You can view your project plan here. Plan changes are available to the account owner.</p>
                         @endif
                     </x-filament::section>
                 </div>

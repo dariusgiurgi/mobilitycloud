@@ -23,6 +23,8 @@ class PublicContentBlockSeeder extends Seeder
             [
                 'name'     => 'MobilityCloud Official',
                 'password' => Hash::make(bin2hex(random_bytes(16))), // random, not used for login
+                'plan' => 'standard',
+                'subscription_status' => 'active',
             ]
         );
 

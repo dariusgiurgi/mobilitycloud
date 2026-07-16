@@ -9,13 +9,13 @@ class SendSubscriptionAlerts extends Command
 {
     protected $signature = 'subscriptions:send-alerts';
 
-    protected $description = 'Send internal platform notifications for trials, expirations, manual access and demo reset issues';
+    protected $description = 'Send internal platform notifications for account access issues';
 
     public function handle(SubscriptionAlertService $alerts): int
     {
         $sent = $alerts->dispatch();
 
-        $this->info($sent.' subscription '.str('alert')->plural($sent).' queued.');
+        $this->info($sent.' account access '.str('alert')->plural($sent).' queued.');
 
         return self::SUCCESS;
     }

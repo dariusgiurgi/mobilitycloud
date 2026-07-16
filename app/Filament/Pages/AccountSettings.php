@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Models\User;
-use App\Support\PlanCatalog;
 use BackedEnum;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -51,7 +50,15 @@ class AccountSettings extends Page
 
     public string $interfaceDensity = 'comfortable';
 
-    public string $subscriptionPlan = 'free';
+    public string $subscriptionPlan = 'standard';
+
+    public string $billingName = '';
+
+    public string $billingVat = '';
+
+    public string $billingCountry = '';
+
+    public string $billingAddress = '';
 
     public function mount(): void
     {
@@ -74,7 +81,11 @@ class AccountSettings extends Page
             return;
         }
 
-        $this->subscriptionPlan = (string) ($user->plan ?? 'free');
+        $this->subscriptionPlan = (string) ($user->plan ?? 'standard');
+        $this->billingName = (string) ($user->billing_name ?? '');
+        $this->billingVat = (string) ($user->billing_vat ?? '');
+        $this->billingCountry = (string) ($user->billing_country ?? '');
+        $this->billingAddress = (string) ($user->billing_address ?? '');
     }
 
     public function getSubheading(): ?string
@@ -83,7 +94,7 @@ class AccountSettings extends Page
             return 'Manage your platform administrator profile, security and interface preferences.';
         }
 
-        return 'Manage your personal profile, security, project plan and platform preferences.';
+        return 'Manage your personal profile, security, billing identity and platform preferences.';
     }
 
     public function saveProfile(): void
@@ -151,19 +162,27 @@ class AccountSettings extends Page
         Notification::make()->title('Account preferences saved')->success()->send();
     }
 
-    public function saveSubscriptionPlan(): void
+    public function saveBillingDetails(): void
     {
         abort_if($this->isPlatformPanel(), 404);
 
         $data = $this->validate([
-            'subscriptionPlan' => ['required', Rule::in(array_keys($this->planOptions()))],
+            'billingName' => ['required', 'string', 'max:255'],
+            'billingVat' => ['nullable', 'string', 'max:255'],
+            'billingCountry' => ['required', 'string', 'max:255'],
+            'billingAddress' => ['required', 'string', 'max:2000'],
         ]);
 
-        auth()->user()->update(PlanCatalog::accountDefaults($data['subscriptionPlan']));
+        auth()->user()->update([
+            'billing_name' => trim($data['billingName']),
+            'billing_vat' => trim($data['billingVat'] ?? ''),
+            'billing_country' => trim($data['billingCountry']),
+            'billing_address' => trim($data['billingAddress']),
+        ]);
 
         Notification::make()
-            ->title('Subscription updated')
-            ->body('Your account is now on the '.$this->planOptions()[$data['subscriptionPlan']].' plan.')
+            ->title('Billing details saved')
+            ->body('These fiscal details will be used when approved project invoices are issued.')
             ->success()
             ->send();
     }
@@ -186,9 +205,8 @@ class AccountSettings extends Page
     public function planOptions(): array
     {
         return [
-            'free' => 'Free',
-            'writer' => 'Writer',
-            'writer_pro' => 'Writer Pro',
+            'standard' => 'Standard',
+            'unlimited' => 'Unlimited',
         ];
     }
 
@@ -198,7 +216,7 @@ class AccountSettings extends Page
             return [
             'dashboard' => 'Platform overview',
             'users' => 'Users',
-            'subscriptions' => 'Subscriptions',
+            'subscriptions' => 'Account access',
             'audit' => 'Audit log',
             ];
         }

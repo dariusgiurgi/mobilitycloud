@@ -50,6 +50,11 @@ class ProjectResource extends Resource
         return PlatformAccess::canUse(PlanCatalog::MODULE_PROJECTS);
     }
 
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->can('create', Project::class) ?? false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return ProjectForm::configure($schema);

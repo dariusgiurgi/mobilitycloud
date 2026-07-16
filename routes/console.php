@@ -15,7 +15,3 @@ Schedule::command('tasks:send-reminders')
 Schedule::command('subscriptions:send-alerts')
     ->dailyAt('08:15')
     ->withoutOverlapping();
-
-Schedule::command('demo:reset-workspaces')
-    ->dailyAt('03:30')
-    ->withoutOverlapping();

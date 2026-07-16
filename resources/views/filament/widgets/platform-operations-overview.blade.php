@@ -56,9 +56,9 @@
                     <div class="mc-platform-row">
                         <div>
                             <div class="mc-platform-title text-gray-950 dark:text-white">{{ $account->name }}</div>
-                            <div class="mc-platform-muted">{{ str($account->plan)->replace('_', ' ')->title() }} · {{ str($account->subscription_status)->replace('_', ' ')->title() }}</div>
+                            <div class="mc-platform-muted">{{ \App\Support\PlanCatalog::displayPlanLabel($account->plan) }} · {{ $account->is_suspended ? 'Suspended' : str($account->subscription_status ?: 'active')->replace('_', ' ')->title() }}</div>
                         </div>
-                        <div class="mc-platform-muted">{{ ($account->subscription_ends_at ?: $account->trial_ends_at)?->format('d M') ?? 'Now' }}</div>
+                        <div class="mc-platform-muted">{{ $account->subscription_ends_at?->format('d M') ?? 'Now' }}</div>
                     </div>
                 @empty
                     <p class="mc-platform-muted" style="margin-top:.7rem;">No access deadlines or blocked accounts need attention.</p>

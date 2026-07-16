@@ -6,11 +6,10 @@ use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\PlatformHealth;
 use App\Filament\Pages\PlatformPermissions;
-use App\Filament\Pages\PlatformPlans;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformAuditLogs\PlatformAuditLogResource;
-use App\Filament\Resources\PlatformSubscriptions\PlatformSubscriptionResource;
+use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Http\Middleware\AuthenticateFilamentUser;
@@ -90,14 +89,13 @@ class PlatformPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 AccountSettings::class,
-                PlatformPlans::class,
                 PlatformPermissions::class,
                 PlatformHealth::class,
             ])
             ->resources([
                 PlatformUserResource::class,
+                PlatformProjectPaymentResource::class,
                 PlatformActivityResource::class,
-                PlatformSubscriptionResource::class,
                 PlatformAnnouncementResource::class,
                 PublicBlockReportResource::class,
                 PlatformAuditLogResource::class,

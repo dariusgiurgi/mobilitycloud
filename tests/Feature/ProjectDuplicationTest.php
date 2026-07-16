@@ -100,7 +100,7 @@ class ProjectDuplicationTest extends TestCase
         $this->assertTrue($copy->budgetLines()->get()->every(fn ($line): bool => (float) $line->allocated_budget === 0.0));
     }
 
-    public function test_duplicate_action_uses_the_authenticated_users_own_project_limit(): void
+    public function test_duplicate_action_stays_available_for_standard_accounts_with_billing_details(): void
     {
         [$owner, $source] = $this->userAndProject('writer_pro');
         $this->actingAs($owner);
@@ -121,7 +121,7 @@ class ProjectDuplicationTest extends TestCase
             'status' => 'writing',
         ]);
 
-        Livewire::test(ListProjects::class)->assertDontSee('Duplicate project');
+        Livewire::test(ListProjects::class)->assertSee('Duplicate project');
     }
 
     public function test_duplicate_action_creates_the_draft_and_redirects_to_it(): void

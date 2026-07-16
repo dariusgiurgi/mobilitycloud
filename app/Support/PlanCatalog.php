@@ -33,6 +33,7 @@ class PlanCatalog
 
             $records = PlatformPlan::query()
                 ->where('is_active', true)
+                ->whereIn('key', array_keys($codedPlans))
                 ->orderBy('sort_order')
                 ->orderBy('label')
                 ->get();
@@ -55,7 +56,7 @@ class PlanCatalog
                     ...($defaults['limits'] ?? []),
                     ...($record->limits ?: []),
                 ])
-                    ->map(fn (mixed $value): int => max(0, (int) $value))
+                    ->map(fn (mixed $value): mixed => is_bool($value) ? $value : max(0, (int) $value))
                     ->all();
 
                 $plans[$record->key] = [
@@ -84,86 +85,40 @@ class PlanCatalog
     public static function codedPlans(): array
     {
         return [
-            'demo' => [
-                'label' => 'Demo',
+            'standard' => [
+                'label' => 'Standard',
+                'visibility' => 'public',
+                'description' => 'Default account access. Users can create and manage projects; approved projects are handled through manual fiscal invoicing.',
+                'modules' => array_keys(self::moduleOptions()),
+                'monthly_price' => null,
+                'yearly_price' => null,
+                'currency' => 'EUR',
+                'limits' => [
+                    'projects' => 0,
+                    'members' => 0,
+                    'storage_mb' => 10240,
+                    'documents_per_month' => 500,
+                    'ai_requests_per_month' => 1000,
+                    'exports_per_month' => 500,
+                ],
+            ],
+            'unlimited' => [
+                'label' => 'Unlimited',
                 'visibility' => 'internal',
-                'description' => 'Internal sandbox plan for product testing, demos and onboarding presentations.',
-                'modules' => array_keys(self::moduleOptions()),
-                'monthly_price' => null,
-                'yearly_price' => null,
-                'currency' => 'EUR',
-                'limits' => [
-                    'projects' => 10,
-                    'members' => 10,
-                    'storage_mb' => 2048,
-                    'documents_per_month' => 100,
-                    'ai_requests_per_month' => 250,
-                    'exports_per_month' => 100,
-                ],
-            ],
-            'free' => [
-                'label' => 'Free',
-                'visibility' => 'public',
-                'description' => 'Entry plan for initial evaluation with strict account limits.',
-                'modules' => array_keys(self::moduleOptions()),
-                'monthly_price' => 0,
-                'yearly_price' => 0,
-                'currency' => 'EUR',
-                'limits' => [
-                    'projects' => 1,
-                    'members' => 2,
-                    'storage_mb' => 100,
-                    'documents_per_month' => 5,
-                    'ai_requests_per_month' => 0,
-                    'exports_per_month' => 5,
-                ],
-            ],
-            'writer' => [
-                'label' => 'Writer',
-                'visibility' => 'public',
-                'description' => 'Core operational plan for organisations managing a small portfolio of mobility projects.',
-                'modules' => [
-                    self::MODULE_PROJECTS,
-                    self::MODULE_WRITING,
-                    self::MODULE_BUDGET,
-                    self::MODULE_PARTICIPANTS,
-                    self::MODULE_DOCUMENTS,
-                    self::MODULE_CONTENT_LIBRARY,
-                    self::MODULE_TASKS,
-                    self::MODULE_CURRENCIES,
-                    self::MODULE_CALCULATOR,
-                    self::MODULE_REPORTS,
-                    self::MODULE_TEAM,
-                    self::MODULE_SETTINGS,
-                ],
-                'monthly_price' => null,
-                'yearly_price' => null,
-                'currency' => 'EUR',
-                'limits' => [
-                    'projects' => 5,
-                    'members' => 5,
-                    'storage_mb' => 1024,
-                    'documents_per_month' => 50,
-                    'ai_requests_per_month' => 100,
-                    'exports_per_month' => 50,
-                ],
-            ],
-            'writer_pro' => [
-                'label' => 'Writer Pro',
-                'visibility' => 'public',
-                'description' => 'Full platform access for larger organisations with higher document, export and AI usage.',
+                'description' => 'Owner-granted full access for internal, partner or exceptional accounts. No account limits and no project-payment lock.',
                 'recommended' => true,
                 'modules' => array_keys(self::moduleOptions()),
                 'monthly_price' => null,
                 'yearly_price' => null,
                 'currency' => 'EUR',
                 'limits' => [
-                    'projects' => 50,
-                    'members' => 25,
-                    'storage_mb' => 10240,
-                    'documents_per_month' => 500,
-                    'ai_requests_per_month' => 1000,
-                    'exports_per_month' => 500,
+                    'projects' => 0,
+                    'members' => 0,
+                    'storage_mb' => 0,
+                    'documents_per_month' => 0,
+                    'ai_requests_per_month' => 0,
+                    'exports_per_month' => 0,
+                    'unlimited' => true,
                 ],
             ],
         ];
@@ -172,6 +127,21 @@ class PlanCatalog
     public static function planOptions(): array
     {
         return collect(self::plans())->mapWithKeys(fn (array $plan, string $key): array => [$key => $plan['label']])->all();
+    }
+
+    public static function canonicalPlanKey(?string $plan): string
+    {
+        return match ($plan) {
+            'unlimited', 'demo' => 'unlimited',
+            default => 'standard',
+        };
+    }
+
+    public static function displayPlanLabel(?string $plan): string
+    {
+        $canonical = self::canonicalPlanKey($plan);
+
+        return self::planOptions()[$canonical] ?? ucfirst($canonical);
     }
 
     public static function moduleOptions(): array
@@ -205,12 +175,12 @@ class PlanCatalog
 
     public static function defaultModules(string $plan): array
     {
-        return self::plans()[$plan]['modules'] ?? self::plans()['free']['modules'];
+        return self::plans()[$plan]['modules'] ?? self::plans()['standard']['modules'];
     }
 
     public static function defaultLimits(string $plan): array
     {
-        return self::plans()[$plan]['limits'] ?? self::plans()['free']['limits'];
+        return self::plans()[$plan]['limits'] ?? self::plans()['standard']['limits'];
     }
 
     /**
@@ -226,11 +196,12 @@ class PlanCatalog
      */
     public static function accountDefaults(string $plan): array
     {
-        $plan = array_key_exists($plan, self::plans()) ? $plan : 'free';
+        $plan = self::canonicalPlanKey($plan);
+        $plan = array_key_exists($plan, self::plans()) ? $plan : 'standard';
 
         return [
             'plan' => $plan,
-            'subscription_status' => $plan === 'demo' ? 'demo' : 'active',
+            'subscription_status' => 'active',
             'feature_flags' => self::defaultModules($plan),
             'plan_limits' => self::defaultLimits($plan),
         ];

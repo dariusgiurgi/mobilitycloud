@@ -172,21 +172,34 @@ class PlatformUserResource extends Resource
                         ->maxLength(3000)
                         ->columnSpanFull(),
                     Select::make('plan')
-                        ->label('Subscription plan')
+                        ->label('Account access')
                         ->options(PlanCatalog::planOptions())
-                        ->default('free')
+                        ->default('standard')
                         ->required(),
                     Select::make('subscription_status')
-                        ->label('Subscription status')
+                        ->label('Access status')
                         ->options([
                             'active' => 'Active',
-                            'trial' => 'Trial',
-                            'demo' => 'Demo',
                             'expired' => 'Expired',
                             'suspended' => 'Suspended',
                         ])
                         ->default('active')
                         ->required(),
+                    TextInput::make('billing_name')
+                        ->label('Billing name')
+                        ->maxLength(255)
+                        ->columnSpanFull(),
+                    TextInput::make('billing_vat')
+                        ->label('VAT / registration')
+                        ->maxLength(255),
+                    TextInput::make('billing_country')
+                        ->label('Billing country')
+                        ->maxLength(255),
+                    Textarea::make('billing_address')
+                        ->label('Billing address')
+                        ->rows(3)
+                        ->maxLength(2000)
+                        ->columnSpanFull(),
                 ]),
         ]);
     }
@@ -226,8 +239,13 @@ class PlatformUserResource extends Resource
                                 default => 'success',
                             }),
                         TextEntry::make('plan')
-                            ->label('Plan')
-                            ->formatStateUsing(fn (?string $state): string => PlanCatalog::planOptions()[$state ?: 'free'] ?? ucfirst((string) $state)),
+                            ->label('Access')
+                            ->formatStateUsing(fn (?string $state): string => PlanCatalog::displayPlanLabel($state)),
+                        TextEntry::make('billing_identity')
+                            ->label('Billing')
+                            ->state(fn (User $record): string => $record->hasBillingDetails() ? $record->billing_name : 'Missing billing details')
+                            ->badge()
+                            ->color(fn (User $record): string => $record->hasBillingDetails() ? 'success' : 'danger'),
                         TextEntry::make('owned_projects_count')
                             ->label('Owned projects')
                             ->state(fn (User $record): int => $record->ownedProjects()->count()),
@@ -302,10 +320,17 @@ class PlatformUserResource extends Resource
                     ->boolean()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('plan')
-                    ->label('Plan')
+                    ->label('Access')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state): string => PlanCatalog::planOptions()[$state ?: 'free'] ?? ucfirst((string) $state))
-                    ->color('info'),
+                    ->formatStateUsing(fn (?string $state): string => PlanCatalog::displayPlanLabel($state))
+                    ->color(fn (?string $state): string => PlanCatalog::canonicalPlanKey($state) === 'unlimited' ? 'success' : 'info'),
+                TextColumn::make('billing_name')
+                    ->label('Billing')
+                    ->state(fn (User $record): string => $record->hasBillingDetails() ? $record->billing_name : 'Missing')
+                    ->description(fn (User $record): ?string => $record->billing_country ?: null)
+                    ->badge()
+                    ->color(fn (User $record): string => $record->hasBillingDetails() ? 'success' : 'danger')
+                    ->toggleable(),
                 TextColumn::make('owned_projects_count')
                     ->label('Owned')
                     ->numeric()
@@ -317,11 +342,9 @@ class PlatformUserResource extends Resource
                     ->alignEnd()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('subscription_status')
-                    ->label('Subscription')
+                    ->label('Access status')
                     ->badge()
                     ->color(fn (?string $state): string => match ($state) {
-                        'trial' => 'warning',
-                        'demo' => 'info',
                         'expired', 'suspended' => 'danger',
                         default => 'success',
                     })
