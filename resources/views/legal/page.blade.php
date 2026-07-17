@@ -36,7 +36,11 @@
 
     <article class="card">
         <section class="hero">
-            <span class="badge">Draft pending company details</span>
+            @if (blank($company['legal_name']) || blank($company['registration_number']) || blank($company['address']))
+                <span class="badge">Draft pending company details</span>
+            @else
+                <span class="badge" style="background:#ecfdf5;color:#047857;">Official company details</span>
+            @endif
             <h1>{{ $title }}</h1>
             <p class="muted" style="margin-top:16px;">Last updated: {{ now()->format('d M Y') }}</p>
         </section>
@@ -94,14 +98,16 @@
                 <span>{{ $company['registration_number'] ? 'Registration: '.$company['registration_number'] : 'Registration: to be completed' }}</span>
                 <span>{{ $company['vat_number'] ? 'VAT: '.$company['vat_number'] : 'VAT: to be completed' }}</span>
                 <span>{{ $company['address'] ?: 'Address: to be completed' }}</span>
-                <span>Contact: <a href="mailto:{{ $emails['contact'] }}">{{ $emails['contact'] }}</a></span>
+                <span>Contact: <a href="mailto:{{ $company['email'] ?: $emails['contact'] }}">{{ $company['email'] ?: $emails['contact'] }}</a></span>
             </div>
         </section>
     </article>
 
-    <footer>
-        These pages are prepared for launch review and must be finalised with the company details before public release.
-    </footer>
+    @if (blank($company['legal_name']) || blank($company['registration_number']) || blank($company['address']))
+        <footer>
+            These pages are prepared for launch review and must be finalised with the company details before public release.
+        </footer>
+    @endif
 </main>
 </body>
 </html>

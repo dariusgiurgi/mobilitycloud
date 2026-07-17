@@ -48,6 +48,7 @@ return [
         'vat_number' => env('MOBILITYCLOUD_COMPANY_VAT_NUMBER'),
         'address' => env('MOBILITYCLOUD_COMPANY_ADDRESS'),
         'country' => env('MOBILITYCLOUD_COMPANY_COUNTRY', 'Romania'),
+        'email' => env('MOBILITYCLOUD_COMPANY_EMAIL', env('MOBILITYCLOUD_CONTACT_EMAIL', 'contact@mobilitycloud.eu')),
     ],
 
 ];
