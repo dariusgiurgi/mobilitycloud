@@ -14,8 +14,8 @@ class TestMobilityCloudBackupRestore extends Command
         {--database= : Temporary database name to use}
         {--mysql-user= : MySQL user for the restore test; omit for local root socket auth}
         {--mysql-password= : MySQL password for the restore test}
-        {--mysql-host=127.0.0.1 : MySQL host}
-        {--mysql-port=3306 : MySQL port}
+        {--mysql-host= : MySQL host; omit to use the local default socket}
+        {--mysql-port=3306 : MySQL port, used only when --mysql-host is provided}
         {--keep-database : Do not drop the temporary restore database after the test}';
 
     protected $description = 'Restore the latest database backup into a temporary database to verify that backups are usable';
@@ -87,7 +87,9 @@ class TestMobilityCloudBackupRestore extends Command
             array_push($command, '-u', (string) $this->option('mysql-user'));
         }
 
-        array_push($command, '-h', (string) $this->option('mysql-host'), '-P', (string) $this->option('mysql-port'));
+        if (filled($this->option('mysql-host'))) {
+            array_push($command, '-h', (string) $this->option('mysql-host'), '-P', (string) $this->option('mysql-port'));
+        }
 
         $command = array_merge($command, $arguments);
 
@@ -108,7 +110,11 @@ class TestMobilityCloudBackupRestore extends Command
             array_push($mysqlCommand, '-u', (string) $this->option('mysql-user'));
         }
 
-        array_push($mysqlCommand, '-h', (string) $this->option('mysql-host'), '-P', (string) $this->option('mysql-port'), $database);
+        if (filled($this->option('mysql-host'))) {
+            array_push($mysqlCommand, '-h', (string) $this->option('mysql-host'), '-P', (string) $this->option('mysql-port'));
+        }
+
+        $mysqlCommand[] = $database;
 
         $shell = 'gzip -dc '.escapeshellarg($backupFile).' | '.implode(' ', array_map('escapeshellarg', $mysqlCommand));
 
