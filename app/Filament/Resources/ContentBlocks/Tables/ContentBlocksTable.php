@@ -112,7 +112,6 @@ class ContentBlocksTable
 
                             PublicContentBlock::create([
                                 'user_id' => auth()->id(),
-                                'origin_workspace_id' => null,
                                 'title' => $record->title,
                                 'category' => $record->category,
                                 'ka_action' => $record->ka_action,

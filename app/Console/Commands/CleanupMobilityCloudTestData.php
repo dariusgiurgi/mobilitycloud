@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +53,7 @@ class CleanupMobilityCloudTestData extends Command
         }
 
         DB::transaction(function () use ($projectIds, $invitationIds, $userIds): void {
-            WorkspaceInvitation::query()->whereKey($invitationIds)->delete();
+            ProjectInvitation::query()->whereKey($invitationIds)->delete();
 
             Project::withTrashed()
                 ->whereKey($projectIds)
@@ -86,7 +86,7 @@ class CleanupMobilityCloudTestData extends Command
 
     private function testInvitations(): Builder
     {
-        return WorkspaceInvitation::query()
+        return ProjectInvitation::query()
             ->where(function (Builder $query): void {
                 foreach (['test', 'demo', 'qa', 'example.com', 'codex'] as $term) {
                     $query->orWhereRaw('LOWER(email) LIKE ?', ['%'.$term.'%']);

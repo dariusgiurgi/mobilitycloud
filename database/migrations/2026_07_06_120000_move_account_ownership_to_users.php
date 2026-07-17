@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -45,104 +44,6 @@ return new class extends Migration
         Schema::table('projects', function (Blueprint $table): void {
             if (! Schema::hasColumn('projects', 'owner_id')) {
                 $table->foreignId('owner_id')->nullable()->after('id')->constrained('users')->nullOnDelete();
-            }
-        });
-
-        DB::table('users')
-            ->leftJoin('workspace_user', function ($join): void {
-                $join->on('workspace_user.user_id', '=', 'users.id')
-                    ->where('workspace_user.role', '=', 'owner');
-            })
-            ->leftJoin('workspaces', 'workspaces.id', '=', 'workspace_user.workspace_id')
-            ->whereNotNull('workspaces.id')
-            ->orderBy('workspaces.created_at')
-            ->select([
-                'users.id as user_id',
-                'workspaces.plan',
-                'workspaces.subscription_status',
-                'workspaces.trial_ends_at',
-                'workspaces.subscription_ends_at',
-                'workspaces.feature_flags',
-                'workspaces.plan_limits',
-                'workspaces.currencies',
-                'workspaces.document_settings',
-                'workspaces.access_override_ends_at',
-                'workspaces.access_override_reason',
-            ])
-            ->get()
-            ->each(function ($row): void {
-                DB::table('users')->where('id', $row->user_id)->update([
-                    'plan' => $row->plan ?: 'free',
-                    'subscription_status' => $row->subscription_status ?: 'active',
-                    'trial_ends_at' => $row->trial_ends_at,
-                    'subscription_ends_at' => $row->subscription_ends_at,
-                    'feature_flags' => $row->feature_flags,
-                    'plan_limits' => $row->plan_limits,
-                    'currencies' => $row->currencies,
-                    'document_settings' => $row->document_settings,
-                    'access_override_ends_at' => $row->access_override_ends_at,
-                    'access_override_reason' => $row->access_override_reason,
-                ]);
-            });
-
-        DB::table('projects')
-            ->whereNull('owner_id')
-            ->select(['id', 'workspace_id'])
-            ->orderBy('id')
-            ->get()
-            ->each(function ($project): void {
-                $ownerId = DB::table('workspace_user')
-                    ->where('workspace_id', $project->workspace_id)
-                    ->where('role', 'owner')
-                    ->orderBy('user_id')
-                    ->value('user_id');
-
-                if ($ownerId) {
-                    DB::table('projects')->where('id', $project->id)->update(['owner_id' => $ownerId]);
-                }
-            });
-
-        DB::table('projects')
-            ->whereNull('owner_id')
-            ->update(['owner_id' => DB::table('users')->min('id')]);
-
-        Schema::table('projects', function (Blueprint $table): void {
-            try {
-                $table->dropForeign(['workspace_id']);
-            } catch (Throwable) {
-                //
-            }
-        });
-
-        Schema::table('workspace_invitations', function (Blueprint $table): void {
-            try {
-                $table->dropForeign(['workspace_id']);
-            } catch (Throwable) {
-                //
-            }
-        });
-
-        Schema::table('projects', function (Blueprint $table): void {
-            if (Schema::hasColumn('projects', 'workspace_id')) {
-                $table->unsignedBigInteger('workspace_id')->nullable()->change();
-            }
-        });
-
-        Schema::table('workspace_invitations', function (Blueprint $table): void {
-            if (Schema::hasColumn('workspace_invitations', 'workspace_id')) {
-                $table->unsignedBigInteger('workspace_id')->nullable()->change();
-            }
-        });
-
-        Schema::table('project_activity_logs', function (Blueprint $table): void {
-            if (Schema::hasColumn('project_activity_logs', 'workspace_id')) {
-                try {
-                    $table->dropForeign(['workspace_id']);
-                } catch (Throwable) {
-                    //
-                }
-
-                $table->unsignedBigInteger('workspace_id')->nullable()->change();
             }
         });
     }

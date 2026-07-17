@@ -57,7 +57,6 @@ class ProjectActivityObserver
             ->all();
 
         ProjectActivityLog::create([
-            'workspace_id' => $project->workspace_id,
             'project_id' => $project->id,
             'user_id' => auth()->id(),
             'event' => $event,

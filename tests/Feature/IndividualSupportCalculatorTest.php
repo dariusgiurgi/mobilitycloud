@@ -4,8 +4,6 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -16,9 +14,8 @@ class IndividualSupportCalculatorTest extends TestCase
 
     public function test_calculator_explains_ambiguous_programme_terms(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = $this->user();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(IndividualSupportCalculator::class)
             ->assertSee('Planning estimate')
@@ -32,9 +29,8 @@ class IndividualSupportCalculatorTest extends TestCase
 
     public function test_calculation_breakdown_updates_with_inputs(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = $this->user();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(IndividualSupportCalculator::class)
             ->set('participants', 2)
@@ -52,9 +48,8 @@ class IndividualSupportCalculatorTest extends TestCase
 
     public function test_calculator_tolerates_live_numeric_input_updates(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = $this->user();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(IndividualSupportCalculator::class)
             ->set('participants', '3')
@@ -64,12 +59,8 @@ class IndividualSupportCalculatorTest extends TestCase
             ->assertSee('1 people × 9 eligible days × 79.00 €');
     }
 
-    private function workspaceAndUser(): array
+    private function user(): User
     {
-        $workspace = Workspace::create(['name' => 'Calculator Workspace']);
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
-
-        return [$workspace, $user];
+        return User::factory()->create();
     }
 }

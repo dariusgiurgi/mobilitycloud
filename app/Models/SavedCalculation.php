@@ -8,18 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SavedCalculation extends Model
 {
     protected $fillable = [
-        'workspace_id', 'created_by', 'name', 'type', 'inputs', 'results',
+        'created_by', 'name', 'type', 'inputs', 'results',
     ];
 
     protected $casts = [
         'inputs' => 'array',
         'results' => 'array',
     ];
-
-    public function workspace(): BelongsTo
-    {
-        return $this->belongsTo(Workspace::class);
-    }
 
     public function creator(): BelongsTo
     {

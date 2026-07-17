@@ -7,7 +7,6 @@ use App\Filament\Resources\PlatformActivities\Pages\ViewPlatformActivity;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\PlatformAuditLog;
 use App\Models\User;
-use App\Models\Workspace;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -22,6 +21,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class PlatformActivityResource extends Resource
 {
@@ -54,7 +54,7 @@ class PlatformActivityResource extends Resource
         return false;
     }
 
-    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function canView(Model $record): bool
     {
         return auth()->user()?->isPlatformAdmin() ?? false;
     }
@@ -374,10 +374,6 @@ class PlatformActivityResource extends Resource
 
         if ($subject instanceof User) {
             return trim(($subject->name ? $subject->name.' · ' : '').$subject->email);
-        }
-
-        if ($subject instanceof Workspace) {
-            return $subject->name.' (legacy workspace record)';
         }
 
         if ($record->subject_type && $record->subject_id) {

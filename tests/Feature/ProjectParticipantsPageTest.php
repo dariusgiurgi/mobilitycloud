@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class ProjectParticipantsWorkspaceTest extends TestCase
+class ProjectParticipantsPageTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -91,7 +91,6 @@ class ProjectParticipantsWorkspaceTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'active',

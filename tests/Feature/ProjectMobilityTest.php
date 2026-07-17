@@ -7,11 +7,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
-use App\Models\Workspace;
-use App\Services\AccountWorkspaceService;
 use App\Services\ProjectFinalArchiveService;
-use App\Services\WorkspaceBackupService;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -26,9 +22,8 @@ class ProjectMobilityTest extends TestCase
     public function test_member_can_save_mobility_report_and_upload_activity_files(): void
     {
         Storage::fake('local');
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser();
+        [$project, $user] = $this->projectAndUser();
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
             ->assertSee('Mobility workspace')
@@ -60,7 +55,7 @@ class ProjectMobilityTest extends TestCase
     public function test_final_project_archive_contains_mobility_documents_in_ordered_folder(): void
     {
         Storage::fake('local');
-        [, $project] = $this->workspaceProjectAndUser();
+        [$project] = $this->projectAndUser();
 
         Storage::disk('local')->put('project-documents/'.$project->id.'/mobility/mobility_material/worksheet.pdf', 'worksheet-file');
         $document = ProjectDocument::create([
@@ -91,55 +86,24 @@ class ProjectMobilityTest extends TestCase
         unlink($archive);
     }
 
-    public function test_workspace_backup_also_groups_mobility_documents(): void
-    {
-        Storage::fake('local');
-        [$workspace, $project] = $this->workspaceProjectAndUser();
-
-        Storage::disk('local')->put('project-documents/'.$project->id.'/mobility/mobility_plan/plan.pdf', 'plan-file');
-        $document = ProjectDocument::create([
-            'project_id' => $project->id,
-            'type' => ProjectDocument::TYPE_UPLOAD,
-            'category' => 'mobility_plan',
-            'title' => 'Mobility plan',
-            'file_path' => 'project-documents/'.$project->id.'/mobility/mobility_plan/plan.pdf',
-            'file_disk' => 'local',
-            'file_name' => 'plan.pdf',
-            'file_size' => 9,
-            'metadata' => ['source' => 'mobility'],
-        ]);
-
-        $archive = app(WorkspaceBackupService::class)->create($workspace);
-        $zip = new ZipArchive;
-        $this->assertTrue($zip->open($archive) === true);
-
-        $this->assertNotFalse($zip->locateName('files/'.$project->id.'-youth-exchange/documents/02-mobility/mobility-plan/'.$document->id.'-mobility-plan/original-plan.pdf'));
-
-        $zip->close();
-        unlink($archive);
-    }
-
     public function test_mobility_page_is_available_in_project_navigation(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser();
+        [$project, $user] = $this->projectAndUser();
         $this->actingAs($user);
-        Filament::setTenant(app(AccountWorkspaceService::class)->ensureFor($user));
 
         $this->assertArrayHasKey('mobility', ProjectResource::getPages());
         $this->assertStringContainsString('/mobility', ProjectResource::getUrl('mobility', ['record' => $project]));
     }
 
-    private function workspaceProjectAndUser(): array
+    private function projectAndUser(): array
     {
-        $workspace = Workspace::create(['name' => 'Mobility Workspace']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
             'name' => 'Youth Exchange',
             'status' => 'active',
         ]);
         $user = User::factory()->create();
         $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
-        return [$workspace, $project, $user];
+        return [$project, $user];
     }
 }

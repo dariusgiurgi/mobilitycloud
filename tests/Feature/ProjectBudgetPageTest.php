@@ -11,7 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class ProjectBudgetWorkspaceTest extends TestCase
+class ProjectBudgetPageTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -133,7 +133,6 @@ class ProjectBudgetWorkspaceTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Budget Project',
             'status' => $status,

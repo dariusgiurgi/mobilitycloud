@@ -85,7 +85,6 @@ class TaskNotificationTest extends TestCase
         $manager = User::factory()->create();
         $project = Project::create([
             'owner_id' => $manager->id,
-            'workspace_id' => null,
             'name' => 'Notification Project',
             'status' => 'active',
         ]);

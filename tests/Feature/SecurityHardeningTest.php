@@ -149,7 +149,6 @@ class SecurityHardeningTest extends TestCase
         $owner = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Test Project',
             'status' => 'writing',
         ]);

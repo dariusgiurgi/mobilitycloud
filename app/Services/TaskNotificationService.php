@@ -11,7 +11,7 @@ class TaskNotificationService
 {
     public function sendAssignment(ProjectTask $task): bool
     {
-        $task->loadMissing(['assignee', 'project.workspace']);
+        $task->loadMissing(['assignee', 'project']);
         if (! $this->canNotifyAssignee($task, 'task_assigned')) {
             return false;
         }
@@ -28,7 +28,7 @@ class TaskNotificationService
 
     public function sendDueSoon(ProjectTask $task): bool
     {
-        $task->loadMissing(['assignee', 'project.workspace']);
+        $task->loadMissing(['assignee', 'project']);
         if (! $this->canNotifyAssignee($task, 'task_due_soon')) {
             return false;
         }
@@ -45,7 +45,7 @@ class TaskNotificationService
 
     public function sendOverdue(ProjectTask $task): bool
     {
-        $task->loadMissing(['assignee', 'project.workspace']);
+        $task->loadMissing(['assignee', 'project']);
         if (! $this->canNotifyAssignee($task, 'task_overdue')) {
             return false;
         }

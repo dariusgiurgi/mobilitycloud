@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Project;
-use App\Models\Workspace;
 use App\Services\ParticipantCsvImporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -85,10 +84,7 @@ class ParticipantCsvImporterTest extends TestCase
 
     private function project(): Project
     {
-        $workspace = Workspace::create(['name' => 'Import Workspace']);
-
         return Project::create([
-            'workspace_id' => $workspace->id,
             'name' => 'Youth Exchange',
             'status' => 'active',
         ]);

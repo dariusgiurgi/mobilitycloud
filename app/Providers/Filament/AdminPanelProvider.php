@@ -9,18 +9,17 @@ use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\MyTasks;
 use App\Filament\Pages\NotificationPreferences;
+use App\Filament\Pages\ProjectCalendar;
 use App\Filament\Pages\PublicLibrary;
-use App\Filament\Pages\WorkspaceCalendar;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
-use App\Filament\Widgets\DashboardWorkspace;
+use App\Filament\Widgets\DashboardOverview;
 use App\Filament\Widgets\ProjectStatsOverview;
 use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Models\PlatformAnnouncement;
 use App\Models\User;
 use Filament\Actions\Action;
-use Filament\Facades\Filament;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -92,7 +91,7 @@ class AdminPanelProvider extends PanelProvider
                             ->latest('starts_at')
                             ->latest('created_at')
                             ->get()
-                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), null))
+                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user()))
                             ->take(3)
                         : collect(),
                 ]),
@@ -119,11 +118,11 @@ class AdminPanelProvider extends PanelProvider
                 MyTasks::class,
                 NotificationPreferences::class,
                 PublicLibrary::class,
-                WorkspaceCalendar::class,
+                ProjectCalendar::class,
             ])
             ->widgets([
                 ProjectStatsOverview::class,
-                DashboardWorkspace::class,
+                DashboardOverview::class,
             ])
             ->middleware([
                 EncryptCookies::class,

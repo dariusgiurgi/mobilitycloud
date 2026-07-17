@@ -15,7 +15,7 @@ class ProjectFinalArchiveService
     public function create(Project $project): string
     {
         $project->loadMissing([
-            'workspace',
+            'ownerAccount:id,name,email,billing_name,billing_vat,billing_country,billing_address',
             'members:id,name,email',
             'applicationSections' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
             'budgetLines' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
@@ -49,7 +49,7 @@ class ProjectFinalArchiveService
             'exported_at' => now()->toIso8601String(),
             'format_version' => 1,
             'project' => $project->attributesToArray(),
-            'workspace' => $project->workspace?->only(['id', 'name', 'slug', 'billing_name', 'billing_country']),
+            'owner' => $project->owner()?->only(['id', 'name', 'email', 'billing_name', 'billing_vat', 'billing_country', 'billing_address']),
             'members' => $project->members->map(fn ($user): array => [
                 'id' => $user->id,
                 'name' => $user->name,

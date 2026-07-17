@@ -133,9 +133,9 @@ class ProjectDocumentChecklist
             ->filter(fn (array $partner): bool => filled($partner['name'] ?? null))
             ->values();
 
-        if ($partners->isEmpty() && $project->workspace) {
+        if ($partners->isEmpty() && $project->owner()) {
             $partners = collect([[
-                'name' => $project->workspace->name,
+                'name' => $project->owner()?->billing_name ?: $project->owner()?->name,
                 'country' => null,
                 'oid' => null,
             ]]);

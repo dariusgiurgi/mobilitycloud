@@ -7,8 +7,6 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -19,7 +17,7 @@ class ProjectOverviewTest extends TestCase
 
     public function test_overview_surfaces_the_next_step_and_module_readiness(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         ProjectApplicationSection::create([
             'project_id' => $project->id,
             'title' => 'Objectives',
@@ -40,7 +38,6 @@ class ProjectOverviewTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Recommended next step')
@@ -62,9 +59,8 @@ class ProjectOverviewTest extends TestCase
 
     public function test_manager_can_use_an_allowed_lifecycle_transition(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Mark as Submitted')
@@ -80,9 +76,8 @@ class ProjectOverviewTest extends TestCase
 
     public function test_marking_a_project_as_approved_requires_and_locks_the_approved_grant(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Mark as Approved')
@@ -109,9 +104,8 @@ class ProjectOverviewTest extends TestCase
 
     public function test_approved_grant_fee_has_a_one_hundred_euro_minimum(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->call('requestTransitionTo', 'approved')
@@ -134,7 +128,6 @@ class ProjectOverviewTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $user->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Unlimited Approved Project',
             'status' => 'writing',
@@ -164,7 +157,7 @@ class ProjectOverviewTest extends TestCase
 
     public function test_paid_project_no_longer_shows_the_invoice_activation_notice(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update([
             'status' => 'approved',
             'approved_grant_amount' => 9900,
@@ -176,7 +169,6 @@ class ProjectOverviewTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertDontSee('Project activation')
@@ -187,9 +179,8 @@ class ProjectOverviewTest extends TestCase
 
     public function test_readiness_transition_warning_can_be_cancelled(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->call('requestTransitionTo', 'submitted')
@@ -202,9 +193,8 @@ class ProjectOverviewTest extends TestCase
 
     public function test_viewer_does_not_see_project_mutation_actions(): void
     {
-        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        [$project, $viewer] = $this->workspaceProjectAndUser('viewer');
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Continue writing the application')
@@ -214,7 +204,7 @@ class ProjectOverviewTest extends TestCase
 
     public function test_manager_can_create_tasks_from_readiness_issues_without_duplicates(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         ProjectApplicationSection::create([
             'project_id' => $project->id,
             'title' => 'Objectives',
@@ -223,7 +213,6 @@ class ProjectOverviewTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Create tasks')
@@ -240,12 +229,10 @@ class ProjectOverviewTest extends TestCase
 
     private function workspaceProjectAndUser(string $role): array
     {
-        $workspace = Workspace::create(['name' => 'Overview Workspace']);
         $owner = User::factory()->create();
         $user = User::factory()->create();
-        $workspace->users()->attach($owner, ['role' => 'owner']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $owner->id,
             'name' => 'Youth Exchange',
             'status' => 'writing',
             'ka_action' => 'ka152',
@@ -258,6 +245,6 @@ class ProjectOverviewTest extends TestCase
                 : Project::PROJECT_ROLE_EDITOR,
         ]);
 
-        return [$workspace, $project, $user];
+        return [$project, $user];
     }
 }

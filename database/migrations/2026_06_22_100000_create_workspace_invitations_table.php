@@ -8,9 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('workspace_invitations', function (Blueprint $table): void {
+        Schema::create('project_invitations', function (Blueprint $table): void {
             $table->id();
-            $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('project_id')->constrained()->cascadeOnDelete();
             $table->foreignId('invited_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('email');
             $table->string('role')->default('member');
@@ -19,13 +19,13 @@ return new class extends Migration
             $table->timestamp('accepted_at')->nullable();
             $table->timestamps();
 
-            $table->unique(['workspace_id', 'email']);
-            $table->index(['workspace_id', 'accepted_at']);
+            $table->unique(['project_id', 'email']);
+            $table->index(['project_id', 'accepted_at']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('workspace_invitations');
+        Schema::dropIfExists('project_invitations');
     }
 };

@@ -9,7 +9,7 @@ use App\Models\ProjectApplicationVersion;
 use App\Support\ApplicationTableDefinitions;
 use App\Support\ApplicationTemplates;
 use App\Support\AuthorizesProjectManagement;
-use Filament\Facades\Filament;
+use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -657,6 +657,7 @@ class WriteApplication extends Page
 
             if (! $existing) {
                 $missing[] = $official;
+
                 continue;
             }
 
@@ -1559,7 +1560,7 @@ class WriteApplication extends Page
 
     protected function autofillRowsForTable(string $tableKey): array
     {
-        $project = $this->record->fresh(['workspace', 'participants', 'budgetLines.expenses', 'tasks.assignee']);
+        $project = $this->record->fresh(['participants', 'budgetLines.expenses', 'tasks.assignee']);
 
         return match ($tableKey) {
             'project_topics' => $this->projectTopicRows($project),
@@ -1651,7 +1652,7 @@ class WriteApplication extends Page
                 'participants' => trim(($flow['participants_count'] ?: '0').' participants'.((int) ($flow['fewer_opportunities_count'] ?? 0) > 0 ? ', '.$flow['fewer_opportunities_count'].' with fewer opportunities' : '')),
                 'duration' => trim(($flow['start_date'] ?: 'TBC').' - '.($flow['end_date'] ?: 'TBC').' · '.($flow['duration_days'] ?: '0').' days'),
                 'countries' => trim(($flow['origin_country'] ?: 'Origin TBC').' → '.($flow['destination_country'] ?: 'Destination TBC')),
-                'responsible' => $flow['responsible'] ?: ($project->workspace?->name ?: 'Coordinator'),
+                'responsible' => $flow['responsible'] ?: ($project->owner()?->name ?: 'Coordinator'),
                 'output' => $flow['learning_output'] ?: 'Learning activity, reflection and follow-up results.',
             ])
             ->values()
@@ -1677,7 +1678,7 @@ class WriteApplication extends Page
             'participants' => $participants ?: 'Participants to be confirmed',
             'duration' => $duration,
             'countries' => $countries,
-            'responsible' => $project->workspace?->name ?: 'Coordinator',
+            'responsible' => $project->owner()?->name ?: 'Coordinator',
             'output' => $project->description ?: 'Learning activity and follow-up results.',
         ]];
     }
@@ -1696,7 +1697,7 @@ class WriteApplication extends Page
                 'participants' => $group->count().' from '.$label,
                 'support_measure' => 'Reinforced preparation, mentoring, practical support and follow-up.',
                 'phase' => 'Preparation, mobility and follow-up',
-                'responsible' => $project->workspace?->name ?: 'Coordinator',
+                'responsible' => $project->owner()?->name ?: 'Coordinator',
             ])
             ->values()
             ->all();
@@ -1708,7 +1709,7 @@ class WriteApplication extends Page
             'tool' => 'Youthpass',
             'purpose' => 'Reflect, document and recognise learning outcomes and key competences.',
             'when_used' => 'Introduced during preparation or first day, reflected daily, finalised at the end.',
-            'responsible' => $project->workspace?->name ?: 'Coordinator / facilitators',
+            'responsible' => $project->owner()?->name ?: 'Coordinator / facilitators',
             'evidence' => 'Reflection journals, daily evaluations, Youthpass certificates.',
         ]];
     }
@@ -1721,7 +1722,7 @@ class WriteApplication extends Page
                 'work_package' => $line->title,
                 'objective' => 'Deliver the project activities supported by this budget basket.',
                 'activities' => $line->expenses->pluck('description')->filter()->take(4)->implode('; ') ?: 'Activities to be detailed.',
-                'lead_partner' => $project->workspace?->name ?: 'Coordinator',
+                'lead_partner' => $project->owner()?->name ?: 'Coordinator',
                 'outputs' => 'Eligible costs and documented implementation evidence.',
                 'budget_logic' => number_format((float) $line->allocated_budget, 2).' EUR allocated.',
             ]);
@@ -1737,7 +1738,7 @@ class WriteApplication extends Page
                 'work_package' => $task->title,
                 'objective' => $task->description ?: 'Project implementation task.',
                 'activities' => $task->title,
-                'lead_partner' => $project->workspace?->name ?: 'Coordinator',
+                'lead_partner' => $project->owner()?->name ?: 'Coordinator',
                 'outputs' => 'Task completed and documented.',
                 'budget_logic' => 'To be connected with the budget.',
             ])
@@ -1762,7 +1763,7 @@ class WriteApplication extends Page
             'indicator' => str_contains(Str::of($section->title)->lower()->toString(), 'impact') ? 'Evidence of expected change is collected.' : 'Objective-specific progress indicator is achieved.',
             'evidence' => 'Application answer, participant feedback, attendance/evidence files and project outputs.',
             'timing' => $project->end_date ? 'By '.$project->end_date->format('d M Y') : 'During and after implementation',
-            'responsible' => $project->workspace?->name ?: 'Coordinator',
+            'responsible' => $project->owner()?->name ?: 'Coordinator',
         ])->values();
 
         if ($rows->isNotEmpty()) {
@@ -1776,7 +1777,7 @@ class WriteApplication extends Page
                 'indicator' => $task->isCompleted() ? 'Completed' : 'Task completed by deadline.',
                 'evidence' => $task->description ?: 'Task evidence and internal review.',
                 'timing' => $task->due_date?->format('d M Y') ?: 'To be confirmed',
-                'responsible' => $task->assignee?->name ?: ($project->workspace?->name ?: 'Coordinator'),
+                'responsible' => $task->assignee?->name ?: ($project->owner()?->name ?: 'Coordinator'),
             ])
             ->values()
             ->all();
@@ -1807,7 +1808,7 @@ class WriteApplication extends Page
             'message' => $project->acronym ?: $project->name,
             'channel' => 'Website, social media, direct events or newsletters',
             'timing' => $project->end_date ? 'By '.$project->end_date->format('d M Y') : 'After main activities',
-            'owner' => $project->workspace?->name ?: 'Coordinator',
+            'owner' => $project->owner()?->name ?: 'Coordinator',
             'evidence' => 'Screenshots, links, attendance lists and analytics.',
         ]];
     }
@@ -2057,7 +2058,7 @@ class WriteApplication extends Page
 
     protected function defaultActivityFlows(bool $fromParticipantsOnly = false): array
     {
-        $project = $this->record->fresh(['workspace', 'participants']);
+        $project = $this->record->fresh(['participants']);
         $participants = $project->participants;
 
         if ($participants->isEmpty()) {
@@ -2081,7 +2082,7 @@ class WriteApplication extends Page
                     'participants_count' => max(0, $participantsOnly->count()),
                     'fewer_opportunities_count' => $group->where('fewer_opportunities', true)->count(),
                     'group_leaders_count' => $supportRoles->count(),
-                    'responsible' => $project->workspace?->name ?: 'Coordinator',
+                    'responsible' => $project->owner()?->name ?: 'Coordinator',
                 ]);
             })
             ->all();
@@ -2145,8 +2146,8 @@ class WriteApplication extends Page
                 return null;
             }
 
-            $start = \Carbon\Carbon::parse($flow['start_date'])->startOfDay();
-            $end = \Carbon\Carbon::parse($flow['end_date'])->startOfDay();
+            $start = Carbon::parse($flow['start_date'])->startOfDay();
+            $end = Carbon::parse($flow['end_date'])->startOfDay();
 
             if ($end->lt($start)) {
                 return null;
@@ -2165,8 +2166,8 @@ class WriteApplication extends Page
                 return false;
             }
 
-            $start = \Carbon\Carbon::parse($flow['start_date'])->startOfDay();
-            $end = \Carbon\Carbon::parse($flow['end_date'])->startOfDay();
+            $start = Carbon::parse($flow['start_date'])->startOfDay();
+            $end = Carbon::parse($flow['end_date'])->startOfDay();
 
             return $start->lt($this->record->mobility_start_date->startOfDay())
                 || $end->gt($this->record->mobility_end_date->startOfDay());

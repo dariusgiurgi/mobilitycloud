@@ -203,7 +203,7 @@ class ViewProjectBoard extends Page
                 $expense->currency = $value;
             }
 
-            // Daca moneda nu are curs definit in workspace, NU converti silentios 1:1.
+            // Daca moneda nu are curs definit in project currencies, NU converti silentios 1:1.
             if ($expense->currency !== 'EUR' && ! array_key_exists($expense->currency, $currencies)) {
                 $expense->exchange_rate = null;
                 $expense->amount_eur = 0;

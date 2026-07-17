@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProjectActivityLog extends Model
 {
     protected $fillable = [
-        'workspace_id', 'project_id', 'user_id', 'event',
+        'project_id', 'user_id', 'event',
         'subject_type', 'subject_id', 'description', 'metadata',
     ];
 

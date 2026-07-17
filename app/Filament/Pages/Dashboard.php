@@ -4,13 +4,12 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
-use App\Filament\Widgets\DashboardWorkspace;
+use App\Filament\Widgets\DashboardOverview;
 use App\Filament\Widgets\PlatformOperationsOverview;
 use App\Filament\Widgets\PlatformStatsOverview;
 use App\Filament\Widgets\ProjectStatsOverview;
 use App\Models\Project;
 use Filament\Actions\Action;
-use Filament\Facades\Filament;
 use Filament\Pages\Dashboard as BaseDashboard;
 use Filament\Support\Icons\Heroicon;
 
@@ -65,7 +64,7 @@ class Dashboard extends BaseDashboard
 
         return [
             ProjectStatsOverview::class,
-            DashboardWorkspace::class,
+            DashboardOverview::class,
         ];
     }
 

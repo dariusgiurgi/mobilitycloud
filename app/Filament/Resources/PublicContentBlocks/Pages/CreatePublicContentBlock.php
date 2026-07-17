@@ -13,7 +13,6 @@ class CreatePublicContentBlock extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['user_id'] = auth()->id();
-        $data['origin_workspace_id'] = null;
 
         return $data;
     }

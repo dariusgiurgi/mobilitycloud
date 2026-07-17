@@ -5,8 +5,8 @@ namespace App\Console\Commands;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectDocument;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
 use App\Services\ExpenseReportSnapshot;
 use App\Support\ApplicationTemplates;
 use App\Support\PlanCatalog;
@@ -150,7 +150,7 @@ class SeedE2eQaData extends Command
                 ->pluck('id')
                 ->all();
 
-            WorkspaceInvitation::query()
+            ProjectInvitation::query()
                 ->where(fn ($query) => $query
                     ->whereIn('email', $emails)
                     ->orWhereIn('invited_by', $qaUserIds)
@@ -221,7 +221,6 @@ class SeedE2eQaData extends Command
                 'name' => $name,
             ],
             [
-                'workspace_id' => null,
                 'access_mode' => 'restricted',
                 'acronym' => $acronym,
                 'ka_action' => $kaAction,
@@ -502,16 +501,15 @@ class SeedE2eQaData extends Command
         ];
     }
 
-    private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): WorkspaceInvitation
+    private function upsertInvitation(User $owner, Project $project, User $invitee, string $role): ProjectInvitation
     {
-        /** @var WorkspaceInvitation $invitation */
-        $invitation = WorkspaceInvitation::query()->updateOrCreate(
+        /** @var ProjectInvitation $invitation */
+        $invitation = ProjectInvitation::query()->updateOrCreate(
             [
                 'project_id' => $project->id,
                 'email' => $invitee->email,
             ],
             [
-                'workspace_id' => null,
                 'invited_by' => $owner->id,
                 'role' => 'project_'.$role,
                 'token' => Str::random(64),

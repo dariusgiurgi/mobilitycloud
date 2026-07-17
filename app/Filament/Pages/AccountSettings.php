@@ -187,11 +187,6 @@ class AccountSettings extends Page
             ->send();
     }
 
-    public function switchWorkspace(int $workspaceId): void
-    {
-        abort(404);
-    }
-
     public function getCurrentAccountProperty(): ?User
     {
         return auth()->user();
@@ -214,10 +209,10 @@ class AccountSettings extends Page
     {
         if ($this->isPlatformPanel()) {
             return [
-            'dashboard' => 'Platform overview',
-            'users' => 'Users',
-            'subscriptions' => 'Account access',
-            'audit' => 'Audit log',
+                'dashboard' => 'Platform overview',
+                'users' => 'Users',
+                'subscriptions' => 'Account access',
+                'audit' => 'Audit log',
             ];
         }
 

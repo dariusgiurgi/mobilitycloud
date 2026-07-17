@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -18,7 +17,7 @@ class User extends Authenticatable implements FilamentUser
     use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
-        'name', 'email', 'password', 'current_workspace_id', 'notification_preferences', 'role',
+        'name', 'email', 'password', 'notification_preferences', 'role',
         'plan', 'subscription_status', 'trial_ends_at', 'subscription_ends_at', 'feature_flags',
         'plan_limits', 'currencies', 'document_settings', 'access_override_ends_at', 'access_override_reason',
         'access_override_granted_by', 'billing_interval', 'billing_amount', 'billing_currency', 'billing_reference',
@@ -64,18 +63,6 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    public function workspaces(): BelongsToMany
-    {
-        return $this->belongsToMany(Workspace::class, 'workspace_user')
-            ->withPivot('role', 'joined_at')
-            ->withTimestamps();
-    }
-
-    public function currentWorkspace(): BelongsTo
-    {
-        return $this->belongsTo(Workspace::class, 'current_workspace_id');
-    }
-
     public function projects(): BelongsToMany
     {
         return $this->belongsToMany(Project::class)
@@ -91,16 +78,6 @@ class User extends Authenticatable implements FilamentUser
     public function supportNotes(): HasMany
     {
         return $this->hasMany(PlatformSupportNote::class);
-    }
-
-    public function subscriptionEvents(): HasMany
-    {
-        return $this->hasMany(PlatformSubscriptionEvent::class);
-    }
-
-    public function latestSubscriptionEvent(): HasOne
-    {
-        return $this->hasOne(PlatformSubscriptionEvent::class)->latestOfMany();
     }
 
     public function authoredSupportNotes(): HasMany
@@ -139,12 +116,6 @@ class User extends Authenticatable implements FilamentUser
         return (bool) data_get($this->notification_preferences, $type, true);
     }
 
-    public function hasAnyWorkspaceAccess(): bool
-    {
-        return $this->ownedProjects()->exists()
-            || $this->projects()->exists();
-    }
-
     public function canAccessPanel(Panel $panel): bool
     {
         return match ($panel->getId()) {
@@ -152,17 +123,6 @@ class User extends Authenticatable implements FilamentUser
             'admin' => true,
             default => true,
         };
-    }
-
-    /**
-     * Legacy Filament tenancy compatibility. Workspaces are no longer a visible
-     * product concept, but some older tests and internal helpers still ask if an
-     * account can enter the hidden project container.
-     */
-    public function canAccessTenant(mixed $tenant): bool
-    {
-        return $tenant instanceof Workspace
-            && $tenant->hasProjectAccessFor($this);
     }
 
     public const ROLE_USER = 'user';

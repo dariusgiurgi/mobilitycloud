@@ -14,7 +14,6 @@ return new class extends Migration
 
         Schema::create('content_blocks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
 
             $table->string('title');
             $table->string('category')->default('other');
@@ -30,8 +29,8 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index(['workspace_id', 'category']);
-            $table->index(['workspace_id', 'ka_action']);
+            $table->index(['category']);
+            $table->index(['ka_action']);
         });
     }
 

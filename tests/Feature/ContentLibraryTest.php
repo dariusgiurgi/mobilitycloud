@@ -6,8 +6,6 @@ use App\Filament\Resources\ContentBlocks\Pages\CreateContentBlock;
 use App\Filament\Resources\ContentBlocks\Pages\ListContentBlocks;
 use App\Models\ContentBlock;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -18,10 +16,9 @@ class ContentLibraryTest extends TestCase
 
     public function test_library_presents_reusable_content_with_clear_context(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = User::factory()->create();
         ContentBlock::create([
             'owner_id' => $user->id,
-            'workspace_id' => null,
             'title' => 'Participant safety approach',
             'category' => 'safety',
             'ka_action' => 'ka152',
@@ -32,7 +29,6 @@ class ContentLibraryTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(ListContentBlocks::class)
             ->assertSee('Browse public library')
@@ -45,9 +41,8 @@ class ContentLibraryTest extends TestCase
 
     public function test_proven_content_requires_a_source(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = User::factory()->create();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(CreateContentBlock::class)
             ->fillForm([
@@ -61,14 +56,5 @@ class ContentLibraryTest extends TestCase
             ])
             ->call('create')
             ->assertHasFormErrors(['source_note' => 'required']);
-    }
-
-    private function workspaceAndUser(): array
-    {
-        $workspace = Workspace::create(['name' => 'Content Workspace']);
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
-
-        return [$workspace, $user];
     }
 }

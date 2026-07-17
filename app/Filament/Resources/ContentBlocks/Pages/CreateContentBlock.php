@@ -12,7 +12,6 @@ class CreateContentBlock extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['owner_id'] = auth()->id();
-        $data['workspace_id'] = null;
 
         return $data;
     }

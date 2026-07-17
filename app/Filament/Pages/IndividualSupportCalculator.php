@@ -118,7 +118,6 @@ class IndividualSupportCalculator extends Page
     {
         return SavedCalculation::query()
             ->where('created_by', auth()->id())
-            ->whereNull('workspace_id')
             ->where('type', 'individual_support')
             ->latest()
             ->get();
@@ -137,7 +136,6 @@ class IndividualSupportCalculator extends Page
         $this->validate(['saveName' => 'required|min:2|max:255']);
 
         SavedCalculation::create([
-            'workspace_id' => null,
             'created_by' => auth()->id(),
             'name' => $this->saveName,
             'type' => 'individual_support',
@@ -168,7 +166,6 @@ class IndividualSupportCalculator extends Page
     {
         $calc = SavedCalculation::query()
             ->where('created_by', auth()->id())
-            ->whereNull('workspace_id')
             ->where('type', 'individual_support')
             ->find($id);
 
@@ -196,7 +193,6 @@ class IndividualSupportCalculator extends Page
 
         SavedCalculation::query()
             ->where('created_by', auth()->id())
-            ->whereNull('workspace_id')
             ->where('type', 'individual_support')
             ->whereKey($id)
             ->delete();

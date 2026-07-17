@@ -7,10 +7,8 @@ use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectApplicationVersion;
 use App\Models\User;
-use App\Models\Workspace;
 use App\Support\ApplicationTableDefinitions;
 use App\Support\ApplicationTemplates;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -19,14 +17,13 @@ class WriteApplicationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_application_workspace_shows_progress_and_compact_sidebar(): void
+    public function test_application_editor_shows_progress_and_compact_sidebar(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->createSection($project, 'Objectives', 'A focused project answer.', 100, 'Context', 0);
         $this->createSection($project, 'Impact', '', 100, 'Impact', 1);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Application workspace')
@@ -44,11 +41,10 @@ class WriteApplicationTest extends TestCase
 
     public function test_manager_changes_are_saved_to_the_application(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $section = $this->createSection($project, 'Objectives', '', 100, 'Context', 0);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->set("content.{$section->id}", 'New application answer')
@@ -59,11 +55,10 @@ class WriteApplicationTest extends TestCase
 
     public function test_viewer_gets_a_clean_read_only_workspace(): void
     {
-        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        [$project, $viewer] = $this->workspaceProjectAndUser('viewer');
         $section = $this->createSection($project, 'Objectives', 'Existing answer', 100, 'Context', 0);
 
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Read-only access')
@@ -75,7 +70,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_already_approved_project_without_writing_structure_hides_review_sidebar(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update([
             'status' => 'approved',
             'approved_grant_amount' => 9900,
@@ -86,7 +81,6 @@ class WriteApplicationTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Application not required')
@@ -229,11 +223,10 @@ class WriteApplicationTest extends TestCase
 
     public function test_template_sync_preserves_existing_answers_and_creates_backup(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $legacy = $this->createSection($project, 'My custom answer', 'Do not delete this text.', 1000, 'Custom', 0);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->set('selectedTemplate', 'ka151-you')
@@ -248,11 +241,10 @@ class WriteApplicationTest extends TestCase
 
     public function test_named_version_can_restore_a_previous_draft(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $section = $this->createSection($project, 'Objectives', 'Original draft', 1000, 'Context', 0);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->set('versionLabel', 'Partner review')
@@ -284,12 +276,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_template_manager_reports_alignment_and_can_switch_catalog_template(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->createSection($project, 'Summary objectives', 'Existing answer', 100, 'Old category', 0, 'summary-objectives');
         $this->createSection($project, 'Custom evaluator note', 'Keep this custom note.', 1000, 'Custom', 1, 'custom-note');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->call('openTemplateDetails')
@@ -325,12 +316,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_template_preview_hints_and_activity_table_mode_are_visible(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update(['ka_action' => 'ka151-you']);
         $this->createSection($project, 'Do you foresee Virtual/Blended activities and/or the use of any virtual component, before, during or after the activity?', 'We will use online preparation.', 4000, 'Summary', 0, 'virtual-blended-components');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Activity/table-driven application')
@@ -346,7 +336,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_standard_application_tables_can_be_filled_and_exported(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $section = $this->createSection(
             $project,
             'Have you, at this stage, identified the need of any specific additional funding such as Exceptional costs for expensive travel, visas, financial guarantee, or Inclusion support for participants etc.? If this is the case, please fill in the table below.',
@@ -358,7 +348,6 @@ class WriteApplicationTest extends TestCase
         );
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Additional funding needs')
@@ -381,7 +370,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_standard_application_tables_can_be_populated_from_project_data(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update([
             'mobility_start_date' => '2026-08-01',
             'mobility_end_date' => '2026-08-08',
@@ -405,7 +394,6 @@ class WriteApplicationTest extends TestCase
         $activities = $this->createSection($project, 'What activities do you plan to implement? What is the number and profile of the participants involved?', '', 1000, 'Project summary', 1, 'summary-activities');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Populate from project')
@@ -423,11 +411,10 @@ class WriteApplicationTest extends TestCase
 
     public function test_application_can_be_exported_as_word_compatible_document(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->createSection($project, 'Official question', 'Clean answer for export.', 1000, 'Context', 0, 'official-question');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $this->get(route('projects.export-application-word', $project))
             ->assertOk()
@@ -440,7 +427,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_activity_flows_can_be_generated_and_used_by_application_pack(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update([
             'ka_action' => 'ka152-you',
             'mobility_start_date' => '2026-08-01',
@@ -460,7 +447,6 @@ class WriteApplicationTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->call('openActivityBuilder')
@@ -484,7 +470,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_activity_flow_review_flags_participant_mismatches_and_youth_exchange_age_range(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update([
             'ka_action' => 'ka152-you',
             'mobility_start_date' => '2026-08-01',
@@ -529,7 +515,6 @@ class WriteApplicationTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Flow quality');
@@ -546,7 +531,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_official_readiness_flags_conditional_missing_answers_and_navigation(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update(['ka_action' => 'ka152-you']);
         $trigger = $this->createSection(
             $project,
@@ -568,7 +553,6 @@ class WriteApplicationTest extends TestCase
         );
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Official readiness')
@@ -589,7 +573,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_submission_checklist_is_action_specific_for_ka152(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update(['ka_action' => 'ka152-you']);
         $participantBackground = $this->createSection($project, 'Participant background', '', 4000, 'Description of the activity', 0, 'activity-participant-background');
         $this->createSection($project, 'European certificates', 'Yes, we will use Youthpass.', 1000, 'Project design', 1, 'european-certificates');
@@ -606,7 +590,6 @@ class WriteApplicationTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Submission checklist')
@@ -628,11 +611,10 @@ class WriteApplicationTest extends TestCase
 
     public function test_answer_scaffold_can_be_inserted_for_a_question(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $section = $this->createSection($project, 'Expected impact and follow-up', '', 2000, 'Impact', 0, 'summary-impact');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->call('insertAnswerScaffold', $section->id);
@@ -642,12 +624,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_template_switch_replaces_old_official_questions_and_preserves_custom_sections(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $oldOfficial = $this->createSection($project, 'Legacy impact question', 'This belongs to another form.', 1000, 'Old form', 0, 'summary-impact');
         $custom = $this->createSection($project, 'Internal evaluator note', 'Keep this project-specific note.', 1000, 'Custom', 1, 'custom-note');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->set('selectedTemplate', 'ka151-you')
@@ -664,12 +645,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_consistency_checker_flags_missing_answers_and_erasmus_themes(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->createSection($project, 'Project objectives', 'We will improve youth participation.', 1000, 'Project rationale', 0, 'needs-objectives');
         $this->createSection($project, 'Expected impact', '', 1000, 'Project management', 1, 'summary-impact');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Consistency checker')
@@ -686,7 +666,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_quality_review_scores_evaluator_criteria(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update(['total_budget' => 25000]);
 
         $strongAnswer = implode(' ', [
@@ -703,7 +683,6 @@ class WriteApplicationTest extends TestCase
         $this->createSection($project, 'Impact and dissemination', $strongAnswer, 6000, 'Impact', 1, 'dissemination');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Quality review')
@@ -722,12 +701,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_review_details_modal_shows_full_consistency_and_quality_checks(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->createSection($project, 'Project objectives', 'We will improve youth participation.', 1000, 'Project rationale', 0, 'needs-objectives');
         $this->createSection($project, 'Expected impact', '', 1000, 'Project management', 1, 'summary-impact');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('View checks')
@@ -744,12 +722,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_application_modes_support_review_and_focus_workflows(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $first = $this->createSection($project, 'Objectives', 'Readable answer for partners.', 1000, 'Context', 0, 'objectives');
         $second = $this->createSection($project, 'Impact', 'Second answer.', 1000, 'Impact', 1, 'impact');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Write')
@@ -780,7 +757,7 @@ class WriteApplicationTest extends TestCase
 
     public function test_review_queue_filters_and_updates_section_statuses(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $draft = $this->createSection($project, 'Draft answer', 'Still writing.', 1000, 'Context', 0);
         $review = $this->createSection($project, 'Reviewer answer', 'Needs another look.', 1000, 'Context', 1);
         $ready = $this->createSection($project, 'Ready answer', 'Final enough.', 1000, 'Impact', 2);
@@ -789,7 +766,6 @@ class WriteApplicationTest extends TestCase
         $ready->update(['review_status' => 'ready']);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Review queue')
@@ -814,12 +790,11 @@ class WriteApplicationTest extends TestCase
 
     public function test_bulk_review_actions_flag_issues_generate_notes_and_mark_answered_ready(): void
     {
-        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        [$project, $user] = $this->workspaceProjectAndUser('member');
         $answered = $this->createSection($project, 'Project objectives', 'A clear draft answer.', 1000, 'Context', 0, 'needs-objectives');
         $empty = $this->createSection($project, 'Expected impact', '', 1000, 'Impact', 1, 'summary-impact');
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(WriteApplication::class, ['record' => $project->id])
             ->assertSee('Flag')
@@ -846,13 +821,10 @@ class WriteApplicationTest extends TestCase
 
     private function workspaceProjectAndUser(string $role): array
     {
-        $workspace = Workspace::create(['name' => 'Application Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role]);
         $owner = $role === 'viewer' ? User::factory()->create() : $user;
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'writing',
@@ -863,7 +835,7 @@ class WriteApplicationTest extends TestCase
             $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
         }
 
-        return [$workspace, $project, $user];
+        return [$project, $user];
     }
 
     private function createSection(Project $project, string $title, string $content, int $limit, string $category, int $order, ?string $questionKey = null): ProjectApplicationSection

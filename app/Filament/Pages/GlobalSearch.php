@@ -50,7 +50,7 @@ class GlobalSearch extends Page
 
         $projects = Project::query()
             ->visibleToAccount(auth()->user())
-            ->with('workspace')
+
             ->where(fn (Builder $query) => $query->where('name', 'like', $like)
                 ->orWhere('acronym', 'like', $like)
                 ->orWhere('grant_ref', 'like', $like))
@@ -67,7 +67,7 @@ class GlobalSearch extends Page
                 ->orWhere('last_name', 'like', $like)
                 ->orWhere('email', 'like', $like)
                 ->orWhere('partner_organisation', 'like', $like))
-            ->with('project.workspace')->orderBy('last_name')->limit(8)->get()
+            ->with('project')->orderBy('last_name')->limit(8)->get()
             ->map(fn (Participant $participant): array => [
                 'title' => $participant->fullName(),
                 'detail' => $participant->project->name.' · '.($participant->email ?: $participant->partner_organisation ?: 'Participant'),
@@ -79,7 +79,7 @@ class GlobalSearch extends Page
             ->where(fn (Builder $query) => $query->where('description', 'like', $like)
                 ->orWhere('reference_nr', 'like', $like)
                 ->orWhere('attachment_name', 'like', $like))
-            ->with('budgetLine.project.workspace')->latest('expense_date')->limit(8)->get()
+            ->with('budgetLine.project')->latest('expense_date')->limit(8)->get()
             ->map(fn (Expense $expense): array => [
                 'title' => $expense->description ?: ($expense->reference_nr ?: 'Expense #'.$expense->id),
                 'detail' => $expense->budgetLine->project->name.' · '.number_format((float) $expense->amount, 2).' '.($expense->currency ?: 'EUR'),
@@ -92,7 +92,7 @@ class GlobalSearch extends Page
                 ->orWhere('file_name', 'like', $like)
                 ->orWhere('signed_name', 'like', $like)
                 ->orWhere('category', 'like', $like))
-            ->with('project.workspace')->latest()->limit(8)->get()
+            ->with('project')->latest()->limit(8)->get()
             ->map(fn (ProjectDocument $document): array => [
                 'title' => $document->title ?: ($document->file_name ?: 'Project document'),
                 'detail' => $document->project->name.' · '.str($document->type)->replace('_', ' ')->title(),

@@ -16,7 +16,6 @@ return new class extends Migration
             $table->string('severity')->default('info');
             $table->string('audience')->default('all');
             $table->json('plans')->nullable();
-            $table->json('workspace_ids')->nullable();
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable();
             $table->boolean('is_active')->default(true);

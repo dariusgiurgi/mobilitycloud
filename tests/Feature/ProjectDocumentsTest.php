@@ -293,7 +293,7 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame(3, $checklist['complete']);
     }
 
-    public function test_documents_page_switches_between_professional_workspace_tabs(): void
+    public function test_documents_page_switches_between_professional_document_tabs(): void
     {
         [$project, $user] = $this->projectAndUser();
 
@@ -545,7 +545,6 @@ class ProjectDocumentsTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'acronym' => 'YE',

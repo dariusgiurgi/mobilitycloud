@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\AccountSettings;
 use App\Models\User;
-use App\Models\Workspace;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -17,9 +16,8 @@ class AccountSettingsTest extends TestCase
 
     public function test_user_can_update_profile_from_account_center(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('member');
+        $user = User::factory()->create();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
             ->assertSee('Account Center')
@@ -35,9 +33,8 @@ class AccountSettingsTest extends TestCase
 
     public function test_account_center_is_available_from_the_user_menu_not_the_sidebar(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('member');
+        $user = User::factory()->create();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         $items = Filament::getPanel('admin')->getUserMenuItems();
 
@@ -52,11 +49,10 @@ class AccountSettingsTest extends TestCase
 
     public function test_user_can_update_password_from_account_center(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('member');
+        $user = User::factory()->create();
         $user->update(['password' => Hash::make('old-password')]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
             ->set('currentPassword', 'old-password')
@@ -72,9 +68,8 @@ class AccountSettingsTest extends TestCase
 
     public function test_user_can_save_platform_and_notification_preferences(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('member');
+        $user = User::factory()->create();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
             ->set('defaultLanding', 'tasks')
@@ -94,11 +89,10 @@ class AccountSettingsTest extends TestCase
 
     public function test_account_center_shows_current_access_without_self_service_plan_changes(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('owner');
+        $user = User::factory()->create();
         $user->update(['plan' => 'standard']);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
             ->assertSee('Account access')
@@ -110,7 +104,7 @@ class AccountSettingsTest extends TestCase
 
     public function test_platform_admin_account_center_does_not_expose_public_plan_changes(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('viewer');
+        $user = User::factory()->create();
         $user->update(['plan' => 'standard', 'role' => User::ROLE_PLATFORM_ADMIN]);
 
         $this->actingAs($user);
@@ -123,27 +117,14 @@ class AccountSettingsTest extends TestCase
         $this->assertSame('standard', $user->fresh()->plan);
     }
 
-    public function test_account_center_hides_workspace_switching_from_regular_users(): void
+    public function test_account_center_has_no_organisation_switching_for_regular_users(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser('member');
-        $second = Workspace::create(['name' => 'Second Organisation']);
-        $second->users()->attach($user, ['role' => 'admin', 'joined_at' => now()]);
+        $user = User::factory()->create();
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
-            ->assertDontSee('Your workspaces')
+            ->assertDontSee('Your organisations')
             ->assertDontSee('Second Organisation');
-    }
-
-    private function workspaceAndUser(string $role, array $workspaceAttributes = []): array
-    {
-        $workspace = Workspace::create(array_merge(['name' => 'Account Workspace'], $workspaceAttributes));
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => $role, 'joined_at' => now()]);
-        $user->update(['current_workspace_id' => $workspace->id]);
-
-        return [$workspace, $user];
     }
 }

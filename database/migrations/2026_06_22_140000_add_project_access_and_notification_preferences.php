@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('projects', function (Blueprint $table): void {
-            $table->string('access_mode')->default('workspace')->after('workspace_id');
+            $table->string('access_mode')->default('restricted')->after('id');
         });
 
         Schema::create('project_user', function (Blueprint $table): void {
@@ -21,7 +21,7 @@ return new class extends Migration
         });
 
         Schema::table('users', function (Blueprint $table): void {
-            $table->json('notification_preferences')->nullable()->after('current_workspace_id');
+            $table->json('notification_preferences')->nullable()->after('role');
         });
     }
 

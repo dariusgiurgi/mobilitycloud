@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::create('saved_calculations', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('workspace_id')->constrained()->cascadeOnDelete();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('name');
             $table->string('type')->default('individual_support'); // tipul de calcul

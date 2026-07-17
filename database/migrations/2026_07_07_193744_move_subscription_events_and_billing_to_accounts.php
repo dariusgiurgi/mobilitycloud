@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -63,40 +62,10 @@ return new class extends Migration
                 }
             }
         });
-
-        Schema::table('platform_subscription_events', function (Blueprint $table): void {
-            if (! Schema::hasColumn('platform_subscription_events', 'user_id')) {
-                $table->foreignId('user_id')->nullable()->after('workspace_id')->constrained('users')->nullOnDelete();
-                $table->index(['user_id', 'created_at']);
-            }
-        });
-
-        DB::table('platform_subscription_events')
-            ->leftJoin('workspace_user', function ($join): void {
-                $join
-                    ->on('platform_subscription_events.workspace_id', '=', 'workspace_user.workspace_id')
-                    ->where('workspace_user.role', '=', 'owner');
-            })
-            ->whereNull('platform_subscription_events.user_id')
-            ->whereNotNull('workspace_user.user_id')
-            ->select('platform_subscription_events.id', 'workspace_user.user_id')
-            ->orderBy('platform_subscription_events.id')
-            ->get()
-            ->each(function ($row): void {
-                DB::table('platform_subscription_events')
-                    ->where('id', $row->id)
-                    ->update(['user_id' => $row->user_id]);
-            });
     }
 
     public function down(): void
     {
-        Schema::table('platform_subscription_events', function (Blueprint $table): void {
-            if (Schema::hasColumn('platform_subscription_events', 'user_id')) {
-                $table->dropConstrainedForeignId('user_id');
-            }
-        });
-
         Schema::table('users', function (Blueprint $table): void {
             foreach ([
                 'demo_reset_stale_alerted_at',

@@ -105,7 +105,6 @@ class ProjectSettingsTest extends TestCase
         $otherOwner = User::factory()->create();
         $otherProject = Project::create([
             'owner_id' => $otherOwner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Other project',
             'status' => 'active',
@@ -193,7 +192,6 @@ class ProjectSettingsTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'writing',

@@ -164,7 +164,6 @@ class ProjectLifecycleAccessTest extends TestCase
             ->assertSet('showSaveModal', false);
 
         $this->assertDatabaseHas('saved_calculations', [
-            'workspace_id' => null,
             'created_by' => $user->id,
             'name' => 'KA152 planning',
             'type' => 'individual_support',
@@ -188,7 +187,6 @@ class ProjectLifecycleAccessTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Lifecycle Project',
             'status' => $status,

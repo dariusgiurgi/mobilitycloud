@@ -16,7 +16,6 @@ class ProjectDuplicator
 
             $project = Project::create([
                 'owner_id' => $ownerId,
-                'workspace_id' => null,
                 'name' => trim($options['name']),
                 'acronym' => null,
                 'grant_ref' => null,

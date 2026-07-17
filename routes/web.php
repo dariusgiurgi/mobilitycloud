@@ -6,7 +6,7 @@ use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
-use App\Http\Controllers\WorkspaceInvitationController;
+use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Middleware\RedirectSuspendedAccount;
 use App\Models\User;
 use App\Support\AuthSessionHash;
@@ -140,7 +140,7 @@ Route::get('/impersonation/stop', function (Request $request) {
     return redirect()->route('filament.platform.pages.dashboard');
 })->name('platform.impersonation.stop');
 
-Route::get('/project-invitations/{token}', [WorkspaceInvitationController::class, 'accept'])
+Route::get('/project-invitations/{token}', [ProjectInvitationController::class, 'accept'])
     ->name('project-invitations.accept');
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {

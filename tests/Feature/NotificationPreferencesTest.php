@@ -5,9 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\NotificationPreferences;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
 use App\Services\TaskNotificationService;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -18,11 +16,9 @@ class NotificationPreferencesTest extends TestCase
 
     public function test_user_can_save_preferences_and_suppress_selected_task_alerts(): void
     {
-        $workspace = Workspace::create(['name' => 'Preferences Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
             'name' => 'Preferences Project',
             'status' => 'active',
         ]);
@@ -34,7 +30,6 @@ class NotificationPreferencesTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        Filament::setTenant($workspace);
 
         Livewire::test(NotificationPreferences::class)
             ->set('taskAssigned', false)

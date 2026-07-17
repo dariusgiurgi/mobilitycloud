@@ -17,7 +17,6 @@ class ParticipantExportTest extends TestCase
         $owner = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Youth Exchange',
             'status' => 'active',
@@ -60,7 +59,6 @@ class ParticipantExportTest extends TestCase
         $owner = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Private Project',
             'status' => 'active',

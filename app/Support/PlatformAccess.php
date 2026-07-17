@@ -4,7 +4,7 @@ namespace App\Support;
 
 class PlatformAccess
 {
-    public static function usesWorkspaceInterface(): bool
+    public static function usesProductInterface(): bool
     {
         return ! (auth()->user()?->isPlatformAdmin() ?? false)
             && AccountAccess::isSubscriptionActive(auth()->user());
@@ -12,7 +12,7 @@ class PlatformAccess
 
     public static function canUse(string $module): bool
     {
-        if (! self::usesWorkspaceInterface() || ! AccountAccess::moduleEnabled(auth()->user(), $module)) {
+        if (! self::usesProductInterface() || ! AccountAccess::moduleEnabled(auth()->user(), $module)) {
             return false;
         }
 
@@ -21,7 +21,7 @@ class PlatformAccess
 
     public static function canPreview(string $module): bool
     {
-        return self::usesWorkspaceInterface();
+        return self::usesProductInterface();
     }
 
     public static function isReadOnly(): bool

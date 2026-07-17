@@ -6,7 +6,6 @@ use App\Filament\Pages\PublicLibrary;
 use App\Models\ContentBlock;
 use App\Models\PublicContentBlock;
 use App\Models\User;
-use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -17,8 +16,8 @@ class PublicLibraryTest extends TestCase
 
     public function test_library_explains_trust_and_import_behaviour(): void
     {
-        [$workspace, $user, $author] = $this->workspaceAndUsers();
-        $this->publicBlock($workspace, $author, [
+        [$user, $author] = $this->users();
+        $this->publicBlock($author, [
             'title' => 'Inclusive preparation method',
             'is_proven' => true,
             'source_note' => 'Approved KA152 application, 2025',
@@ -35,10 +34,10 @@ class PublicLibraryTest extends TestCase
             ->assertSee('Import copy');
     }
 
-    public function test_import_creates_only_one_editable_workspace_copy(): void
+    public function test_import_creates_only_one_editable_personal_copy(): void
     {
-        [$workspace, $user, $author] = $this->workspaceAndUsers();
-        $block = $this->publicBlock($workspace, $author);
+        [$user, $author] = $this->users();
+        $block = $this->publicBlock($author);
 
         $this->actingAs($user);
 
@@ -47,15 +46,15 @@ class PublicLibraryTest extends TestCase
             ->assertSee('In my library')
             ->call('import', $block->id);
 
-        $this->assertSame(1, ContentBlock::where('owner_id', $user->id)->whereNull('workspace_id')->count());
+        $this->assertSame(1, ContentBlock::where('owner_id', $user->id)->count());
         $this->assertSame(1, $block->fresh()->import_count);
     }
 
     public function test_proven_filter_updates_the_visible_results(): void
     {
-        [$workspace, $user, $author] = $this->workspaceAndUsers();
-        $this->publicBlock($workspace, $author, ['title' => 'Proven content', 'is_proven' => true]);
-        $this->publicBlock($workspace, $author, ['title' => 'Community draft', 'is_proven' => false]);
+        [$user, $author] = $this->users();
+        $this->publicBlock($author, ['title' => 'Proven content', 'is_proven' => true]);
+        $this->publicBlock($author, ['title' => 'Community draft', 'is_proven' => false]);
 
         $this->actingAs($user);
 
@@ -66,20 +65,18 @@ class PublicLibraryTest extends TestCase
             ->assertDontSee('Community draft');
     }
 
-    private function workspaceAndUsers(): array
+    private function users(): array
     {
-        $workspace = Workspace::create(['name' => 'Public Library Workspace']);
         $user = User::factory()->create();
         $author = User::factory()->create();
 
-        return [$workspace, $user, $author];
+        return [$user, $author];
     }
 
-    private function publicBlock(Workspace $workspace, User $author, array $attributes = []): PublicContentBlock
+    private function publicBlock(User $author, array $attributes = []): PublicContentBlock
     {
         return PublicContentBlock::create(array_merge([
             'user_id' => $author->id,
-            'origin_workspace_id' => $workspace->id,
             'title' => 'Reusable activity plan',
             'category' => 'methodology',
             'ka_action' => 'ka152',

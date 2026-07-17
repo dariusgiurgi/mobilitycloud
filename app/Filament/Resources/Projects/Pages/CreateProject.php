@@ -45,7 +45,6 @@ class CreateProject extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['owner_id'] = auth()->id();
-        $data['workspace_id'] = null;
         $data['access_mode'] = 'restricted';
         $data['status'] = ! empty($data['create_as_approved']) ? 'approved' : 'writing';
 
@@ -58,7 +57,6 @@ class CreateProject extends CreateRecord
         $createAsApproved = (bool) ($data['create_as_approved'] ?? false);
 
         $data['owner_id'] = auth()->id();
-        $data['workspace_id'] = null;
         $data['status'] = $createAsApproved ? 'approved' : 'writing';
 
         unset($data['create_as_approved'], $data['approved_grant_declaration']);
@@ -85,5 +83,4 @@ class CreateProject extends CreateRecord
     {
         return ProjectResource::projectUrl($this->record);
     }
-
 }

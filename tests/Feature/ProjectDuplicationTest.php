@@ -62,7 +62,6 @@ class ProjectDuplicationTest extends TestCase
         ]);
 
         $this->assertSame($user->id, $copy->owner_id);
-        $this->assertNull($copy->workspace_id);
         $this->assertSame('Youth Mobility Lab 2027', $copy->name);
         $this->assertSame('writing', $copy->status);
         $this->assertNull($copy->grant_ref);
@@ -115,7 +114,6 @@ class ProjectDuplicationTest extends TestCase
 
         Project::create([
             'owner_id' => $member->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Member Existing Free Project',
             'status' => 'writing',
@@ -141,7 +139,6 @@ class ProjectDuplicationTest extends TestCase
         $copy = Project::query()->where('name', 'Duplicated through action')->firstOrFail();
         $this->assertSame('writing', $copy->status);
         $this->assertSame($owner->id, $copy->owner_id);
-        $this->assertNull($copy->workspace_id);
     }
 
     public function test_duplicate_action_copies_shared_projects_into_the_users_own_account(): void
@@ -163,7 +160,6 @@ class ProjectDuplicationTest extends TestCase
 
         $copy = Project::query()->where('name', 'Own copied draft')->firstOrFail();
         $this->assertSame($collaborator->id, $copy->owner_id);
-        $this->assertNull($copy->workspace_id);
         $this->assertNotSame($owner->id, $copy->owner_id);
     }
 
@@ -201,7 +197,6 @@ class ProjectDuplicationTest extends TestCase
         $user = $this->userWithPlan($plan);
         $project = Project::create([
             'owner_id' => $user->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Youth Mobility Lab 2026',
             'status' => 'writing',

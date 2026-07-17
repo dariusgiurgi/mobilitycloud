@@ -17,8 +17,6 @@ return new class extends Migration
 
             // Autorul (cine a publicat) — doar el poate edita/sterge.
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            // Workspace-ul din care a fost publicat (pentru referinta).
-            $table->foreignId('origin_workspace_id')->nullable()->constrained('workspaces')->nullOnDelete();
 
             $table->string('title');
             $table->string('category')->default('other');

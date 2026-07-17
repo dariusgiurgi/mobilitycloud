@@ -2,17 +2,17 @@
 
 namespace App\Notifications;
 
-use App\Models\WorkspaceInvitation;
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class WorkspaceInvitationNotification extends Notification
+class ProjectInvitationNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(public WorkspaceInvitation $invitation) {}
+    public function __construct(public ProjectInvitation $invitation) {}
 
     public function via(object $notifiable): array
     {

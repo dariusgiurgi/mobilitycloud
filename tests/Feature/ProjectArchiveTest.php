@@ -69,7 +69,6 @@ class ProjectArchiveTest extends TestCase
         $editor = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Editor Archive Candidate',
             'status' => 'writing',
@@ -102,7 +101,6 @@ class ProjectArchiveTest extends TestCase
         $project->delete();
         Project::create([
             'owner_id' => $manager->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Active Project',
             'status' => 'writing',
@@ -110,7 +108,6 @@ class ProjectArchiveTest extends TestCase
         $otherOwner = User::factory()->create();
         $otherProject = Project::create([
             'owner_id' => $otherOwner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Other Archived Project',
             'status' => 'writing',
@@ -137,7 +134,6 @@ class ProjectArchiveTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Archive Candidate',
             'status' => 'writing',

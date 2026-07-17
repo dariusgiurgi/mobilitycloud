@@ -17,7 +17,6 @@ use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Http\Middleware\RedirectPlatformLoginToUnifiedLogin;
 use App\Models\PlatformAnnouncement;
 use Filament\Actions\Action;
-use Filament\Facades\Filament;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -78,7 +77,7 @@ class PlatformPanelProvider extends PanelProvider
                             ->latest('starts_at')
                             ->latest('created_at')
                             ->get()
-                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user(), null))
+                            ->filter(fn (PlatformAnnouncement $announcement): bool => $announcement->isVisibleFor(auth()->user()))
                             ->take(3)
                         : collect(),
                 ]),

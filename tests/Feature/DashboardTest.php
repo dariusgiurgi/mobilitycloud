@@ -3,12 +3,12 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\Dashboard;
-use App\Filament\Widgets\DashboardWorkspace;
+use App\Filament\Widgets\DashboardOverview;
 use App\Filament\Widgets\ProjectStatsOverview;
 use App\Models\Participant;
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -45,7 +45,7 @@ class DashboardTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test(DashboardWorkspace::class)
+        Livewire::test(DashboardOverview::class)
             ->assertSee('Needs attention')
             ->assertSee('How priorities are detected')
             ->assertSee('Readiness')
@@ -71,7 +71,7 @@ class DashboardTest extends TestCase
 
         $this->assertSame([
             ProjectStatsOverview::class,
-            DashboardWorkspace::class,
+            DashboardOverview::class,
         ], $dashboard->getWidgets());
         $this->assertSame(
             'Your projects, priorities and upcoming milestones.',
@@ -85,12 +85,10 @@ class DashboardTest extends TestCase
         $inviter = User::factory()->create(['name' => 'Inviting Portfolio']);
         $invitedProject = Project::create([
             'owner_id' => $inviter->id,
-            'workspace_id' => null,
             'name' => 'Shared Project',
             'status' => 'writing',
         ]);
-        WorkspaceInvitation::create([
-            'workspace_id' => null,
+        ProjectInvitation::create([
             'project_id' => $invitedProject->id,
             'invited_by' => $inviter->id,
             'email' => $user->email,
@@ -102,7 +100,7 @@ class DashboardTest extends TestCase
         $this->actingAs($user);
         $this->assertSame(0, $user->notifications()->count());
 
-        Livewire::test(DashboardWorkspace::class)
+        Livewire::test(DashboardOverview::class)
             ->assertSee('Pending invitations')
             ->assertSee('Shared Project')
             ->assertSee('Inviting Portfolio')
@@ -119,7 +117,6 @@ class DashboardTest extends TestCase
         $user = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'External Active Project',
             'status' => 'active',
             'approved_budget' => 5000,
@@ -134,7 +131,7 @@ class DashboardTest extends TestCase
             ->assertSee('5,000.00');
     }
 
-    public function test_workspace_member_can_render_the_complete_dashboard_page(): void
+    public function test_account_member_can_render_the_complete_dashboard_page(): void
     {
         [$project, $user] = $this->projectAndOwner();
         $project->update([
@@ -160,7 +157,6 @@ class DashboardTest extends TestCase
         $user = User::factory()->create();
         $project = Project::create([
             'owner_id' => $user->id,
-            'workspace_id' => null,
             'name' => 'Youth Exchange',
             'status' => 'writing',
             'total_budget' => 15000,

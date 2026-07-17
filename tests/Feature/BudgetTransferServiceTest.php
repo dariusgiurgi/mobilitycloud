@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Models\Expense;
 use App\Models\Project;
-use App\Models\Workspace;
 use App\Services\BudgetTransferService;
 use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -90,9 +89,7 @@ class BudgetTransferServiceTest extends TestCase
 
     private function projectWithBaskets(string $name = 'Project'): array
     {
-        $workspace = Workspace::create(['name' => $name.' workspace']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
             'name' => $name,
             'status' => 'writing',
         ]);

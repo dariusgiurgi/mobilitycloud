@@ -5,10 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class WorkspaceInvitation extends Model
+class ProjectInvitation extends Model
 {
+    protected $table = 'project_invitations';
+
     protected $fillable = [
-        'workspace_id', 'project_id', 'invited_by', 'email', 'role', 'token', 'expires_at', 'accepted_at',
+        'project_id', 'invited_by', 'email', 'role', 'token', 'expires_at', 'accepted_at',
     ];
 
     protected function casts(): array
@@ -17,11 +19,6 @@ class WorkspaceInvitation extends Model
             'expires_at' => 'datetime',
             'accepted_at' => 'datetime',
         ];
-    }
-
-    public function workspace(): BelongsTo
-    {
-        return $this->belongsTo(Workspace::class);
     }
 
     public function project(): BelongsTo

@@ -5,10 +5,11 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
+use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
-use App\Notifications\WorkspaceInvitationNotification;
+use App\Notifications\ProjectInvitationNotification;
 use App\Services\ProjectDocumentChecklist;
 use App\Services\ProjectInvitationNotificationService;
 use App\Services\ProjectReadinessCheck;
@@ -109,7 +110,7 @@ class ViewProjectOverview extends Page
                                 ->columnSpan(2),
                             Select::make('role')
                                 ->label('Role')
-                                ->options(\App\Models\Project::projectRoleOptions())
+                                ->options(Project::projectRoleOptions())
                                 ->default('editor')
                                 ->required()
                                 ->native(false)
@@ -129,7 +130,7 @@ class ViewProjectOverview extends Page
                         ->helperText('Everyone receives an invitation first. Access is granted only after they accept it.'),
                     Select::make('invite_role')
                         ->label('Invitation role')
-                        ->options(\App\Models\Project::projectRoleOptions())
+                        ->options(Project::projectRoleOptions())
                         ->default('editor')
                         ->required()
                         ->native(false),
@@ -137,7 +138,7 @@ class ViewProjectOverview extends Page
                 ->action(function (array $data): void {
                     abort_unless($this->record->canManageAccessBy(auth()->user()), 403);
 
-                    $roles = array_keys(\App\Models\Project::projectRoleOptions());
+                    $roles = array_keys(Project::projectRoleOptions());
                     $existingMemberIds = $this->record->members()
                         ->pluck('users.id')
                         ->map(fn ($id): int => (int) $id)
@@ -280,7 +281,7 @@ class ViewProjectOverview extends Page
 
     private function inviteProjectCollaborator(string $email, string $role): void
     {
-        $role = in_array($role, array_keys(\App\Models\Project::projectRoleOptions()), true) ? $role : 'editor';
+        $role = in_array($role, array_keys(Project::projectRoleOptions()), true) ? $role : 'editor';
 
         $user = User::query()->whereRaw('LOWER(email) = ?', [$email])->first();
 
@@ -297,13 +298,12 @@ class ViewProjectOverview extends Page
             return;
         }
 
-        $invitation = WorkspaceInvitation::query()->updateOrCreate(
+        $invitation = ProjectInvitation::query()->updateOrCreate(
             [
                 'email' => $email,
                 'project_id' => $this->record->id,
             ],
             [
-                'workspace_id' => null,
                 'invited_by' => auth()->id(),
                 'role' => 'project_'.$role,
                 'token' => Str::random(64),
@@ -313,7 +313,7 @@ class ViewProjectOverview extends Page
         );
 
         NotificationFacade::route('mail', $email)
-            ->notify(new WorkspaceInvitationNotification($invitation));
+            ->notify(new ProjectInvitationNotification($invitation));
 
         if ($user) {
             app(ProjectInvitationNotificationService::class)->notifyExistingAccount($invitation, $user);

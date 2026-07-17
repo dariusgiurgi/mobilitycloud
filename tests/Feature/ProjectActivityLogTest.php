@@ -7,8 +7,6 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -19,10 +17,10 @@ class ProjectActivityLogTest extends TestCase
 
     public function test_core_project_changes_are_recorded_with_the_actor(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = User::factory()->create();
         $this->actingAs($user);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
             'name' => 'Activity Project',
             'status' => 'writing',
         ]);
@@ -51,11 +49,10 @@ class ProjectActivityLogTest extends TestCase
 
     public function test_recent_activity_is_visible_on_project_overview(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = User::factory()->create();
         $this->actingAs($user);
-        Filament::setTenant($workspace);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
             'name' => 'Visible Activity',
             'status' => 'writing',
         ]);
@@ -75,10 +72,10 @@ class ProjectActivityLogTest extends TestCase
 
     public function test_activity_is_removed_cleanly_when_project_is_force_deleted(): void
     {
-        [$workspace, $user] = $this->workspaceAndUser();
+        $user = User::factory()->create();
         $this->actingAs($user);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
+            'owner_id' => $user->id,
             'name' => 'Temporary Project',
             'status' => 'writing',
         ]);
@@ -87,14 +84,5 @@ class ProjectActivityLogTest extends TestCase
 
         $this->assertDatabaseMissing('projects', ['id' => $project->id]);
         $this->assertDatabaseMissing('project_activity_logs', ['project_id' => $project->id]);
-    }
-
-    private function workspaceAndUser(): array
-    {
-        $workspace = Workspace::create(['name' => 'Activity Workspace']);
-        $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'member']);
-
-        return [$workspace, $user];
     }
 }

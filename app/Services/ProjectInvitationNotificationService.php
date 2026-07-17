@@ -3,14 +3,14 @@
 namespace App\Services;
 
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 
 class ProjectInvitationNotificationService
 {
-    public function notifyExistingAccount(WorkspaceInvitation $invitation, ?User $user = null): bool
+    public function notifyExistingAccount(ProjectInvitation $invitation, ?User $user = null): bool
     {
         $invitation->loadMissing(['project.ownerAccount', 'inviter']);
 
@@ -59,7 +59,7 @@ class ProjectInvitationNotificationService
     {
         $count = 0;
 
-        WorkspaceInvitation::query()
+        ProjectInvitation::query()
             ->with(['project.ownerAccount', 'inviter'])
             ->whereRaw('LOWER(email) = ?', [strtolower((string) $user->email)])
             ->whereNull('accepted_at')
@@ -68,7 +68,7 @@ class ProjectInvitationNotificationService
             ->where('role', 'like', 'project_%')
             ->latest()
             ->get()
-            ->each(function (WorkspaceInvitation $invitation) use ($user, &$count): void {
+            ->each(function (ProjectInvitation $invitation) use ($user, &$count): void {
                 if ($this->notifyExistingAccount($invitation, $user)) {
                     $count++;
                 }
@@ -77,7 +77,7 @@ class ProjectInvitationNotificationService
         return $count;
     }
 
-    public function markAccepted(WorkspaceInvitation $invitation, User $user): void
+    public function markAccepted(ProjectInvitation $invitation, User $user): void
     {
         $user->notifications()
             ->get()
@@ -85,7 +85,7 @@ class ProjectInvitationNotificationService
             ->each->delete();
     }
 
-    private function canNotify(WorkspaceInvitation $invitation): bool
+    private function canNotify(ProjectInvitation $invitation): bool
     {
         return $invitation->isPending()
             && $invitation->project_id !== null
@@ -93,7 +93,7 @@ class ProjectInvitationNotificationService
             && str_starts_with((string) $invitation->role, 'project_');
     }
 
-    private function projectRole(WorkspaceInvitation $invitation): string
+    private function projectRole(ProjectInvitation $invitation): string
     {
         $role = str((string) $invitation->role)->after('project_')->toString();
 
@@ -102,7 +102,7 @@ class ProjectInvitationNotificationService
             : Project::PROJECT_ROLE_EDITOR;
     }
 
-    private function alreadyNotified(User $user, WorkspaceInvitation $invitation): bool
+    private function alreadyNotified(User $user, ProjectInvitation $invitation): bool
     {
         return $user->notifications()
             ->get()

@@ -2,14 +2,14 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Pages\WorkspaceCalendar;
+use App\Filament\Pages\ProjectCalendar;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-class WorkspaceCalendarTest extends TestCase
+class ProjectCalendarTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -18,7 +18,6 @@ class WorkspaceCalendarTest extends TestCase
         $viewer = User::factory()->create();
         $visible = Project::create([
             'owner_id' => $viewer->id,
-            'workspace_id' => null,
             'name' => 'Visible Mobility',
             'status' => 'active',
             'start_date' => '2026-07-03',
@@ -28,7 +27,6 @@ class WorkspaceCalendarTest extends TestCase
         $otherUser = User::factory()->create();
         Project::create([
             'owner_id' => $otherUser->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Hidden Mobility',
             'status' => 'active',
@@ -37,7 +35,7 @@ class WorkspaceCalendarTest extends TestCase
 
         $this->actingAs($viewer);
 
-        Livewire::test(WorkspaceCalendar::class)
+        Livewire::test(ProjectCalendar::class)
             ->set('month', '2026-07')
             ->assertSee('Visible Mobility')
             ->assertSee('Mobility starts')

@@ -46,7 +46,7 @@ class Project extends Model
     ];
 
     protected $fillable = [
-        'owner_id', 'workspace_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
+        'owner_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
         'total_budget', 'approved_budget', 'approved_grant_amount', 'approved_grant_currency', 'approved_declared_at', 'approved_declared_by',
         'activation_fee_amount', 'activation_fee_currency', 'invoice_status', 'invoice_number', 'invoice_sent_at', 'invoice_due_at',
         'payment_confirmed_at', 'payment_confirmed_by', 'first_tranche_pct', 'withholding_tax_rate', 'currencies',
@@ -84,13 +84,6 @@ class Project extends Model
                 return;
             }
 
-            if ($project->workspace_id) {
-                $project->owner_id = Workspace::query()
-                    ->find($project->workspace_id)
-                    ?->owner()
-                    ?->id;
-            }
-
             $project->owner_id ??= auth()->id();
         });
 
@@ -112,11 +105,6 @@ class Project extends Model
             $project->documents()->get()->each->delete();
             $project->budgetLines()->get()->each->delete();
         });
-    }
-
-    public function workspace(): BelongsTo
-    {
-        return $this->belongsTo(Workspace::class);
     }
 
     public function ownerAccount(): BelongsTo
@@ -165,7 +153,7 @@ class Project extends Model
         return $member?->pivot?->role;
     }
 
-    public function scopeAccessibleTo(Builder $query, ?User $user, ?Workspace $workspace = null): Builder
+    public function scopeAccessibleTo(Builder $query, ?User $user): Builder
     {
         if (! $user) {
             return $query->whereRaw('1 = 0');
@@ -285,7 +273,7 @@ class Project extends Model
             return $this->ownerAccount()->first();
         }
 
-        return $this->workspace?->owner();
+        return null;
     }
 
     public function isOwnedBy(?User $user): bool
@@ -304,10 +292,6 @@ class Project extends Model
 
         if ($owner) {
             return 'Owner: '.$owner->name;
-        }
-
-        if ($this->workspace?->name) {
-            return 'Owner: '.$this->workspace->name;
         }
 
         return 'Shared project';

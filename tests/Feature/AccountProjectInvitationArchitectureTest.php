@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\Projects\Pages\ListProjects;
+use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
 use App\Support\PlanCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -30,14 +30,12 @@ class AccountProjectInvitationArchitectureTest extends TestCase
 
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Shared Erasmus Project',
             'status' => 'writing',
         ]);
 
-        $invitation = WorkspaceInvitation::create([
-            'workspace_id' => null,
+        $invitation = ProjectInvitation::create([
             'project_id' => $project->id,
             'invited_by' => $owner->id,
             'email' => $invited->email,
@@ -67,7 +65,6 @@ class AccountProjectInvitationArchitectureTest extends TestCase
 
         Project::create([
             'owner_id' => $invited->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Invited Own Project',
             'status' => 'writing',

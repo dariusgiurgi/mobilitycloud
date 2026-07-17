@@ -6,12 +6,13 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
+use App\Models\ProjectInvitation;
 use App\Models\User;
-use App\Models\WorkspaceInvitation;
-use App\Notifications\WorkspaceInvitationNotification;
+use App\Notifications\ProjectInvitationNotification;
 use App\Services\ProjectInvitationNotificationService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
+use Filament\Notifications\DatabaseNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -28,7 +29,6 @@ class ProjectAccessTest extends TestCase
         $unselected = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Restricted Mobility',
             'status' => 'writing',
@@ -52,7 +52,6 @@ class ProjectAccessTest extends TestCase
         $viewer = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Shared Project',
             'status' => 'writing',
         ]);
@@ -85,13 +84,11 @@ class ProjectAccessTest extends TestCase
         $collaborator = User::factory()->create();
         $assigned = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Assigned Project',
             'status' => 'writing',
         ]);
         Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Hidden Project',
             'status' => 'writing',
         ]);
@@ -114,7 +111,6 @@ class ProjectAccessTest extends TestCase
         $collaborator = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Shared Menu Project',
             'status' => 'writing',
         ]);
@@ -149,7 +145,6 @@ class ProjectAccessTest extends TestCase
         $owner = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Invitation Project',
             'status' => 'writing',
         ]);
@@ -163,13 +158,12 @@ class ProjectAccessTest extends TestCase
                 'invite_role' => Project::PROJECT_ROLE_EDITOR,
             ]);
 
-        $this->assertDatabaseHas('workspace_invitations', [
-            'workspace_id' => null,
+        $this->assertDatabaseHas('project_invitations', [
             'project_id' => $project->id,
             'email' => 'project-only@example.test',
             'role' => 'project_editor',
         ]);
-        Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
+        Notification::assertSentOnDemand(ProjectInvitationNotification::class);
     }
 
     public function test_inviting_existing_user_keeps_access_pending_until_acceptance(): void
@@ -179,7 +173,6 @@ class ProjectAccessTest extends TestCase
         $existing = User::factory()->create(['email' => 'existing@example.test']);
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Existing User Project',
             'status' => 'writing',
         ]);
@@ -197,15 +190,14 @@ class ProjectAccessTest extends TestCase
             'project_id' => $project->id,
             'user_id' => $existing->id,
         ]);
-        $this->assertDatabaseHas('workspace_invitations', [
-            'workspace_id' => null,
+        $this->assertDatabaseHas('project_invitations', [
             'project_id' => $project->id,
             'email' => 'existing@example.test',
             'role' => 'project_editor',
             'accepted_at' => null,
         ]);
-        Notification::assertSentOnDemand(WorkspaceInvitationNotification::class);
-        Notification::assertSentTo($existing, \Filament\Notifications\DatabaseNotification::class);
+        Notification::assertSentOnDemand(ProjectInvitationNotification::class);
+        Notification::assertSentTo($existing, DatabaseNotification::class);
     }
 
     public function test_project_invitation_creates_an_in_app_notification_for_existing_account(): void
@@ -214,12 +206,10 @@ class ProjectAccessTest extends TestCase
         $existing = User::factory()->create(['email' => 'existing@example.test']);
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Visible Invitation Project',
             'status' => 'writing',
         ]);
-        $invitation = WorkspaceInvitation::create([
-            'workspace_id' => null,
+        $invitation = ProjectInvitation::create([
             'project_id' => $project->id,
             'email' => 'existing@example.test',
             'role' => 'project_viewer',
@@ -246,12 +236,10 @@ class ProjectAccessTest extends TestCase
         $owner = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Accepted Project',
             'status' => 'writing',
         ]);
-        $invitation = WorkspaceInvitation::create([
-            'workspace_id' => null,
+        $invitation = ProjectInvitation::create([
             'project_id' => $project->id,
             'email' => 'existing@example.test',
             'role' => 'project_manager',
@@ -279,7 +267,6 @@ class ProjectAccessTest extends TestCase
         $this->assertNotNull($invitation->fresh()->accepted_at);
         $this->assertSame(1, $existing->notifications()->count());
         $this->assertSame('Project access granted', $existing->notifications()->sole()->data['title']);
-        $this->assertNull($existing->fresh()->current_workspace_id);
     }
 
     public function test_project_invitation_cannot_be_accepted_after_project_is_removed(): void
@@ -288,12 +275,10 @@ class ProjectAccessTest extends TestCase
         $owner = User::factory()->create();
         $project = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Removed Project',
             'status' => 'writing',
         ]);
-        $invitation = WorkspaceInvitation::create([
-            'workspace_id' => null,
+        $invitation = ProjectInvitation::create([
             'project_id' => $project->id,
             'email' => 'existing@example.test',
             'role' => 'project_editor',
@@ -313,20 +298,18 @@ class ProjectAccessTest extends TestCase
         ]);
     }
 
-    public function test_project_routes_cannot_cross_workspace_or_restricted_access_boundaries(): void
+    public function test_project_routes_cannot_project_access_boundaries_boundaries(): void
     {
         $viewer = User::factory()->create();
         $owner = User::factory()->create();
         $restricted = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Hidden Project',
             'status' => 'writing',
         ]);
         $otherProject = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Other Project',
             'status' => 'writing',
         ]);

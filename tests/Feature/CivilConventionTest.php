@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Expense;
 use App\Models\Project;
 use App\Models\User;
-use App\Models\Workspace;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -16,9 +15,7 @@ class CivilConventionTest extends TestCase
 
     public function test_convention_is_ready_only_when_required_details_are_present(): void
     {
-        $workspace = Workspace::create(['name' => 'Convention Workspace']);
         $project = Project::create([
-            'workspace_id' => $workspace->id,
             'name' => 'Youth Exchange',
             'status' => 'active',
             'withholding_tax_rate' => 10,

@@ -13,7 +13,7 @@ class NotificationPreferences extends Page
 
     protected static ?string $navigationLabel = 'Notifications';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Workspace settings';
+    protected static string|\UnitEnum|null $navigationGroup = 'Account settings';
 
     protected static ?int $navigationSort = 40;
 

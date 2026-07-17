@@ -7,8 +7,8 @@ use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\NotificationPreferences;
+use App\Filament\Pages\ProjectCalendar;
 use App\Filament\Pages\PublicLibrary;
-use App\Filament\Pages\WorkspaceCalendar;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
@@ -26,8 +26,8 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(-1, ProjectResource::getNavigationSort());
         $this->assertNull(GlobalSearch::getNavigationGroup());
         $this->assertSame(1, GlobalSearch::getNavigationSort());
-        $this->assertNull(WorkspaceCalendar::getNavigationGroup());
-        $this->assertSame(2, WorkspaceCalendar::getNavigationSort());
+        $this->assertNull(ProjectCalendar::getNavigationGroup());
+        $this->assertSame(2, ProjectCalendar::getNavigationSort());
 
         $this->assertSame('Planning tools', ContentBlockResource::getNavigationGroup());
         $this->assertSame('Writing Library', ContentBlockResource::getNavigationLabel());

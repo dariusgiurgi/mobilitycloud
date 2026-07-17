@@ -5,14 +5,14 @@ namespace App\Filament\Widgets;
 use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
-use App\Models\WorkspaceInvitation;
-use App\Services\ProjectReadinessCheck;
+use App\Models\ProjectInvitation;
 use App\Services\ProjectInvitationNotificationService;
+use App\Services\ProjectReadinessCheck;
 use Carbon\Carbon;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
-class DashboardWorkspace extends Widget
+class DashboardOverview extends Widget
 {
     protected static bool $isLazy = false;
 
@@ -50,7 +50,7 @@ class DashboardWorkspace extends Widget
         $writingProject = $projects->first(fn (Project $project) => $project->isWritingStage());
         $canManagePrimaryProject = $primaryProject?->canBeManagedBy(auth()->user()) ?? false;
         $canCreate = auth()->user()?->can('create', Project::class) ?? false;
-        $pendingInvitations = WorkspaceInvitation::query()
+        $pendingInvitations = ProjectInvitation::query()
             ->with(['project', 'inviter'])
             ->whereRaw('LOWER(email) = ?', [strtolower((string) auth()->user()?->email)])
             ->whereNull('accepted_at')

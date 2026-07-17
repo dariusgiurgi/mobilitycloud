@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PublicContentBlock extends Model
 {
     protected $fillable = [
-        'user_id', 'origin_workspace_id', 'title', 'category', 'ka_action',
+        'user_id', 'title', 'category', 'ka_action',
         'language', 'body', 'tags', 'is_proven', 'source_note', 'import_count', 'likes_count',
         'is_hidden',
     ];
@@ -39,11 +39,6 @@ class PublicContentBlock extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
-    }
-
-    public function originWorkspace(): BelongsTo
-    {
-        return $this->belongsTo(Workspace::class, 'origin_workspace_id');
     }
 
     public function likes(): HasMany

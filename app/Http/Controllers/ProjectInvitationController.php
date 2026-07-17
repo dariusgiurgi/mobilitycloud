@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
-use App\Models\WorkspaceInvitation;
+use App\Models\ProjectInvitation;
 use App\Services\ProjectInvitationNotificationService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -13,11 +13,11 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class WorkspaceInvitationController extends Controller
+class ProjectInvitationController extends Controller
 {
     public function accept(Request $request, string $token): RedirectResponse
     {
-        $invitation = WorkspaceInvitation::query()
+        $invitation = ProjectInvitation::query()
             ->with(['project'])
             ->where('token', $token)
             ->firstOrFail();

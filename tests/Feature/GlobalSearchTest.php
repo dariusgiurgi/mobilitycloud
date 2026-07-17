@@ -20,7 +20,6 @@ class GlobalSearchTest extends TestCase
         $viewer = User::factory()->create();
         $visible = Project::create([
             'owner_id' => $viewer->id,
-            'workspace_id' => null,
             'name' => 'Aurora Exchange',
             'status' => 'active',
         ]);
@@ -38,7 +37,6 @@ class GlobalSearchTest extends TestCase
         $otherUser = User::factory()->create();
         $hidden = Project::create([
             'owner_id' => $otherUser->id,
-            'workspace_id' => null,
             'access_mode' => 'restricted',
             'name' => 'Aurora Confidential',
             'status' => 'active',
@@ -60,13 +58,11 @@ class GlobalSearchTest extends TestCase
         $owner = User::factory()->create();
         $homeProject = Project::create([
             'owner_id' => $user->id,
-            'workspace_id' => null,
             'name' => 'Home Aurora',
             'status' => 'active',
         ]);
         $sharedProject = Project::create([
             'owner_id' => $owner->id,
-            'workspace_id' => null,
             'name' => 'Shared Aurora',
             'status' => 'active',
         ]);

@@ -23,7 +23,6 @@ class DocumentTemplatesTest extends TestCase
         $admin = User::factory()->create();
         $project = Project::create([
             'owner_id' => $admin->id,
-            'workspace_id' => null,
             'name' => 'Branded Project',
             'status' => 'writing',
         ]);

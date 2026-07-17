@@ -18,18 +18,17 @@ class PlatformAnnouncement extends Model
     public const AUDIENCES = [
         'all' => 'All users',
         'platform_admins' => 'Platform admins',
-        'workspace_users' => 'Client users',
+        'client_users' => 'Client users',
         'plans' => 'Selected plans',
     ];
 
     protected $fillable = [
-        'created_by', 'title', 'message', 'severity', 'audience', 'plans', 'workspace_ids',
+        'created_by', 'title', 'message', 'severity', 'audience', 'plans',
         'starts_at', 'ends_at', 'is_active', 'is_dismissible',
     ];
 
     protected $casts = [
         'plans' => 'array',
-        'workspace_ids' => 'array',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
         'is_active' => 'boolean',
@@ -49,11 +48,11 @@ class PlatformAnnouncement extends Model
             ->where(fn (Builder $query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', now()));
     }
 
-    public function isVisibleFor(?User $user, ?Workspace $workspace): bool
+    public function isVisibleFor(?User $user): bool
     {
         return match ($this->audience) {
             'platform_admins' => $user?->isPlatformAdmin() ?? false,
-            'workspace_users' => ! ($user?->isPlatformAdmin() ?? false),
+            'client_users' => ! ($user?->isPlatformAdmin() ?? false),
             'plans' => in_array($user?->plan, $this->plans ?? [], true),
             default => true,
         };

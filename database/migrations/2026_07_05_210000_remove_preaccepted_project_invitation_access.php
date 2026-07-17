@@ -7,15 +7,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        DB::table('workspace_invitations')
-            ->select('workspace_invitations.project_id', 'users.id as user_id')
+        DB::table('project_invitations')
+            ->select('project_invitations.project_id', 'users.id as user_id')
             ->join('users', function ($join): void {
-                $join->whereRaw('LOWER(users.email) = LOWER(workspace_invitations.email)');
+                $join->whereRaw('LOWER(users.email) = LOWER(project_invitations.email)');
             })
-            ->whereNotNull('workspace_invitations.project_id')
-            ->whereNull('workspace_invitations.accepted_at')
-            ->where('workspace_invitations.role', 'like', 'project_%')
-            ->orderBy('workspace_invitations.id')
+            ->whereNotNull('project_invitations.project_id')
+            ->whereNull('project_invitations.accepted_at')
+            ->where('project_invitations.role', 'like', 'project_%')
+            ->orderBy('project_invitations.id')
             ->chunk(100, function ($rows): void {
                 foreach ($rows as $row) {
                     DB::table('project_user')

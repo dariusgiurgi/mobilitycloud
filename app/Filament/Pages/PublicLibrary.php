@@ -275,7 +275,6 @@ class PublicLibrary extends Page
 
         ContentBlock::create([
             'owner_id' => auth()->id(),
-            'workspace_id' => null,
             'title' => $block->title,
             'category' => $block->category,
             'ka_action' => $block->ka_action,

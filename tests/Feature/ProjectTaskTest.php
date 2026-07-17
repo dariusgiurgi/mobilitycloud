@@ -3,13 +3,11 @@
 namespace Tests\Feature;
 
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
-use App\Filament\Widgets\DashboardWorkspace;
+use App\Filament\Widgets\DashboardOverview;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectTask;
 use App\Models\User;
-use App\Models\Workspace;
-use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -20,11 +18,10 @@ class ProjectTaskTest extends TestCase
 
     public function test_member_can_create_assign_edit_complete_and_delete_a_task(): void
     {
-        [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');
+        [$project, $member] = $this->workspaceProjectAndUser('member');
         $assignee = User::factory()->create();
         $project->members()->attach($assignee, ['role' => Project::PROJECT_ROLE_VIEWER]);
         $this->actingAs($member);
-        Filament::setTenant($workspace);
 
         $component = Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->call('openTaskCreate')
@@ -59,9 +56,8 @@ class ProjectTaskTest extends TestCase
 
     public function test_manager_can_open_task_form_from_the_page_header(): void
     {
-        [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');
+        [$project, $member] = $this->workspaceProjectAndUser('member');
         $this->actingAs($member);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertActionVisible('addTask')
@@ -72,10 +68,9 @@ class ProjectTaskTest extends TestCase
 
     public function test_task_assignee_must_belong_to_the_workspace(): void
     {
-        [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');
+        [$project, $member] = $this->workspaceProjectAndUser('member');
         $outsider = User::factory()->create();
         $this->actingAs($member);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->set('taskTitle', 'Invalid assignment')
@@ -88,10 +83,9 @@ class ProjectTaskTest extends TestCase
 
     public function test_viewer_sees_tasks_without_mutation_controls(): void
     {
-        [$workspace, $project, $viewer] = $this->workspaceProjectAndUser('viewer');
+        [$project, $viewer] = $this->workspaceProjectAndUser('viewer');
         $project->tasks()->create(['title' => 'Read-only task', 'priority' => 'normal']);
         $this->actingAs($viewer);
-        Filament::setTenant($workspace);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Project tasks')
@@ -102,7 +96,7 @@ class ProjectTaskTest extends TestCase
 
     public function test_due_tasks_appear_in_dashboard_attention_and_milestones(): void
     {
-        [$workspace, $project, $member] = $this->workspaceProjectAndUser('member');
+        [$project, $member] = $this->workspaceProjectAndUser('member');
         $project->update(['status' => 'active']);
         $project->tasks()->create([
             'title' => 'Book local transport',
@@ -111,27 +105,23 @@ class ProjectTaskTest extends TestCase
             'priority' => 'high',
         ]);
         $this->actingAs($member);
-        Filament::setTenant($workspace);
 
-        Livewire::test(DashboardWorkspace::class)
+        Livewire::test(DashboardOverview::class)
             ->assertSee('Task due in 3 days: Book local transport')
             ->assertSee('Task: Book local transport');
     }
 
     private function workspaceProjectAndUser(string $role): array
     {
-        $workspace = Workspace::create(['name' => 'Task Workspace']);
         $user = User::factory()->create();
-        $workspace->users()->attach($user, ['role' => 'owner']);
         $project = Project::create([
             'owner_id' => $role === 'member' ? null : User::factory()->create()->id,
-            'workspace_id' => $workspace->id,
             'name' => 'Task Project',
             'status' => 'writing',
         ]);
         $projectRole = $role === 'viewer' ? Project::PROJECT_ROLE_VIEWER : Project::PROJECT_ROLE_EDITOR;
         $project->members()->attach($user, ['role' => $projectRole]);
 
-        return [$workspace, $project, $user];
+        return [$project, $user];
     }
 }
