@@ -263,4 +263,57 @@ class PlatformProjectPaymentTest extends TestCase
         $this->assertSame(2, $client->notifications()->count());
         $this->assertTrue($client->notifications()->get()->pluck('data.title')->contains('Project payment confirmed'));
     }
+
+    public function test_overdue_command_marks_late_project_payments_and_notifies_owner(): void
+    {
+        $client = User::factory()->create([
+            'billing_name' => 'Scoala de Jocuri',
+            'billing_country' => 'Romania',
+            'billing_address' => 'Baia Mare, Romania',
+        ]);
+
+        $lateProject = Project::create([
+            'owner_id' => $client->id,
+            'name' => 'Late External Invoice Project',
+            'status' => ProjectStatus::Approved->value,
+            'approved_budget' => 10000,
+            'approved_grant_amount' => 10000,
+            'approved_declared_at' => now()->subDays(20),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_SENT,
+            'invoice_sent_at' => now()->subDays(15),
+            'invoice_due_at' => now()->subDay(),
+        ]);
+
+        $futureProject = Project::create([
+            'owner_id' => $client->id,
+            'name' => 'Future External Invoice Project',
+            'status' => ProjectStatus::Approved->value,
+            'approved_budget' => 10000,
+            'approved_grant_amount' => 10000,
+            'approved_declared_at' => now()->subDays(2),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_SENT,
+            'invoice_sent_at' => now()->subDay(),
+            'invoice_due_at' => now()->addDays(7),
+        ]);
+
+        $this->artisan('project-payments:mark-overdue')
+            ->expectsOutput('1 project payment record marked overdue.')
+            ->assertSuccessful();
+
+        $lateProject->refresh();
+        $futureProject->refresh();
+
+        $this->assertSame(Project::INVOICE_OVERDUE, $lateProject->invoice_status);
+        $this->assertSame(ProjectStatus::PaymentOverdue->value, $lateProject->status);
+        $this->assertTrue($lateProject->hasPaymentOverdue());
+        $this->assertFalse($lateProject->implementationModulesAvailable());
+
+        $this->assertSame(Project::INVOICE_SENT, $futureProject->invoice_status);
+        $this->assertSame(ProjectStatus::Approved->value, $futureProject->status);
+
+        $this->assertSame(1, $client->notifications()->count());
+        $this->assertSame('Project payment overdue', $client->notifications()->first()->data['title']);
+    }
 }
