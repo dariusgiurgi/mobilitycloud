@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\ProjectStatus;
+use App\Filament\Pages\PlatformBillingOperations;
 use App\Filament\Resources\PlatformProjectPayments\Pages\ListPlatformProjectPayments;
 use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResource;
 use App\Models\Project;
@@ -180,5 +181,86 @@ class PlatformProjectPaymentTest extends TestCase
             ->assertSee('Sent Invoice Project')
             ->assertSee('Awaiting payment')
             ->assertTableActionVisible('markPaid', $sent);
+    }
+
+    public function test_platform_owner_can_open_billing_operations_dashboard(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $client = User::factory()->create([
+            'billing_name' => 'Scoala de Jocuri',
+            'billing_country' => 'Romania',
+            'billing_address' => 'Baia Mare, Romania',
+        ]);
+
+        Project::create([
+            'owner_id' => $client->id,
+            'name' => 'Operations Invoice Project',
+            'status' => ProjectStatus::Approved->value,
+            'approved_budget' => 10000,
+            'approved_grant_amount' => 10000,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_PENDING,
+            'invoice_due_at' => now()->addDays(14),
+        ]);
+
+        $this->actingAs($admin);
+        Filament::setCurrentPanel('platform');
+
+        $this->get(PlatformBillingOperations::getUrl(panel: 'platform'))
+            ->assertSuccessful()
+            ->assertSee('Billing operations')
+            ->assertSee('Ready to invoice')
+            ->assertSee('Operations Invoice Project')
+            ->assertSee('Open invoicing queue');
+    }
+
+    public function test_project_payment_actions_notify_project_owner(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $client = User::factory()->create([
+            'billing_name' => 'Scoala de Jocuri',
+            'billing_country' => 'Romania',
+            'billing_address' => 'Baia Mare, Romania',
+        ]);
+
+        $project = Project::create([
+            'owner_id' => $client->id,
+            'name' => 'Notified Payment Project',
+            'status' => ProjectStatus::Approved->value,
+            'approved_budget' => 10000,
+            'approved_grant_amount' => 10000,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_PENDING,
+            'invoice_due_at' => now()->addDays(14),
+        ]);
+
+        $this->actingAs($admin);
+        Filament::setCurrentPanel('platform');
+
+        Livewire::test(ListPlatformProjectPayments::class)
+            ->callTableAction('markSent', $project, data: [
+                'invoice_number' => 'MC-100',
+                'invoice_due_at' => now()->addDays(14),
+            ]);
+
+        $client->refresh();
+        $project->refresh();
+
+        $this->assertSame(Project::INVOICE_SENT, $project->invoice_status);
+        $this->assertSame(1, $client->notifications()->count());
+        $this->assertSame('Fiscal invoice sent', $client->notifications()->first()->data['title']);
+
+        Livewire::test(ListPlatformProjectPayments::class)
+            ->set('activeTab', 'sent')
+            ->callTableAction('markPaid', $project);
+
+        $client->refresh();
+        $project->refresh();
+
+        $this->assertSame(Project::INVOICE_PAID, $project->invoice_status);
+        $this->assertSame(2, $client->notifications()->count());
+        $this->assertTrue($client->notifications()->get()->pluck('data.title')->contains('Project payment confirmed'));
     }
 }

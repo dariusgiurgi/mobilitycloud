@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Pages\PlatformHealth;
+use App\Filament\Pages\PlatformBillingOperations;
 use App\Filament\Pages\PlatformPermissions;
 use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
@@ -58,6 +59,7 @@ class PlatformOperationsOverview extends Widget
                 [
                     'label' => 'Billing & access',
                     'links' => [
+                        ['label' => 'Billing operations', 'url' => PlatformBillingOperations::getUrl(), 'detail' => 'What to invoice, chase or clean up today'],
                         ['label' => 'Project payments', 'url' => PlatformProjectPaymentResource::getUrl(), 'detail' => 'Approved grants, invoices and payment unlocks'],
                         ['label' => 'Account access', 'url' => PlatformUserResource::getUrl(), 'detail' => 'Standard/unlimited access and billing details'],
                     ],

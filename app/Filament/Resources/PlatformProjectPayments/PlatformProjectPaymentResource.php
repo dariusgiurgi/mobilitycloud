@@ -6,6 +6,7 @@ use App\Filament\Resources\PlatformProjectPayments\Pages\ListPlatformProjectPaym
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\ProjectPaymentNotificationService;
 use App\Support\PlatformAudit;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -398,6 +399,7 @@ class PlatformProjectPaymentResource extends Resource
     {
         $amount = round(max(0, (float) ($data['approved_grant_amount'] ?? $project->approvedGrantAmount())), 2);
         $status = $data['invoice_status'] ?? Project::INVOICE_PENDING;
+        $previousStatus = $project->invoice_status;
 
         if ($project->ownerAccount?->isUnlimitedAccount()) {
             $project->update([
@@ -472,6 +474,12 @@ class PlatformProjectPaymentResource extends Resource
         }
 
         $project->update($attributes);
+        $project->refresh()->loadMissing('ownerAccount');
+
+        if ($previousStatus !== $project->invoice_status
+            && in_array($project->invoice_status, [Project::INVOICE_SENT, Project::INVOICE_PAID, Project::INVOICE_OVERDUE], true)) {
+            app(ProjectPaymentNotificationService::class)->send($project, $project->invoice_status);
+        }
 
         PlatformAudit::log($auditAction, 'Updated project payment for '.$project->name, $project, [
             'account' => $project->ownerAccount?->email,

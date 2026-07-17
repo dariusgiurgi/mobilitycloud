@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\PlatformBillingOperations;
 use App\Filament\Pages\PlatformHealth;
 use App\Filament\Pages\PlatformPermissions;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
@@ -89,6 +90,7 @@ class PlatformPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
                 AccountSettings::class,
+                PlatformBillingOperations::class,
                 PlatformPermissions::class,
                 PlatformHealth::class,
             ])
