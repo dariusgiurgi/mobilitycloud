@@ -24,8 +24,6 @@ class UnifiedRegistrationResponse implements RegistrationResponse
             app(ProjectInvitationNotificationService::class)->syncPendingFor($user);
 
             if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
-                $user->sendEmailVerificationNotification();
-
                 return redirect()->route('verification.notice')
                     ->with('status', 'verification-link-sent');
             }
