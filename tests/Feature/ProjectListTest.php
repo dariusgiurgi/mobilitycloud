@@ -86,7 +86,11 @@ class ProjectListTest extends TestCase
 
         $this->actingAs($standard);
         $this->assertFalse($standard->can('create', Project::class));
-        Livewire::test(ListProjects::class)->assertDontSee('New project');
+        Livewire::test(ListProjects::class)
+            ->assertDontSee('New project')
+            ->assertSee('Billing details required')
+            ->assertSee('Complete your billing profile before creating a project')
+            ->assertSee('legal billing name, country and billing address');
 
         $unlimited = User::factory()->create([
             'billing_name' => null,
@@ -99,7 +103,9 @@ class ProjectListTest extends TestCase
 
         $this->actingAs($unlimited);
         $this->assertTrue($unlimited->can('create', Project::class));
-        Livewire::test(ListProjects::class)->assertSee('New project');
+        Livewire::test(ListProjects::class)
+            ->assertSee('New project')
+            ->assertDontSee('Complete your billing profile before creating a project');
     }
 
     public function test_invited_projects_do_not_limit_the_users_owned_project_creation(): void

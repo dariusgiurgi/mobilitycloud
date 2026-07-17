@@ -32,6 +32,12 @@
         $canManage = $this->record->canBeManagedBy(auth()->user());
         $ownerLabel = $this->record->ownerLabelFor(auth()->user());
         $accessLabel = $this->record->accessLabelFor(auth()->user());
+        $showInvoiceActivationNotice = $this->record->approvedGrantAmount() > 0
+            && $this->record->invoice_status
+            && ! in_array($this->record->invoice_status, [
+                \App\Models\Project::INVOICE_NOT_REQUIRED,
+                \App\Models\Project::INVOICE_PAID,
+            ], true);
         $eur = fn ($value) => number_format((float) $value, 2, '.', ',').' €';
     @endphp
 
@@ -91,8 +97,8 @@
                 @if ($this->record->is_activated)
                     <x-filament::badge color="success">Activated</x-filament::badge>
                 @endif
-                @if ($this->record->invoice_status && $this->record->invoice_status !== \App\Models\Project::INVOICE_NOT_REQUIRED)
-                    <x-filament::badge color="{{ $this->record->hasPaymentOverdue() ? 'danger' : ($this->record->invoice_status === \App\Models\Project::INVOICE_PAID ? 'success' : 'warning') }}">
+                @if ($showInvoiceActivationNotice)
+                    <x-filament::badge color="{{ $this->record->hasPaymentOverdue() ? 'danger' : 'warning' }}">
                         {{ \App\Models\Project::invoiceStatusOptions()[$this->record->invoice_status] ?? str($this->record->invoice_status)->headline() }}
                     </x-filament::badge>
                 @endif
@@ -116,7 +122,7 @@
         </div>
     </x-filament::section>
 
-    @if ($this->record->approvedGrantAmount() > 0 && $this->record->invoice_status !== \App\Models\Project::INVOICE_NOT_REQUIRED)
+    @if ($showInvoiceActivationNotice)
         <x-filament::section style="margin-top:1rem;">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
                 <div style="display:flex;align-items:flex-start;gap:.85rem;max-width:760px;">

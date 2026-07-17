@@ -121,6 +121,29 @@ class ProjectOverviewTest extends TestCase
         $this->assertSame('100.00', $project->fresh()->activation_fee_amount);
     }
 
+    public function test_paid_project_no_longer_shows_the_invoice_activation_notice(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'status' => 'approved',
+            'approved_grant_amount' => 9900,
+            'approved_budget' => 9900,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_PAID,
+            'invoice_due_at' => now()->addDays(14),
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertDontSee('Project activation')
+            ->assertDontSee('Fiscal invoice pending')
+            ->assertDontSee('Access paused until payment is confirmed')
+            ->assertSee('Project stage');
+    }
+
     public function test_readiness_transition_warning_can_be_cancelled(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');

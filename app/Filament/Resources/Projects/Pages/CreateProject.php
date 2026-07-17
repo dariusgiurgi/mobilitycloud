@@ -20,7 +20,7 @@ class CreateProject extends CreateRecord
         if ($user && ! $user->isUnlimitedAccount() && ! $user->hasBillingDetails()) {
             Notification::make()
                 ->title('Billing details required')
-                ->body('Complete your fiscal billing details before creating a project. These details are used for project approval invoices.')
+                ->body('Complete your billing profile first: legal billing name, country and billing address. These details are required before project creation so MobilityCloud can issue the manual fiscal invoice after approval.')
                 ->warning()
                 ->send();
 

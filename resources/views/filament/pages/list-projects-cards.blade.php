@@ -1,7 +1,9 @@
 <x-filament-panels::page>
     @php
         $projects = $this->getProjects();
-        $canCreate = auth()->user()?->can('create', \App\Models\Project::class) ?? false;
+        $user = auth()->user();
+        $canCreate = $user?->can('create', \App\Models\Project::class) ?? false;
+        $requiresBillingDetails = $user && ! $user->isUnlimitedAccount() && ! $user->hasBillingDetails();
     @endphp
 
     <style>
@@ -15,14 +17,36 @@
         @media (max-width:640px) { .mc-projects-grid { grid-template-columns:1fr; } }
     </style>
 
+    @if (! $archived && $requiresBillingDetails)
+        <x-filament::section style="margin-bottom:1rem;">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+                <div style="display:flex;align-items:flex-start;gap:.85rem;max-width:780px;">
+                    <span style="width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.75rem;background:rgba(245,158,11,.12);color:#d97706;">
+                        <x-filament::icon icon="heroicon-o-identification" style="width:1.25rem;height:1.25rem;" />
+                    </span>
+                    <div>
+                        <p style="font-size:.67rem;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:#d97706;">Billing details required</p>
+                        <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;margin-top:.15rem;">Complete your billing profile before creating a project</h2>
+                        <p class="mc-project-muted" style="font-size:.82rem;line-height:1.55;margin-top:.3rem;">
+                            To create projects on your own account, add the legal billing name, country and billing address in your profile. We need these details before project creation because approved projects generate a manual fiscal invoice.
+                        </p>
+                    </div>
+                </div>
+                <x-filament::button tag="a" :href="\App\Filament\Pages\AccountSettings::getUrl()" icon="heroicon-o-arrow-right" icon-position="after">
+                    Complete billing details
+                </x-filament::button>
+            </div>
+        </x-filament::section>
+    @endif
+
     @if ($projects->isEmpty())
         <x-filament::section wire:poll.5s>
             <div style="padding:2.75rem 1rem;text-align:center;max-width:460px;margin:0 auto;">
                 <span style="display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:.8rem;background:rgba(99,102,241,.1);color:#6366f1;margin-bottom:.9rem;">
                     <x-filament::icon icon="heroicon-o-rectangle-stack" style="width:1.5rem;height:1.5rem;" />
                 </span>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : 'No projects available') }}</h2>
-                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Archived projects are kept here for restoration by the account owner.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : 'Ask the project owner to create a project or invite you to an existing one.') }}</p>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : ($requiresBillingDetails ? 'Complete billing details to create projects' : 'No projects available')) }}</h2>
+                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Archived projects are kept here for restoration by the account owner.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : ($requiresBillingDetails ? 'You can still accept invitations from other project owners, but creating your own project requires billing details first.' : 'Ask the project owner to create a project or invite you to an existing one.')) }}</p>
                 @if($archived)
                     <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to active projects</x-filament::button>
                 @elseif($canCreate)
