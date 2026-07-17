@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AttachmentDownloadController;
 use App\Filament\Pages\Dashboard;
+use App\Http\Controllers\LegalPageController;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
@@ -19,6 +20,11 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return redirect('/app/login');
 });
+
+Route::get('/terms', [LegalPageController::class, 'terms'])->name('legal.terms');
+Route::get('/privacy', [LegalPageController::class, 'privacy'])->name('legal.privacy');
+Route::get('/cookies', [LegalPageController::class, 'cookies'])->name('legal.cookies');
+Route::get('/security', [LegalPageController::class, 'security'])->name('legal.security');
 
 Route::get('/account-suspended', function () {
     return view('account-suspended');

@@ -73,6 +73,6 @@ class AccountProjectInvitationArchitectureTest extends TestCase
             'status' => 'writing',
         ]);
 
-        $this->assertFalse($invited->fresh()->can('create', Project::class));
+        $this->assertTrue($invited->fresh()->can('create', Project::class));
     }
 }

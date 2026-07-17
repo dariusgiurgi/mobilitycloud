@@ -19,3 +19,11 @@ Schedule::command('subscriptions:send-alerts')
 Schedule::command('project-payments:mark-overdue')
     ->dailyAt('08:30')
     ->withoutOverlapping();
+
+Schedule::command('mobilitycloud:backup')
+    ->dailyAt('02:15')
+    ->withoutOverlapping();
+
+Schedule::command('mobilitycloud:prelaunch-audit')
+    ->dailyAt('09:00')
+    ->withoutOverlapping();
