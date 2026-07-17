@@ -68,33 +68,7 @@ class PlatformProjectPaymentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->with('ownerAccount')
-                ->whereHas('ownerAccount', fn (Builder $query): Builder => $query
-                    ->where(function (Builder $query): void {
-                        $query->whereNull('plan')->orWhere('plan', '!=', 'unlimited');
-                    })
-                    ->where(function (Builder $query): void {
-                        $query
-                            ->whereNull('plan_limits')
-                            ->orWhere('plan_limits', 'not like', '%"unlimited":true%')
-                            ->where('plan_limits', 'not like', '%"unlimited": true%');
-                    })
-                    ->where(function (Builder $query): void {
-                        $query
-                            ->whereNull('feature_flags')
-                            ->orWhere('feature_flags', 'not like', '%"unlimited"%');
-                    }))
-                ->where(function (Builder $query): void {
-                    $query
-                        ->whereNotNull('approved_grant_amount')
-                        ->orWhereIn('invoice_status', [
-                            Project::INVOICE_PENDING,
-                            Project::INVOICE_SENT,
-                            Project::INVOICE_PAID,
-                            Project::INVOICE_OVERDUE,
-                        ]);
-                }))
+            ->modifyQueryUsing(fn (Builder $query): Builder => static::applyPaymentQueueScope($query))
             ->columns([
                 TextColumn::make('name')
                     ->label('Project')
@@ -102,6 +76,12 @@ class PlatformProjectPaymentResource extends Resource
                     ->sortable()
                     ->weight('bold')
                     ->description(fn (Project $record): string => $record->ownerAccount?->email ?: 'No owner'),
+                TextColumn::make('next_action')
+                    ->label('Next action')
+                    ->state(fn (Project $record): string => static::nextActionLabel($record))
+                    ->badge()
+                    ->color(fn (Project $record): string => static::nextActionColor($record))
+                    ->description(fn (Project $record): ?string => static::nextActionDescription($record)),
                 TextColumn::make('ownerAccount.billing_name')
                     ->label('Bill to')
                     ->state(fn (Project $record): string => $record->ownerAccount?->isUnlimitedAccount()
@@ -154,31 +134,60 @@ class PlatformProjectPaymentResource extends Resource
                     ->options(Project::invoiceStatusOptions()),
                 Filter::make('needs_invoice')
                     ->label('Needs invoice')
-                    ->query(fn (Builder $query): Builder => $query->whereIn('invoice_status', [Project::INVOICE_PENDING, Project::INVOICE_OVERDUE])),
+                    ->query(fn (Builder $query): Builder => static::applyToInvoiceScope($query)),
                 Filter::make('overdue')
                     ->label('Overdue')
-                    ->query(fn (Builder $query): Builder => $query
-                        ->where(function (Builder $query): void {
-                            $query
-                                ->where('invoice_status', Project::INVOICE_OVERDUE)
-                                ->orWhere(function (Builder $query): void {
-                                    $query
-                                        ->whereIn('invoice_status', [Project::INVOICE_PENDING, Project::INVOICE_SENT])
-                                        ->whereNotNull('invoice_due_at')
-                                        ->where('invoice_due_at', '<', now());
-                                });
-                        })),
+                    ->query(fn (Builder $query): Builder => static::applyOverdueScope($query)),
                 Filter::make('missing_billing')
                     ->label('Missing billing details')
-                    ->query(fn (Builder $query): Builder => $query->whereHas('ownerAccount', fn (Builder $query): Builder => $query
-                        ->where(function (Builder $query): void {
-                            $query
-                                ->whereNull('billing_name')->orWhere('billing_name', '')
-                                ->orWhereNull('billing_country')->orWhere('billing_country', '')
-                                ->orWhereNull('billing_address')->orWhere('billing_address', '');
-                        }))),
+                    ->query(fn (Builder $query): Builder => static::applyMissingBillingScope($query)),
             ])
             ->recordActions([
+                Action::make('markSent')
+                    ->label('Mark sent')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('warning')
+                    ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount()
+                        && $record->ownerAccount?->hasBillingDetails()
+                        && in_array($record->invoice_status, [Project::INVOICE_PENDING, Project::INVOICE_OVERDUE], true))
+                    ->fillForm(fn (Project $record): array => [
+                        'invoice_number' => $record->invoice_number,
+                        'invoice_due_at' => $record->invoice_due_at ?: now()->addDays(14),
+                    ])
+                    ->form([
+                        TextInput::make('invoice_number')
+                            ->label('Invoice number')
+                            ->maxLength(255),
+                        DateTimePicker::make('invoice_due_at')
+                            ->label('Payment due date')
+                            ->required()
+                            ->seconds(false),
+                    ])
+                    ->action(function (Project $record, array $data): void {
+                        self::updateInvoice($record, [
+                            'approved_grant_amount' => $record->approvedGrantAmount(),
+                            'invoice_status' => Project::INVOICE_SENT,
+                            'invoice_number' => $data['invoice_number'] ?? null,
+                            'invoice_due_at' => $data['invoice_due_at'] ?? now()->addDays(14),
+                        ], 'project.invoice_sent');
+                    }),
+                Action::make('markPaid')
+                    ->label('Mark paid')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount()
+                        && in_array($record->invoice_status, [Project::INVOICE_SENT, Project::INVOICE_OVERDUE], true))
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (Project $record): string => 'Mark '.$record->name.' as paid?')
+                    ->modalDescription('This confirms the manual fiscal invoice payment and immediately unlocks implementation modules for the project.')
+                    ->action(function (Project $record): void {
+                        self::updateInvoice($record, [
+                            'approved_grant_amount' => $record->approvedGrantAmount(),
+                            'invoice_status' => Project::INVOICE_PAID,
+                            'invoice_number' => $record->invoice_number,
+                            'invoice_due_at' => $record->invoice_due_at,
+                        ], 'project.invoice_paid');
+                    }),
                 ActionGroup::make([
                     Action::make('billingDetails')
                         ->label('View billing details')
@@ -204,48 +213,6 @@ class PlatformProjectPaymentResource extends Resource
                         ])
                         ->form(self::invoiceForm())
                         ->action(fn (Project $record, array $data): null => self::updateInvoice($record, $data, 'project.invoice_updated')),
-                    Action::make('markSent')
-                        ->label('Mark invoice sent')
-                        ->icon('heroicon-o-paper-airplane')
-                        ->color('warning')
-                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount())
-                        ->fillForm(fn (Project $record): array => [
-                            'invoice_number' => $record->invoice_number,
-                            'invoice_due_at' => $record->invoice_due_at ?: now()->addDays(14),
-                        ])
-                        ->form([
-                            TextInput::make('invoice_number')
-                                ->label('Invoice number')
-                                ->maxLength(255),
-                            DateTimePicker::make('invoice_due_at')
-                                ->label('Payment due date')
-                                ->required()
-                                ->seconds(false),
-                        ])
-                        ->action(function (Project $record, array $data): void {
-                            self::updateInvoice($record, [
-                                'approved_grant_amount' => $record->approvedGrantAmount(),
-                                'invoice_status' => Project::INVOICE_SENT,
-                                'invoice_number' => $data['invoice_number'] ?? null,
-                                'invoice_due_at' => $data['invoice_due_at'] ?? now()->addDays(14),
-                            ], 'project.invoice_sent');
-                        }),
-                    Action::make('markPaid')
-                        ->label('Mark payment received')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount())
-                        ->requiresConfirmation()
-                        ->modalHeading(fn (Project $record): string => 'Mark '.$record->name.' as paid?')
-                        ->modalDescription('This confirms the manual fiscal invoice payment and immediately unlocks implementation modules for the project.')
-                        ->action(function (Project $record): void {
-                            self::updateInvoice($record, [
-                                'approved_grant_amount' => $record->approvedGrantAmount(),
-                                'invoice_status' => Project::INVOICE_PAID,
-                                'invoice_number' => $record->invoice_number,
-                                'invoice_due_at' => $record->invoice_due_at,
-                            ], 'project.invoice_paid');
-                        }),
                     Action::make('openAccount')
                         ->label('Open account')
                         ->icon('heroicon-o-arrow-top-right-on-square')
@@ -254,7 +221,147 @@ class PlatformProjectPaymentResource extends Resource
                             : null),
                 ]),
             ])
+            ->emptyStateHeading('No project payments in this queue')
+            ->emptyStateDescription('Use the tabs above to switch between invoices to send, overdue payments, sent invoices, missing billing details and paid projects.')
             ->defaultSort('invoice_due_at');
+    }
+
+    public static function applyPaymentQueueScope(Builder $query): Builder
+    {
+        return $query
+            ->with('ownerAccount')
+            ->whereHas('ownerAccount', fn (Builder $query): Builder => static::applyBillableOwnerScope($query))
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNotNull('approved_grant_amount')
+                    ->orWhereIn('invoice_status', [
+                        Project::INVOICE_PENDING,
+                        Project::INVOICE_SENT,
+                        Project::INVOICE_PAID,
+                        Project::INVOICE_OVERDUE,
+                    ]);
+            });
+    }
+
+    public static function applyBillableOwnerScope(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $query): void {
+                $query->whereNull('plan')->orWhere('plan', '!=', 'unlimited');
+            })
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNull('plan_limits')
+                    ->orWhere('plan_limits', 'not like', '%"unlimited":true%')
+                    ->where('plan_limits', 'not like', '%"unlimited": true%');
+            })
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNull('feature_flags')
+                    ->orWhere('feature_flags', 'not like', '%"unlimited"%');
+            });
+    }
+
+    public static function applyToInvoiceScope(Builder $query): Builder
+    {
+        return $query
+            ->where('invoice_status', Project::INVOICE_PENDING)
+            ->whereHas('ownerAccount', fn (Builder $query): Builder => $query
+                ->whereNotNull('billing_name')
+                ->where('billing_name', '!=', '')
+                ->whereNotNull('billing_country')
+                ->where('billing_country', '!=', '')
+                ->whereNotNull('billing_address')
+                ->where('billing_address', '!=', ''));
+    }
+
+    public static function applyOverdueScope(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query
+                ->where('invoice_status', Project::INVOICE_OVERDUE)
+                ->orWhere(function (Builder $query): void {
+                    $query
+                        ->whereIn('invoice_status', [Project::INVOICE_PENDING, Project::INVOICE_SENT])
+                        ->whereNotNull('invoice_due_at')
+                        ->where('invoice_due_at', '<', now());
+                });
+        });
+    }
+
+    public static function applyMissingBillingScope(Builder $query): Builder
+    {
+        return $query->whereHas('ownerAccount', fn (Builder $query): Builder => $query
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNull('billing_name')->orWhere('billing_name', '')
+                    ->orWhereNull('billing_country')->orWhere('billing_country', '')
+                    ->orWhereNull('billing_address')->orWhere('billing_address', '');
+            }));
+    }
+
+    public static function paymentQueueQuery(): Builder
+    {
+        return static::applyPaymentQueueScope(Project::query());
+    }
+
+    public static function nextActionLabel(Project $record): string
+    {
+        if (! $record->ownerAccount?->hasBillingDetails()) {
+            return 'Missing billing details';
+        }
+
+        if ($record->hasPaymentOverdue()) {
+            return 'Collect payment';
+        }
+
+        return match ($record->invoice_status) {
+            Project::INVOICE_PENDING => 'Issue fiscal invoice',
+            Project::INVOICE_SENT => 'Awaiting payment',
+            Project::INVOICE_PAID => 'Paid',
+            default => 'Review',
+        };
+    }
+
+    public static function nextActionColor(Project $record): string
+    {
+        if (! $record->ownerAccount?->hasBillingDetails()) {
+            return 'danger';
+        }
+
+        if ($record->hasPaymentOverdue()) {
+            return 'danger';
+        }
+
+        return match ($record->invoice_status) {
+            Project::INVOICE_PENDING => 'warning',
+            Project::INVOICE_SENT => 'info',
+            Project::INVOICE_PAID => 'success',
+            default => 'gray',
+        };
+    }
+
+    public static function nextActionDescription(Project $record): ?string
+    {
+        if (! $record->ownerAccount?->hasBillingDetails()) {
+            return 'Ask the account owner to complete billing details.';
+        }
+
+        if ($record->hasPaymentOverdue()) {
+            return $record->invoice_due_at ? 'Due '.$record->invoice_due_at->format('d M Y') : 'Payment is overdue.';
+        }
+
+        return match ($record->invoice_status) {
+            Project::INVOICE_PENDING => 'Send invoice for '.static::formatEuro((float) $record->activation_fee_amount),
+            Project::INVOICE_SENT => $record->invoice_due_at ? 'Due '.$record->invoice_due_at->format('d M Y') : 'Waiting for manual confirmation.',
+            Project::INVOICE_PAID => $record->payment_confirmed_at ? 'Confirmed '.$record->payment_confirmed_at->format('d M Y') : 'Access unlocked.',
+            default => null,
+        };
+    }
+
+    public static function formatEuro(float|int|string|null $amount): string
+    {
+        return '€ '.number_format((float) $amount, 2);
     }
 
     public static function getPages(): array
