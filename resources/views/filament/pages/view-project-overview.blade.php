@@ -513,7 +513,8 @@
 
     @if($showApprovalModal)
         @php
-            $previewFee = \App\Models\Project::calculateActivationFee($approvedGrantAmount);
+            $isUnlimitedOwner = $this->record->owner()?->isUnlimitedAccount() === true;
+            $previewFee = $this->record->administrationFeeForApprovedGrant($approvedGrantAmount);
         @endphp
         <div class="mc-modal-backdrop" wire:click.self="closeApprovalModal">
             <div class="mc-modal-panel">
@@ -536,12 +537,12 @@
                         <div class="mc-readiness-group">
                             <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Platform fee</p>
                             <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $eur($previewFee) }}</p>
-                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">1% of grant, minimum €100</p>
+                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ $isUnlimitedOwner ? 'Included in unlimited account access' : '1% of grant, minimum €100' }}</p>
                         </div>
                         <div class="mc-readiness-group">
-                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Payment term</p>
-                            <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">14 days</p>
-                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">Fiscal invoice issued manually</p>
+                            <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">{{ $isUnlimitedOwner ? 'Invoice' : 'Payment term' }}</p>
+                            <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $isUnlimitedOwner ? 'Not required' : '14 days' }}</p>
+                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ $isUnlimitedOwner ? 'No administration invoice will be generated' : 'Fiscal invoice issued manually' }}</p>
                         </div>
                     </div>
 

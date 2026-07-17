@@ -66,4 +66,38 @@ class PlatformProjectPaymentTest extends TestCase
 
         $this->assertFalse(PlatformProjectPaymentResource::canAccess());
     }
+
+    public function test_unlimited_accounts_are_not_listed_as_project_payments(): void
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $unlimited = User::factory()->create([
+            'plan' => 'unlimited',
+            'feature_flags' => ['unlimited'],
+            'plan_limits' => ['unlimited' => true],
+            'billing_name' => null,
+            'billing_country' => null,
+            'billing_address' => null,
+        ]);
+
+        $project = Project::create([
+            'owner_id' => $unlimited->id,
+            'name' => 'Unlimited Project With Legacy Invoice',
+            'status' => ProjectStatus::PaymentOverdue->value,
+            'approved_budget' => 15000,
+            'approved_grant_amount' => 15000,
+            'approved_declared_at' => now()->subDays(10),
+            'activation_fee_amount' => 150,
+            'invoice_status' => Project::INVOICE_OVERDUE,
+            'invoice_due_at' => now()->subDay(),
+        ]);
+
+        $this->actingAs($admin);
+        Filament::setCurrentPanel('platform');
+
+        $this->assertFalse($project->fresh()->hasPaymentOverdue());
+        $this->assertTrue($project->fresh()->implementationModulesAvailable());
+
+        Livewire::test(ListPlatformProjectPayments::class)
+            ->assertDontSee('Unlimited Project With Legacy Invoice');
+    }
 }

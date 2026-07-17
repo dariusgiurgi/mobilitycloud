@@ -681,7 +681,9 @@ class ViewProjectOverview extends Page
 
         Notification::make()
             ->title('Project marked as approved')
-            ->body('The approved grant was locked and the platform activation fee was calculated.')
+            ->body($this->record->owner()?->isUnlimitedAccount()
+                ? 'The approved grant was locked. Unlimited accounts do not generate project administration fees.'
+                : 'The approved grant was locked and the platform activation fee was calculated.')
             ->success()
             ->send();
     }

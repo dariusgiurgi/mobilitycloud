@@ -31,6 +31,21 @@ class PlatformStatsOverview extends BaseWidget
                 ->color('success'),
             Stat::make('Payments needing attention', number_format(
                 Project::query()
+                    ->whereHas('ownerAccount', fn ($query) => $query
+                        ->where(function ($query): void {
+                            $query->whereNull('plan')->orWhere('plan', '!=', 'unlimited');
+                        })
+                        ->where(function ($query): void {
+                            $query
+                                ->whereNull('plan_limits')
+                                ->orWhere('plan_limits', 'not like', '%"unlimited":true%')
+                                ->where('plan_limits', 'not like', '%"unlimited": true%');
+                        })
+                        ->where(function ($query): void {
+                            $query
+                                ->whereNull('feature_flags')
+                                ->orWhere('feature_flags', 'not like', '%"unlimited"%');
+                        }))
                     ->whereIn('invoice_status', [Project::INVOICE_PENDING, Project::INVOICE_SENT, Project::INVOICE_OVERDUE])
                     ->count()
             ))

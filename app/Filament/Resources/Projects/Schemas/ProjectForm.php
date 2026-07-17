@@ -58,7 +58,9 @@ class ProjectForm
                             ->minValue(1)
                             ->required(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
                             ->visible(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
-                            ->helperText('This amount becomes locked after creation and is used to calculate the platform activation fee.')
+                            ->helperText(fn (): string => auth()->user()?->isUnlimitedAccount()
+                                ? 'This amount becomes locked after creation. Unlimited accounts do not generate administration fees.'
+                                : 'This amount becomes locked after creation and is used to calculate the platform activation fee.')
                             ->dehydrated(true),
                         Select::make('ka_action')
                             ->label('Application template')
@@ -137,7 +139,9 @@ class ProjectForm
                             ->prefix('€')
                             ->disabled()
                             ->dehydrated(false)
-                            ->helperText('Calculated as 1% of the approved grant, minimum €100.'),
+                            ->helperText(fn (): string => auth()->user()?->isUnlimitedAccount()
+                                ? 'Not charged for unlimited accounts.'
+                                : 'Calculated as 1% of the approved grant, minimum €100.'),
                         Select::make('invoice_status')
                             ->label('Invoice status')
                             ->options(\App\Models\Project::invoiceStatusOptions())
@@ -148,7 +152,9 @@ class ProjectForm
                             ->label('Invoice number')
                             ->disabled()
                             ->dehydrated(false)
-                            ->placeholder('Added by support after fiscal invoice is issued.'),
+                            ->placeholder(auth()->user()?->isUnlimitedAccount()
+                                ? 'Not required for unlimited accounts.'
+                                : 'Added by support after fiscal invoice is issued.'),
                     ]),
 
                 Section::make('Operational finance settings')

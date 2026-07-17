@@ -296,6 +296,7 @@ class PlatformSubscriptionResource extends Resource
                         ->label('Project invoice')
                         ->icon('heroicon-o-document-currency-euro')
                         ->color('warning')
+                        ->visible(fn (User $record): bool => ! $record->isUnlimitedAccount())
                         ->modalHeading(fn (User $record): string => 'Project invoice · '.$record->email)
                         ->modalDescription('Manual fiscal invoice workflow. Updating the approved grant recalculates the 1% platform fee with the €100 minimum.')
                         ->form([

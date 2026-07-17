@@ -243,9 +243,11 @@ class PlatformUserResource extends Resource
                             ->formatStateUsing(fn (?string $state): string => PlanCatalog::displayPlanLabel($state)),
                         TextEntry::make('billing_identity')
                             ->label('Billing')
-                            ->state(fn (User $record): string => $record->hasBillingDetails() ? $record->billing_name : 'Missing billing details')
+                            ->state(fn (User $record): string => $record->isUnlimitedAccount()
+                                ? 'Not required for unlimited'
+                                : ($record->hasBillingDetails() ? $record->billing_name : 'Missing billing details'))
                             ->badge()
-                            ->color(fn (User $record): string => $record->hasBillingDetails() ? 'success' : 'danger'),
+                            ->color(fn (User $record): string => $record->isUnlimitedAccount() || $record->hasBillingDetails() ? 'success' : 'danger'),
                         TextEntry::make('owned_projects_count')
                             ->label('Owned projects')
                             ->state(fn (User $record): int => $record->ownedProjects()->count()),
@@ -326,10 +328,12 @@ class PlatformUserResource extends Resource
                     ->color(fn (?string $state): string => PlanCatalog::canonicalPlanKey($state) === 'unlimited' ? 'success' : 'info'),
                 TextColumn::make('billing_name')
                     ->label('Billing')
-                    ->state(fn (User $record): string => $record->hasBillingDetails() ? $record->billing_name : 'Missing')
+                    ->state(fn (User $record): string => $record->isUnlimitedAccount()
+                        ? 'Not required'
+                        : ($record->hasBillingDetails() ? $record->billing_name : 'Missing'))
                     ->description(fn (User $record): ?string => $record->billing_country ?: null)
                     ->badge()
-                    ->color(fn (User $record): string => $record->hasBillingDetails() ? 'success' : 'danger')
+                    ->color(fn (User $record): string => $record->isUnlimitedAccount() || $record->hasBillingDetails() ? 'success' : 'danger')
                     ->toggleable(),
                 TextColumn::make('owned_projects_count')
                     ->label('Owned')

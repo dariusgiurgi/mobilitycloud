@@ -127,14 +127,21 @@
 
             @unless($this->isPlatformPanel())
                 <div class="mc-account-stack">
-                    <x-filament::section heading="Account access" description="Access is attached to this email account. Approved projects are billed separately through manual fiscal invoices." icon="heroicon-o-credit-card">
+                    <x-filament::section
+                        heading="Account access"
+                        :description="$this->currentAccount?->isUnlimitedAccount() ? 'Access is attached to this email account. Unlimited accounts have full access without project administration fees.' : 'Access is attached to this email account. Approved projects are billed separately through manual fiscal invoices.'"
+                        icon="heroicon-o-credit-card"
+                    >
                         @if($this->currentAccount)
                             <div class="mc-plan-card">
                                 <span class="mc-muted" style="font-size:.65rem;font-weight:750;text-transform:uppercase;">Current access</span>
                                 <strong class="text-gray-950 dark:text-white" style="display:block;font-size:1rem;margin-top:.2rem;">{{ $this->currentAccount->isUnlimitedAccount() ? 'Unlimited' : 'Standard' }}</strong>
                                 <p class="mc-muted mc-help" style="margin-top:.35rem;">
-                                    Standard accounts can use the platform and are billed manually after projects are approved.
-                                    Unlimited accounts are owner-granted exceptions with full access.
+                                    @if($this->currentAccount->isUnlimitedAccount())
+                                        Unlimited accounts are owner-granted exceptions with full access and no project administration fees.
+                                    @else
+                                        Standard accounts can use the platform and are billed manually after projects are approved.
+                                    @endif
                                 </p>
                             </div>
                         @endif

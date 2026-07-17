@@ -70,6 +70,21 @@ class PlatformProjectPaymentResource extends Resource
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->with('ownerAccount')
+                ->whereHas('ownerAccount', fn (Builder $query): Builder => $query
+                    ->where(function (Builder $query): void {
+                        $query->whereNull('plan')->orWhere('plan', '!=', 'unlimited');
+                    })
+                    ->where(function (Builder $query): void {
+                        $query
+                            ->whereNull('plan_limits')
+                            ->orWhere('plan_limits', 'not like', '%"unlimited":true%')
+                            ->where('plan_limits', 'not like', '%"unlimited": true%');
+                    })
+                    ->where(function (Builder $query): void {
+                        $query
+                            ->whereNull('feature_flags')
+                            ->orWhere('feature_flags', 'not like', '%"unlimited"%');
+                    }))
                 ->where(function (Builder $query): void {
                     $query
                         ->whereNotNull('approved_grant_amount')
@@ -89,9 +104,13 @@ class PlatformProjectPaymentResource extends Resource
                     ->description(fn (Project $record): string => $record->ownerAccount?->email ?: 'No owner'),
                 TextColumn::make('ownerAccount.billing_name')
                     ->label('Bill to')
-                    ->state(fn (Project $record): string => $record->ownerAccount?->billing_name ?: 'Missing billing details')
+                    ->state(fn (Project $record): string => $record->ownerAccount?->isUnlimitedAccount()
+                        ? 'Unlimited account — no invoice'
+                        : ($record->ownerAccount?->billing_name ?: 'Missing billing details'))
                     ->description(fn (Project $record): ?string => $record->ownerAccount?->billing_vat ?: $record->ownerAccount?->billing_country)
-                    ->color(fn (Project $record): string => $record->ownerAccount?->hasBillingDetails() ? 'gray' : 'danger')
+                    ->color(fn (Project $record): string => $record->ownerAccount?->isUnlimitedAccount()
+                        ? 'success'
+                        : ($record->ownerAccount?->hasBillingDetails() ? 'gray' : 'danger'))
                     ->wrap(),
                 TextColumn::make('approved_grant_amount')
                     ->label('Approved grant')
@@ -176,6 +195,7 @@ class PlatformProjectPaymentResource extends Resource
                         ->label('Edit amount / invoice')
                         ->icon('heroicon-o-pencil-square')
                         ->color('info')
+                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount())
                         ->fillForm(fn (Project $record): array => [
                             'approved_grant_amount' => $record->approvedGrantAmount(),
                             'invoice_status' => $record->invoice_status ?: Project::INVOICE_PENDING,
@@ -188,6 +208,7 @@ class PlatformProjectPaymentResource extends Resource
                         ->label('Mark invoice sent')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('warning')
+                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount())
                         ->fillForm(fn (Project $record): array => [
                             'invoice_number' => $record->invoice_number,
                             'invoice_due_at' => $record->invoice_due_at ?: now()->addDays(14),
@@ -213,6 +234,7 @@ class PlatformProjectPaymentResource extends Resource
                         ->label('Mark payment received')
                         ->icon('heroicon-o-check-circle')
                         ->color('success')
+                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount())
                         ->requiresConfirmation()
                         ->modalHeading(fn (Project $record): string => 'Mark '.$record->name.' as paid?')
                         ->modalDescription('This confirms the manual fiscal invoice payment and immediately unlocks implementation modules for the project.')
@@ -269,6 +291,33 @@ class PlatformProjectPaymentResource extends Resource
     {
         $amount = round(max(0, (float) ($data['approved_grant_amount'] ?? $project->approvedGrantAmount())), 2);
         $status = $data['invoice_status'] ?? Project::INVOICE_PENDING;
+
+        if ($project->ownerAccount?->isUnlimitedAccount()) {
+            $project->update([
+                'approved_budget' => $amount > 0 ? $amount : $project->approvedGrantAmount(),
+                'approved_grant_amount' => $amount > 0 ? $amount : $project->approvedGrantAmount(),
+                'approved_grant_currency' => 'EUR',
+                'approved_declared_at' => $project->approved_declared_at ?: now(),
+                'approved_declared_by' => $project->approved_declared_by ?: $project->owner_id,
+                'activation_fee_amount' => 0,
+                'activation_fee_currency' => 'EUR',
+                'invoice_status' => Project::INVOICE_NOT_REQUIRED,
+                'invoice_number' => null,
+                'invoice_sent_at' => null,
+                'invoice_due_at' => null,
+                'payment_confirmed_at' => null,
+                'payment_confirmed_by' => null,
+                'status' => $project->status === 'payment_overdue' ? 'approved' : $project->status,
+            ]);
+
+            Notification::make()
+                ->title('No invoice required')
+                ->body($project->name.' belongs to an unlimited account, so administration fees are disabled.')
+                ->success()
+                ->send();
+
+            return null;
+        }
 
         if ($amount <= 0) {
             Notification::make()

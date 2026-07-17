@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Filament\Pages\AccountSettings;
 use App\Models\User;
 use App\Models\Workspace;
-use App\Support\PlanCatalog;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -93,38 +92,35 @@ class AccountSettingsTest extends TestCase
         $this->assertSame('compact', $preferences['platform']['interface_density']);
     }
 
-    public function test_user_can_change_account_subscription_plan_from_account_center(): void
+    public function test_account_center_shows_current_access_without_self_service_plan_changes(): void
     {
         [$workspace, $user] = $this->workspaceAndUser('owner');
-        $user->update(['plan' => 'free']);
+        $user->update(['plan' => 'standard']);
 
         $this->actingAs($user);
         Filament::setTenant($workspace);
 
         Livewire::test(AccountSettings::class)
-            ->assertSee('Project plan')
-            ->set('subscriptionPlan', 'writer_pro')
-            ->call('saveSubscriptionPlan');
+            ->assertSee('Account access')
+            ->assertSee('Standard')
+            ->assertDontSee('Project plan');
 
-        $this->assertSame('writer_pro', $user->fresh()->plan);
-        $this->assertSame(PlanCatalog::defaultModules('writer_pro'), $user->fresh()->feature_flags);
-        $this->assertSame(PlanCatalog::defaultLimits('writer_pro'), $user->fresh()->plan_limits);
+        $this->assertSame('standard', $user->fresh()->plan);
     }
 
-    public function test_platform_admin_panel_cannot_change_public_subscription_plan(): void
+    public function test_platform_admin_account_center_does_not_expose_public_plan_changes(): void
     {
         [$workspace, $user] = $this->workspaceAndUser('viewer');
-        $user->update(['plan' => 'free', 'role' => User::ROLE_PLATFORM_ADMIN]);
+        $user->update(['plan' => 'standard', 'role' => User::ROLE_PLATFORM_ADMIN]);
 
         $this->actingAs($user);
         Filament::setCurrentPanel('platform');
 
         Livewire::test(AccountSettings::class)
-            ->set('subscriptionPlan', 'writer')
-            ->call('saveSubscriptionPlan')
-            ->assertStatus(404);
+            ->assertDontSee('Project plan')
+            ->assertDontSee('Save subscription');
 
-        $this->assertSame('free', $user->fresh()->plan);
+        $this->assertSame('standard', $user->fresh()->plan);
     }
 
     public function test_account_center_hides_workspace_switching_from_regular_users(): void

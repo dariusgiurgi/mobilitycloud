@@ -121,6 +121,47 @@ class ProjectOverviewTest extends TestCase
         $this->assertSame('100.00', $project->fresh()->activation_fee_amount);
     }
 
+    public function test_unlimited_account_approval_has_no_administration_fee_or_invoice(): void
+    {
+        $user = User::factory()->create([
+            'plan' => 'unlimited',
+            'feature_flags' => ['unlimited'],
+            'plan_limits' => ['unlimited' => true],
+            'billing_name' => null,
+            'billing_country' => null,
+            'billing_address' => null,
+        ]);
+
+        $project = Project::create([
+            'owner_id' => $user->id,
+            'workspace_id' => null,
+            'access_mode' => 'restricted',
+            'name' => 'Unlimited Approved Project',
+            'status' => 'writing',
+            'ka_action' => 'ka152',
+            'total_budget' => 15000,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->call('requestTransitionTo', 'approved')
+            ->assertSet('showApprovalModal', true)
+            ->set('approvedGrantAmount', 25000)
+            ->assertSee('Included in unlimited account access')
+            ->call('confirmApprovedGrant')
+            ->assertDontSee('Fiscal invoice pending');
+
+        $project->refresh();
+
+        $this->assertSame('approved', $project->status);
+        $this->assertSame('25000.00', $project->approved_grant_amount);
+        $this->assertSame('0.00', $project->activation_fee_amount);
+        $this->assertSame(Project::INVOICE_NOT_REQUIRED, $project->invoice_status);
+        $this->assertNull($project->invoice_due_at);
+        $this->assertTrue($project->implementationModulesAvailable());
+    }
+
     public function test_paid_project_no_longer_shows_the_invoice_activation_notice(): void
     {
         [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');

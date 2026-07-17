@@ -15,7 +15,11 @@
         @endforelse
     </div>
 
-    @if($project->ownerAccount && ! $project->ownerAccount->hasBillingDetails())
+    @if($project->ownerAccount?->isUnlimitedAccount())
+        <div style="padding:.75rem;border:1px solid rgba(22,163,74,.22);border-radius:.75rem;background:rgba(22,163,74,.06);color:#166534;">
+            This is an unlimited account. Billing details are optional and no project administration invoice is required.
+        </div>
+    @elseif($project->ownerAccount && ! $project->ownerAccount->hasBillingDetails())
         <div style="padding:.75rem;border:1px solid rgba(220,38,38,.22);border-radius:.75rem;background:rgba(220,38,38,.06);color:#991b1b;">
             Billing details are incomplete. Ask the account owner to complete Account Center → Billing details, or update the account from the admin panel.
         </div>

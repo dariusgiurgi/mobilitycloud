@@ -71,7 +71,9 @@ class CreateProject extends CreateRecord
 
             Notification::make()
                 ->title('Approved project created')
-                ->body('The approved grant was locked and the platform fee was calculated. A fiscal invoice can now be issued manually.')
+                ->body($record->owner()?->isUnlimitedAccount()
+                    ? 'The approved grant was locked. This unlimited account does not generate administration fees or fiscal invoice tasks.'
+                    : 'The approved grant was locked and the platform fee was calculated. A fiscal invoice can now be issued manually.')
                 ->success()
                 ->send();
         }

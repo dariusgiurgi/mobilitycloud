@@ -410,6 +410,15 @@ class Project extends Model
         return round(max(self::ACTIVATION_FEE_MINIMUM, $amount * self::ACTIVATION_FEE_RATE), 2);
     }
 
+    public function administrationFeeForApprovedGrant(float|int|string|null $approvedGrantAmount): float
+    {
+        if ($this->owner()?->isUnlimitedAccount()) {
+            return 0.0;
+        }
+
+        return self::calculateActivationFee($approvedGrantAmount);
+    }
+
     public function approvedGrantAmount(): float
     {
         return (float) ($this->approved_grant_amount ?: $this->approved_budget);
@@ -422,6 +431,10 @@ class Project extends Model
 
     public function hasPaymentOverdue(): bool
     {
+        if ($this->owner()?->isUnlimitedAccount()) {
+            return false;
+        }
+
         if ($this->statusEnum() === ProjectStatus::PaymentOverdue
             || $this->invoice_status === self::INVOICE_OVERDUE) {
             return true;
@@ -450,6 +463,8 @@ class Project extends Model
             throw new \InvalidArgumentException('Approved grant amount must be greater than zero.');
         }
 
+        $unlimitedOwner = $this->owner()?->isUnlimitedAccount() === true;
+
         $this->forceFill([
             'status' => ProjectStatus::Approved->value,
             // Compatibility with older reports/widgets that still read approved_budget.
@@ -458,10 +473,12 @@ class Project extends Model
             'approved_grant_currency' => 'EUR',
             'approved_declared_at' => now(),
             'approved_declared_by' => $declaredBy?->id,
-            'activation_fee_amount' => self::calculateActivationFee($amount),
+            'activation_fee_amount' => $unlimitedOwner ? 0 : self::calculateActivationFee($amount),
             'activation_fee_currency' => 'EUR',
-            'invoice_status' => self::INVOICE_PENDING,
-            'invoice_due_at' => now()->addDays($paymentTermDays),
+            'invoice_status' => $unlimitedOwner ? self::INVOICE_NOT_REQUIRED : self::INVOICE_PENDING,
+            'invoice_number' => $unlimitedOwner ? null : $this->invoice_number,
+            'invoice_sent_at' => $unlimitedOwner ? null : $this->invoice_sent_at,
+            'invoice_due_at' => $unlimitedOwner ? null : now()->addDays($paymentTermDays),
             'payment_confirmed_at' => null,
             'payment_confirmed_by' => null,
         ])->save();
