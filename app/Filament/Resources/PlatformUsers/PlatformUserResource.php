@@ -8,9 +8,9 @@ use App\Filament\Resources\PlatformUsers\Pages\ListPlatformUsers;
 use App\Filament\Resources\PlatformUsers\Pages\ViewPlatformUser;
 use App\Filament\Resources\PlatformUsers\RelationManagers\SupportNotesRelationManager;
 use App\Models\User;
+use App\Support\PlanCatalog;
 use App\Support\PlatformAccountNotificationAction;
 use App\Support\PlatformAudit;
-use App\Support\PlanCatalog;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -230,12 +230,13 @@ class PlatformUserResource extends Resource
                             }),
                         TextEntry::make('account_status')
                             ->label('Status')
-                            ->state(fn (User $record): string => $record->archived_at ? 'Archived' : ($record->is_suspended ? 'Suspended' : ($record->must_change_password ? 'Password change required' : 'Active')))
+                            ->state(fn (User $record): string => self::accountStatusLabel($record))
                             ->badge()
                             ->color(fn (string $state): string => match ($state) {
                                 'Archived' => 'gray',
                                 'Suspended' => 'danger',
                                 'Password change required' => 'warning',
+                                'Verification pending' => 'warning',
                                 default => 'success',
                             }),
                         TextEntry::make('plan')
@@ -300,18 +301,27 @@ class PlatformUserResource extends Resource
                     }),
                 TextColumn::make('account_status')
                     ->label('Status')
-                    ->getStateUsing(fn (User $record): string => $record->archived_at ? 'Archived' : ($record->is_suspended ? 'Suspended' : ($record->must_change_password ? 'Password change required' : 'Active')))
+                    ->getStateUsing(fn (User $record): string => self::accountStatusLabel($record))
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Archived' => 'gray',
                         'Suspended' => 'danger',
                         'Password change required' => 'warning',
+                        'Verification pending' => 'warning',
                         default => 'success',
                     })
                     ->description(fn (User $record): ?string => $record->is_suspended && $record->suspension_category
                         ? (self::suspensionCategoryOptions()[$record->suspension_category] ?? $record->suspension_category)
-                        : ($record->archived_at ? 'Archived '.$record->archived_at->format('d M Y') : null)
+                        : ($record->archived_at
+                            ? 'Archived '.$record->archived_at->format('d M Y')
+                            : ($record->email_verified_at === null ? 'Waiting for email confirmation' : null))
                     ),
+                TextColumn::make('email_verified_at')
+                    ->label('Email verified')
+                    ->dateTime('d M Y, H:i')
+                    ->placeholder('Pending')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('archived_at')
                     ->label('Archived')
                     ->dateTime('d M Y')
@@ -378,6 +388,9 @@ class PlatformUserResource extends Resource
                 Filter::make('platform_staff')
                     ->label('Platform staff')
                     ->query(fn (Builder $query): Builder => $query->whereIn('role', [User::ROLE_PLATFORM_OWNER, User::ROLE_PLATFORM_ADMIN, User::ROLE_ADMIN, User::ROLE_SUPERVISOR])),
+                Filter::make('verification_pending')
+                    ->label('Verification pending')
+                    ->query(fn (Builder $query): Builder => $query->whereNull('email_verified_at')),
                 TernaryFilter::make('archived')
                     ->label('Archived')
                     ->queries(
@@ -668,4 +681,24 @@ class PlatformUserResource extends Resource
         ];
     }
 
+    public static function accountStatusLabel(User $record): string
+    {
+        if ($record->archived_at) {
+            return 'Archived';
+        }
+
+        if ($record->is_suspended) {
+            return 'Suspended';
+        }
+
+        if ($record->email_verified_at === null) {
+            return 'Verification pending';
+        }
+
+        if ($record->must_change_password) {
+            return 'Password change required';
+        }
+
+        return 'Active';
+    }
 }

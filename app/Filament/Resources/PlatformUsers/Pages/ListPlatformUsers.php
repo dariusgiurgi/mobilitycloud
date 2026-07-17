@@ -39,8 +39,13 @@ class ListPlatformUsers extends ListRecords
                     ->where(function (Builder $query): void {
                         $query
                             ->where('is_suspended', true)
-                            ->orWhere('must_change_password', true);
+                            ->orWhere('must_change_password', true)
+                            ->orWhereNull('email_verified_at');
                     })),
+            'pending_verification' => Tab::make('Pending verification')
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                    ->whereNull('archived_at')
+                    ->whereNull('email_verified_at')),
             'staff' => Tab::make('Platform staff')
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query
                     ->whereNull('archived_at')

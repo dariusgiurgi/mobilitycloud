@@ -69,6 +69,50 @@ class EmailVerificationTest extends TestCase
         $this->assertNotNull($user->fresh()->email_verified_at);
     }
 
+    public function test_verification_link_cannot_verify_a_different_signed_in_account(): void
+    {
+        $intendedUser = User::factory()->unverified()->create(['email' => 'intended@example.test']);
+        $otherUser = User::factory()->unverified()->create(['email' => 'other@example.test']);
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $intendedUser->id,
+                'hash' => sha1($intendedUser->getEmailForVerification()),
+            ],
+        );
+
+        $this->actingAs($otherUser)
+            ->get($verificationUrl)
+            ->assertForbidden();
+
+        $this->assertNull($intendedUser->fresh()->email_verified_at);
+        $this->assertNull($otherUser->fresh()->email_verified_at);
+    }
+
+    public function test_filament_verification_link_cannot_verify_a_different_signed_in_account(): void
+    {
+        $intendedUser = User::factory()->unverified()->create(['email' => 'intended-filament@example.test']);
+        $otherUser = User::factory()->create(['email' => 'other-filament@example.test']);
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'filament.admin.auth.email-verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $intendedUser->id,
+                'hash' => sha1($intendedUser->getEmailForVerification()),
+            ],
+        );
+
+        $this->actingAs($otherUser)
+            ->get($verificationUrl)
+            ->assertForbidden();
+
+        $this->assertNull($intendedUser->fresh()->email_verified_at);
+        $this->assertNotNull($otherUser->fresh()->email_verified_at);
+    }
+
     public function test_unverified_invited_account_must_verify_email_before_accepting_project_access(): void
     {
         Notification::fake();

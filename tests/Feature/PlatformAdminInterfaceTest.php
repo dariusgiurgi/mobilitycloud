@@ -10,12 +10,15 @@ use App\Filament\Pages\ProjectCalendar;
 use App\Filament\Pages\PublicLibrary;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
+use App\Filament\Resources\PlatformUsers\Pages\ListPlatformUsers;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use App\Models\User;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class PlatformAdminInterfaceTest extends TestCase
@@ -56,6 +59,28 @@ class PlatformAdminInterfaceTest extends TestCase
         $this->assertTrue(ContentBlockResource::canAccess());
         $this->assertTrue(GlobalSearch::canAccess());
         $this->assertFalse(PublicBlockReportResource::shouldRegisterNavigation());
+    }
+
+    public function test_platform_accounts_mark_unverified_users_as_pending_verification(): void
+    {
+        $owner = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        User::factory()->unverified()->create([
+            'name' => 'Pending Client',
+            'email' => 'pending@example.test',
+        ]);
+
+        $this->actingAs($owner);
+        Filament::setCurrentPanel('platform');
+
+        $this->assertSame(
+            'Verification pending',
+            PlatformUserResource::accountStatusLabel(User::where('email', 'pending@example.test')->firstOrFail()),
+        );
+
+        Livewire::test(ListPlatformUsers::class)
+            ->assertSee('Pending Client')
+            ->assertSee('Verification pending')
+            ->assertSee('Pending verification');
     }
 
     private function assertProductModulesAreUnavailable(): void
