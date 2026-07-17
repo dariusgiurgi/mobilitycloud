@@ -47,6 +47,7 @@ class AdminPanelProvider extends PanelProvider
             ->login()
             ->passwordReset()
             ->registration()
+            ->emailVerification(isRequired: false)
             ->brandName('MobilityCloud')
             ->colors([
                 'primary' => Color::Indigo,
