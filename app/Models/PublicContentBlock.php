@@ -22,8 +22,12 @@ class PublicContentBlock extends Model
         'is_hidden' => 'boolean',
     ];
 
-    // Email-ul contului de sistem care detine blocurile oficiale.
+    // Legacy email-ul contului de sistem care detinea blocurile oficiale.
     public const OFFICIAL_EMAIL = 'official@mobilitycloud.eu';
+
+    public const OFFICIAL_AUTHOR_LABEL = 'MobilityCloud';
+
+    public const OFFICIAL_SOURCE_NOTE = 'Adapted from an approved KA152 youth exchange';
 
     // Reutilizam aceleasi liste ca la blocurile personale, ca sa fie consecvent.
     public const CATEGORIES = ContentBlock::CATEGORIES;
@@ -76,7 +80,15 @@ class PublicContentBlock extends Model
     /** Bloc oficial (creat de contul de sistem)? */
     public function isOfficial(): bool
     {
-        return $this->author && $this->author->email === self::OFFICIAL_EMAIL;
+        return ($this->author && $this->author->email === self::OFFICIAL_EMAIL)
+            || $this->source_note === self::OFFICIAL_SOURCE_NOTE;
+    }
+
+    public function displayAuthorName(): string
+    {
+        return $this->isOfficial()
+            ? self::OFFICIAL_AUTHOR_LABEL
+            : ($this->author->name ?? 'Unknown');
     }
 
     /** Userul dat a dat like acestui bloc? */

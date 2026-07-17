@@ -21,8 +21,9 @@ class PublicBlockReportsTable
                     ->wrap()
                     ->limit(50)
                     ->weight('medium')
-                    ->description(fn (PublicBlockReport $r) => $r->block?->author?->name
-                        ? 'by '.$r->block->author->name : null),
+                    ->description(fn (PublicBlockReport $r) => $r->block
+                        ? 'by '.$r->block->displayAuthorName()
+                        : null),
 
                 TextColumn::make('reason')
                     ->badge()

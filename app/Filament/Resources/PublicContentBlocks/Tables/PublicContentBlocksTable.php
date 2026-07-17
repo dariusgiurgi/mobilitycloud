@@ -30,6 +30,7 @@ class PublicContentBlocksTable
 
                 TextColumn::make('author.name')
                     ->label('By')
+                    ->state(fn (PublicContentBlock $record): string => $record->displayAuthorName())
                     ->toggleable(),
 
                 TextColumn::make('category')

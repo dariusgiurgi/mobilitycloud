@@ -28,7 +28,7 @@ class PublicContentBlockSeeder extends Seeder
             ]
         );
 
-        $source = 'Adapted from an approved KA152 youth exchange';
+        $source = PublicContentBlock::OFFICIAL_SOURCE_NOTE;
 
         $blocks = [
             ['title' => 'Organisation background', 'category' => 'organisation', 'tags' => ['NGO', 'non-formal education'], 'body' => <<<TXT

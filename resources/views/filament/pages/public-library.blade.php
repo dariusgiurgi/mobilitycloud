@@ -2,7 +2,6 @@
     <x-ui-polish />
     @php
         $blocks = $this->getBlocks();
-        $official = \App\Models\PublicContentBlock::OFFICIAL_EMAIL;
         $me = auth()->user();
         $activeFilters = $this->activeFilterCount();
         $importedBlocks = $this->getImportedBlocks();
@@ -137,7 +136,7 @@
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1rem;">
             @foreach($blocks as $b)
                 @php
-                    $isOfficial = $b->author && $b->author->email === $official;
+                    $isOfficial = $b->isOfficial();
                     $liked = $b->likes->isNotEmpty();
                     $localBlock = $importedBlocks->get($b->id);
                     $stripe = $isOfficial ? '#6366f1' : ($b->is_proven ? '#16a34a' : '#94a3b8');
@@ -172,7 +171,7 @@
 
                     {{-- Author + source --}}
                     <div class="text-gray-400" style="font-size:11px;">
-                        by {{ $b->author->name ?? 'Unknown' }}@if($b->source_note) · {{ \Illuminate\Support\Str::limit($b->source_note, 40) }}@endif
+                        by {{ $b->displayAuthorName() }}@if($b->source_note) · {{ \Illuminate\Support\Str::limit($b->source_note, 40) }}@endif
                     </div>
 
                     {{-- Footer: stats + actions --}}
@@ -258,8 +257,8 @@
                     <x-filament::badge size="sm" color="primary">{{ $preview->categoryLabel() }}</x-filament::badge>
                     <x-filament::badge size="sm" color="gray">{{ strtoupper($preview->ka_action) }}</x-filament::badge>
                     @if($preview->is_proven)<x-filament::badge size="sm" color="success">Proven</x-filament::badge>@endif
-                    @if($preview->author && $preview->author->email === $official)<x-filament::badge size="sm" color="info">Official</x-filament::badge>@endif
-                    <span style="margin-left:auto;font-size:11px;color:#9ca3af;">by {{ $preview->author->name ?? 'Unknown' }}</span>
+                    @if($preview->isOfficial())<x-filament::badge size="sm" color="info">Official</x-filament::badge>@endif
+                    <span style="margin-left:auto;font-size:11px;color:#9ca3af;">by {{ $preview->displayAuthorName() }}</span>
                 </div>
 
                 <div class="mc-modal-body" style="font-size:13px;line-height:1.6;white-space:pre-wrap;">{{ $preview->body }}</div>

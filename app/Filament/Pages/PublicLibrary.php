@@ -126,7 +126,13 @@ class PublicLibrary extends Page
 
         if ($this->officialOnly) {
             $officialId = User::where('email', PublicContentBlock::OFFICIAL_EMAIL)->value('id');
-            $query->where('user_id', $officialId);
+            $query->where(function ($query) use ($officialId): void {
+                if ($officialId) {
+                    $query->where('user_id', $officialId);
+                }
+
+                $query->orWhere('source_note', PublicContentBlock::OFFICIAL_SOURCE_NOTE);
+            });
         }
 
         switch ($this->sort) {
