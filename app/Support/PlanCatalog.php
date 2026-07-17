@@ -9,17 +9,27 @@ use Throwable;
 class PlanCatalog
 {
     public const MODULE_PROJECTS = 'projects';
+
     public const MODULE_WRITING = 'writing';
+
     public const MODULE_DOCUMENTS = 'documents';
+
     public const MODULE_PARTICIPANTS = 'participants';
+
     public const MODULE_BUDGET = 'budget';
+
     public const MODULE_PUBLIC_LIBRARY = 'public_library';
+
     public const MODULE_CONTENT_LIBRARY = 'content_library';
+
     public const MODULE_TASKS = 'tasks';
-    public const MODULE_CURRENCIES = 'currencies';
+
     public const MODULE_CALCULATOR = 'calculator';
+
     public const MODULE_REPORTS = 'reports';
+
     public const MODULE_TEAM = 'team';
+
     public const MODULE_SETTINGS = 'settings';
 
     public static function plans(): array
@@ -155,7 +165,6 @@ class PlanCatalog
             self::MODULE_PUBLIC_LIBRARY => 'Public Library',
             self::MODULE_CONTENT_LIBRARY => 'Content Library',
             self::MODULE_TASKS => 'Tasks',
-            self::MODULE_CURRENCIES => 'Currencies',
             self::MODULE_CALCULATOR => 'Individual Support Calculator',
             self::MODULE_REPORTS => 'Reports',
             self::MODULE_TEAM => 'Team',

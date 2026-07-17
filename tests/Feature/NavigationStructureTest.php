@@ -2,16 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
-use App\Filament\Pages\ManageCurrencies;
 use App\Filament\Pages\NotificationPreferences;
-use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\PublicLibrary;
 use App\Filament\Pages\WorkspaceCalendar;
-use App\Filament\Pages\WorkspaceData;
-use App\Filament\Pages\WorkspaceReports;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
@@ -31,9 +28,6 @@ class NavigationStructureTest extends TestCase
         $this->assertSame(1, GlobalSearch::getNavigationSort());
         $this->assertNull(WorkspaceCalendar::getNavigationGroup());
         $this->assertSame(2, WorkspaceCalendar::getNavigationSort());
-        $this->assertNull(WorkspaceReports::getNavigationGroup());
-        $this->assertSame('Portfolio reports', WorkspaceReports::getNavigationLabel());
-        $this->assertSame(3, WorkspaceReports::getNavigationSort());
 
         $this->assertSame('Planning tools', ContentBlockResource::getNavigationGroup());
         $this->assertSame('Writing Library', ContentBlockResource::getNavigationLabel());
@@ -47,11 +41,6 @@ class NavigationStructureTest extends TestCase
         $this->assertSame('Moderation reports', PublicBlockReportResource::getNavigationLabel());
         $this->assertSame(40, PublicBlockReportResource::getNavigationSort());
 
-        $this->assertFalse(ManageCurrencies::shouldRegisterNavigation());
-        $this->assertFalse(WorkspaceData::shouldRegisterNavigation());
-        $this->assertSame('Account settings', WorkspaceData::getNavigationGroup());
-        $this->assertSame('Backup & exports', WorkspaceData::getNavigationLabel());
-        $this->assertSame(30, WorkspaceData::getNavigationSort());
         $this->assertFalse(DocumentTemplates::shouldRegisterNavigation());
         $this->assertSame('Account settings', DocumentTemplates::getNavigationGroup());
         $this->assertSame(35, DocumentTemplates::getNavigationSort());
@@ -68,7 +57,7 @@ class NavigationStructureTest extends TestCase
 
     public function test_individual_support_registers_for_active_client_accounts(): void
     {
-        $this->actingAs((new User())->forceFill([
+        $this->actingAs((new User)->forceFill([
             'name' => 'Client',
             'email' => 'client@example.test',
             'subscription_status' => 'active',

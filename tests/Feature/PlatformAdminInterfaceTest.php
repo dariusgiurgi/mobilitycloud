@@ -5,17 +5,14 @@ namespace Tests\Feature;
 use App\Filament\Pages\DocumentTemplates;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
-use App\Filament\Pages\ManageCurrencies;
 use App\Filament\Pages\MyTasks;
 use App\Filament\Pages\PublicLibrary;
 use App\Filament\Pages\WorkspaceCalendar;
-use App\Filament\Pages\WorkspaceData;
-use App\Filament\Pages\WorkspaceReports;
 use App\Filament\Resources\ContentBlocks\ContentBlockResource;
-use App\Filament\Resources\Projects\ProjectResource;
-use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
+use App\Filament\Resources\Projects\ProjectResource;
+use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Resources\PublicContentBlocks\PublicContentBlockResource;
 use App\Models\User;
 use App\Models\Workspace;
@@ -77,11 +74,8 @@ class PlatformAdminInterfaceTest extends TestCase
             GlobalSearch::class,
             MyTasks::class,
             WorkspaceCalendar::class,
-            WorkspaceReports::class,
             IndividualSupportCalculator::class,
             PublicLibrary::class,
-            ManageCurrencies::class,
-            WorkspaceData::class,
             DocumentTemplates::class,
         ] as $module) {
             $this->assertFalse($module::canAccess(), $module.' should be hidden from platform staff.');

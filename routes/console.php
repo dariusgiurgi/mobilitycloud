@@ -12,10 +12,6 @@ Schedule::command('tasks:send-reminders')
     ->dailyAt('08:00')
     ->withoutOverlapping();
 
-Schedule::command('subscriptions:send-alerts')
-    ->dailyAt('08:15')
-    ->withoutOverlapping();
-
 Schedule::command('project-payments:mark-overdue')
     ->dailyAt('08:30')
     ->withoutOverlapping();

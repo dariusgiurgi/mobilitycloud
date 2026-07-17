@@ -7,6 +7,7 @@ use App\Models\ParticipantAttachment;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Services\AccountWorkspaceService;
 use App\Services\WorkspaceBackupService;
 use App\Services\WorkspaceRestoreService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -109,17 +110,6 @@ class WorkspaceBackupTest extends TestCase
         unlink($archive);
     }
 
-    public function test_only_workspace_admins_can_download_a_backup(): void
-    {
-        $workspace = Workspace::create(['name' => 'Protected Backup']);
-        $viewer = User::factory()->create();
-        $workspace->users()->attach($viewer, ['role' => 'viewer']);
-
-        $this->actingAs($viewer)
-            ->get(route('workspaces.backup', $workspace))
-            ->assertForbidden();
-    }
-
     public function test_account_backup_contains_account_visible_projects_without_workspace_membership(): void
     {
         $owner = User::factory()->create();
@@ -139,7 +129,7 @@ class WorkspaceBackupTest extends TestCase
 
         $path = app(WorkspaceBackupService::class)->createForAccount(
             $owner,
-            app(\App\Services\AccountWorkspaceService::class)->ensureFor($owner),
+            app(AccountWorkspaceService::class)->ensureFor($owner),
         );
         $zip = new ZipArchive;
         $this->assertTrue($zip->open($path) === true);
