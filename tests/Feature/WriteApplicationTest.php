@@ -73,6 +73,31 @@ class WriteApplicationTest extends TestCase
             ->assertDontSee('Insert from library');
     }
 
+    public function test_already_approved_project_without_writing_structure_hides_review_sidebar(): void
+    {
+        [$workspace, $project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'status' => 'approved',
+            'approved_grant_amount' => 9900,
+            'approved_budget' => 9900,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_PENDING,
+        ]);
+
+        $this->actingAs($user);
+        Filament::setTenant($workspace);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Application not required')
+            ->assertSee('Writing is not required for this project')
+            ->assertSee('No submission checklist or quality score is shown')
+            ->assertDontSee('Official readiness')
+            ->assertDontSee('Submission checklist')
+            ->assertDontSee('Quality review')
+            ->assertDontSee('Start the application structure');
+    }
+
     public function test_official_youth_templates_are_versioned_and_action_specific(): void
     {
         $this->assertSame(2026, ApplicationTemplates::get('ka152')['call_year']);

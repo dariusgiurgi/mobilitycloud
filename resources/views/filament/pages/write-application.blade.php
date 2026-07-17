@@ -16,6 +16,7 @@
         $sectionsWithTables = $this->getSectionsWithTables();
         $activityFlowSummary = $this->getActivityFlowSummary();
         $activityFlowReview = $this->getActivityFlowReview();
+        $writingNotRequired = ! $record->isWritingStage() && $sections->isEmpty();
     @endphp
 
     <style>
@@ -141,7 +142,12 @@
         @media (max-width:650px) { .mc-wa-outline-list { grid-template-columns:1fr; }.mc-template-stat-grid { grid-template-columns:1fr; }.mc-version-diff-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.mc-review-issue { grid-template-columns:1fr; }.mc-quality-criteria { grid-template-columns:1fr; } }
     </style>
 
-    @if(! $canManage && $record->canBeManagedBy(auth()->user()))
+    @if($writingNotRequired)
+        <div style="margin-bottom:1rem;padding:.9rem 1rem;border:1px solid rgba(16,185,129,.22);border-radius:.9rem;background:rgba(16,185,129,.08);color:#047857;font-size:.82rem;line-height:1.55;">
+            <strong>Application not required.</strong>
+            This project was started directly as an approved project, so there is no Writing draft to review. Use the management modules for budget, participants, documents and mobility evidence.
+        </div>
+    @elseif(! $canManage && $record->canBeManagedBy(auth()->user()))
         <div style="margin-bottom:1rem;padding:.9rem 1rem;border:1px solid rgba(59,130,246,.22);border-radius:.9rem;background:rgba(59,130,246,.08);color:#1d4ed8;font-size:.82rem;line-height:1.55;">
             <strong>Application locked.</strong>
             This project is no longer in the writing/revision stage, so the application is read-only. Use the management modules after approval for budget, participants, documents and mobility evidence.
@@ -211,7 +217,7 @@
         </div>
     </x-filament::section>
 
-    <div class="mc-wa-layout {{ $writingMode === 'focus' ? 'mc-wa-layout-focus' : '' }}">
+    <div class="mc-wa-layout {{ $writingMode === 'focus' || $writingNotRequired ? 'mc-wa-layout-focus' : '' }}">
         <main class="mc-wa-main-scroll">
 
     @if($writingMode === 'focus')
@@ -261,10 +267,16 @@
 
     @if($sections->isEmpty())
         <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
-            <x-filament::icon icon="heroicon-o-document-plus" class="mx-auto h-10 w-10 text-gray-400" />
-            <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.65rem 0 .25rem;">Start the application structure</h3>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;line-height:1.55;margin:0 auto {{ $canManage ? '1rem' : '0' }};max-width:34rem;">Choose an official KA template to load the correct application questions, or add a free section for a manual/internal project.</p>
-            @if($canManage)
+            <x-filament::icon :icon="$writingNotRequired ? 'heroicon-o-check-circle' : 'heroicon-o-document-plus'" class="mx-auto h-10 w-10 {{ $writingNotRequired ? 'text-success-500' : 'text-gray-400' }}" />
+            <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.65rem 0 .25rem;">{{ $writingNotRequired ? 'Writing is not required for this project' : 'Start the application structure' }}</h3>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;line-height:1.55;margin:0 auto {{ $canManage && ! $writingNotRequired ? '1rem' : '0' }};max-width:34rem;">
+                @if($writingNotRequired)
+                    This approved project can be managed directly through Budget, Participants, Documents and Mobility. No submission checklist or quality score is shown because there is no application draft in this project.
+                @else
+                    Choose an official KA template to load the correct application questions, or add a free section for a manual/internal project.
+                @endif
+            </p>
+            @if($canManage && ! $writingNotRequired)
                 <div style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;">
                     <x-filament::button wire:click="openTemplateDetails" icon="heroicon-o-squares-2x2">
                         Open Template manager
@@ -517,7 +529,7 @@
 
         </main>
 
-        @if($writingMode !== 'focus')
+        @if($writingMode !== 'focus' && ! $writingNotRequired)
         <aside class="mc-wa-sidebar">
             <div class="mc-wa-sidecard">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;">
