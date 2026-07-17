@@ -9,6 +9,7 @@ use App\Models\ProjectInvitation;
 use App\Services\ProjectInvitationNotificationService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +25,9 @@ class ProjectInvitationController extends Controller
 
         abort_unless($invitation->isPending(), 410, 'This invitation has expired or was already used.');
 
-        if (! $request->user()) {
+        $user = $request->user();
+
+        if (! $user) {
             $request->session()->put('url.intended', route('project-invitations.accept', $invitation->token));
 
             return redirect()
@@ -32,21 +35,29 @@ class ProjectInvitationController extends Controller
                 ->with('status', 'Sign in or create an account with '.$invitation->email.' to accept the project invitation.');
         }
 
-        if ($request->user()->is_suspended) {
+        if ($user->is_suspended) {
             return redirect()->route('account.suspended');
         }
 
-        abort_unless(strcasecmp($request->user()->email, $invitation->email) === 0, 403, 'Sign in with the email address that received this invitation.');
+        abort_unless(strcasecmp($user->email, $invitation->email) === 0, 403, 'Sign in with the email address that received this invitation.');
+
+        if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
+            $request->session()->put('url.intended', route('project-invitations.accept', $invitation->token));
+            $user->sendEmailVerificationNotification();
+
+            return redirect()->route('verification.notice')
+                ->with('status', 'verification-link-sent');
+        }
 
         abort_unless($invitation->project_id && str_starts_with($invitation->role, 'project_'), 410, 'This invitation type is no longer supported.');
         abort_if(! $invitation->project, 410, 'This project invitation is no longer available because the project was removed.');
 
-        DB::transaction(function () use ($request, $invitation): void {
+        DB::transaction(function () use ($invitation, $user): void {
             $projectRole = str($invitation->role)->after('project_')->toString();
             $projectRole = array_key_exists($projectRole, Project::projectRoleOptions()) ? $projectRole : Project::PROJECT_ROLE_EDITOR;
 
             $invitation->project?->members()->syncWithoutDetaching([
-                $request->user()->id => ['role' => $projectRole],
+                $user->id => ['role' => $projectRole],
             ]);
 
             Notification::make()
@@ -58,18 +69,18 @@ class ProjectInvitationController extends Controller
                         ->label('Open project')
                         ->button()
                         ->markAsRead()
-                        ->url(ProjectResource::projectUrl($invitation->project, 'overview', $request->user())),
+                        ->url(ProjectResource::projectUrl($invitation->project, 'overview', $user)),
                 ])
-                ->sendToDatabase($request->user(), isEventDispatched: true);
+                ->sendToDatabase($user, isEventDispatched: true);
 
-            app(ProjectInvitationNotificationService::class)->markAccepted($invitation, $request->user());
+            app(ProjectInvitationNotificationService::class)->markAccepted($invitation, $user);
 
             $invitation->accepted_at = now();
             $invitation->save();
         });
 
         if ($invitation->project) {
-            return redirect(ProjectResource::projectUrl($invitation->project, 'overview', $request->user()))
+            return redirect(ProjectResource::projectUrl($invitation->project, 'overview', $user))
                 ->with('status', 'You now have access to '.$invitation->project->name.'.');
         }
 

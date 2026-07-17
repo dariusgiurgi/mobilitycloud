@@ -6,6 +6,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Models\Contracts\FilamentUser;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
@@ -33,6 +34,15 @@ class AuthenticateFilamentUser extends Authenticate
             throw new HttpResponseException(redirect()->route('account.suspended'));
         }
 
+        if (
+            $user instanceof MustVerifyEmail
+            && ! $user->hasVerifiedEmail()
+            && ! $request->routeIs('filament.admin.auth.logout')
+            && ! $request->routeIs('filament.platform.auth.logout')
+        ) {
+            throw new HttpResponseException(redirect()->route('verification.notice'));
+        }
+
         $panel = Filament::getCurrentOrDefaultPanel();
 
         if (
@@ -51,5 +61,4 @@ class AuthenticateFilamentUser extends Authenticate
             403,
         );
     }
-
 }

@@ -11,6 +11,8 @@ use App\Http\Middleware\RedirectSuspendedAccount;
 use App\Models\User;
 use App\Support\AuthSessionHash;
 use App\Support\PlatformAudit;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +38,48 @@ Route::match(['GET', 'POST'], '/account-suspended/logout', function (Request $re
 
     return redirect()->route('filament.admin.auth.login');
 })->name('account.suspended.logout');
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('/email/verify', function (Request $request) {
+        $user = $request->user();
+
+        if ($user instanceof MustVerifyEmail && $user->hasVerifiedEmail()) {
+            return redirect()->intended(Dashboard::getUrl(panel: $user instanceof User && $user->isPlatformAdmin() ? 'platform' : 'admin'));
+        }
+
+        return view('auth.verify-email', [
+            'email' => $user?->email,
+        ]);
+    })->name('verification.notice');
+
+    Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
+        $request->fulfill();
+
+        $user = $request->user();
+
+        return redirect()->intended(Dashboard::getUrl(panel: $user instanceof User && $user->isPlatformAdmin() ? 'platform' : 'admin'))
+            ->with('status', 'Your email address has been verified.');
+    })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
+
+    Route::post('/email/verification-notification', function (Request $request) {
+        $user = $request->user();
+
+        if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return back()->with('status', 'verification-link-sent');
+    })->middleware('throttle:6,1')->name('verification.send');
+
+    Route::match(['GET', 'POST'], '/email/verify/logout', function (Request $request) {
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('filament.admin.auth.login');
+    })->name('verification.logout');
+});
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->get('/app/onboarding', function (Request $request) {
     $user = $request->user();
