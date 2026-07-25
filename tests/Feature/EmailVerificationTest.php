@@ -113,6 +113,26 @@ class EmailVerificationTest extends TestCase
         $this->assertNotNull($otherUser->fresh()->email_verified_at);
     }
 
+    public function test_filament_verification_link_marks_the_signed_in_account_as_verified(): void
+    {
+        $user = User::factory()->unverified()->create(['email' => 'filament-link@example.test']);
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'filament.admin.auth.email-verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $user->id,
+                'hash' => sha1($user->getEmailForVerification()),
+            ],
+        );
+
+        $this->actingAs($user)
+            ->get($verificationUrl)
+            ->assertRedirect(Dashboard::getUrl(panel: 'admin'));
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
     public function test_unverified_invited_account_must_verify_email_before_accepting_project_access(): void
     {
         Notification::fake();

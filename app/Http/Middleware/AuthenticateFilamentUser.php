@@ -39,6 +39,8 @@ class AuthenticateFilamentUser extends Authenticate
             && ! $user->hasVerifiedEmail()
             && ! $request->routeIs('filament.admin.auth.logout')
             && ! $request->routeIs('filament.platform.auth.logout')
+            && ! $request->routeIs('filament.admin.auth.email-verification.*')
+            && ! $request->routeIs('filament.platform.auth.email-verification.*')
         ) {
             throw new HttpResponseException(redirect()->route('verification.notice'));
         }
