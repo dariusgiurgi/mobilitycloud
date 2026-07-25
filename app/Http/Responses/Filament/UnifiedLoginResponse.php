@@ -28,6 +28,10 @@ class UnifiedLoginResponse implements LoginResponse
             app(ProjectInvitationNotificationService::class)->syncPendingFor($user);
 
             if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
+                if ($this->intendedUrlIsEmailVerification($request)) {
+                    return redirect()->intended(route('verification.notice'));
+                }
+
                 $user->sendEmailVerificationNotification();
 
                 return redirect()->route('verification.notice')
@@ -42,5 +46,23 @@ class UnifiedLoginResponse implements LoginResponse
         }
 
         return redirect()->route('filament.admin.pages.dashboard');
+    }
+
+    private function intendedUrlIsEmailVerification($request): bool
+    {
+        $intended = (string) $request->session()->get('url.intended', '');
+
+        if ($intended === '') {
+            return false;
+        }
+
+        $path = parse_url($intended, PHP_URL_PATH);
+
+        return is_string($path)
+            && (
+                str_contains($path, '/email/verify/')
+                || str_contains($path, '/app/email-verification/verify/')
+                || str_contains($path, '/platform/email-verification/verify/')
+            );
     }
 }

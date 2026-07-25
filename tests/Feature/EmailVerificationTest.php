@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Http\Responses\Filament\UnifiedLoginResponse;
 use App\Models\Project;
 use App\Models\ProjectInvitation;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -131,6 +133,35 @@ class EmailVerificationTest extends TestCase
             ->assertRedirect(Dashboard::getUrl(panel: 'admin'));
 
         $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
+    public function test_login_from_a_verification_link_continues_without_sending_another_verification_email(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->unverified()->create(['email' => 'login-from-link@example.test']);
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'filament.admin.auth.email-verification.verify',
+            now()->addMinutes(60),
+            [
+                'id' => $user->id,
+                'hash' => sha1($user->getEmailForVerification()),
+            ],
+        );
+
+        $this->actingAs($user);
+
+        $request = Request::create('/app/login', 'POST');
+        $request->setLaravelSession(app('session.store'));
+        $request->session()->put('url.intended', $verificationUrl);
+        $request->setUserResolver(fn (): User => $user);
+
+        $response = app(UnifiedLoginResponse::class)->toResponse($request);
+
+        $this->assertSame($verificationUrl, $response->getTargetUrl());
+        Notification::assertNotSentTo($user, VerifyEmail::class);
+        $this->assertNull($user->fresh()->email_verified_at);
     }
 
     public function test_unverified_invited_account_must_verify_email_before_accepting_project_access(): void
