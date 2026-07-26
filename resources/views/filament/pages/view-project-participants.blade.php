@@ -444,17 +444,15 @@
                             <span class="text-gray-700 dark:text-gray-200" style="font-size:12px;font-weight:600;min-width:150px;">{{ $typeLabel }}</span>
 
                             @if($att)
-                                <a href="{{ route('attachments.participants.download', $att) }}" target="_blank"
-                                   class="text-gray-500 dark:text-gray-400"
-                                   style="font-size:12px;text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
-                                   title="{{ $att->original_name }}">
-                                    📄 {{ \Illuminate\Support\Str::afterLast($att->path, '/') }} <span style="opacity:.6;">({{ $att->humanSize() }})</span>
-                                </a>
-                                @if($canManage)
-                                <button type="button" wire:click="deleteAttachment({{ $att->id }})"
-                                        title="Remove" style="border:none;background:transparent;cursor:pointer;color:#9ca3af;font-size:14px;"
-                                        onmouseover="this.style.color='#dc2626';" onmouseout="this.style.color='#9ca3af';">✕</button>
-                                @endif
+                                <span style="flex:1;min-width:0;">
+                                    @include('filament.pages.partials.file-mini-chip', [
+                                        'name' => $att->original_name ?: \Illuminate\Support\Str::afterLast($att->path, '/'),
+                                        'url' => route('attachments.participants.download', $att),
+                                        'size' => $att->humanSize(),
+                                        'deleteAction' => $canManage ? 'deleteAttachment('.$att->id.')' : null,
+                                        'deleteTitle' => 'Remove',
+                                    ])
+                                </span>
                             @else
                                 <span class="text-gray-400" style="font-size:12px;flex:1;">— not uploaded</span>
                             @endif

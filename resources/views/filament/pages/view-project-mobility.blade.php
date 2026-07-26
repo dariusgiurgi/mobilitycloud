@@ -168,38 +168,15 @@
                         @endif
 
                         @if($orgEvidence->isNotEmpty())
-                            <div style="display:grid;gap:.65rem;margin-top:.75rem;">
-                                @if($orgImages->isNotEmpty())
-                                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.5rem;">
-                                        @foreach($orgImages->take(6) as $evidence)
-                                            <div style="position:relative;border-radius:.7rem;overflow:hidden;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.04);aspect-ratio:4/3;">
-                                                <img src="{{ route('project-documents.file', [$record, $evidence, 'preview' => 1]) }}"
-                                                     alt="{{ $evidence->file_name ?: $evidence->title }}"
-                                                     loading="lazy"
-                                                     style="width:100%;height:100%;object-fit:cover;display:block;">
-                                                <a href="{{ route('project-documents.file', [$record, $evidence]) }}"
-                                                   title="Download {{ $evidence->file_name ?: $evidence->title }}"
-                                                   style="position:absolute;right:.32rem;top:.32rem;width:1.65rem;height:1.65rem;border-radius:.5rem;background:rgba(15,23,42,.72);color:white;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 20px rgba(15,23,42,.22);">
-                                                    <x-filament::icon icon="heroicon-m-arrow-down-tray" class="h-4 w-4" />
-                                                </a>
-                                                <div style="position:absolute;left:0;right:0;bottom:0;padding:.4rem .45rem;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.72));color:white;font-size:.58rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                    {{ $evidence->file_name ?: $evidence->title }}
-                                                </div>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
-
-                                @if($orgFiles->isNotEmpty())
-                                    <div style="display:grid;gap:.35rem;">
-                                        @foreach($orgFiles->take(5) as $evidence)
-                                            <div style="display:flex;align-items:center;gap:.5rem;justify-content:space-between;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;padding:.45rem .55rem;">
-                                                <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $evidence->file_name ?: $evidence->title }}</span>
-                                                <x-filament::button tag="a" :href="route('project-documents.file', [$record, $evidence])" color="gray" size="xs" icon="heroicon-m-arrow-down-tray">Download</x-filament::button>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.6rem;margin-top:.75rem;">
+                                @foreach($orgEvidence->take(12) as $evidence)
+                                    @include('filament.pages.partials.project-file-card', [
+                                        'record' => $record,
+                                        'document' => $evidence,
+                                        'compact' => true,
+                                        'showDelete' => false,
+                                    ])
+                                @endforeach
                             </div>
                         @endif
                     </div>
@@ -229,37 +206,24 @@
                     </div>
                 </div>
 
-                @forelse($materialDocuments as $document)
-                    <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:.9rem 1rem;display:flex;align-items:center;gap:.85rem;flex-wrap:wrap;margin-top:.55rem;">
-                        <div style="width:36px;height:36px;border-radius:.7rem;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;flex:none;">
-                            <x-filament::icon icon="heroicon-m-document" class="h-5 w-5 text-primary-600" />
-                        </div>
-                        <div style="flex:1;min-width:220px;">
-                            <div class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:750;">{{ $document->title }}</div>
-                            <div class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.14rem;">
-                                {{ $document->categoryLabel() }}
-                                @if($document->document_date) · {{ $document->document_date->format('d M Y') }} @endif
-                                @if($document->file_name) · {{ $document->file_name }} ({{ $document->humanFileSize() }}) @endif
-                            </div>
-                            @if($document->notes)
-                                <div class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.25rem;line-height:1.4;">{{ $document->notes }}</div>
-                            @endif
-                        </div>
-                        <x-filament::badge color="gray">{{ $document->categoryLabel() }}</x-filament::badge>
-                        <x-filament::button tag="a" :href="route('project-documents.file', [$record, $document])" color="gray" size="sm" icon="heroicon-m-arrow-down-tray">
-                            Download
-                        </x-filament::button>
-                        @if($record->canBeManagedBy(auth()->user()))
-                            <x-filament::icon-button wire:click="deleteMobilityDocument({{ $document->id }})" wire:confirm="Delete this mobility file?" icon="heroicon-m-trash" color="danger" label="Delete mobility file" />
-                        @endif
+                @if($materialDocuments->isNotEmpty())
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:.75rem;">
+                        @foreach($materialDocuments as $document)
+                            @include('filament.pages.partials.project-file-card', [
+                                'record' => $record,
+                                'document' => $document,
+                                'deleteMethod' => 'deleteMobilityDocument',
+                                'deleteConfirm' => 'Delete this mobility file?',
+                            ])
+                        @endforeach
                     </div>
-                @empty
+                @else
                     <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2rem;text-align:center;">
                         <x-filament::icon icon="heroicon-o-folder-open" class="mx-auto h-10 w-10 text-gray-400" />
                         <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.5rem 0 .25rem;">No materials uploaded yet</h3>
                         <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;line-height:1.55;margin:0 auto;max-width:34rem;">Upload agendas, worksheets, participant outputs, presentations or certificates.</p>
                     </div>
-                @endforelse
+                @endif
             </x-filament::section>
 
             @if($record->canBeManagedBy(auth()->user()))
@@ -443,43 +407,18 @@
                                 @endif
 
                                 @if($dayImages->isNotEmpty() || $dayFiles->isNotEmpty())
-                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:.65rem;margin-top:.85rem;">
-                                        @if($dayImages->isNotEmpty())
-                                            <div style="border:1px solid rgba(148,163,184,.18);border-radius:.75rem;padding:.65rem;">
-                                                <strong style="font-size:.75rem;">Images</strong>
-                                                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.55rem;margin-top:.45rem;">
-                                                    @foreach($dayImages->take(8) as $image)
-                                                        <div style="position:relative;border-radius:.7rem;overflow:hidden;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.04);aspect-ratio:4/3;">
-                                                            <img src="{{ route('project-documents.file', [$record, $image, 'preview' => 1]) }}"
-                                                                 alt="{{ $image->file_name ?: $image->title }}"
-                                                                 loading="lazy"
-                                                                 style="width:100%;height:100%;object-fit:cover;display:block;">
-                                                            <a href="{{ route('project-documents.file', [$record, $image]) }}"
-                                                               title="Download {{ $image->file_name ?: $image->title }}"
-                                                               style="position:absolute;right:.35rem;top:.35rem;width:1.75rem;height:1.75rem;border-radius:.55rem;background:rgba(15,23,42,.72);color:white;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 20px rgba(15,23,42,.22);">
-                                                                <x-filament::icon icon="heroicon-m-arrow-down-tray" class="h-4 w-4" />
-                                                            </a>
-                                                            <div style="position:absolute;left:0;right:0;bottom:0;padding:.45rem .5rem;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.72));color:white;font-size:.62rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                                                {{ $image->file_name ?: $image->title }}
-                                                            </div>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        @endif
-                                        @if($dayFiles->isNotEmpty())
-                                            <div style="border:1px solid rgba(148,163,184,.18);border-radius:.75rem;padding:.65rem;">
-                                                <strong style="font-size:.75rem;">Files</strong>
-                                                <div style="display:grid;gap:.35rem;margin-top:.45rem;">
-                                                    @foreach($dayFiles->take(8) as $file)
-                                                        <div style="display:flex;align-items:center;justify-content:space-between;gap:.45rem;">
-                                                            <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $file->file_name ?: $file->title }}</span>
-                                                            <x-filament::button tag="a" :href="route('project-documents.file', [$record, $file])" color="gray" size="xs" icon="heroicon-m-arrow-down-tray">Download</x-filament::button>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            </div>
-                                        @endif
+                                    <div style="margin-top:.85rem;">
+                                        <strong style="font-size:.75rem;">Files and images</strong>
+                                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.6rem;margin-top:.5rem;">
+                                            @foreach($dayImages->merge($dayFiles)->take(16) as $file)
+                                                @include('filament.pages.partials.project-file-card', [
+                                                    'record' => $record,
+                                                    'document' => $file,
+                                                    'compact' => true,
+                                                    'showDelete' => false,
+                                                ])
+                                            @endforeach
+                                        </div>
                                     </div>
                                 @endif
                                 </div>

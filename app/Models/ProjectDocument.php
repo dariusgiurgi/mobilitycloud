@@ -88,13 +88,57 @@ class ProjectDocument extends Model
 
     public function isImageFile(): bool
     {
-        $name = strtolower((string) ($this->file_name ?: $this->file_path));
+        return in_array($this->fileExtension(), ['jpg', 'jpeg', 'png', 'webp', 'gif'], true);
+    }
 
-        return str_ends_with($name, '.jpg')
-            || str_ends_with($name, '.jpeg')
-            || str_ends_with($name, '.png')
-            || str_ends_with($name, '.webp')
-            || str_ends_with($name, '.gif');
+    public function fileExtension(): string
+    {
+        $name = strtolower((string) ($this->file_name ?: $this->file_path ?: $this->signed_name ?: $this->signed_path));
+
+        return trim((string) pathinfo($name, PATHINFO_EXTENSION));
+    }
+
+    public function fileKind(): string
+    {
+        if ($this->type === self::TYPE_ATTENDANCE || $this->type === self::TYPE_EXPENSE_REPORT) {
+            return 'pdf';
+        }
+
+        return match ($this->fileExtension()) {
+            'jpg', 'jpeg', 'png', 'webp', 'gif' => 'image',
+            'pdf' => 'pdf',
+            'doc', 'docx', 'odt', 'rtf' => 'word',
+            'xls', 'xlsx', 'csv', 'ods' => 'excel',
+            'ppt', 'pptx', 'odp' => 'powerpoint',
+            'zip', 'rar', '7z' => 'archive',
+            default => 'file',
+        };
+    }
+
+    public function fileBadgeLabel(): string
+    {
+        return match ($this->fileKind()) {
+            'image' => 'IMG',
+            'pdf' => 'PDF',
+            'word' => 'W',
+            'excel' => 'E',
+            'powerpoint' => 'P',
+            'archive' => 'ZIP',
+            default => strtoupper($this->fileExtension() ?: 'FILE'),
+        };
+    }
+
+    public function fileAccent(): string
+    {
+        return match ($this->fileKind()) {
+            'image' => '#2563eb',
+            'pdf' => '#dc2626',
+            'word' => '#2563eb',
+            'excel' => '#16a34a',
+            'powerpoint' => '#ea580c',
+            'archive' => '#7c3aed',
+            default => '#64748b',
+        };
     }
 
     public function statusLabel(): string

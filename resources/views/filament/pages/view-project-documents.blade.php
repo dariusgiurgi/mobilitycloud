@@ -420,22 +420,21 @@
 
                     <div style="margin-top:.85rem;border-top:1px solid rgba(148,163,184,.16);padding-top:.7rem;">
                         <div class="text-gray-950 dark:text-white" style="font-size:.72rem;font-weight:750;margin-bottom:.35rem;">Evidence files</div>
-                        @forelse($orgEvidence as $document)
-                            <div style="display:flex;align-items:center;justify-content:space-between;gap:.65rem;padding:.45rem 0;border-top:1px solid rgba(148,163,184,.12);">
-                                <div style="min-width:0;">
-                                    <div class="text-gray-950 dark:text-white" style="font-size:.74rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $document->file_name ?: $document->title }}</div>
-                                    <div class="text-gray-500 dark:text-gray-400" style="font-size:.64rem;margin-top:.08rem;">{{ $document->document_date?->format('d M Y') ?? $document->created_at?->format('d M Y') }} · {{ $document->humanFileSize() }}</div>
-                                </div>
-                                <div style="display:flex;gap:.25rem;align-items:center;flex:none;">
-                                    <x-filament::icon-button tag="a" :href="route('project-documents.file', [$record, $document])" icon="heroicon-m-arrow-down-tray" color="gray" size="sm" label="Download evidence" />
-                                    @if($record->canBeManagedBy(auth()->user()))
-                                        <x-filament::icon-button wire:click="deleteDocument({{ $document->id }})" wire:confirm="Delete this dissemination evidence file?" icon="heroicon-m-trash" color="danger" size="sm" label="Delete evidence" />
-                                    @endif
-                                </div>
+                        @if($orgEvidence->isNotEmpty())
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:.65rem;">
+                                @foreach($orgEvidence as $document)
+                                    @include('filament.pages.partials.project-file-card', [
+                                        'record' => $record,
+                                        'document' => $document,
+                                        'compact' => true,
+                                        'deleteMethod' => 'deleteDocument',
+                                        'deleteConfirm' => 'Delete this dissemination evidence file?',
+                                    ])
+                                @endforeach
                             </div>
-                        @empty
+                        @else
                             <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;line-height:1.45;">No evidence uploaded for this organisation yet.</p>
-                        @endforelse
+                        @endif
                     </div>
                 </div>
             @endforeach
@@ -487,82 +486,14 @@
             @endif
         </div>
     @else
-        <div style="display:flex;flex-direction:column;gap:.75rem;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:.8rem;">
             @foreach($documents as $document)
-                <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-                     style="padding:1rem 1.1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-                    <div style="width:34px;height:34px;border-radius:8px;background:rgba(99,102,241,.08);display:flex;align-items:center;justify-content:center;flex:none;">
-                        <x-filament::icon :icon="$document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? 'heroicon-m-clipboard-document-list' : ($document->type === \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT ? 'heroicon-m-chart-bar-square' : 'heroicon-m-document')" class="h-5 w-5 text-primary-600" />
-                    </div>
-                    <div style="flex:1;min-width:220px;">
-                        <div class="text-gray-950 dark:text-white" style="font-size:14px;font-weight:700;">{{ $document->title }}</div>
-                        @if($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE)
-                            <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
-                                Attendance · {{ $document->activity_date?->format('d M Y') }}
-                                @if($document->location) · {{ $document->location }} @endif
-                                · Generated {{ $document->generated_at?->format('d M Y, H:i') }}
-                            </div>
-                        @elseif($document->type === \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT)
-                            <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
-                                Expense report · {{ (int) data_get($document->metadata, 'expense_count', 0) }} records
-                                · {{ number_format((float) data_get($document->metadata, 'total_eur', 0), 2) }} EUR
-                                · Generated {{ $document->generated_at?->format('d M Y, H:i') }}
-                            </div>
-                            @if($document->notes)
-                                <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:4px;">{{ $document->notes }}</div>
-                            @endif
-                        @else
-                            <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:3px;">
-                                {{ $document->categoryLabel() }}
-                                @if($document->category === 'dissemination_evidence' && data_get($document->metadata, 'organisation_name'))
-                                    · {{ data_get($document->metadata, 'organisation_name') }}
-                                @endif
-                                @if($document->document_date) · {{ $document->document_date->format('d M Y') }} @endif
-                                @if($document->file_name) · {{ $document->file_name }} ({{ $document->humanFileSize() }}) @endif
-                            </div>
-                            @if($document->notes)
-                                <div class="text-gray-500 dark:text-gray-400" style="font-size:11px;margin-top:4px;">{{ $document->notes }}</div>
-                            @endif
-                        @endif
-                    </div>
-
-                    @if(in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true))
-                        <x-filament::badge :color="$document->hasSignedCopy() ? 'success' : 'warning'">{{ $document->statusLabel() }}</x-filament::badge>
-                    @else
-                        <x-filament::badge color="gray">{{ $document->categoryLabel() }}</x-filament::badge>
-                    @endif
-
-                    @if($record->canBeManagedBy(auth()->user()) && in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true) && ! $document->hasSignedCopy())
-                        <x-filament::button wire:click="openSignedUpload({{ $document->id }})" color="warning" size="sm" icon="heroicon-m-arrow-up-tray">
-                            Upload signed copy
-                        </x-filament::button>
-                    @endif
-
-                    <x-filament::dropdown placement="bottom-end" width="xs">
-                        <x-slot name="trigger">
-                            <x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" label="Document actions" />
-                        </x-slot>
-                        <x-filament::dropdown.list>
-                            @if(in_array($document->type, [\App\Models\ProjectDocument::TYPE_ATTENDANCE, \App\Models\ProjectDocument::TYPE_EXPENSE_REPORT], true))
-                                <x-filament::dropdown.list.item tag="a" :href="route($document->type === \App\Models\ProjectDocument::TYPE_ATTENDANCE ? 'project-documents.attendance' : 'project-documents.expense-report', [$record, $document])" icon="heroicon-m-arrow-down-tray">Download generated PDF</x-filament::dropdown.list.item>
-                                @if($document->hasSignedCopy())
-                                    <x-filament::dropdown.list.item tag="a" :href="route('project-documents.signed', [$record, $document])" icon="heroicon-m-check-badge">Download signed copy</x-filament::dropdown.list.item>
-                                @endif
-                                @if($record->canBeManagedBy(auth()->user()))
-                                    <x-filament::dropdown.list.item wire:click="openSignedUpload({{ $document->id }})" icon="heroicon-m-arrow-up-tray">{{ $document->hasSignedCopy() ? 'Replace signed copy' : 'Upload signed copy' }}</x-filament::dropdown.list.item>
-                                    @if($document->hasSignedCopy())
-                                        <x-filament::dropdown.list.item wire:click="deleteSignedCopy({{ $document->id }})" wire:confirm="Remove the signed copy?" color="danger" icon="heroicon-m-trash">Remove signed copy</x-filament::dropdown.list.item>
-                                    @endif
-                                @endif
-                            @else
-                                <x-filament::dropdown.list.item tag="a" :href="route('project-documents.file', [$record, $document])" icon="heroicon-m-arrow-down-tray">Download file</x-filament::dropdown.list.item>
-                            @endif
-                            @if($record->canBeManagedBy(auth()->user()))
-                                <x-filament::dropdown.list.item wire:click="deleteDocument({{ $document->id }})" wire:confirm="Delete this document and its stored files?" color="danger" icon="heroicon-m-trash">Delete document</x-filament::dropdown.list.item>
-                            @endif
-                        </x-filament::dropdown.list>
-                    </x-filament::dropdown>
-                </div>
+                @include('filament.pages.partials.project-file-card', [
+                    'record' => $record,
+                    'document' => $document,
+                    'deleteMethod' => 'deleteDocument',
+                    'deleteConfirm' => 'Delete this document and its stored files?',
+                ])
             @endforeach
         </div>
     @endif
