@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use App\Models\ProjectModuleLock;
 use App\Models\User;
 use App\Services\ProjectFinalArchiveService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -120,7 +121,8 @@ class ProjectMobilityTest extends TestCase
             ->set('evidenceDays.'.$dayId.'.description', 'Participants arrived, worked in mixed teams and created first outputs.')
             ->set('evidenceDays.'.$dayId.'.observations', 'The programme started 30 minutes later because of airport transfers.')
             ->call('addEvidenceLink', $dayId)
-            ->assertSet('evidenceUploadDayId', $dayId.'_open')
+            ->assertSet('openEvidenceDays.'.$dayId, true)
+            ->assertSet('evidenceUploadDayId', null)
             ->assertSee('Changes save automatically.')
             ->assertSee('Facebook');
 
@@ -129,7 +131,8 @@ class ProjectMobilityTest extends TestCase
         $component
             ->set('evidenceDays.'.$dayId.'.links.0.label', 'Facebook')
             ->set('evidenceDays.'.$dayId.'.links.0.url', 'https://facebook.com/example-post')
-            ->assertSet('evidenceUploadDayId', $dayId.'_open')
+            ->assertSet('openEvidenceDays.'.$dayId, true)
+            ->assertSet('evidenceUploadDayId', null)
             ->call('prepareEvidenceImageUpload', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_images')
             ->set('evidenceImageTitle', 'Workshop photo evidence')
@@ -139,7 +142,8 @@ class ProjectMobilityTest extends TestCase
                 UploadedFile::fake()->image('presentation.png'),
             ])
             ->call('uploadEvidenceImages', $dayId)
-            ->assertSet('evidenceUploadDayId', $dayId.'_open')
+            ->assertSet('openEvidenceDays.'.$dayId, true)
+            ->assertSet('evidenceUploadDayId', null)
             ->call('prepareEvidenceFileUpload', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_files')
             ->set('evidenceFileTitle', 'Participant files')
@@ -149,7 +153,8 @@ class ProjectMobilityTest extends TestCase
                 UploadedFile::fake()->create('presentation.pptx', 90, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'),
             ])
             ->call('uploadEvidenceFiles', $dayId)
-            ->assertSet('evidenceUploadDayId', $dayId.'_open')
+            ->assertSet('openEvidenceDays.'.$dayId, true)
+            ->assertSet('evidenceUploadDayId', null)
             ->assertHasNoErrors();
 
         $project->refresh();
@@ -194,13 +199,133 @@ class ProjectMobilityTest extends TestCase
 
         $component
             ->call('addEvidenceLink', $dayId)
-            ->assertSet('evidenceUploadDayId', $dayId.'_open');
+            ->assertSet('openEvidenceDays.'.$dayId, true)
+            ->assertSet('evidenceUploadDayId', null);
 
         $linkId = $component->instance()->evidenceDays[$dayId]['links'][0]['id'];
 
         $component
             ->call('removeEvidenceLink', $dayId, $linkId)
-            ->assertSet('evidenceUploadDayId', $dayId.'_open');
+            ->assertSet('openEvidenceDays.'.$dayId, true)
+            ->assertSet('evidenceUploadDayId', null);
+    }
+
+    public function test_multiple_evidence_days_can_be_collapsed_independently(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'evidences')
+            ->call('addEvidenceDay');
+
+        $firstDayId = array_key_first($component->instance()->evidenceDays);
+
+        $component->call('addEvidenceDay');
+        $dayIds = array_keys($component->instance()->evidenceDays);
+        $secondDayId = collect($dayIds)->first(fn (string $dayId): bool => $dayId !== $firstDayId);
+
+        $component
+            ->assertSet('openEvidenceDays.'.$firstDayId, true)
+            ->assertSet('openEvidenceDays.'.$secondDayId, true)
+            ->call('prepareEvidenceImageUpload', $firstDayId)
+            ->assertSet('evidenceUploadDayId', $firstDayId.'_images')
+            ->call('toggleEvidenceDay', $firstDayId)
+            ->assertSet('openEvidenceDays.'.$firstDayId, false)
+            ->assertSet('evidenceUploadDayId', null)
+            ->call('toggleEvidenceDay', $secondDayId)
+            ->assertSet('openEvidenceDays.'.$secondDayId, false)
+            ->assertSet('evidenceUploadDayId', null);
+    }
+
+    public function test_multiple_evidence_days_can_stay_collapsed_after_autosave(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'evidences')
+            ->call('addEvidenceDay');
+
+        $firstDayId = array_key_first($component->instance()->evidenceDays);
+
+        $component->call('addEvidenceDay');
+        $secondDayId = collect(array_keys($component->instance()->evidenceDays))
+            ->first(fn (string $dayId): bool => $dayId !== $firstDayId);
+
+        $component
+            ->set('evidenceDays.'.$firstDayId.'.description', 'First autosaved text')
+            ->set('evidenceDays.'.$secondDayId.'.description', 'Second autosaved text')
+            ->call('toggleEvidenceDay', $firstDayId)
+            ->call('toggleEvidenceDay', $secondDayId)
+            ->assertSet('openEvidenceDays.'.$firstDayId, false)
+            ->assertSet('openEvidenceDays.'.$secondDayId, false)
+            ->assertSet('evidenceUploadDayId', null)
+            ->assertDontSee('Changes save automatically.');
+    }
+
+    public function test_legacy_evidence_day_open_marker_does_not_force_card_open(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'evidences')
+            ->call('addEvidenceDay');
+
+        $dayId = array_key_first($component->instance()->evidenceDays);
+
+        $component
+            ->set('openEvidenceDays.'.$dayId, false)
+            ->set('evidenceUploadDayId', $dayId.'_open')
+            ->assertDontSee('Changes save automatically.');
+    }
+
+    public function test_toggling_one_evidence_day_does_not_open_other_days(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'evidences')
+            ->call('addEvidenceDay');
+
+        $firstDayId = array_key_first($component->instance()->evidenceDays);
+
+        $component->call('addEvidenceDay');
+        $secondDayId = collect(array_keys($component->instance()->evidenceDays))
+            ->first(fn (string $dayId): bool => $dayId !== $firstDayId);
+
+        $component
+            ->call('toggleEvidenceDay', $firstDayId)
+            ->call('toggleEvidenceDay', $secondDayId)
+            ->assertSet('openEvidenceDays.'.$firstDayId, false)
+            ->assertSet('openEvidenceDays.'.$secondDayId, false)
+            ->call('toggleEvidenceDay', $firstDayId)
+            ->assertSet('openEvidenceDays.'.$firstDayId, true)
+            ->assertSet('openEvidenceDays.'.$secondDayId, false);
+    }
+
+    public function test_releasing_an_evidence_day_lock_does_not_change_collapsed_state(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+        $this->seedEvidenceDays($project);
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('toggleEvidenceDay', 'day_2')
+            ->assertSet('openEvidenceDays.day_1', null)
+            ->assertSet('openEvidenceDays.day_2', true)
+            ->call('startProjectEditing', 'mobility', 'evidence-day:day_1', 'Evidence day: Day 1')
+            ->call('stopProjectEditing', 'mobility', 'evidence-day:day_1')
+            ->assertSet('openEvidenceDays.day_1', null)
+            ->assertSet('openEvidenceDays.day_2', true);
+
+        $this->assertFalse(ProjectModuleLock::query()
+            ->where('project_id', $project->id)
+            ->where('module', 'mobility')
+            ->where('lock_key', 'evidence-day:day_1')
+            ->exists());
     }
 
     public function test_member_can_save_dissemination_report_and_upload_evidence_per_organisation_from_mobility(): void
@@ -345,6 +470,77 @@ class ProjectMobilityTest extends TestCase
             ->assertSet('evidenceDays.day_1.description', 'Updated from editor A');
     }
 
+    public function test_collaboration_refresh_does_not_overwrite_the_users_own_locked_evidence_day(): void
+    {
+        [$project, $editorA] = $this->projectAndUser();
+        $editorB = User::factory()->create();
+        $project->members()->attach($editorB, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $this->seedEvidenceDays($project);
+
+        $this->actingAs($editorA);
+        $editorAComponent = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('startProjectEditing', 'mobility', 'evidence-day:day_1', 'Evidence day: Day 1')
+            ->set('evidenceDays.day_1.description', 'Local draft from editor A');
+
+        $project->refresh();
+        $data = $project->action_data;
+        data_set($data, 'mobility.evidence_days.0.description', 'Remote saved text for day 1');
+        data_set($data, 'mobility.evidence_days.1.description', 'Remote saved text for day 2');
+        $project->update(['action_data' => $data]);
+
+        $editorAComponent
+            ->call('refreshProjectCollaboration', 'mobility')
+            ->assertSet('evidenceDays.day_1.description', 'Local draft from editor A')
+            ->assertSet('evidenceDays.day_2.description', 'Remote saved text for day 2');
+    }
+
+    public function test_stale_evidence_day_save_does_not_overwrite_another_day_saved_by_another_user(): void
+    {
+        [$project, $editorA] = $this->projectAndUser();
+        $editorB = User::factory()->create();
+        $project->members()->attach($editorB, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $this->seedEvidenceDays($project);
+
+        $this->actingAs($editorA);
+        $editorAComponent = Livewire::test(ViewProjectMobility::class, ['record' => $project->id]);
+
+        $this->actingAs($editorB);
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->set('evidenceDays.day_2.description', 'Editor B saved day 2');
+
+        $this->actingAs($editorA);
+        $editorAComponent
+            ->set('evidenceDays.day_1.description', 'Editor A saved day 1');
+
+        $project->refresh();
+        $this->assertSame('Editor A saved day 1', data_get($project->action_data, 'mobility.evidence_days.0.description'));
+        $this->assertSame('Editor B saved day 2', data_get($project->action_data, 'mobility.evidence_days.1.description'));
+    }
+
+    public function test_stale_mobility_report_save_preserves_fresh_evidence_day_changes(): void
+    {
+        [$project, $editorA] = $this->projectAndUser();
+        $editorB = User::factory()->create();
+        $project->members()->attach($editorB, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $this->seedEvidenceDays($project);
+
+        $this->actingAs($editorA);
+        $editorAComponent = Livewire::test(ViewProjectMobility::class, ['record' => $project->id]);
+
+        $this->actingAs($editorB);
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->set('evidenceDays.day_2.description', 'Fresh evidence text from editor B');
+
+        $this->actingAs($editorA);
+        $editorAComponent
+            ->set('mobilityReport', 'Editor A report text')
+            ->call('saveMobilityReport');
+
+        $project->refresh();
+        $this->assertSame('Editor A report text', data_get($project->action_data, 'mobility.report'));
+        $this->assertSame('Fresh evidence text from editor B', data_get($project->action_data, 'mobility.evidence_days.1.description'));
+    }
+
     private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
         $project = Project::create([
@@ -357,5 +553,33 @@ class ProjectMobilityTest extends TestCase
         $project->members()->attach($user, ['role' => $role]);
 
         return [$project, $user];
+    }
+
+    private function seedEvidenceDays(Project $project): void
+    {
+        $project->update([
+            'action_data' => [
+                'mobility' => [
+                    'evidence_days' => [
+                        [
+                            'id' => 'day_1',
+                            'title' => 'Day 1',
+                            'date' => '2026-07-03',
+                            'description' => 'Original day 1 description',
+                            'observations' => '',
+                            'links' => [],
+                        ],
+                        [
+                            'id' => 'day_2',
+                            'title' => 'Day 2',
+                            'date' => '2026-07-04',
+                            'description' => 'Original day 2 description',
+                            'observations' => '',
+                            'links' => [],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
     }
 }

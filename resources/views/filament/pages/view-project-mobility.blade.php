@@ -331,7 +331,7 @@
                                 $dayImages = $dayDocuments['images'] ?? collect();
                                 $dayFiles = $dayDocuments['files'] ?? collect();
                                 $dayLinks = $storedEvidenceDays[$day['id']]['links'] ?? [];
-                                $isDayOpen = (bool) ($openEvidenceDays[$day['id']] ?? false) || str_starts_with((string) $evidenceUploadDayId, $day['id'].'_');
+                                $isDayOpen = (bool) ($openEvidenceDays[$day['id']] ?? false) || in_array($evidenceUploadDayId, [$day['id'].'_images', $day['id'].'_files'], true);
                                 $dayLock = $mobilityLocks->get('evidence-day:'.$day['id']);
                                 $dayLockedByOther = $dayLock && (int) $dayLock->user_id !== (int) auth()->id();
                                 $dayBadge = $dayLock ? $this->projectLockBadge($dayLock) : null;

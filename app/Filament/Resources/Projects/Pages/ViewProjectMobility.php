@@ -118,7 +118,17 @@ class ViewProjectMobility extends Page
             return;
         }
 
-        $this->openEvidenceDays[$dayId] = ! (bool) ($this->openEvidenceDays[$dayId] ?? false);
+        $isOpen = (bool) ($this->openEvidenceDays[$dayId] ?? false)
+            || $this->isEvidenceUploadPanelOpen($dayId);
+
+        if ($isOpen) {
+            $this->openEvidenceDays[$dayId] = false;
+            $this->clearEvidenceUploadStateForDay($dayId);
+
+            return;
+        }
+
+        $this->openEvidenceDays[$dayId] = true;
     }
 
     public function openEvidenceDay(string $dayId): void
@@ -195,7 +205,7 @@ class ViewProjectMobility extends Page
             'photoFolderUrl' => ['nullable', 'url', 'max:2000'],
         ]);
 
-        $data = $this->record->action_data ?? [];
+        $data = $this->record->fresh()->action_data ?? [];
         data_set($data, 'mobility.photo_folder_url', trim($this->photoFolderUrl));
         data_set($data, 'mobility.photo_folder_links', filled(trim($this->photoFolderUrl)) ? [[
             'id' => 'folder_legacy',
@@ -267,7 +277,7 @@ class ViewProjectMobility extends Page
             'finalMobilityVideoUrl' => ['nullable', 'url', 'max:2000'],
         ]);
 
-        $data = $this->record->action_data ?? [];
+        $data = $this->record->fresh()->action_data ?? [];
         data_set($data, 'mobility.final_video_url', trim($this->finalMobilityVideoUrl));
         data_set($data, 'mobility.final_video_updated_at', now()->toIso8601String());
         data_set($data, 'mobility.final_video_updated_by', auth()->id());
@@ -340,7 +350,7 @@ class ViewProjectMobility extends Page
             'mobilityReport' => ['nullable', 'string', 'max:12000'],
         ]);
 
-        $data = $this->record->action_data ?? [];
+        $data = $this->record->fresh()->action_data ?? [];
         data_set($data, 'mobility.report', trim($this->mobilityReport));
         data_set($data, 'mobility.report_updated_at', now()->toIso8601String());
         data_set($data, 'mobility.report_updated_by', auth()->id());
@@ -472,9 +482,7 @@ class ViewProjectMobility extends Page
 
         $this->authorizeManagementModuleMutation('mobility', $this->evidenceDayLockKey($dayId), $this->evidenceDayLockLabel($dayId));
         $this->normaliseEvidenceDay($dayId);
-        $this->openEvidenceDay($dayId);
-        $this->evidenceUploadDayId = $dayId.'_open';
-        $this->saveEvidenceDaysToRecord(refresh: false);
+        $this->saveEvidenceDaysToRecord(false, [$dayId]);
     }
 
     public function addEvidenceDay(): void
@@ -491,7 +499,7 @@ class ViewProjectMobility extends Page
             'links' => [],
         ];
 
-        $this->saveEvidenceDaysToRecord();
+        $this->saveEvidenceDaysToRecord(true, [$id]);
         $this->activeMobilityTab = 'evidences';
         $this->openEvidenceDay($id);
 
@@ -513,9 +521,9 @@ class ViewProjectMobility extends Page
             'evidenceDays.'.$dayId.'.links.*.url' => ['nullable', 'url', 'max:2000'],
         ]);
 
-        $this->saveEvidenceDaysToRecord();
+        $this->saveEvidenceDaysToRecord(true, [$dayId]);
         $this->openEvidenceDay($dayId);
-        $this->evidenceUploadDayId = $dayId.'_open';
+        $this->evidenceUploadDayId = null;
 
         Notification::make()->title('Evidence day saved')->success()->send();
     }
@@ -527,7 +535,8 @@ class ViewProjectMobility extends Page
 
         unset($this->evidenceDays[$dayId]);
         unset($this->openEvidenceDays[$dayId]);
-        $this->saveEvidenceDaysToRecord();
+        $this->clearEvidenceUploadStateForDay($dayId);
+        $this->saveEvidenceDaysToRecord(true, [$dayId]);
 
         Notification::make()->title('Evidence day removed')->success()->send();
     }
@@ -543,9 +552,9 @@ class ViewProjectMobility extends Page
             'url' => '',
         ];
 
-        $this->saveEvidenceDaysToRecord(refresh: false);
+        $this->saveEvidenceDaysToRecord(false, [$dayId]);
         $this->openEvidenceDay($dayId);
-        $this->evidenceUploadDayId = $dayId.'_open';
+        $this->evidenceUploadDayId = null;
     }
 
     public function removeEvidenceLink(string $dayId, string $linkId): void
@@ -558,9 +567,9 @@ class ViewProjectMobility extends Page
             ->values()
             ->all();
 
-        $this->saveEvidenceDaysToRecord();
+        $this->saveEvidenceDaysToRecord(true, [$dayId]);
         $this->openEvidenceDay($dayId);
-        $this->evidenceUploadDayId = $dayId.'_open';
+        $this->evidenceUploadDayId = null;
     }
 
     public function prepareEvidenceImageUpload(string $dayId): void
@@ -601,7 +610,7 @@ class ViewProjectMobility extends Page
         $this->evidenceImageTitle = '';
         $this->evidenceUploadNotes = '';
         $this->openEvidenceDay($dayId);
-        $this->evidenceUploadDayId = $dayId.'_open';
+        $this->evidenceUploadDayId = null;
 
         Notification::make()->title($count.' evidence image'.($count === 1 ? '' : 's').' uploaded')->success()->send();
     }
@@ -632,7 +641,7 @@ class ViewProjectMobility extends Page
         $this->evidenceFileTitle = '';
         $this->evidenceUploadNotes = '';
         $this->openEvidenceDay($dayId);
-        $this->evidenceUploadDayId = $dayId.'_open';
+        $this->evidenceUploadDayId = null;
 
         Notification::make()->title($count.' evidence file'.($count === 1 ? '' : 's').' uploaded')->success()->send();
     }
@@ -723,7 +732,7 @@ class ViewProjectMobility extends Page
             'disseminationReports.'.$organisationKey => ['nullable', 'string', 'max:10000'],
         ]);
 
-        $data = $this->record->action_data ?? [];
+        $data = $this->record->fresh()->action_data ?? [];
         $reports = data_get($data, 'dissemination_reports', []);
         $reports[$organisationKey] = trim((string) ($this->disseminationReports[$organisationKey] ?? ''));
         data_set($data, 'dissemination_reports', $reports);
@@ -930,7 +939,7 @@ class ViewProjectMobility extends Page
             ->values()
             ->all();
 
-        $data = $this->record->action_data ?? [];
+        $data = $this->record->fresh()->action_data ?? [];
         data_set($data, 'mobility.photo_folder_links', $this->photoFolderLinks);
         data_set($data, 'mobility.photo_folder_url', (string) data_get($this->photoFolderLinks, '0.url', ''));
         data_set($data, 'mobility.photo_folder_updated_at', now()->toIso8601String());
@@ -978,17 +987,42 @@ class ViewProjectMobility extends Page
             ->all();
     }
 
-    private function saveEvidenceDaysToRecord(bool $refresh = true): void
+    private function saveEvidenceDaysToRecord(bool $refresh = true, ?array $onlyDayIds = null): void
     {
-        $data = $this->record->action_data ?? [];
-        data_set($data, 'mobility.evidence_days', collect($this->evidenceDays)->values()->all());
+        $freshRecord = $this->record->fresh();
+        $data = $freshRecord->action_data ?? [];
+        $evidenceDays = $onlyDayIds === null
+            ? collect($this->evidenceDays)
+            : collect(data_get($data, 'mobility.evidence_days', []))
+                ->mapWithKeys(function (array $day, string|int $key): array {
+                    $id = (string) ($day['id'] ?? $key);
+
+                    return [$id => $day + ['id' => $id]];
+                });
+
+        if ($onlyDayIds !== null) {
+            foreach ($onlyDayIds as $dayId) {
+                $dayId = (string) $dayId;
+
+                if (isset($this->evidenceDays[$dayId])) {
+                    $this->normaliseEvidenceDay($dayId);
+                    $evidenceDays[$dayId] = $this->evidenceDays[$dayId];
+
+                    continue;
+                }
+
+                $evidenceDays->forget($dayId);
+            }
+        }
+
+        data_set($data, 'mobility.evidence_days', $evidenceDays->values()->all());
         data_set($data, 'mobility.evidence_days_updated_at', now()->toIso8601String());
         data_set($data, 'mobility.evidence_days_updated_by', auth()->id());
 
-        $this->record->update(['action_data' => $data]);
+        $freshRecord->update(['action_data' => $data]);
+        $this->record = $freshRecord->fresh();
 
         if ($refresh) {
-            $this->record = $this->record->fresh();
             $this->evidenceDays = $this->storedEvidenceDays();
         }
     }
@@ -1009,6 +1043,24 @@ class ViewProjectMobility extends Page
             ])
             ->values()
             ->all();
+    }
+
+    private function clearEvidenceUploadStateForDay(string $dayId): void
+    {
+        if (! $this->isEvidenceUploadPanelOpen($dayId)) {
+            return;
+        }
+
+        $this->evidenceUploadDayId = null;
+        $this->evidenceImageUploads = [];
+        $this->evidenceFileUploads = [];
+        $this->evidenceUploadNotes = '';
+        $this->resetValidation(['evidenceImageUploads', 'evidenceFileUploads']);
+    }
+
+    private function isEvidenceUploadPanelOpen(string $dayId): bool
+    {
+        return in_array($this->evidenceUploadDayId, [$dayId.'_images', $dayId.'_files'], true);
     }
 
     private function prepareEvidenceUpload(string $dayId, string $kind): void
