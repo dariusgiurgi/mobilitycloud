@@ -395,6 +395,7 @@ class ViewProjectMobility extends Page
         ]);
 
         $this->saveEvidenceDaysToRecord();
+        $this->evidenceUploadDayId = $dayId.'_open';
 
         Notification::make()->title('Evidence day saved')->success()->send();
     }
@@ -422,6 +423,7 @@ class ViewProjectMobility extends Page
         ];
 
         $this->saveEvidenceDaysToRecord(refresh: false);
+        $this->evidenceUploadDayId = $dayId.'_open';
     }
 
     public function removeEvidenceLink(string $dayId, string $linkId): void
@@ -435,6 +437,7 @@ class ViewProjectMobility extends Page
             ->all();
 
         $this->saveEvidenceDaysToRecord();
+        $this->evidenceUploadDayId = $dayId.'_open';
     }
 
     public function prepareEvidenceImageUpload(string $dayId): void

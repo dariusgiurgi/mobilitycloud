@@ -85,6 +85,7 @@ class ProjectMobilityTest extends TestCase
             ->set('evidenceDays.'.$dayId.'.description', 'Participants arrived, worked in mixed teams and created first outputs.')
             ->set('evidenceDays.'.$dayId.'.observations', 'The programme started 30 minutes later because of airport transfers.')
             ->call('addEvidenceLink', $dayId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_open')
             ->assertSee('Save day')
             ->assertSee('Facebook');
 
@@ -94,6 +95,7 @@ class ProjectMobilityTest extends TestCase
             ->set('evidenceDays.'.$dayId.'.links.0.label', 'Facebook')
             ->set('evidenceDays.'.$dayId.'.links.0.url', 'https://facebook.com/example-post')
             ->call('saveEvidenceDay', $dayId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_open')
             ->call('prepareEvidenceImageUpload', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_images')
             ->set('evidenceImageTitle', 'Workshop photo evidence')
@@ -131,6 +133,28 @@ class ProjectMobilityTest extends TestCase
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'evidence_day_id') === $dayId));
 
         $documents->each(fn (ProjectDocument $document) => Storage::disk('local')->assertExists($document->file_path));
+    }
+
+    public function test_removing_an_evidence_link_keeps_the_day_open(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'evidences')
+            ->call('addEvidenceDay');
+
+        $dayId = array_key_first($component->instance()->evidenceDays);
+
+        $component
+            ->call('addEvidenceLink', $dayId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_open');
+
+        $linkId = $component->instance()->evidenceDays[$dayId]['links'][0]['id'];
+
+        $component
+            ->call('removeEvidenceLink', $dayId, $linkId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_open');
     }
 
     public function test_member_can_save_dissemination_report_and_upload_evidence_per_organisation_from_mobility(): void
