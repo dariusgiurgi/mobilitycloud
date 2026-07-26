@@ -89,20 +89,11 @@ class ViewProjectDocuments extends Page
 
     public string $activeDocumentTab = 'files';
 
-    public array $disseminationReports = [];
-
-    public bool $showDisseminationUploadModal = false;
-
-    public ?string $disseminationUploadOrgKey = null;
-
-    public $disseminationUpload = null;
-
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'documents');
         $this->authorizeProjectAccess();
-        $this->disseminationReports = $this->storedDisseminationReports();
     }
 
     public function getTitle(): string
@@ -181,6 +172,10 @@ class ViewProjectDocuments extends Page
         return ProjectDocument::query()
             ->where('project_id', $this->record->id)
             ->where(function ($query): void {
+                $query->whereNull('category')
+                    ->orWhere('category', '!=', 'dissemination_evidence');
+            })
+            ->where(function ($query): void {
                 $query->whereNull('metadata->uploaded_from')
                     ->orWhere('metadata->uploaded_from', '!=', 'mobility_evidence_day');
             });
@@ -193,7 +188,7 @@ class ViewProjectDocuments extends Page
 
     public function setDocumentTab(string $tab): void
     {
-        $this->activeDocumentTab = in_array($tab, ['files', 'conventions', 'dissemination', 'checklist'], true)
+        $this->activeDocumentTab = in_array($tab, ['files', 'conventions', 'checklist'], true)
             ? $tab
             : 'files';
     }
@@ -207,7 +202,9 @@ class ViewProjectDocuments extends Page
 
     public function getDocumentCategories(): array
     {
-        return ProjectDocument::CATEGORIES;
+        return array_diff_key(ProjectDocument::CATEGORIES, [
+            'dissemination_evidence' => true,
+        ]);
     }
 
     public function getCivilConventionExpenses()
@@ -219,172 +216,6 @@ class ViewProjectDocuments extends Page
             ->orderByDesc('expense_date')
             ->orderByDesc('id')
             ->get();
-    }
-
-    public function getDisseminationOrganisations(): array
-    {
-        $partners = collect($this->record->partners)
-            ->filter(fn (array $partner): bool => filled($partner['name'] ?? null))
-            ->values();
-
-        if ($partners->isEmpty()) {
-            $partners = collect([[
-                'name' => $this->projectOwnerDocumentSettings()['legal_name']
-                    ?? $this->projectOwnerDocumentSettings()['brand_name']
-                    ?? $this->record->owner()?->name
-                    ?? 'Coordinator organisation',
-                'country' => null,
-                'oid' => null,
-                'is_coordinator' => true,
-            ]]);
-        }
-
-        return $partners
-            ->map(function (array $partner, int $index): array {
-                $name = trim((string) ($partner['name'] ?? 'Organisation '.($index + 1)));
-
-                return [
-                    'key' => $this->disseminationOrganisationKey($partner, $index),
-                    'name' => $name,
-                    'country' => filled($partner['country'] ?? null) ? trim((string) $partner['country']) : null,
-                    'oid' => filled($partner['oid'] ?? null) ? trim((string) $partner['oid']) : null,
-                    'is_coordinator' => (bool) ($partner['is_coordinator'] ?? false),
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
-    public function getDisseminationEvidenceByOrganisation(): array
-    {
-        $documents = $this->record->documents()
-            ->where('type', ProjectDocument::TYPE_UPLOAD)
-            ->where('category', 'dissemination_evidence')
-            ->latest('id')
-            ->get();
-
-        return collect($this->getDisseminationOrganisations())
-            ->mapWithKeys(fn (array $organisation): array => [
-                $organisation['key'] => $documents
-                    ->filter(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_key') === $organisation['key'])
-                    ->values(),
-            ])
-            ->all();
-    }
-
-    public function getDisseminationSummary(): array
-    {
-        $organisations = collect($this->getDisseminationOrganisations());
-        $evidence = $this->getDisseminationEvidenceByOrganisation();
-        $reports = $this->storedDisseminationReports();
-        $withEvidence = $organisations
-            ->filter(fn (array $organisation): bool => ($evidence[$organisation['key']] ?? collect())->isNotEmpty())
-            ->count();
-        $withReports = $organisations
-            ->filter(fn (array $organisation): bool => filled(trim((string) ($reports[$organisation['key']] ?? ''))))
-            ->count();
-
-        return [
-            'organisations' => $organisations->count(),
-            'with_evidence' => $withEvidence,
-            'with_reports' => $withReports,
-            'complete' => $organisations->count() > 0
-                && $withEvidence === $organisations->count()
-                && $withReports === $organisations->count(),
-            'missing' => max(0, ($organisations->count() * 2) - $withEvidence - $withReports),
-        ];
-    }
-
-    public function saveDisseminationReport(string $organisationKey): void
-    {
-        $this->authorizeManagementModuleMutation();
-        abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
-
-        $this->validate([
-            'disseminationReports.'.$organisationKey => ['nullable', 'string', 'max:10000'],
-        ]);
-
-        $data = $this->record->action_data ?? [];
-        $reports = data_get($data, 'dissemination_reports', []);
-        $reports[$organisationKey] = trim((string) ($this->disseminationReports[$organisationKey] ?? ''));
-        data_set($data, 'dissemination_reports', $reports);
-        $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
-        $this->disseminationReports = $this->storedDisseminationReports();
-
-        Notification::make()->title('Dissemination report saved')->success()->send();
-    }
-
-    public function openDisseminationUpload(string $organisationKey): void
-    {
-        $this->authorizeManagementModuleMutation();
-        abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
-
-        $this->resetValidation('disseminationUpload');
-        $this->disseminationUploadOrgKey = $organisationKey;
-        $this->disseminationUpload = null;
-        $this->showDisseminationUploadModal = true;
-    }
-
-    public function closeDisseminationUpload(): void
-    {
-        $this->showDisseminationUploadModal = false;
-        $this->disseminationUploadOrgKey = null;
-        $this->disseminationUpload = null;
-    }
-
-    public function uploadDisseminationEvidence(): void
-    {
-        $this->authorizeManagementModuleMutation();
-        $this->validate([
-            'disseminationUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx'],
-        ]);
-
-        $organisation = collect($this->getDisseminationOrganisations())
-            ->firstWhere('key', $this->disseminationUploadOrgKey);
-
-        if (! $organisation) {
-            $this->closeDisseminationUpload();
-
-            return;
-        }
-
-        $document = $this->record->documents()->create([
-            'type' => ProjectDocument::TYPE_UPLOAD,
-            'category' => 'dissemination_evidence',
-            'title' => 'Dissemination evidence - '.$organisation['name'],
-            'document_date' => now()->toDateString(),
-            'notes' => trim((string) ($this->disseminationReports[$organisation['key']] ?? '')) ?: null,
-            'metadata' => [
-                'organisation_key' => $organisation['key'],
-                'organisation_name' => $organisation['name'],
-                'organisation_country' => $organisation['country'],
-                'organisation_oid' => $organisation['oid'],
-            ],
-        ]);
-
-        try {
-            $extension = strtolower($this->disseminationUpload->getClientOriginalExtension() ?: 'dat');
-            $filename = Str::slug('dissemination-'.$organisation['name']).'_'.$document->id.'.'.$extension;
-            $path = $this->disseminationUpload->storeAs(
-                'project-documents/'.$this->record->id.'/dissemination/'.$organisation['key'],
-                $filename,
-                'local'
-            );
-
-            $document->update([
-                'file_path' => $path,
-                'file_disk' => 'local',
-                'file_name' => $this->disseminationUpload->getClientOriginalName(),
-                'file_size' => $this->disseminationUpload->getSize(),
-            ]);
-        } catch (\Throwable $exception) {
-            $document->delete();
-            throw $exception;
-        }
-
-        $this->closeDisseminationUpload();
-        Notification::make()->title('Dissemination evidence uploaded')->success()->send();
     }
 
     public function getCivilConventionSummary(): array
@@ -911,24 +742,6 @@ class ViewProjectDocuments extends Page
         }
 
         return ProjectDocument::where('project_id', $this->record->id)->find($documentId);
-    }
-
-    private function storedDisseminationReports(): array
-    {
-        return collect(data_get($this->record->action_data ?? [], 'dissemination_reports', []))
-            ->map(fn ($value): string => (string) $value)
-            ->all();
-    }
-
-    private function disseminationOrganisationKey(array $partner, int $index): string
-    {
-        if (filled($partner['oid'] ?? null)) {
-            return 'oid_'.Str::slug((string) $partner['oid'], '_');
-        }
-
-        $base = trim(($partner['name'] ?? 'organisation').'|'.($partner['country'] ?? '').'|'.$index);
-
-        return 'org_'.substr(sha1($base), 0, 12);
     }
 
     private function projectOwnerDocumentSettings(): array

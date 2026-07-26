@@ -11,7 +11,6 @@ use App\Services\ExpenseReportSnapshot;
 use App\Services\ProjectDocumentChecklist;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -124,8 +123,10 @@ class ProjectDocumentsTest extends TestCase
 
         $visiblePath = 'project-documents/'.$project->id.'/grant.pdf';
         $evidencePath = 'project-documents/'.$project->id.'/mobility/evidence/day-1/image/photo.jpg';
+        $disseminationPath = 'project-documents/'.$project->id.'/dissemination/report.pdf';
         Storage::disk('local')->put($visiblePath, 'grant');
         Storage::disk('local')->put($evidencePath, 'photo');
+        Storage::disk('local')->put($disseminationPath, 'dissemination');
 
         $visibleDocument = ProjectDocument::create([
             'project_id' => $project->id,
@@ -152,6 +153,20 @@ class ProjectDocumentsTest extends TestCase
                 'evidence_day_id' => 'day-1',
             ],
         ]);
+        $disseminationDocument = ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => 'dissemination_evidence',
+            'title' => 'Dissemination report',
+            'file_path' => $disseminationPath,
+            'file_disk' => 'local',
+            'file_name' => 'report.pdf',
+            'file_size' => 5,
+            'metadata' => [
+                'source' => 'mobility',
+                'uploaded_from' => 'mobility_dissemination',
+            ],
+        ]);
 
         $this->actingAs($user);
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id]);
@@ -159,6 +174,7 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame([$visibleDocument->id], $component->instance()->getDocuments()->pluck('id')->all());
         $this->assertSame(1, $component->instance()->getDocumentsPageCount());
         $this->assertNotContains($evidenceDocument->id, $component->instance()->getDocuments()->pluck('id')->all());
+        $this->assertNotContains($disseminationDocument->id, $component->instance()->getDocuments()->pluck('id')->all());
     }
 
     public function test_expense_report_snapshot_filters_rows_and_calculates_totals(): void
@@ -334,6 +350,7 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame('missing', $items['Partner documents']['status']);
         $this->assertSame('0 partner files for 1 external partner', $items['Partner documents']['detail']);
         $this->assertSame('missing', $items['Expense reports']['status']);
+        $this->assertArrayNotHasKey('Dissemination evidence', $items->all());
         $this->assertSame(3, $checklist['complete']);
     }
 
@@ -350,13 +367,13 @@ class ProjectDocumentsTest extends TestCase
             ->assertSee('Next:')
             ->assertSee('Upload project file')
             ->assertDontSee('Add document')
+            ->assertDontSee('Dissemination evidence')
             ->call('setDocumentTab', 'conventions')
             ->assertSet('activeDocumentTab', 'conventions')
             ->assertSee('Civil conventions')
             ->assertSee('Civil convention workflow')
             ->call('setDocumentTab', 'dissemination')
-            ->assertSet('activeDocumentTab', 'dissemination')
-            ->assertSee('Dissemination evidence')
+            ->assertSet('activeDocumentTab', 'files')
             ->call('setDocumentTab', 'checklist')
             ->assertSet('activeDocumentTab', 'checklist')
             ->assertSee('Project file checklist')
@@ -384,58 +401,6 @@ class ProjectDocumentsTest extends TestCase
             ->call('closeAttendanceGenerator')
             ->call('openExpenseReportGenerator')
             ->assertSet('showExpenseReportModal', true);
-    }
-
-    public function test_member_can_save_dissemination_report_and_upload_evidence_per_organisation(): void
-    {
-        Storage::fake('local');
-        [$project, $user] = $this->projectAndUser();
-        $project->update(['partner_orgs' => [
-            ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => 'E10000001', 'is_coordinator' => true],
-            ['name' => 'Partner Association', 'country' => 'IT', 'oid' => 'E10000002'],
-        ]]);
-
-        $this->actingAs($user);
-
-        $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
-            ->call('setDocumentTab', 'dissemination')
-            ->assertSee('Coordinator Association')
-            ->assertSee('Partner Association')
-            ->assertSee('Save report')
-            ->assertSee('Upload evidence');
-
-        $organisation = collect($component->instance()->getDisseminationOrganisations())
-            ->firstWhere('name', 'Partner Association');
-
-        $component
-            ->set('disseminationReports.'.$organisation['key'], 'Partner organised two local presentations and published campaign screenshots.')
-            ->call('saveDisseminationReport', $organisation['key'])
-            ->call('openDisseminationUpload', $organisation['key'])
-            ->assertSet('showDisseminationUploadModal', true)
-            ->set('disseminationUpload', UploadedFile::fake()->create('partner-dissemination.pdf', 120, 'application/pdf'))
-            ->call('uploadDisseminationEvidence')
-            ->assertSet('showDisseminationUploadModal', false);
-
-        $project->refresh();
-        $this->assertSame(
-            'Partner organised two local presentations and published campaign screenshots.',
-            data_get($project->action_data, 'dissemination_reports.'.$organisation['key'])
-        );
-
-        $document = ProjectDocument::query()
-            ->where('project_id', $project->id)
-            ->where('category', 'dissemination_evidence')
-            ->sole();
-
-        $this->assertSame('Partner Association', data_get($document->metadata, 'organisation_name'));
-        $this->assertSame($organisation['key'], data_get($document->metadata, 'organisation_key'));
-        $this->assertSame('partner-dissemination.pdf', $document->file_name);
-        Storage::disk('local')->assertExists($document->file_path);
-
-        $summary = $component->instance()->getDisseminationSummary();
-        $this->assertSame(2, $summary['organisations']);
-        $this->assertSame(1, $summary['with_reports']);
-        $this->assertSame(1, $summary['with_evidence']);
     }
 
     public function test_civil_conventions_show_step_workflow_and_direct_actions(): void

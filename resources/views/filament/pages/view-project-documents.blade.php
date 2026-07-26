@@ -18,10 +18,6 @@
         $documentCategories = $this->getDocumentCategories();
         $civilConventions = $this->getCivilConventionExpenses();
         $civilSummary = $this->getCivilConventionSummary();
-        $disseminationOrganisations = $this->getDisseminationOrganisations();
-        $disseminationEvidence = $this->getDisseminationEvidenceByOrganisation();
-        $disseminationSummary = $this->getDisseminationSummary();
-        $disseminationReports = $this->disseminationReports;
         $checklist = $this->getDocumentChecklist();
         $command = $this->getDocumentCommandCenter();
         $projectReadiness = $this->getProjectReadiness();
@@ -95,7 +91,7 @@
         </div>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:.8rem;">
+    <div style="display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;margin-top:.8rem;">
         <x-filament::tabs label="Document sections">
             <x-filament::tabs.item wire:click="setDocumentTab('files')" :active="$activeDocumentTab === 'files'" icon="heroicon-m-folder" :badge="$documentCount">
                 Files
@@ -103,19 +99,10 @@
             <x-filament::tabs.item wire:click="setDocumentTab('conventions')" :active="$activeDocumentTab === 'conventions'" icon="heroicon-m-document-text" :badge="$civilConventions->count()">
                 Civil conventions
             </x-filament::tabs.item>
-            <x-filament::tabs.item wire:click="setDocumentTab('dissemination')" :active="$activeDocumentTab === 'dissemination'" icon="heroicon-m-megaphone" :badge="$disseminationSummary['missing'] ?: null" :badge-color="$disseminationSummary['complete'] ? 'success' : 'warning'">
-                Dissemination
-            </x-filament::tabs.item>
             <x-filament::tabs.item wire:click="setDocumentTab('checklist')" :active="$activeDocumentTab === 'checklist'" icon="heroicon-m-check-circle" :badge="$checklistIssues ?: null" :badge-color="$checklistIssues ? 'warning' : 'success'">
                 Checklist
             </x-filament::tabs.item>
         </x-filament::tabs>
-
-        @if($record->canBeManagedBy(auth()->user()))
-            <x-filament::button wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray" size="sm">
-                Upload project file
-            </x-filament::button>
-        @endif
     </div>
 
     @if($activeDocumentTab === 'checklist')
@@ -170,10 +157,6 @@
                                 @elseif($item['action'] === 'open_conventions')
                                     <x-filament::button wire:click="setDocumentTab('conventions')" color="gray" size="xs" icon="heroicon-m-document-text">
                                         Open conventions
-                                    </x-filament::button>
-                                @elseif($item['action'] === 'open_dissemination')
-                                    <x-filament::button wire:click="setDocumentTab('dissemination')" color="gray" size="xs" icon="heroicon-m-megaphone">
-                                        Open dissemination
                                     </x-filament::button>
                                 @endif
                             </div>
@@ -335,118 +318,34 @@
     </div>
     @endif
 
-    @if($activeDocumentTab === 'dissemination')
-    <x-filament::section style="margin-top:1rem;">
-        <x-slot name="heading">
-            <span style="display:inline-flex;align-items:center;gap:.35rem;">
-                Dissemination evidence
-                <x-help-tip id="dissemination-evidence" title="Dissemination evidence">
-                    Save a short dissemination report and upload proof separately for every organising/partner organisation. Examples: screenshots, links exported as PDF, attendance lists, photos, press releases, analytics or event reports.
-                </x-help-tip>
-            </span>
-        </x-slot>
-        <x-slot name="description">
-            Track proof that dissemination activities were actually carried out by each organisation in the project.
-        </x-slot>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.55rem;margin-bottom:.85rem;">
-            @foreach([
-                ['label' => 'Organisations', 'value' => $disseminationSummary['organisations'], 'color' => '#4f46e5'],
-                ['label' => 'Reports saved', 'value' => $disseminationSummary['with_reports'], 'color' => '#0f766e'],
-                ['label' => 'Evidence uploaded', 'value' => $disseminationSummary['with_evidence'], 'color' => '#059669'],
-                ['label' => 'Missing items', 'value' => $disseminationSummary['missing'], 'color' => $disseminationSummary['missing'] ? '#d97706' : '#059669'],
-            ] as $stat)
-                <div class="bg-white dark:bg-gray-900" style="padding:.7rem .8rem;border:1px solid rgba(148,163,184,.22);border-radius:.75rem;">
-                    <p class="text-gray-400" style="font-size:.58rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">{{ $stat['label'] }}</p>
-                    <p style="font-size:1.05rem;font-weight:850;margin-top:.2rem;color:{{ $stat['color'] }};">{{ $stat['value'] }}</p>
-                </div>
-            @endforeach
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:.75rem;">
-            @foreach($disseminationOrganisations as $organisation)
-                @php
-                    $orgEvidence = $disseminationEvidence[$organisation['key']] ?? collect();
-                    $reportValue = $disseminationReports[$organisation['key']] ?? '';
-                    $reportReady = filled(trim((string) $reportValue));
-                    $evidenceReady = $orgEvidence->isNotEmpty();
-                @endphp
-                <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:1rem;">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.7rem;margin-bottom:.75rem;">
-                        <div style="min-width:0;">
-                            <div class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:750;">{{ $organisation['name'] }}</div>
-                            <div class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.12rem;">
-                                {{ $organisation['is_coordinator'] ? 'Coordinator' : 'Partner organisation' }}
-                                @if($organisation['country']) · {{ $organisation['country'] }} @endif
-                                @if($organisation['oid']) · {{ $organisation['oid'] }} @endif
-                            </div>
-                        </div>
-                        <div style="display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end;">
-                            <x-filament::badge :color="$reportReady ? 'success' : 'warning'" size="sm">{{ $reportReady ? 'Report saved' : 'Report needed' }}</x-filament::badge>
-                            <x-filament::badge :color="$evidenceReady ? 'success' : 'warning'" size="sm">{{ $orgEvidence->count() }} file{{ $orgEvidence->count() === 1 ? '' : 's' }}</x-filament::badge>
-                        </div>
-                    </div>
-
-                    <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.28rem;">Dissemination report</label>
-                    <textarea rows="5" wire:model.defer="disseminationReports.{{ $organisation['key'] }}"
-                              aria-label="Dissemination report for {{ $organisation['name'] }}"
-                              placeholder="Describe what dissemination was carried out by this organisation: activities, audience, dates, channels, reach and concrete results."
-                              style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.28);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
-                    @error('disseminationReports.'.$organisation['key']) <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
-
-                    @if($record->canBeManagedBy(auth()->user()))
-                        <div style="display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.65rem;">
-                            <x-filament::button wire:click="saveDisseminationReport('{{ $organisation['key'] }}')" size="sm" icon="heroicon-m-check">
-                                Save report
-                            </x-filament::button>
-                            <x-filament::button wire:click="openDisseminationUpload('{{ $organisation['key'] }}')" color="gray" size="sm" icon="heroicon-m-arrow-up-tray">
-                                Upload evidence
-                            </x-filament::button>
-                        </div>
-                    @endif
-
-                    <div style="margin-top:.85rem;border-top:1px solid rgba(148,163,184,.16);padding-top:.7rem;">
-                        <div class="text-gray-950 dark:text-white" style="font-size:.72rem;font-weight:750;margin-bottom:.35rem;">Evidence files</div>
-                        @if($orgEvidence->isNotEmpty())
-                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:.65rem;">
-                                @foreach($orgEvidence as $document)
-                                    @include('filament.pages.partials.project-file-card', [
-                                        'record' => $record,
-                                        'document' => $document,
-                                        'compact' => true,
-                                        'deleteMethod' => 'deleteDocument',
-                                        'deleteConfirm' => 'Delete this dissemination evidence file?',
-                                    ])
-                                @endforeach
-                            </div>
-                        @else
-                            <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;line-height:1.45;">No evidence uploaded for this organisation yet.</p>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    </x-filament::section>
-    @endif
-
     @if($activeDocumentTab === 'files')
     <x-filament::section heading="Files" description="Uploaded project files and generated official records" style="margin-top:1rem;">
-        <div style="display:flex;align-items:center;justify-content:flex-end;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
-            <div style="width:min(260px,100%);">
-                <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
-                    <x-filament::input type="search" wire:model.live.debounce.300ms="documentSearch" placeholder="Search documents" />
-                </x-filament::input.wrapper>
-            </div>
-            <div style="width:150px;">
-                <x-filament::input.wrapper>
-                    <x-filament::input.select wire:model.live="documentFilter">
-                        <option value="all">All files</option>
-                        <option value="generated">Generated</option>
-                        <option value="uploaded">Uploaded</option>
-                        <option value="signed">Signed</option>
-                        <option value="unsigned">Awaiting signature</option>
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+            @if($record->canBeManagedBy(auth()->user()))
+                <x-filament::button wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray" size="sm">
+                    Upload project file
+                </x-filament::button>
+            @else
+                <span></span>
+            @endif
+
+            <div style="display:flex;align-items:center;justify-content:flex-end;gap:.75rem;flex-wrap:wrap;">
+                <div style="width:min(260px,100%);">
+                    <x-filament::input.wrapper prefix-icon="heroicon-m-magnifying-glass">
+                        <x-filament::input type="search" wire:model.live.debounce.300ms="documentSearch" placeholder="Search documents" />
+                    </x-filament::input.wrapper>
+                </div>
+                <div style="width:150px;">
+                    <x-filament::input.wrapper>
+                        <x-filament::input.select wire:model.live="documentFilter">
+                            <option value="all">All files</option>
+                            <option value="generated">Generated</option>
+                            <option value="uploaded">Uploaded</option>
+                            <option value="signed">Signed</option>
+                            <option value="unsigned">Awaiting signature</option>
+                        </x-filament::input.select>
+                    </x-filament::input.wrapper>
+                </div>
             </div>
         </div>
 
@@ -651,31 +550,6 @@
                 <div class="mc-modal-actions" style="margin-top:1.4rem;">
                     <button type="button" wire:click="closeConvention" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
                     <button type="button" wire:click="saveConventionDetails" style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">Save details</button>
-                </div>
-            </div></div>
-        </div>
-    @endif
-
-    @if($showDisseminationUploadModal)
-        @php
-            $selectedDisseminationOrg = collect($disseminationOrganisations)->firstWhere('key', $disseminationUploadOrgKey);
-        @endphp
-        <div class="mc-modal-backdrop"
-             wire:click.self="closeDisseminationUpload">
-            <div class="mc-modal-panel"><div class="mc-modal-body">
-                <h2 class="mc-modal-heading">Upload dissemination evidence</h2>
-                <p class="mc-modal-description">
-                    {{ $selectedDisseminationOrg['name'] ?? 'Selected organisation' }} · PDF, image, Word or spreadsheet file, maximum 20 MB.
-                </p>
-                <input type="file" wire:model="disseminationUpload" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" aria-label="Dissemination evidence file" style="width:100%;font-size:13px;">
-                @error('disseminationUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
-                <div class="mc-modal-actions">
-                    <button type="button" wire:click="closeDisseminationUpload" style="padding:8px 14px;border-radius:7px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;">Cancel</button>
-                    <button type="button" wire:click="uploadDisseminationEvidence" wire:loading.attr="disabled" wire:target="uploadDisseminationEvidence,disseminationUpload"
-                            style="padding:8px 14px;border-radius:7px;border:none;background:#4f46e5;color:#fff;cursor:pointer;font-weight:600;">
-                        <span wire:loading.remove wire:target="uploadDisseminationEvidence,disseminationUpload">Upload evidence</span>
-                        <span wire:loading wire:target="uploadDisseminationEvidence,disseminationUpload">Uploading...</span>
-                    </button>
                 </div>
             </div></div>
         </div>
