@@ -230,7 +230,6 @@ class ProjectForm
                 Section::make('Advanced controls')
                     ->description('Expense numbering affects generated records and exports. Lifecycle changes are handled from Project overview.')
                     ->columns(2)
-                    ->collapsible()
                     ->schema([
                         TextInput::make('expense_prefix')
                             ->label('Expense prefix')
