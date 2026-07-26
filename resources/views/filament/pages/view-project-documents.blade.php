@@ -112,22 +112,9 @@
         </x-filament::tabs>
 
         @if($record->canBeManagedBy(auth()->user()))
-            <x-filament::dropdown placement="bottom-end" width="xs">
-                <x-slot name="trigger">
-                    <x-filament::button icon="heroicon-m-plus" size="sm">Add document</x-filament::button>
-                </x-slot>
-                <x-filament::dropdown.list>
-                    <x-filament::dropdown.list.item wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray">
-                        Upload project file
-                    </x-filament::dropdown.list.item>
-                    <x-filament::dropdown.list.item wire:click="openAttendanceGenerator" icon="heroicon-m-clipboard-document-list">
-                        Generate attendance list
-                    </x-filament::dropdown.list.item>
-                    <x-filament::dropdown.list.item wire:click="openExpenseReportGenerator" icon="heroicon-m-chart-bar-square">
-                        Generate expense report
-                    </x-filament::dropdown.list.item>
-                </x-filament::dropdown.list>
-            </x-filament::dropdown>
+            <x-filament::button wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray" size="sm">
+                Upload project file
+            </x-filament::button>
         @endif
     </div>
 
@@ -469,18 +456,12 @@
             <x-filament::icon icon="heroicon-o-folder-open" class="mx-auto h-10 w-10 text-gray-400" />
             <h3 class="text-gray-950 dark:text-white" style="font-size:16px;font-weight:700;margin:0 0 .35rem;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'No matching documents' : 'No project documents yet' }}</h3>
             <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;line-height:1.55;margin:0 auto {{ $record->canBeManagedBy(auth()->user()) && $documentFilter === 'all' && blank($documentSearch) ? '1rem' : '0' }};max-width:34rem;">
-                {{ $documentFilter !== 'all' || filled($documentSearch) ? 'Try another filter or search term.' : 'Upload source files, generate attendance sheets and expense reports, then upload signed copies as they come back.' }}
+                {{ $documentFilter !== 'all' || filled($documentSearch) ? 'Try another filter or search term.' : 'Upload source files, signed copies and project evidence here.' }}
             </p>
             @if($record->canBeManagedBy(auth()->user()) && $documentFilter === 'all' && blank($documentSearch))
                 <div style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;">
                     <x-filament::button wire:click="openDocumentUpload" icon="heroicon-o-arrow-up-tray">
-                        Upload file
-                    </x-filament::button>
-                    <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list">
-                        Generate attendance list
-                    </x-filament::button>
-                    <x-filament::button wire:click="openExpenseReportGenerator" color="gray" icon="heroicon-o-chart-bar-square">
-                        Generate expense report
+                        Upload project file
                     </x-filament::button>
                 </div>
             @endif
