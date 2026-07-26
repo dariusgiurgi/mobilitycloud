@@ -69,6 +69,7 @@ class ViewProjectOverview extends Page
 
         ProjectResource::ensureProjectAccountTenant($this->record);
         $this->authorizeProjectModuleAccess('overview');
+        $this->touchProjectCollaboration('overview');
     }
 
     public function getTitle(): string
@@ -323,15 +324,15 @@ class ViewProjectOverview extends Page
 
     public function openTaskCreate(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation('overview', 'new-task', 'New task');
         $this->resetTaskForm();
         $this->showTaskModal = true;
     }
 
     public function openTaskEdit(int $taskId): void
     {
-        $this->authorizeProjectManagement();
         $task = $this->record->tasks()->findOrFail($taskId);
+        $this->startProjectEditing('overview', $this->taskLockKey($task->id), $this->taskLockLabel($task));
         $this->editingTaskId = $task->id;
         $this->taskTitle = $task->title;
         $this->taskDescription = $task->description ?? '';
@@ -344,7 +345,13 @@ class ViewProjectOverview extends Page
 
     public function saveTask(TaskNotificationService $notifications): void
     {
-        $this->authorizeProjectManagement();
+        if ($this->editingTaskId) {
+            $task = $this->record->tasks()->findOrFail($this->editingTaskId);
+            $this->authorizeManagementModuleMutation('overview', $this->taskLockKey($task->id), $this->taskLockLabel($task));
+        } else {
+            $this->authorizeManagementModuleMutation('overview', 'new-task', 'New task');
+        }
+
         $data = $this->validate([
             'taskTitle' => ['required', 'string', 'max:255'],
             'taskDescription' => ['nullable', 'string', 'max:2000'],
@@ -413,7 +420,7 @@ class ViewProjectOverview extends Page
 
     public function createTasksFromReadiness(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation('overview', 'readiness-tasks', 'Readiness tasks');
 
         $readiness = $this->getProjectReadiness();
         $issues = collect($readiness['items'])
@@ -454,9 +461,20 @@ class ViewProjectOverview extends Page
 
     public function deleteTask(int $taskId): void
     {
-        $this->authorizeProjectManagement();
-        $this->record->tasks()->findOrFail($taskId)->delete();
+        $task = $this->record->tasks()->findOrFail($taskId);
+        $this->authorizeManagementModuleMutation('overview', $this->taskLockKey($task->id), $this->taskLockLabel($task));
+        $task->delete();
         Notification::make()->title('Task deleted')->success()->send();
+    }
+
+    protected function taskLockKey(int $taskId): string
+    {
+        return 'task:'.$taskId;
+    }
+
+    protected function taskLockLabel(object $task): string
+    {
+        return 'Task: '.$task->title;
     }
 
     private function resetTaskForm(): void
@@ -531,7 +549,7 @@ class ViewProjectOverview extends Page
 
     public function requestTransitionTo(string $target): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation('overview', 'project-status', 'Project status');
 
         $targetEnum = ProjectStatus::tryFrom($target);
         if (! $targetEnum) {
@@ -604,7 +622,7 @@ class ViewProjectOverview extends Page
 
     public function transitionTo(string $target): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation('overview', 'project-status', 'Project status');
         $targetEnum = ProjectStatus::tryFrom($target);
         if (! $targetEnum) {
             return;
@@ -648,7 +666,7 @@ class ViewProjectOverview extends Page
 
     public function confirmApprovedGrant(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation('overview', 'project-status', 'Project status');
 
         $this->validate([
             'approvedGrantAmount' => ['required', 'numeric', 'min:1'],

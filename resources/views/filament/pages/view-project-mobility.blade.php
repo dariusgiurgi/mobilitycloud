@@ -27,6 +27,7 @@
         $storedEvidenceDays = $this->evidenceDays;
         $evidenceDocuments = $this->getEvidenceDocumentsByDay();
         $canManage = $record->canManageProjectModule(auth()->user(), 'mobility');
+        $mobilityLocks = $this->projectLocksForModule('mobility');
     @endphp
 
     <x-filament::section>
@@ -37,6 +38,8 @@
             </div>
         </div>
     </x-filament::section>
+
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'mobility'])
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.65rem;margin-top:.8rem;">
         @foreach([
@@ -72,15 +75,29 @@
     </div>
 
     @if($activeMobilityTab === 'reports')
+        @php
+            $reportLock = $mobilityLocks->get('mobility-report');
+            $reportLockedByOther = $reportLock && (int) $reportLock->user_id !== (int) auth()->id();
+            $reportBadge = $reportLock ? $this->projectLockBadge($reportLock) : null;
+            $canManageReport = $canManage && ! $reportLockedByOther;
+        @endphp
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.42fr);gap:1rem;margin-top:1rem;align-items:start;">
             <x-filament::section heading="Mobility implementation report" description="Use this for the main internal report about what happened during the mobility." icon="heroicon-o-clipboard-document-check">
+                @if($reportBadge)
+                    <div style="display:inline-flex;align-items:center;gap:.35rem;margin-bottom:.6rem;padding:.18rem .52rem;border-radius:999px;background:{{ $reportBadge['background'] }};border:1px solid {{ $reportBadge['border'] }};color:{{ $reportBadge['color'] }};font-size:.6rem;font-weight:800;">
+                        <span style="width:.4rem;height:.4rem;border-radius:999px;background:{{ $reportBadge['color'] }};"></span>
+                        {{ $reportLockedByOther ? $reportBadge['name'].' edits this report' : 'You are editing this report' }}
+                    </div>
+                @endif
                 <textarea rows="10" wire:model.defer="mobilityReport"
+                          wire:focus="startProjectEditing('mobility', 'mobility-report', 'Mobility report')"
                           aria-label="Mobility implementation report"
                           placeholder="Describe the mobility implementation: what was delivered, materials created, participant outputs, unexpected changes, learning moments and evidence kept for the final report."
+                          @readonly(!$canManageReport)
                           style="width:100%;padding:.75rem .85rem;border:1px solid rgba(100,116,139,.28);border-radius:.75rem;background:transparent;font-size:.82rem;resize:vertical;"></textarea>
                 @error('mobilityReport') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
 
-                @if($canManage)
+                @if($canManageReport)
                     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.75rem;">
                         <x-filament::button wire:click="saveMobilityReport" icon="heroicon-m-check">
                             Save report
@@ -127,8 +144,12 @@
                         $orgEvidence = $disseminationEvidence[$organisation['key']] ?? collect();
                         $orgImages = $orgEvidence->filter(fn ($evidence) => $evidence->isImageFile())->values();
                         $orgFiles = $orgEvidence->reject(fn ($evidence) => $evidence->isImageFile())->values();
+                        $orgLock = $mobilityLocks->get('dissemination:'.$organisation['key']);
+                        $orgLockedByOther = $orgLock && (int) $orgLock->user_id !== (int) auth()->id();
+                        $orgBadge = $orgLock ? $this->projectLockBadge($orgLock) : null;
+                        $canManageOrg = $canManage && ! $orgLockedByOther;
                     @endphp
-                    <div class="bg-white dark:bg-gray-900" style="border:1px solid rgba(148,163,184,.22);border-radius:.9rem;padding:.85rem;">
+                    <div class="bg-white dark:bg-gray-900" style="border:1px solid {{ $orgBadge ? $orgBadge['border'] : 'rgba(148,163,184,.22)' }};border-radius:.9rem;padding:.85rem;background:{{ $orgBadge ? $orgBadge['background'] : '' }};">
                         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
                             <div>
                                 <h3 class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:800;margin:0;">{{ $organisation['name'] }}</h3>
@@ -138,13 +159,21 @@
                             </div>
                             <x-filament::badge :color="$orgEvidence->isNotEmpty() ? 'success' : 'warning'">{{ $orgEvidence->count() }} evidence files</x-filament::badge>
                         </div>
+                        @if($orgBadge)
+                            <div style="display:inline-flex;align-items:center;gap:.3rem;margin-top:.55rem;padding:.14rem .46rem;border-radius:999px;background:{{ $orgBadge['background'] }};border:1px solid {{ $orgBadge['border'] }};color:{{ $orgBadge['color'] }};font-size:.58rem;font-weight:800;">
+                                <span style="width:.38rem;height:.38rem;border-radius:999px;background:{{ $orgBadge['color'] }};"></span>
+                                {{ $orgLockedByOther ? $orgBadge['name'].' edits this report' : 'You edit this report' }}
+                            </div>
+                        @endif
 
                         <textarea rows="4" wire:model.defer="disseminationReports.{{ $organisation['key'] }}"
+                                  wire:focus="startProjectEditing('mobility', 'dissemination:{{ $organisation['key'] }}', 'Dissemination: {{ addslashes($organisation['name']) }}')"
                                   placeholder="Describe this organisation's dissemination: activity, date, audience, channels, number of people reached, links and results."
+                                  @readonly(!$canManageOrg)
                                   style="width:100%;margin-top:.65rem;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
                         @error('disseminationReports.'.$organisation['key']) <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
 
-                        @if($canManage)
+                        @if($canManageOrg)
                             <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;">
                                 <x-filament::button wire:click="saveDisseminationReport('{{ $organisation['key'] }}')" size="sm" icon="heroicon-m-check">
                                     Save report
@@ -303,8 +332,12 @@
                                 $dayFiles = $dayDocuments['files'] ?? collect();
                                 $dayLinks = $storedEvidenceDays[$day['id']]['links'] ?? [];
                                 $isDayOpen = str_starts_with((string) $evidenceUploadDayId, $day['id'].'_');
+                                $dayLock = $mobilityLocks->get('evidence-day:'.$day['id']);
+                                $dayLockedByOther = $dayLock && (int) $dayLock->user_id !== (int) auth()->id();
+                                $dayBadge = $dayLock ? $this->projectLockBadge($dayLock) : null;
+                                $canManageDay = $canManage && ! $dayLockedByOther;
                             @endphp
-                            <details class="bg-white dark:bg-gray-900" style="border:1px solid rgba(148,163,184,.22);border-radius:1rem;padding:.15rem .15rem .2rem;" @if($isDayOpen) open @endif>
+                            <details class="bg-white dark:bg-gray-900" style="border:1px solid {{ $dayBadge ? $dayBadge['border'] : 'rgba(148,163,184,.22)' }};border-radius:1rem;padding:.15rem .15rem .2rem;background:{{ $dayBadge ? $dayBadge['background'] : '' }};" @if($isDayOpen) open @endif>
                                 <summary style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;cursor:pointer;list-style:none;padding:.85rem .9rem;">
                                     <div style="display:flex;align-items:center;gap:.65rem;min-width:220px;">
                                         <span style="width:2rem;height:2rem;border-radius:.7rem;background:rgba(37,99,235,.1);display:inline-flex;align-items:center;justify-content:center;color:#2563eb;">▾</span>
@@ -314,6 +347,9 @@
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
+                                        @if($dayBadge)
+                                            <x-filament::badge color="gray">{{ $dayLockedByOther ? $dayBadge['name'].' edits' : 'You edit' }}</x-filament::badge>
+                                        @endif
                                         <x-filament::badge color="gray">{{ $dayImages->count() }} images</x-filament::badge>
                                         <x-filament::badge color="gray">{{ $dayFiles->count() }} files</x-filament::badge>
                                         <x-filament::badge color="gray">{{ count($dayLinks) }} links</x-filament::badge>
@@ -322,16 +358,16 @@
 
                                 <div style="padding:0 .9rem .9rem;">
 
-                                @if($canManage)
+                                @if($canManageDay)
                                     <div style="display:grid;gap:.65rem;margin-top:.85rem;">
                                         <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 160px;gap:.55rem;">
-                                            <input type="text" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.title" aria-label="Evidence day title" placeholder="Day title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
-                                            <input type="date" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.date" aria-label="Evidence day date" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                                            <input type="text" wire:focus="startProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}', 'Evidence day: {{ addslashes($day['title'] ?: 'Untitled day') }}')" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.title" aria-label="Evidence day title" placeholder="Day title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                                            <input type="date" wire:focus="startProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}', 'Evidence day: {{ addslashes($day['title'] ?: 'Untitled day') }}')" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.date" aria-label="Evidence day date" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                                         </div>
                                         @error('evidenceDays.'.$day['id'].'.title') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
 
-                                        <textarea rows="3" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.description" placeholder="Describe the day: programme, activities, participants, outputs and important moments." aria-label="Evidence day description" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
-                                        <textarea rows="2" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.observations" placeholder="Observations, incidents, quality notes, changes from the plan or useful context for final reporting." aria-label="Evidence day observations" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
+                                        <textarea rows="3" wire:focus="startProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}', 'Evidence day: {{ addslashes($day['title'] ?: 'Untitled day') }}')" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.description" placeholder="Describe the day: programme, activities, participants, outputs and important moments." aria-label="Evidence day description" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
+                                        <textarea rows="2" wire:focus="startProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}', 'Evidence day: {{ addslashes($day['title'] ?: 'Untitled day') }}')" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.observations" placeholder="Observations, incidents, quality notes, changes from the plan or useful context for final reporting." aria-label="Evidence day observations" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
 
                                         <div style="border:1px solid rgba(148,163,184,.18);border-radius:.75rem;padding:.7rem;display:grid;gap:.45rem;">
                                             <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
@@ -340,8 +376,8 @@
                                             </div>
                                             @foreach($dayLinks as $linkIndex => $link)
                                                 <div style="display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:.45rem;align-items:center;">
-                                                    <input type="text" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.label" placeholder="Facebook" aria-label="Link label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
-                                                    <input type="url" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.url" placeholder="https://..." aria-label="Link URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                                    <input type="text" wire:focus="startProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}', 'Evidence day: {{ addslashes($day['title'] ?: 'Untitled day') }}')" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.label" placeholder="Facebook" aria-label="Link label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                                    <input type="url" wire:focus="startProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}', 'Evidence day: {{ addslashes($day['title'] ?: 'Untitled day') }}')" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.url" placeholder="https://..." aria-label="Link URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
                                                     <x-filament::icon-button wire:click="removeEvidenceLink('{{ $day['id'] }}', '{{ $link['id'] }}')" icon="heroicon-m-x-mark" color="gray" label="Remove link" />
                                                 </div>
                                             @endforeach

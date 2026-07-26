@@ -63,6 +63,7 @@ class ViewProjectBoard extends Page
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'board');
         $this->authorizeProjectModuleAccess('board');
+        $this->touchProjectCollaboration('board');
     }
 
     public function getTitle(): string
@@ -92,14 +93,57 @@ class ViewProjectBoard extends Page
         $this->record->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses']);
     }
 
+    public function startBasketEditing(int $basketId): void
+    {
+        $line = BudgetLine::where('project_id', $this->record->id)->find($basketId);
+
+        if (! $line) {
+            return;
+        }
+
+        $this->startProjectEditing('board', $this->basketLockKey($line->id), $this->basketLockLabel($line));
+    }
+
+    public function startExpenseEditing(int $expenseId): void
+    {
+        $expense = $this->findExpense($expenseId);
+
+        if (! $expense) {
+            return;
+        }
+
+        $this->startProjectEditing('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
+    }
+
+    protected function basketLockKey(int $basketId): string
+    {
+        return 'basket:'.$basketId;
+    }
+
+    protected function expenseLockKey(int $expenseId): string
+    {
+        return 'expense:'.$expenseId;
+    }
+
+    protected function basketLockLabel(BudgetLine $line): string
+    {
+        return 'Basket: '.$line->title;
+    }
+
+    protected function expenseLockLabel(Expense $expense): string
+    {
+        return 'Expense '.$this->expenseCode($expense);
+    }
+
     // ═══════════ BUGET COȘ (inline) ═══════════
     public function updateBasketBudget(int $basketId, $value): void
     {
-        $this->authorizeManagementModuleMutation();
         $line = BudgetLine::where('project_id', $this->record->id)->find($basketId);
         if (! $line) {
             return;
         }
+
+        $this->authorizeManagementModuleMutation('board', $this->basketLockKey($line->id), $this->basketLockLabel($line));
         $line->allocated_budget = (float) $value;
         $line->save();
         $this->reload();
@@ -121,6 +165,8 @@ class ViewProjectBoard extends Page
         if (! $line) {
             return;
         }
+
+        $this->startProjectEditing('board', $this->basketLockKey($line->id), $this->basketLockLabel($line));
         $this->editingBasketId = $line->id;
         $this->basketTitle = $line->title;
         $this->basketEmoji = $line->emoji ?? '📁';
@@ -130,7 +176,6 @@ class ViewProjectBoard extends Page
 
     public function saveBasket(): void
     {
-        $this->authorizeManagementModuleMutation();
         $data = [
             'title' => trim($this->basketTitle) ?: 'Untitled',
             'emoji' => trim($this->basketEmoji) ?: '📁',
@@ -138,8 +183,15 @@ class ViewProjectBoard extends Page
         ];
 
         if ($this->editingBasketId) {
-            BudgetLine::where('project_id', $this->record->id)->where('id', $this->editingBasketId)->update($data);
+            $line = BudgetLine::where('project_id', $this->record->id)->find($this->editingBasketId);
+            if (! $line) {
+                return;
+            }
+
+            $this->authorizeManagementModuleMutation('board', $this->basketLockKey($line->id), $this->basketLockLabel($line));
+            $line->update($data);
         } else {
+            $this->authorizeManagementModuleMutation('board', 'baskets', 'Budget baskets');
             $maxSort = BudgetLine::where('project_id', $this->record->id)->max('sort_order') ?? -1;
             $this->record->budgetLines()->create(array_merge($data, [
                 'allocated_budget' => 0,
@@ -153,12 +205,12 @@ class ViewProjectBoard extends Page
 
     public function deleteBasket(int $basketId): void
     {
-        $this->authorizeManagementModuleMutation();
         $line = BudgetLine::where('project_id', $this->record->id)->with('expenses')->find($basketId);
         if (! $line) {
             return;
         }
 
+        $this->authorizeManagementModuleMutation('board', $this->basketLockKey($line->id), $this->basketLockLabel($line));
         $line->delete();
         $this->reload();
     }
@@ -166,8 +218,8 @@ class ViewProjectBoard extends Page
     // ═══════════ CHELTUIELI ═══════════
     public function addExpense(int $budgetLineId): void
     {
-        $this->authorizeManagementModuleMutation();
         $line = BudgetLine::where('project_id', $this->record->id)->findOrFail($budgetLineId);
+        $this->authorizeManagementModuleMutation('board', $this->basketLockKey($line->id), $this->basketLockLabel($line));
         $maxPos = Expense::where('budget_line_id', $line->id)->max('position') ?? -1;
 
         Expense::create([
@@ -187,11 +239,12 @@ class ViewProjectBoard extends Page
 
     public function updateExpense(int $expenseId, string $field, $value): void
     {
-        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($expenseId);
         if (! $expense) {
             return;
         }
+
+        $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
 
         $currencies = $this->getCurrencies();
 
@@ -233,8 +286,10 @@ class ViewProjectBoard extends Page
 
     public function deleteExpense(int $expenseId): void
     {
-        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($expenseId);
+        if ($expense) {
+            $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
+        }
         $expense?->delete();
         $this->reload();
     }
@@ -251,6 +306,8 @@ class ViewProjectBoard extends Page
         if (! $expense) {
             return;
         }
+
+        $this->startProjectEditing('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
         $this->notesExpenseId = $expense->id;
         $this->notesText = $expense->notes ?? '';
         $this->showNotesModal = true;
@@ -258,9 +315,9 @@ class ViewProjectBoard extends Page
 
     public function saveNotes(): void
     {
-        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($this->notesExpenseId);
         if ($expense) {
+            $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
             $expense->notes = $this->notesText;
             $expense->save();
         }
@@ -271,7 +328,6 @@ class ViewProjectBoard extends Page
     // ═══════════ ATAȘAMENTE ═══════════
     public function updatedUploadFile(): void
     {
-        $this->authorizeManagementModuleMutation();
         if (! $this->uploadFile || ! $this->uploadExpenseId) {
             return;
         }
@@ -284,6 +340,8 @@ class ViewProjectBoard extends Page
         if (! $expense) {
             return;
         }
+
+        $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
 
         if ($expense->attachmentExists()) {
             Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
@@ -305,13 +363,16 @@ class ViewProjectBoard extends Page
 
     public function setUploadTarget(int $expenseId): void
     {
+        $this->startExpenseEditing($expenseId);
         $this->uploadExpenseId = $expenseId;
     }
 
     public function deleteAttachment(int $expenseId): void
     {
-        $this->authorizeManagementModuleMutation();
         $expense = $this->findExpense($expenseId);
+        if ($expense) {
+            $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
+        }
         if ($expense && $expense->attachmentExists()) {
             Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
         }
@@ -343,7 +404,7 @@ class ViewProjectBoard extends Page
 
     public function saveTransfer(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('board', 'transfer-budget', 'Budget transfers');
         $this->validate([
             'transferFromId' => 'required|different:transferToId',
             'transferToId' => 'required',
@@ -379,7 +440,7 @@ class ViewProjectBoard extends Page
 
     public function reverseTransfer(int $transferId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('board', 'transfer-budget', 'Budget transfers');
         $transfer = BudgetTransfer::where('project_id', $this->record->id)->find($transferId);
         if (! $transfer || ! $transfer->isActive()) {
             return;

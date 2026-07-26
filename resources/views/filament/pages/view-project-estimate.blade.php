@@ -4,7 +4,9 @@
         $bands = $this->getBands();
         $eur = fn ($v) => number_format((float) $v, 2, '.', ',') . ' €';
         $inStyle = 'width:100%;padding:8px 10px;border:1px solid rgba(100,116,139,.3);border-radius:8px;background:transparent;font-size:13px;';
-        $canManage = $record->canBeManagedBy(auth()->user());
+        $estimateState = $this->projectPresenceState('estimate', 'estimate');
+        $estimateLockBadge = $estimateState['lock'] ? $this->projectLockBadge($estimateState['lock']) : null;
+        $canManage = $this->canManageProjectModuleNow('estimate', 'estimate');
     @endphp
 
     <style>
@@ -20,6 +22,14 @@
     </style>
 
     <div class="mc-est">
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'estimate'])
+
+    @if($estimateLockBadge)
+        <div style="margin-bottom:.75rem;display:inline-flex;align-items:center;gap:.4rem;padding:.32rem .68rem;border-radius:999px;background:{{ $estimateLockBadge['background'] }};border:1px solid {{ $estimateLockBadge['border'] }};color:{{ $estimateLockBadge['color'] }};font-size:.68rem;font-weight:800;">
+            <span style="width:.48rem;height:.48rem;border-radius:999px;background:{{ $estimateLockBadge['color'] }};"></span>
+            {{ $estimateState['locked_by_other'] ? $estimateLockBadge['name'].' edits the estimator' : 'You are editing the estimator' }}
+        </div>
+    @endif
     <x-filament::section>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
             <div>
@@ -51,7 +61,7 @@
                         People eligible for Individual Support and the travel unit contribution. This can differ from the Organisational Support participant count under some action rules.
                     </x-help-tip>
                 </div>
-                <input type="number" min="0" wire:model.live.debounce.500ms="persons" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="persons" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
             <div>
                 <div class="fl">
@@ -60,23 +70,23 @@
                         Enter the number of people who generate an Organisational Support unit contribution under the applicable programme rules.
                     </x-help-tip>
                 </div>
-                <input type="number" min="0" wire:model.live.debounce.500ms="participants" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="participants" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
             <div>
                 <label class="f">Activity days</label>
-                <input type="number" min="0" wire:model.live.debounce.500ms="days" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="days" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
             <div>
                 <label class="f">Travel days</label>
-                <input type="number" min="0" wire:model.live.debounce.500ms="travelDays" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="travelDays" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
             <div>
                 <label class="f">IS rate (€/person/day)</label>
-                <input type="number" min="0" step="0.01" wire:model.live.debounce.500ms="isRate" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" step="0.01" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="isRate" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
             <div>
                 <label class="f">Distance band</label>
-                <select wire:model.live="travelBandIndex" class="text-gray-950 dark:text-white" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <select wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live="travelBandIndex" class="text-gray-950 dark:text-white" style="{{ $inStyle }}" @disabled(!$canManage)>
                     @foreach($bands as $i => $b)
                         <option value="{{ $i }}">{{ $b['label'] }}</option>
                     @endforeach
@@ -84,7 +94,7 @@
             </div>
             <div>
                 <label class="f">OS rate (€/participant)</label>
-                <input type="number" min="0" step="0.01" wire:model.live.debounce.500ms="osRate" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" step="0.01" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="osRate" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
             <div>
                 <div class="fl">
@@ -93,14 +103,14 @@
                         Enter the approved unit contribution or total intended to help the organisation arrange participation for people with fewer opportunities. Participant-specific real costs are handled separately when applicable.
                     </x-help-tip>
                 </div>
-                <input type="number" min="0" step="0.01" wire:model.live.debounce.500ms="inclusionOrgTotal" style="{{ $inStyle }}" @disabled(!$canManage)>
+                <input type="number" min="0" step="0.01" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live.debounce.500ms="inclusionOrgTotal" style="{{ $inStyle }}" @disabled(!$canManage)>
             </div>
         </div>
 
         <div style="display:flex;flex-wrap:wrap;gap:1.5rem;margin-top:1rem;">
-            <label class="row"><input type="checkbox" wire:model.live="greenTravel" @disabled(!$canManage)> Green travel</label>
-            <label class="row"><input type="checkbox" wire:model.live="includeTravelDaysInIS" @disabled(!$canManage)> Include travel days in IS</label>
-            <label class="row"><input type="checkbox" wire:model.live="includeOS" @disabled(!$canManage)> Include Organisational Support</label>
+            <label class="row"><input type="checkbox" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live="greenTravel" @disabled(!$canManage)> Green travel</label>
+            <label class="row"><input type="checkbox" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live="includeTravelDaysInIS" @disabled(!$canManage)> Include travel days in IS</label>
+            <label class="row"><input type="checkbox" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live="includeOS" @disabled(!$canManage)> Include Organisational Support</label>
         </div>
     </x-filament::section>
 

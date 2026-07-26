@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Expense;
+use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 
 class EditProject extends EditRecord
 {
+    use AuthorizesProjectManagement;
+
     protected static string $resource = ProjectResource::class;
 
     protected array $previousCurrencyRates = [];
@@ -22,6 +25,8 @@ class EditProject extends EditRecord
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'edit');
         abort_unless($this->record->canAccessProjectModule(auth()->user(), 'edit'), 404);
+
+        $this->touchProjectCollaboration('edit');
     }
 
     protected function getHeaderActions(): array
@@ -56,6 +61,8 @@ class EditProject extends EditRecord
 
     protected function beforeSave(): void
     {
+        $this->authorizeManagementModuleMutation('edit', 'project-settings', 'Project settings');
+
         $this->previousCurrencyRates = $this->record->currencyRates();
     }
 

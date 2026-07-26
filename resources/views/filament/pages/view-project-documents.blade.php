@@ -32,6 +32,8 @@
         </div>
     </x-filament::section>
 
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'documents'])
+
     <div style="display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;margin-top:.8rem;">
         <x-filament::tabs label="Document sections">
             <x-filament::tabs.item wire:click="setDocumentTab('files')" :active="$activeDocumentTab === 'files'" icon="heroicon-m-folder" :badge="$documentCount">

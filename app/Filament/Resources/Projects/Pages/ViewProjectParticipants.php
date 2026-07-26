@@ -66,6 +66,7 @@ class ViewProjectParticipants extends Page
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'participants');
         $this->authorizeProjectModuleAccess('participants');
+        $this->touchProjectCollaboration('participants');
     }
 
     public function getTitle(): string
@@ -188,7 +189,7 @@ class ViewProjectParticipants extends Page
 
     public function createParticipantRegistrationLink(): void
     {
-        $this->authorizeManagementModuleMutation('participants');
+        $this->authorizeManagementModuleMutation('participants', 'registration-link', 'Participant registration link');
 
         $this->record->forceFill([
             'participant_registration_token' => Str::random(48),
@@ -207,7 +208,7 @@ class ViewProjectParticipants extends Page
 
     public function closeParticipantRegistrationLink(): void
     {
-        $this->authorizeManagementModuleMutation('participants');
+        $this->authorizeManagementModuleMutation('participants', 'registration-link', 'Participant registration link');
 
         $this->record->forceFill([
             'participant_registration_closed_at' => now(),
@@ -224,7 +225,7 @@ class ViewProjectParticipants extends Page
 
     public function openImport(): void
     {
-        $this->authorizeManagementModuleMutation('participants');
+        $this->authorizeManagementModuleMutation('participants', 'import', 'Participant import');
         $this->resetValidation('importFile');
         $this->importFile = null;
         $this->showImportModal = true;
@@ -232,7 +233,7 @@ class ViewProjectParticipants extends Page
 
     public function importParticipants(ParticipantCsvImporter $importer): void
     {
-        $this->authorizeManagementModuleMutation('participants');
+        $this->authorizeManagementModuleMutation('participants', 'import', 'Participant import');
         $this->validate([
             'importFile' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
@@ -263,7 +264,7 @@ class ViewProjectParticipants extends Page
 
     public function openCreate(): void
     {
-        $this->authorizeManagementModuleMutation('participants');
+        $this->authorizeManagementModuleMutation('participants', 'new-participant', 'New participant');
         $this->editingId = null;
         $this->data = $this->blankData();
         $this->showModal = true;
@@ -274,6 +275,10 @@ class ViewProjectParticipants extends Page
         $p = Participant::where('project_id', $this->record->id)->find($id);
         if (! $p) {
             return;
+        }
+
+        if ($this->record->canManageProjectModule(auth()->user(), 'participants')) {
+            $this->startProjectEditing('participants', $this->participantLockKey($p->id), $this->participantLockLabel($p));
         }
 
         $this->editingId = $p->id;
@@ -302,7 +307,17 @@ class ViewProjectParticipants extends Page
 
     public function save(): void
     {
-        $this->authorizeManagementModuleMutation('participants');
+        if ($this->editingId) {
+            $participant = Participant::where('project_id', $this->record->id)->find($this->editingId);
+            if (! $participant) {
+                return;
+            }
+
+            $this->authorizeManagementModuleMutation('participants', $this->participantLockKey($participant->id), $this->participantLockLabel($participant));
+        } else {
+            $this->authorizeManagementModuleMutation('participants', 'new-participant', 'New participant');
+        }
+
         $organisationNames = collect($this->getPartnerOrgs())->pluck('name')->all();
         $organisationRules = count($organisationNames) > 0
             ? ['required', 'string', 'max:255', Rule::in($organisationNames)]
@@ -341,18 +356,23 @@ class ViewProjectParticipants extends Page
 
     public function deleteParticipant(int $id): void
     {
-        $this->authorizeManagementModuleMutation('participants');
-        Participant::where('project_id', $this->record->id)->where('id', $id)->delete();
+        $participant = Participant::where('project_id', $this->record->id)->find($id);
+        if (! $participant) {
+            return;
+        }
+
+        $this->authorizeManagementModuleMutation('participants', $this->participantLockKey($participant->id), $this->participantLockLabel($participant));
+        $participant->delete();
         Notification::make()->title('Participant removed')->success()->send();
     }
 
     public function setGdprConsent(int $id): void
     {
-        $this->authorizeManagementModuleMutation('participants');
         $p = Participant::where('project_id', $this->record->id)->find($id);
         if (! $p) {
             return;
         }
+        $this->authorizeManagementModuleMutation('participants', $this->participantLockKey($p->id), $this->participantLockLabel($p));
         $p->gdpr_consented_at = $p->gdpr_consented_at ? null : now();
         $p->save();
     }
@@ -372,7 +392,6 @@ class ViewProjectParticipants extends Page
 
     public function uploadAttachment(): void
     {
-        $this->authorizeManagementModuleMutation('participants');
         $this->validate([
             'uploadFile' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx', // 10 MB
             'uploadType' => 'required|in:'.implode(',', array_keys(ParticipantAttachment::TYPES)),
@@ -388,6 +407,8 @@ class ViewProjectParticipants extends Page
 
             return;
         }
+
+        $this->authorizeManagementModuleMutation('participants', $this->participantLockKey($participant->id), $this->participantLockLabel($participant));
 
         // Numele generat: {prefix}_{Nume}_{Prenume}.{ext}, fara diacritice.
         $prefix = ParticipantAttachment::FILE_PREFIXES[$this->uploadType] ?? 'document';
@@ -429,12 +450,22 @@ class ViewProjectParticipants extends Page
 
     public function deleteAttachment(int $attachmentId): void
     {
-        $this->authorizeManagementModuleMutation('participants');
         $att = ParticipantAttachment::find($attachmentId);
         // Verificam ca apartine unui participant din acest proiect.
         if ($att && $att->participant && $att->participant->project_id === $this->record->id) {
+            $this->authorizeManagementModuleMutation('participants', $this->participantLockKey($att->participant->id), $this->participantLockLabel($att->participant));
             $att->delete();
             Notification::make()->title('Document removed')->success()->send();
         }
+    }
+
+    protected function participantLockKey(int $participantId): string
+    {
+        return 'participant:'.$participantId;
+    }
+
+    protected function participantLockLabel(Participant $participant): string
+    {
+        return 'Participant: '.$participant->fullName();
     }
 }

@@ -298,6 +298,7 @@ class Project extends Model
 
         return match ($module) {
             'write' => $this->canEditApplicationBy($user),
+            'estimate' => $this->isWritingStage() && $this->canBeManagedBy($user),
             'participants', 'mobility', 'documents', 'board' => $this->canManageManagementModulesBy($user),
             'edit' => $this->canBeManagedBy($user),
             default => $this->canBeManagedBy($user),

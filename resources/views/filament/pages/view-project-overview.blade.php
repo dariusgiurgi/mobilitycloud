@@ -128,6 +128,8 @@
         </div>
     </x-filament::section>
 
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'overview'])
+
     @if ($showInvoiceActivationNotice)
         <x-filament::section style="margin-top:1rem;">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;">

@@ -94,6 +94,7 @@ class ViewProjectDocuments extends Page
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'documents');
         $this->authorizeProjectModuleAccess('documents');
+        $this->touchProjectCollaboration('documents');
     }
 
     public function getTitle(): string
@@ -277,7 +278,7 @@ class ViewProjectDocuments extends Page
 
     public function openExpenseReportGenerator(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('documents', 'expense-report', 'Expense report generator');
         $this->resetValidation();
         $this->reportTitle = 'Official expense report';
         $this->reportStartDate = $this->record->start_date?->format('Y-m-d');
@@ -299,7 +300,7 @@ class ViewProjectDocuments extends Page
 
     public function generateExpenseReport(ExpenseReportSnapshot $snapshotBuilder): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('documents', 'expense-report', 'Expense report generator');
         $validated = $this->validate([
             'reportTitle' => ['required', 'string', 'max:255'],
             'reportStartDate' => ['nullable', 'date'],
@@ -339,11 +340,12 @@ class ViewProjectDocuments extends Page
 
     public function openConvention(int $expenseId): void
     {
-        $this->authorizeManagementModuleMutation();
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;
         }
+
+        $this->startProjectEditing('documents', $this->conventionLockKey($expense->id), $this->conventionLockLabel($expense));
 
         $settings = $this->projectOwnerDocumentSettings();
         $owner = $this->record->owner();
@@ -401,13 +403,14 @@ class ViewProjectDocuments extends Page
 
     public function saveConventionDetails(): void
     {
-        $this->authorizeManagementModuleMutation();
         $expense = $this->findConventionExpense($this->conventionExpenseId);
         if (! $expense) {
             $this->closeConvention();
 
             return;
         }
+
+        $this->authorizeManagementModuleMutation('documents', $this->conventionLockKey($expense->id), $this->conventionLockLabel($expense));
 
         $this->validate([
             'conventionData.agreement_type' => ['required', 'in:'.implode(',', array_keys(Expense::CONVENTION_TYPES))],
@@ -476,12 +479,13 @@ class ViewProjectDocuments extends Page
 
     public function openConventionSignedUpload(int $expenseId, string $kind): void
     {
-        $this->authorizeManagementModuleMutation();
         abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;
         }
+
+        $this->startProjectEditing('documents', $this->conventionLockKey($expense->id), $this->conventionLockLabel($expense));
 
         abort_unless(
             match ($kind) {
@@ -508,7 +512,6 @@ class ViewProjectDocuments extends Page
 
     public function uploadConventionSignedCopy(): void
     {
-        $this->authorizeManagementModuleMutation();
         $this->validate([
             'conventionSignedKind' => ['required', 'in:agreement,payment'],
             'conventionSignedUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png'],
@@ -520,6 +523,8 @@ class ViewProjectDocuments extends Page
 
             return;
         }
+
+        $this->authorizeManagementModuleMutation('documents', $this->conventionLockKey($expense->id), $this->conventionLockLabel($expense));
 
         $kind = $this->conventionSignedKind;
         abort_unless(
@@ -555,12 +560,13 @@ class ViewProjectDocuments extends Page
 
     public function deleteConventionSignedCopy(int $expenseId, string $kind): void
     {
-        $this->authorizeManagementModuleMutation();
         abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $expense = $this->findConventionExpense($expenseId);
         if (! $expense) {
             return;
         }
+
+        $this->authorizeManagementModuleMutation('documents', $this->conventionLockKey($expense->id), $this->conventionLockLabel($expense));
 
         $copy = $expense->conventionSignedCopy($kind);
         if ($expense->hasConventionSignedCopy($kind)) {
@@ -577,7 +583,7 @@ class ViewProjectDocuments extends Page
 
     public function openDocumentUpload(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('documents', 'upload', 'Document upload');
         $this->resetValidation();
         $this->documentTitle = '';
         $this->documentCategory = 'other';
@@ -606,7 +612,7 @@ class ViewProjectDocuments extends Page
 
     public function uploadProjectDocument(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('documents', 'upload', 'Document upload');
         $this->validate([
             'documentTitle' => ['required', 'string', 'max:255'],
             'documentCategory' => ['required', 'in:'.implode(',', array_keys(ProjectDocument::CATEGORIES))],
@@ -649,12 +655,12 @@ class ViewProjectDocuments extends Page
 
     public function openSignedUpload(int $documentId): void
     {
-        $this->authorizeManagementModuleMutation();
         $document = $this->findDocument($documentId);
         if (! $document) {
             return;
         }
 
+        $this->startProjectEditing('documents', $this->documentLockKey($document->id), $this->documentLockLabel($document));
         $this->signedDocumentId = $document->id;
         $this->signedUpload = null;
         $this->showSignedUploadModal = true;
@@ -669,7 +675,6 @@ class ViewProjectDocuments extends Page
 
     public function uploadSignedCopy(): void
     {
-        $this->authorizeManagementModuleMutation();
         $this->validate([
             'signedUpload' => 'required|file|max:20480|mimes:pdf,jpg,jpeg,png',
         ]);
@@ -680,6 +685,8 @@ class ViewProjectDocuments extends Page
 
             return;
         }
+
+        $this->authorizeManagementModuleMutation('documents', $this->documentLockKey($document->id), $this->documentLockLabel($document));
 
         if ($document->hasSignedCopy()) {
             Storage::disk($document->signed_disk ?: 'local')->delete($document->signed_path);
@@ -707,11 +714,12 @@ class ViewProjectDocuments extends Page
 
     public function deleteSignedCopy(int $documentId): void
     {
-        $this->authorizeManagementModuleMutation();
         $document = $this->findDocument($documentId);
         if (! $document) {
             return;
         }
+
+        $this->authorizeManagementModuleMutation('documents', $this->documentLockKey($document->id), $this->documentLockLabel($document));
 
         if ($document->hasSignedCopy()) {
             Storage::disk($document->signed_disk ?: 'local')->delete($document->signed_path);
@@ -729,10 +737,32 @@ class ViewProjectDocuments extends Page
 
     public function deleteDocument(int $documentId): void
     {
-        $this->authorizeManagementModuleMutation();
         $document = $this->findDocument($documentId);
+        if ($document) {
+            $this->authorizeManagementModuleMutation('documents', $this->documentLockKey($document->id), $this->documentLockLabel($document));
+        }
         $document?->delete();
         Notification::make()->title('Document removed')->success()->send();
+    }
+
+    protected function documentLockKey(int $documentId): string
+    {
+        return 'document:'.$documentId;
+    }
+
+    protected function documentLockLabel(ProjectDocument $document): string
+    {
+        return 'Document: '.$document->title;
+    }
+
+    protected function conventionLockKey(int $expenseId): string
+    {
+        return 'convention:'.$expenseId;
+    }
+
+    protected function conventionLockLabel(Expense $expense): string
+    {
+        return 'Civil convention '.$this->expenseCode($expense);
     }
 
     private function findDocument(?int $documentId): ?ProjectDocument

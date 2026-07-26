@@ -22,7 +22,12 @@
         $orgsInUse = $this->getOrgsInUse();
         $activeFilters = $this->activeParticipantFilters();
         $canManage = $record->canManageProjectModule(auth()->user(), 'participants');
+        $participantLocks = $this->projectLocksForModule('participants');
         $registrationUrl = $this->getParticipantRegistrationUrl();
+        $editingParticipantLock = $editingId ? $participantLocks->get('participant:'.$editingId) : null;
+        $editingParticipantLockedByOther = $editingParticipantLock && (int) $editingParticipantLock->user_id !== (int) auth()->id();
+        $editingParticipantBadge = $editingParticipantLock ? $this->projectLockBadge($editingParticipantLock) : null;
+        $canEditParticipantModal = $canManage && ! $editingParticipantLockedByOther;
     @endphp
 
     <style>
@@ -40,6 +45,8 @@
     </style>
 
     <div class="mc-part">
+
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'participants'])
 
     <x-filament::section>
         <div class="mc-part-header">
@@ -287,10 +294,22 @@
                     </thead>
                     <tbody>
                         @foreach($participants as $p)
-                        <tr wire:key="part-{{ $p->id }}" class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);">
+                        @php
+                            $participantLock = $participantLocks->get('participant:'.$p->id);
+                            $participantLockedByOther = $participantLock && (int) $participantLock->user_id !== (int) auth()->id();
+                            $participantBadge = $participantLock ? $this->projectLockBadge($participantLock) : null;
+                            $canManageParticipant = $canManage && ! $participantLockedByOther;
+                        @endphp
+                        <tr wire:key="part-{{ $p->id }}" class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);background:{{ $participantBadge ? $participantBadge['background'] : 'transparent' }};box-shadow:{{ $participantBadge ? 'inset 3px 0 0 '.$participantBadge['color'] : 'none' }};">
                             <td style="padding:9px 12px;">
                                 <div style="font-weight:600;">{{ $p->fullName() }}</div>
                                 @if($p->email)<div class="text-gray-400" style="font-size:11px;margin-top:1px;">{{ $p->email }}</div>@endif
+                                @if($participantBadge)
+                                    <div style="display:inline-flex;align-items:center;gap:.28rem;margin-top:.28rem;padding:.1rem .42rem;border-radius:999px;background:{{ $participantBadge['background'] }};border:1px solid {{ $participantBadge['border'] }};color:{{ $participantBadge['color'] }};font-size:.56rem;font-weight:800;">
+                                        <span style="width:.38rem;height:.38rem;border-radius:999px;background:{{ $participantBadge['color'] }};"></span>
+                                        {{ $participantLockedByOther ? $participantBadge['name'].' edits this participant' : 'You edit this participant' }}
+                                    </div>
+                                @endif
                             </td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->roleLabel() }}</td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->partner_organisation ?: '—' }}</td>
@@ -333,7 +352,7 @@
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.06 12.35a1 1 0 0 1 0-.7C3.42 8.26 7.14 6 12 6s8.58 2.26 9.94 5.65a1 1 0 0 1 0 .7C20.58 15.74 16.86 18 12 18s-8.58-2.26-9.94-5.65Z"/><circle cx="12" cy="12" r="3"/></svg>
                                     @endif
                                 </button>
-                                @if($canManage)
+                                @if($canManageParticipant)
                                 <button type="button" wire:click="deleteParticipant({{ $p->id }})" wire:confirm="Remove this participant?" title="Remove" aria-label="Remove {{ $p->fullName() }}"
                                         style="width:28px;height:28px;border:none;background:transparent;cursor:pointer;color:#9ca3af;border-radius:6px;"
                                         onmouseover="this.style.background='rgba(239,68,68,.1)';this.style.color='#dc2626';"
@@ -360,7 +379,14 @@
 
             <h3 class="mc-modal-heading" style="margin-bottom:1.25rem;">{{ !$canManage ? 'View participant' : ($editingId ? 'Edit participant' : 'Add participant') }}</h3>
 
-            <fieldset @disabled(!$canManage) style="border:0;padding:0;margin:0;min-width:0;">
+            @if($editingParticipantBadge)
+                <div style="margin-bottom:.9rem;display:inline-flex;align-items:center;gap:.35rem;padding:.24rem .58rem;border-radius:999px;background:{{ $editingParticipantBadge['background'] }};border:1px solid {{ $editingParticipantBadge['border'] }};color:{{ $editingParticipantBadge['color'] }};font-size:.62rem;font-weight:800;">
+                    <span style="width:.42rem;height:.42rem;border-radius:999px;background:{{ $editingParticipantBadge['color'] }};"></span>
+                    {{ $editingParticipantLockedByOther ? $editingParticipantBadge['name'].' edits this participant' : 'You are editing this participant' }}
+                </div>
+            @endif
+
+            <fieldset @disabled(!$canEditParticipantModal) style="border:0;padding:0;margin:0;min-width:0;">
             {{-- Identity --}}
             <p class="mc-part-sec">Identity</p>
             <div class="mc-part-grid">
@@ -502,7 +528,7 @@
                                         'name' => $att->original_name ?: \Illuminate\Support\Str::afterLast($att->path, '/'),
                                         'url' => route('attachments.participants.download', $att),
                                         'size' => $att->humanSize(),
-                                        'deleteAction' => $canManage ? 'deleteAttachment('.$att->id.')' : null,
+                                        'deleteAction' => $canEditParticipantModal ? 'deleteAttachment('.$att->id.')' : null,
                                         'deleteTitle' => 'Remove',
                                     ])
                                 </span>
@@ -513,7 +539,7 @@
                     @endforeach
                 </div>
 
-                @if($canManage)
+                @if($canEditParticipantModal)
                 {{-- Upload row --}}
                 <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:10px 11px;border:1px dashed rgba(100,116,139,.35);border-radius:8px;margin-bottom:.5rem;"
                      wire:key="upload-row-{{ $editingId }}">
@@ -544,7 +570,7 @@
             <div class="mc-modal-actions" style="margin-top:1.5rem;">
                 <button type="button" wire:click="closeModal"
                         style="padding:9px 18px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">{{ $canManage ? 'Cancel' : 'Close' }}</button>
-                @if($canManage)
+                @if($canEditParticipantModal)
                 <button type="button" wire:click="save"
                         style="padding:9px 18px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Save</button>
                 @endif

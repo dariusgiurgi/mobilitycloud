@@ -11,6 +11,7 @@
         $expenseCount = $record->budgetLines->sum(fn ($line) => $line->expenses->count());
         $documentedCount = $record->budgetLines->sum(fn ($line) => $line->expenses->whereNotNull('attachment_path')->count());
         $canManage = $record->canBeManagedBy(auth()->user());
+        $boardLocks = $this->projectLocksForModule('board');
         $emojiList = ['📁','✈️','🙋','🏢','🤝','⚡','🎓','❤️','💼','📚','🍽️','🚗','🏨','🎫','💻','📞','🎨','🔧','💡','🎯'];
     @endphp
 
@@ -86,6 +87,8 @@
 
     <div class="mc-board">
 
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'board'])
+
     <x-filament::section>
         <div class="mc-budget-header">
             <div>
@@ -141,10 +144,20 @@
             $lineAlloc = (float) $line->allocated_budget;
             $lineLeft  = $lineAlloc - $lineSpent;
             $color = $line->color ?: '#6366f1';
+            $basketLock = $boardLocks->get('basket:'.$line->id);
+            $basketLockedByOther = $basketLock && (int) $basketLock->user_id !== (int) auth()->id();
+            $basketBadge = $basketLock ? $this->projectLockBadge($basketLock) : null;
+            $canManageBasket = $canManage && ! $basketLockedByOther;
         @endphp
 
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-             style="border-left:4px solid {{ $color }};margin-bottom:1rem;overflow:hidden;">
+             style="position:relative;border-left:4px solid {{ $basketBadge ? $basketBadge['color'] : $color }};margin-bottom:1rem;overflow:hidden;box-shadow:{{ $basketBadge ? '0 0 0 1px '.$basketBadge['border'] : '' }};">
+            @if($basketBadge)
+                <span style="position:absolute;top:.7rem;right:.8rem;display:inline-flex;align-items:center;gap:.3rem;padding:.16rem .5rem;border-radius:999px;background:{{ $basketBadge['background'] }};border:1px solid {{ $basketBadge['border'] }};color:{{ $basketBadge['color'] }};font-size:.58rem;font-weight:800;">
+                    <span style="width:.4rem;height:.4rem;border-radius:999px;background:{{ $basketBadge['color'] }};"></span>
+                    {{ $basketLockedByOther ? $basketBadge['name'].' edits basket' : 'You edit basket' }}
+                </span>
+            @endif
 
             <div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;gap:1rem;flex-wrap:wrap;">
                 <div style="display:flex;align-items:center;gap:.5rem;">
@@ -154,9 +167,10 @@
                 <div style="display:flex;align-items:center;gap:1rem;font-size:12px;flex-wrap:wrap;">
                     <span class="text-gray-500 dark:text-gray-400" style="display:inline-flex;align-items:center;gap:4px;">
                         Budget: €
-                        @if($canManage)
+                        @if($canManageBasket)
                             <input type="number" step="0.01" min="0" value="{{ $lineAlloc }}"
                                 wire:key="basket-alloc-{{ $line->id }}-{{ $lineAlloc }}"
+                                wire:focus="startBasketEditing({{ $line->id }})"
                                 wire:change="updateBasketBudget({{ $line->id }}, $event.target.value)"
                                 class="text-gray-950 dark:text-white"
                                 style="width:90px;text-align:right;background:transparent;border:1px solid rgba(100,116,139,.25);border-radius:4px;padding:3px 6px;font-size:12px;font-weight:600;">
@@ -166,7 +180,7 @@
                     <span class="text-gray-500 dark:text-gray-400">Spent: <strong class="text-gray-950 dark:text-white">€ {{ number_format($lineSpent, 2) }}</strong></span>
                     <span class="text-gray-500 dark:text-gray-400">Left: <strong class="{{ $lineLeft < 0 ? 'mc-neg' : 'mc-pos' }}">€ {{ number_format($lineLeft, 2) }}</strong></span>
 
-                    @if($canManage)
+                    @if($canManageBasket)
                     <button type="button" wire:click="addExpense({{ $line->id }})"
                             style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:8px;background:#6366f1;color:#fff;font-size:12px;font-weight:500;border:none;cursor:pointer;">
                         + Add expense
@@ -213,36 +227,51 @@
                     </thead>
                     <tbody>
                         @foreach($line->expenses->sortBy('position') as $expense)
-                        <tr class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);">
+                        @php
+                            $expenseLock = $boardLocks->get('expense:'.$expense->id);
+                            $expenseLockedByOther = $expenseLock && (int) $expenseLock->user_id !== (int) auth()->id();
+                            $expenseBadge = $expenseLock ? $this->projectLockBadge($expenseLock) : null;
+                            $canManageExpense = $canManage && ! $expenseLockedByOther;
+                        @endphp
+                        <tr class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);background:{{ $expenseBadge ? $expenseBadge['background'] : 'transparent' }};box-shadow:{{ $expenseBadge ? 'inset 3px 0 0 '.$expenseBadge['color'] : 'none' }};">
                             <td style="padding:6px 10px;font-family:monospace;font-size:11px;" class="text-gray-400">{{ $this->expenseCode($expense) }}</td>
                             <td style="padding:6px 10px;">
+                                @if($expenseBadge)
+                                    <div style="display:inline-flex;align-items:center;gap:.3rem;margin-bottom:.22rem;padding:.1rem .4rem;border-radius:999px;background:{{ $expenseBadge['background'] }};border:1px solid {{ $expenseBadge['border'] }};color:{{ $expenseBadge['color'] }};font-size:.56rem;font-weight:800;">
+                                        {{ $expenseLockedByOther ? $expenseBadge['name'].' edits' : 'You edit' }}
+                                    </div>
+                                @endif
                                 <input type="text" value="{{ $expense->description }}"
+                                       wire:focus="startExpenseEditing({{ $expense->id }})"
                                        wire:change="updateExpense({{ $expense->id }}, 'description', $event.target.value)"
                                        placeholder="Expense name…"
-                                       @readonly(!$canManage)
+                                       @readonly(!$canManageExpense)
                                        style="width:100%;background:transparent;border:1px solid transparent;border-radius:4px;padding:4px 6px;color:inherit;font-size:12px;">
                             </td>
                             <td style="padding:6px 10px;">
                                 <input type="date" value="{{ $expense->expense_date?->format('Y-m-d') }}"
                                        wire:change="updateExpense({{ $expense->id }}, 'expense_date', $event.target.value)"
-                                       @disabled(!$canManage)
+                                       wire:focus="startExpenseEditing({{ $expense->id }})"
+                                       @disabled(!$canManageExpense)
                                        style="width:100%;background:transparent;border:1px solid rgba(100,116,139,.25);border-radius:4px;padding:4px 6px;color:inherit;font-size:12px;">
                             </td>
                             <td style="padding:6px 10px;text-align:center;">
                                 <input type="checkbox" {{ $expense->is_civil_convention ? 'checked' : '' }}
                                        wire:change="updateExpense({{ $expense->id }}, 'is_civil_convention', $event.target.checked)"
-                                       @disabled(!$canManage)
+                                       @disabled(!$canManageExpense)
                                        style="width:15px;height:15px;cursor:pointer;accent-color:#6366f1;">
                             </td>
                             <td style="padding:6px 10px;">
                                 <input type="number" step="0.01" min="0" value="{{ $expense->amount }}"
                                        wire:change="updateExpense({{ $expense->id }}, 'amount', $event.target.value)"
-                                       @disabled(!$canManage)
+                                       wire:focus="startExpenseEditing({{ $expense->id }})"
+                                       @disabled(!$canManageExpense)
                                        style="width:100%;text-align:right;background:transparent;border:1px solid rgba(100,116,139,.25);border-radius:4px;padding:4px 6px;color:inherit;font-size:12px;">
                             </td>
                             <td style="padding:6px 10px;">
                                 <select wire:change="updateExpense({{ $expense->id }}, 'currency', $event.target.value)"
-                                        @disabled(!$canManage)
+                                        wire:focus="startExpenseEditing({{ $expense->id }})"
+                                        @disabled(!$canManageExpense)
                                         style="width:100%;background:transparent;border:1px solid rgba(100,116,139,.25);border-radius:4px;padding:4px 6px;color:inherit;font-size:12px;">
                                     @foreach($currencies as $cur)
                                         <option value="{{ $cur }}" {{ $expense->currency === $cur ? 'selected' : '' }} class="dark:bg-gray-800">{{ $cur }}</option>
@@ -256,11 +285,11 @@
                                     @include('filament.pages.partials.file-mini-chip', [
                                         'name' => $expense->supportingFileName($record),
                                         'url' => route('attachments.expenses.download', $expense),
-                                        'deleteAction' => $canManage ? 'deleteAttachment('.$expense->id.')' : null,
+                                        'deleteAction' => $canManageExpense ? 'deleteAttachment('.$expense->id.')' : null,
                                         'deleteTitle' => 'Remove file',
                                         'maxWidth' => '150px',
                                     ])
-                                @elseif($canManage)
+                                @elseif($canManageExpense)
                                     <label style="cursor:pointer;display:inline-flex;" title="Upload file"
                                            wire:click="setUploadTarget({{ $expense->id }})">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.99 8.8l-8.57 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
@@ -271,13 +300,14 @@
 
                             <td style="padding:6px 10px;text-align:center;">
                                 <button type="button" wire:click="openNotes({{ $expense->id }})" title="Notes"
+                                        @disabled($expenseLockedByOther)
                                         style="border:none;background:transparent;cursor:pointer;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ $expense->notes ? '#6366f1' : '#9ca3af' }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                                 </button>
                             </td>
 
                             <td style="padding:6px 10px;text-align:center;">
-                                @if($canManage)
+                                @if($canManageExpense)
                                 <button type="button" wire:click="deleteExpense({{ $expense->id }})" wire:confirm="Delete this expense?"
                                         style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;border:none;background:transparent;cursor:pointer;color:#9ca3af;"
                                         onmouseover="this.style.background='rgba(239,68,68,.1)';this.style.color='#dc2626';"

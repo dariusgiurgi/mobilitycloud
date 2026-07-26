@@ -17,6 +17,7 @@
         $activityFlowReview = $this->getActivityFlowReview();
         $writingNotRequired = ! $record->isWritingStage() && $sections->isEmpty();
         $showWritingSidebar = $record->isWritingStage() && $writingMode !== 'focus' && ! $writingNotRequired;
+        $writingLocks = $this->projectLocksForModule('write');
     @endphp
 
     <style>
@@ -155,6 +156,8 @@
     @endif
 
     <div class="mc-wa">
+
+    @include('filament.pages.partials.project-collaboration-strip', ['module' => 'write'])
 
     <x-filament::section>
         <div class="mc-wa-toolbar">
@@ -298,6 +301,11 @@
                 $words = $trim === '' ? 0 : count(preg_split('/\s+/', $trim));
                 $limit = $sec->char_limit;
                 $over  = $limit && $count > $limit;
+                $sectionLockKey = 'section:'.$sec->id;
+                $sectionLock = $writingLocks->get($sectionLockKey);
+                $sectionLockedByOther = $sectionLock && (int) $sectionLock->user_id !== (int) auth()->id();
+                $sectionLockBadge = $sectionLock ? $this->projectLockBadge($sectionLock) : null;
+                $sectionCanManage = $canManage && ! $sectionLockedByOther;
             @endphp
 
             @php
@@ -306,11 +314,19 @@
                 $questionTables = $this->getQuestionTables($sec);
             @endphp
 
-            <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" class="mc-wa-section fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:1.1rem 1.25rem;margin-bottom:1rem;">
+            <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" class="mc-wa-section fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+                 style="position:relative;padding:1.1rem 1.25rem;margin-bottom:1rem;border:1px solid {{ $sectionLockBadge ? $sectionLockBadge['border'] : 'transparent' }};box-shadow:{{ $sectionLockBadge ? '0 0 0 1px '.$sectionLockBadge['border'] : '' }};">
+                @if($sectionLockBadge)
+                    <div style="position:absolute;top:-.72rem;right:1rem;z-index:2;display:inline-flex;align-items:center;gap:.35rem;padding:.18rem .55rem;border-radius:999px;background:{{ $sectionLockBadge['background'] }};border:1px solid {{ $sectionLockBadge['border'] }};color:{{ $sectionLockBadge['color'] }};font-size:.62rem;font-weight:800;box-shadow:0 8px 20px rgba(15,23,42,.08);">
+                        <span style="width:.45rem;height:.45rem;border-radius:999px;background:{{ $sectionLockBadge['color'] }};"></span>
+                        {{ $sectionLockedByOther ? $sectionLockBadge['name'].' edits this question' : 'You are editing' }}
+                    </div>
+                @endif
                 <div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;">
                     <div style="min-width:0;flex:1;">
                         <textarea rows="{{ mb_strlen($titles[$sec->id] ?? (string) $sec->title) > 170 ? 4 : (mb_strlen($titles[$sec->id] ?? (string) $sec->title) > 95 ? 3 : 2) }}" wire:key="title-{{ $sec->id }}" class="mc-title text-gray-950 dark:text-white"
-                                  wire:model.blur="titles.{{ $sec->id }}" @readonly(!$canManage)></textarea>
+                                  wire:focus="startWritingSectionEditing({{ $sec->id }})"
+                                  wire:model.blur="titles.{{ $sec->id }}" @readonly(!$sectionCanManage)></textarea>
                         @if(count($questionTables))
                             <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.32rem;">
                                 @foreach($questionTables as $tableBadge)
@@ -320,7 +336,7 @@
                         @endif
                     </div>
 
-                    @if($canManage && $writingMode !== 'review')
+                    @if($sectionCanManage && $writingMode !== 'review')
                     <div class="mc-wa-card-actions">
                     {{-- Move up --}}
                     <button type="button" wire:click="moveSection({{ $sec->id }}, -1)" title="Move up"
@@ -420,7 +436,7 @@
                                 <p class="text-gray-950 dark:text-white" style="font-size:.74rem;font-weight:800;">{{ $tableDef['label'] }}</p>
                                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;margin-top:.12rem;line-height:1.4;">{{ $tableDef['description'] }}</p>
                             </div>
-                            @if($canManage && $writingMode !== 'review')
+                            @if($sectionCanManage && $writingMode !== 'review')
                                 <div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
                                     @if($autofillSummary)
                                         <button type="button" wire:click="autofillTable({{ $sec->id }}, '{{ $tableDef['key'] }}')" wire:confirm="Refresh this table from current project data? Existing rows in this table will be replaced." class="mc-wa-review-chip" style="white-space:nowrap;">Populate from project</button>
@@ -442,7 +458,7 @@
                                             @foreach($tableDef['columns'] as $column)
                                                 <th>{{ $column['label'] }}</th>
                                             @endforeach
-                                            @if($canManage && $writingMode !== 'review')
+                                            @if($sectionCanManage && $writingMode !== 'review')
                                                 <th style="width:44px;"></th>
                                             @endif
                                         </tr>
@@ -455,11 +471,11 @@
                                                         @if($writingMode === 'review')
                                                             <span>{{ $row[$column['field']] ?? '—' }}</span>
                                                         @else
-                                                            <input wire:model.live.debounce.800ms="tables.{{ $sec->id }}.{{ $tableDef['key'] }}.{{ $rowIndex }}.{{ $column['field'] }}" placeholder="{{ $column['label'] }}" @readonly(!$canManage)>
+                                                            <input wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.live.debounce.800ms="tables.{{ $sec->id }}.{{ $tableDef['key'] }}.{{ $rowIndex }}.{{ $column['field'] }}" placeholder="{{ $column['label'] }}" @readonly(!$sectionCanManage)>
                                                         @endif
                                                     </td>
                                                 @endforeach
-                                                @if($canManage && $writingMode !== 'review')
+                                                @if($sectionCanManage && $writingMode !== 'review')
                                                     <td>
                                                         <button type="button" wire:click="removeTableRow({{ $sec->id }}, '{{ $tableDef['key'] }}', {{ $rowIndex }})" class="mc-iconbtn" title="Remove row">×</button>
                                                     </td>
@@ -481,8 +497,9 @@
                     </div>
                 @else
                     <textarea rows="{{ $writingMode === 'focus' ? 14 : 6 }}" wire:key="content-{{ $sec->id }}"
+                              wire:focus="startWritingSectionEditing({{ $sec->id }})"
                               wire:model.live.debounce.800ms="content.{{ $sec->id }}"
-                              placeholder="Write your answer here…" @readonly(!$canManage)></textarea>
+                              placeholder="Write your answer here…" @readonly(!$sectionCanManage)></textarea>
                 @endif
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;font-size:11px;">
@@ -493,13 +510,13 @@
                 </div>
 
                 <div class="mc-wa-review">
-                    <select class="mc-wa-filter" wire:model.live="reviewStatuses.{{ $sec->id }}" @disabled(!$canManage)>
+                    <select class="mc-wa-filter" wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.live="reviewStatuses.{{ $sec->id }}" @disabled(!$sectionCanManage)>
                         <option value="draft">Draft</option>
                         <option value="review">Needs review</option>
                         <option value="ready">Ready</option>
                     </select>
-                    <input class="mc-wa-note" wire:model.blur="internalNotes.{{ $sec->id }}" placeholder="Internal reviewer note (not included in export)…" @readonly(!$canManage)>
-                    @if($canManage)
+                    <input class="mc-wa-note" wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.blur="internalNotes.{{ $sec->id }}" placeholder="Internal reviewer note (not included in export)…" @readonly(!$sectionCanManage)>
+                    @if($sectionCanManage)
                         <div class="mc-wa-review-actions">
                             <button type="button" wire:click="setReviewStatus({{ $sec->id }}, 'draft')" class="mc-wa-review-chip {{ ($reviewStatuses[$sec->id] ?? $sec->review_status) === 'draft' ? 'mc-wa-review-chip-active' : '' }}">Draft</button>
                             <button type="button" wire:click="setReviewStatus({{ $sec->id }}, 'review')" class="mc-wa-review-chip {{ ($reviewStatuses[$sec->id] ?? $sec->review_status) === 'review' ? 'mc-wa-review-chip-active' : '' }}">Needs review</button>

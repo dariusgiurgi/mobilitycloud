@@ -45,6 +45,7 @@ class ViewProjectEstimate extends Page
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'estimate');
         $this->authorizeProjectModuleAccess('estimate');
+        $this->touchProjectCollaboration('estimate');
 
         $in = $this->record->action_data['estimate']['inputs'] ?? null;
         if (is_array($in)) {
@@ -119,7 +120,7 @@ class ViewProjectEstimate extends Page
 
     protected function persist(): void
     {
-        $this->authorizeProjectManagement();
+        $this->authorizeManagementModuleMutation('estimate', 'estimate', 'Grant estimator');
         $data = $this->record->action_data ?? [];
 
         $data['estimate'] = [
