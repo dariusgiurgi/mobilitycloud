@@ -42,15 +42,20 @@
     @endphp
 
     <style>
+        .mc-focus-grid { display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:1rem;margin-top:1rem;align-items:stretch; }
+        .mc-focus-card { padding:1rem;border:1px solid rgba(148,163,184,.22);border-radius:.95rem;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.045); }
+        .mc-focus-card.is-primary { background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(14,165,233,.04));border-color:rgba(99,102,241,.2); }
+        .mc-focus-head { display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap; }
+        .mc-focus-icon { width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.75rem;background:rgba(99,102,241,.1);color:#6366f1; }
         .mc-overview-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem; }
-        .mc-overview-card { display:flex;flex-direction:column;min-height:190px;padding:1rem;border:1px solid rgba(148,163,184,.22);border-radius:.8rem;text-decoration:none;background:#fff;transition:transform .15s,border-color .15s,box-shadow .15s; }
+        .mc-overview-card { display:flex;flex-direction:column;min-height:155px;padding:.95rem;border:1px solid rgba(148,163,184,.22);border-radius:.8rem;text-decoration:none;background:#fff;transition:transform .15s,border-color .15s,box-shadow .15s; }
         .mc-overview-card:hover { transform:translateY(-2px);border-color:rgba(99,102,241,.45);box-shadow:0 10px 28px rgba(15,23,42,.08); }
         .mc-overview-muted { color:#64748b; }
         .mc-overview-detail-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1.1rem 1.5rem; }
         .mc-activity-row { position:relative;display:flex;gap:.8rem;padding:0 0 1rem; }
         .mc-activity-row:not(:last-child)::after { content:'';position:absolute;left:14px;top:30px;bottom:0;width:1px;background:rgba(148,163,184,.25); }
         .mc-activity-icon { width:29px;height:29px;display:flex;align-items:center;justify-content:center;flex:none;border-radius:9999px;background:color-mix(in srgb,var(--activity-color) 11%,transparent);color:var(--activity-color); }
-        .mc-task-row { display:flex;align-items:flex-start;gap:.75rem;padding:.8rem 0; }
+        .mc-task-row { display:flex;align-items:flex-start;gap:.75rem;padding:.68rem 0; }
         .mc-task-row + .mc-task-row { border-top:1px solid rgba(148,163,184,.16); }
         .mc-task-check { width:22px;height:22px;display:flex;align-items:center;justify-content:center;flex:none;border:1px solid rgba(100,116,139,.35);border-radius:9999px;background:transparent;color:#fff;cursor:pointer; }
         .mc-task-check.is-done { border-color:#10b981;background:#10b981; }
@@ -66,15 +71,16 @@
         .mc-readiness-issues { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-top:.8rem; }
         .mc-readiness-issue { display:flex;gap:.55rem;align-items:flex-start;padding:.65rem .7rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(255,255,255,.72);text-decoration:none; }
         .mc-readiness-dot { width:18px;height:18px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-size:.62rem;font-weight:850; }
-        .dark .mc-overview-card { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
+        .dark .mc-focus-card,.dark .mc-overview-card { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
+        .dark .mc-focus-card.is-primary { background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(14,165,233,.08)); }
         .dark .mc-overview-card:hover { box-shadow:0 10px 28px rgba(0,0,0,.22); }
         .dark .mc-overview-muted { color:#94a3b8; }
         .dark .mc-readiness-score::after { background:rgb(17,24,39); }
         .dark .mc-readiness-score span { color:#f9fafb; }
         .dark .mc-readiness-group,.dark .mc-readiness-issue { background:rgba(17,24,39,.68);border-color:rgba(255,255,255,.1); }
-        @media (max-width:1100px) { .mc-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width:1100px) { .mc-focus-grid,.mc-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         @media (max-width:900px) { .mc-readiness-head { grid-template-columns:1fr; }.mc-readiness-groups { grid-template-columns:repeat(2,minmax(0,1fr)); }.mc-readiness-issues { grid-template-columns:1fr; } }
-        @media (max-width:700px) { .mc-overview-grid,.mc-overview-detail-grid,.mc-task-form-grid { grid-template-columns:1fr; } }
+        @media (max-width:700px) { .mc-focus-grid,.mc-overview-grid,.mc-overview-detail-grid,.mc-task-form-grid { grid-template-columns:1fr; } }
     </style>
 
     <x-filament::section>
@@ -155,25 +161,112 @@
         </x-filament::section>
     @endif
 
-    <x-filament::section style="margin-top:1rem;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-            <div style="display:flex;align-items:flex-start;gap:.85rem;max-width:760px;">
-                <span style="width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.7rem;background:rgba(99,102,241,.1);color:#6366f1;">
-                    <x-filament::icon :icon="$nextStep['icon']" style="width:1.3rem;height:1.3rem;" />
-                </span>
-                <div>
-                    <p style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">{{ $nextStep['eyebrow'] }}</p>
-                    <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;margin-top:.15rem;">{{ $nextStep['title'] }}</h2>
-                    <p class="mc-overview-muted" style="font-size:.78rem;line-height:1.5;margin-top:.25rem;">{{ $nextStep['description'] }}</p>
+    <div class="mc-focus-grid">
+        <section class="mc-focus-card is-primary">
+            <div class="mc-focus-head">
+                <div style="display:flex;align-items:flex-start;gap:.85rem;min-width:0;">
+                    <span class="mc-focus-icon">
+                        <x-filament::icon :icon="$nextStep['icon']" style="width:1.3rem;height:1.3rem;" />
+                    </span>
+                    <div style="min-width:0;">
+                        <p style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">{{ $nextStep['eyebrow'] }}</p>
+                        <h2 class="text-gray-950 dark:text-white" style="font-size:1.1rem;font-weight:760;margin-top:.18rem;line-height:1.25;">{{ $nextStep['title'] }}</h2>
+                        <p class="mc-overview-muted" style="font-size:.78rem;line-height:1.5;margin-top:.35rem;">{{ $nextStep['description'] }}</p>
+                    </div>
+                </div>
+                @if ($nextStep['url'] && $nextStep['label'])
+                    <x-filament::button tag="a" :href="$nextStep['url']" icon="heroicon-m-arrow-right" icon-position="after" size="sm">
+                        {{ $nextStep['label'] }}
+                    </x-filament::button>
+                @endif
+            </div>
+
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-top:1rem;">
+                <div class="mc-readiness-group">
+                    <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Stage</p>
+                    <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;margin-top:.2rem;">{{ $status->getLabel() }}</p>
+                </div>
+                <div class="mc-readiness-group">
+                    <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Application</p>
+                    <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;margin-top:.2rem;">{{ $application['progress'] }}%</p>
+                </div>
+                <div class="mc-readiness-group">
+                    <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Grant</p>
+                    <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;margin-top:.2rem;">{{ $this->record->approvedGrantAmount() > 0 ? $eur($this->record->approvedGrantAmount()) : $eur($requested) }}</p>
                 </div>
             </div>
-            @if ($nextStep['url'] && $nextStep['label'])
-                <x-filament::button tag="a" :href="$nextStep['url']" icon="heroicon-m-arrow-right" icon-position="after" size="sm">
-                    {{ $nextStep['label'] }}
-                </x-filament::button>
-            @endif
-        </div>
-    </x-filament::section>
+        </section>
+
+        <section id="project-tasks" class="mc-focus-card">
+            <div class="mc-focus-head">
+                <div>
+                    <p style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">Project tasks</p>
+                    <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:750;margin-top:.15rem;">What needs attention now</h2>
+                    <p class="mc-overview-muted" style="font-size:.73rem;line-height:1.45;margin-top:.18rem;">Assigned actions, deadlines and project follow-ups in one visible place.</p>
+                </div>
+                <div style="display:flex;align-items:center;gap:.5rem;">
+                    <select wire:model.live="taskFilter" class="mc-task-field text-gray-950 dark:text-white" style="width:auto;padding:.4rem 1.8rem .4rem .55rem;font-size:.72rem;">
+                        <option value="open">Open</option>
+                        <option value="completed">Completed</option>
+                        <option value="all">All</option>
+                    </select>
+                    @if($canManage)
+                        <x-filament::button wire:click="openTaskCreate" size="sm" icon="heroicon-o-plus">Add task</x-filament::button>
+                    @endif
+                </div>
+            </div>
+
+            <div style="margin-top:.65rem;">
+                @forelse($tasks as $task)
+                    @php $canToggleTask = $task->canBeCompletedBy(auth()->user()); @endphp
+                    <div class="mc-task-row" wire:key="project-task-focus-{{ $task->id }}">
+                        @if($canToggleTask)
+                            <button type="button" wire:click="toggleTask({{ $task->id }})" class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="{{ $task->isCompleted() ? 'Reopen' : 'Complete' }} {{ $task->title }}">
+                                @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
+                            </button>
+                        @else
+                            <span class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}">
+                                @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
+                            </span>
+                        @endif
+
+                        <div style="min-width:0;flex:1;">
+                            <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;">
+                                <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:650;{{ $task->isCompleted() ? 'text-decoration:line-through;opacity:.65;' : '' }}">{{ $task->title }}</p>
+                                @if($task->priority === 'high')<x-filament::badge color="danger" size="sm">High</x-filament::badge>@endif
+                                @if($task->isOverdue())<x-filament::badge color="danger" size="sm">Overdue</x-filament::badge>@endif
+                            </div>
+                            @if($task->description)
+                                <p class="mc-overview-muted" style="font-size:.7rem;line-height:1.4;margin-top:.16rem;">{{ $task->description }}</p>
+                            @endif
+                            <div class="mc-overview-muted" style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;font-size:.67rem;margin-top:.28rem;">
+                                <span>{{ $task->assignee?->name ?? 'Unassigned' }}</span>
+                                <span>{{ $task->due_date ? 'Due '.$task->due_date->format('d M Y') : 'No deadline' }}</span>
+                            </div>
+                        </div>
+
+                        @if($canManage)
+                            <x-filament::dropdown placement="bottom-end">
+                                <x-slot name="trigger"><x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" size="sm" label="Task actions" /></x-slot>
+                                <x-filament::dropdown.list>
+                                    <x-filament::dropdown.list.item wire:click="openTaskEdit({{ $task->id }})" icon="heroicon-m-pencil-square">Edit</x-filament::dropdown.list.item>
+                                    <x-filament::dropdown.list.item wire:click="deleteTask({{ $task->id }})" wire:confirm="Delete this task?" icon="heroicon-m-trash" color="danger">Delete</x-filament::dropdown.list.item>
+                                </x-filament::dropdown.list>
+                            </x-filament::dropdown>
+                        @endif
+                    </div>
+                @empty
+                    <div style="padding:1.05rem 0;text-align:center;">
+                        <x-filament::icon icon="heroicon-o-check-circle" class="mx-auto h-7 w-7 text-gray-400" />
+                        <p class="mc-overview-muted" style="font-size:.76rem;margin-top:.4rem;">{{ $this->taskFilter === 'open' ? 'No open tasks. This is a good project state.' : 'No tasks in this view.' }}</p>
+                        @if($canManage)
+                            <button type="button" wire:click="openTaskCreate" style="margin-top:.45rem;font-size:.72rem;font-weight:700;color:#6366f1;">Create the first task</button>
+                        @endif
+                    </div>
+                @endforelse
+            </div>
+        </section>
+    </div>
 
     @php
         $readinessColor = match ($readiness['tone']) {
@@ -363,69 +456,6 @@
                 @endif
             </div>
         </div>
-    </x-filament::section>
-
-    <x-filament::section id="project-tasks" style="margin-top:1rem;">
-        <x-slot name="heading">Project tasks</x-slot>
-        <x-slot name="description">Operational actions, owners and deadlines for this project.</x-slot>
-        <x-slot name="headerEnd">
-            <div style="display:flex;align-items:center;gap:.5rem;">
-                <select wire:model.live="taskFilter" class="mc-task-field text-gray-950 dark:text-white" style="width:auto;padding:.4rem 1.8rem .4rem .55rem;font-size:.72rem;">
-                    <option value="open">Open</option>
-                    <option value="completed">Completed</option>
-                    <option value="all">All</option>
-                </select>
-                @if($canManage)
-                    <x-filament::button wire:click="openTaskCreate" size="sm" icon="heroicon-o-plus">Add task</x-filament::button>
-                @endif
-            </div>
-        </x-slot>
-
-        @forelse($tasks as $task)
-            @php $canToggleTask = $task->canBeCompletedBy(auth()->user()); @endphp
-            <div class="mc-task-row" wire:key="project-task-{{ $task->id }}">
-                @if($canToggleTask)
-                    <button type="button" wire:click="toggleTask({{ $task->id }})" class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="{{ $task->isCompleted() ? 'Reopen' : 'Complete' }} {{ $task->title }}">
-                        @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
-                    </button>
-                @else
-                    <span class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}">
-                        @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
-                    </span>
-                @endif
-
-                <div style="min-width:0;flex:1;">
-                    <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;">
-                        <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:620;{{ $task->isCompleted() ? 'text-decoration:line-through;opacity:.65;' : '' }}">{{ $task->title }}</p>
-                        @if($task->priority === 'high')<x-filament::badge color="danger" size="sm">High</x-filament::badge>@endif
-                        @if($task->isOverdue())<x-filament::badge color="danger" size="sm">Overdue</x-filament::badge>@endif
-                    </div>
-                    @if($task->description)
-                        <p class="mc-overview-muted" style="font-size:.72rem;line-height:1.45;margin-top:.2rem;">{{ $task->description }}</p>
-                    @endif
-                    <div class="mc-overview-muted" style="display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;font-size:.68rem;margin-top:.35rem;">
-                        <span>{{ $task->assignee?->name ?? 'Unassigned' }}</span>
-                        <span>{{ $task->due_date ? 'Due '.$task->due_date->format('d M Y') : 'No deadline' }}</span>
-                        @if($task->isCompleted() && $task->completed_at)<span>Completed {{ $task->completed_at->diffForHumans() }}</span>@endif
-                    </div>
-                </div>
-
-                @if($canManage)
-                    <x-filament::dropdown placement="bottom-end">
-                        <x-slot name="trigger"><x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" size="sm" label="Task actions" /></x-slot>
-                        <x-filament::dropdown.list>
-                            <x-filament::dropdown.list.item wire:click="openTaskEdit({{ $task->id }})" icon="heroicon-m-pencil-square">Edit</x-filament::dropdown.list.item>
-                            <x-filament::dropdown.list.item wire:click="deleteTask({{ $task->id }})" wire:confirm="Delete this task?" icon="heroicon-m-trash" color="danger">Delete</x-filament::dropdown.list.item>
-                        </x-filament::dropdown.list>
-                    </x-filament::dropdown>
-                @endif
-            </div>
-        @empty
-            <div style="padding:1.2rem 0;text-align:center;">
-                <x-filament::icon icon="heroicon-o-check-circle" class="mx-auto h-7 w-7 text-gray-400" />
-                <p class="mc-overview-muted" style="font-size:.76rem;margin-top:.4rem;">{{ $this->taskFilter === 'open' ? 'No open tasks.' : 'No tasks in this view.' }}</p>
-            </div>
-        @endforelse
     </x-filament::section>
 
     <x-filament::section style="margin-top:1rem;">
