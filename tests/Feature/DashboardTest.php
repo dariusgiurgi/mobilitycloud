@@ -128,7 +128,7 @@ class DashboardTest extends TestCase
         Livewire::test(ProjectStatsOverview::class)
             ->assertSee('Approved projects')
             ->assertSee('Approved funding')
-            ->assertSee('5,000.00');
+            ->assertSee("€\u{00A0}5,000");
     }
 
     public function test_account_member_can_render_the_complete_dashboard_page(): void

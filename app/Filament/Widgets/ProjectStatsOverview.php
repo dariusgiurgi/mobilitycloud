@@ -30,17 +30,22 @@ class ProjectStatsOverview extends BaseWidget
                 ->description('Ready for management')
                 ->color('success'),
 
-            Stat::make('Approved funding', '€ '.number_format($approvedFunding, 2))
+            Stat::make('Approved funding', $this->formatCurrencyStat($approvedFunding))
                 ->description('Across current projects')
                 ->color('primary'),
 
-            Stat::make('Total spent', '€ '.number_format($spent, 2))
+            Stat::make('Total spent', $this->formatCurrencyStat($spent))
                 ->description($approvedFunding > 0 ? round($spent / $approvedFunding * 100).'% of available funding' : 'No approved funding yet')
                 ->color('info'),
 
-            Stat::make('Available balance', '€ '.number_format($available, 2))
+            Stat::make('Available balance', $this->formatCurrencyStat($available))
                 ->description($available < 0 ? 'Budget exceeded' : 'Remaining to allocate and spend')
                 ->color($available < 0 ? 'danger' : 'gray'),
         ];
+    }
+
+    private function formatCurrencyStat(float $amount): string
+    {
+        return "€\u{00A0}".number_format($amount, 0);
     }
 }
