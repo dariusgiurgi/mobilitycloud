@@ -3,7 +3,7 @@
     $presences = $state['presences'];
 @endphp
 
-<div wire:poll.25s="refreshProjectCollaboration('{{ $module }}')" style="display:contents;">
+<div wire:poll.5s="refreshProjectCollaboration('{{ $module }}')" style="display:contents;">
     @if($presences->isNotEmpty())
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
              style="padding:.65rem .85rem;margin:.75rem 0 1rem;border:1px solid rgba(99,102,241,.18);">
