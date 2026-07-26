@@ -144,6 +144,11 @@ class ProjectMobilityTest extends TestCase
         $this->get(route('project-documents.file', [$project, $imageDocument, 'preview' => 1]))
             ->assertOk()
             ->assertHeader('content-type', 'image/jpeg');
+
+        $component->call('deleteMobilityDocument', $imageDocument->id);
+
+        $this->assertDatabaseMissing('project_documents', ['id' => $imageDocument->id]);
+        Storage::disk('local')->assertMissing($imageDocument->file_path);
     }
 
     public function test_removing_an_evidence_link_keeps_the_day_open(): void

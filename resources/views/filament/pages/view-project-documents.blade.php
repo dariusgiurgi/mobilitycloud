@@ -25,7 +25,7 @@
         $checklist = $this->getDocumentChecklist();
         $command = $this->getDocumentCommandCenter();
         $projectReadiness = $this->getProjectReadiness();
-        $documentCount = $record->documents()->count();
+        $documentCount = $this->getDocumentsPageCount();
         $checklistIssues = $checklist['attention'] + $checklist['missing'];
         $readinessColor = match ($projectReadiness['tone']) {
             'success' => '#10b981',

@@ -117,6 +117,50 @@ class ProjectDocumentsTest extends TestCase
         Storage::disk('local')->assertMissing($path);
     }
 
+    public function test_mobility_evidence_day_files_are_not_shown_in_documents_files(): void
+    {
+        Storage::fake('local');
+        [$project, $user] = $this->projectAndUser();
+
+        $visiblePath = 'project-documents/'.$project->id.'/grant.pdf';
+        $evidencePath = 'project-documents/'.$project->id.'/mobility/evidence/day-1/image/photo.jpg';
+        Storage::disk('local')->put($visiblePath, 'grant');
+        Storage::disk('local')->put($evidencePath, 'photo');
+
+        $visibleDocument = ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => 'grant_agreement',
+            'title' => 'Grant agreement',
+            'file_path' => $visiblePath,
+            'file_disk' => 'local',
+            'file_name' => 'grant.pdf',
+            'file_size' => 5,
+        ]);
+        $evidenceDocument = ProjectDocument::create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => 'mobility_photo_video',
+            'title' => 'Day 1 photos',
+            'file_path' => $evidencePath,
+            'file_disk' => 'local',
+            'file_name' => 'photo.jpg',
+            'file_size' => 5,
+            'metadata' => [
+                'source' => 'mobility',
+                'uploaded_from' => 'mobility_evidence_day',
+                'evidence_day_id' => 'day-1',
+            ],
+        ]);
+
+        $this->actingAs($user);
+        $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id]);
+
+        $this->assertSame([$visibleDocument->id], $component->instance()->getDocuments()->pluck('id')->all());
+        $this->assertSame(1, $component->instance()->getDocumentsPageCount());
+        $this->assertNotContains($evidenceDocument->id, $component->instance()->getDocuments()->pluck('id')->all());
+    }
+
     public function test_expense_report_snapshot_filters_rows_and_calculates_totals(): void
     {
         Storage::fake('local');

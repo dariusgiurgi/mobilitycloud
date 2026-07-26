@@ -112,8 +112,7 @@ class ViewProjectDocuments extends Page
 
     public function getDocuments()
     {
-        return ProjectDocument::query()
-            ->where('project_id', $this->record->id)
+        return $this->documentsPageQuery()
             ->when($this->documentFilter === 'generated', fn ($query) => $query->whereIn('type', [
                 ProjectDocument::TYPE_ATTENDANCE,
                 ProjectDocument::TYPE_EXPENSE_REPORT,
@@ -138,6 +137,11 @@ class ViewProjectDocuments extends Page
             ->get();
     }
 
+    public function getDocumentsPageCount(): int
+    {
+        return $this->documentsPageQuery()->count();
+    }
+
     public function getDocumentChecklist(): array
     {
         return app(ProjectDocumentChecklist::class)->build($this->record);
@@ -150,7 +154,7 @@ class ViewProjectDocuments extends Page
         $readiness = (int) round($checklist['complete'] / $requiredTotal * 100);
         $nextItem = collect($checklist['items'])
             ->first(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true));
-        $documents = $this->record->documents()->get();
+        $documents = $this->documentsPageQuery()->get();
         $generated = $documents->whereIn('type', [
             ProjectDocument::TYPE_ATTENDANCE,
             ProjectDocument::TYPE_EXPENSE_REPORT,
@@ -170,6 +174,16 @@ class ViewProjectDocuments extends Page
             'awaiting_signature' => $awaitingSignature,
             'uploaded' => $documents->where('type', ProjectDocument::TYPE_UPLOAD)->count(),
         ];
+    }
+
+    protected function documentsPageQuery()
+    {
+        return ProjectDocument::query()
+            ->where('project_id', $this->record->id)
+            ->where(function ($query): void {
+                $query->whereNull('metadata->uploaded_from')
+                    ->orWhere('metadata->uploaded_from', '!=', 'mobility_evidence_day');
+            });
     }
 
     public function getProjectReadiness(): array

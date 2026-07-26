@@ -415,7 +415,8 @@
                                                     'record' => $record,
                                                     'document' => $file,
                                                     'compact' => true,
-                                                    'showDelete' => false,
+                                                    'deleteMethod' => 'deleteMobilityDocument',
+                                                    'deleteConfirm' => 'Delete this evidence file?',
                                                 ])
                                             @endforeach
                                         </div>
