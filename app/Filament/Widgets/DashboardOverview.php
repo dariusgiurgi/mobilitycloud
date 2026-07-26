@@ -76,8 +76,7 @@ class DashboardOverview extends Widget
     private function statusPriority(Project $project): int
     {
         return match ($project->statusEnum()) {
-            ProjectStatus::Active => 0,
-            ProjectStatus::Approved => 1,
+            ProjectStatus::Approved, ProjectStatus::Active => 0,
             ProjectStatus::Revise => 2,
             ProjectStatus::Writing => 3,
             ProjectStatus::Submitted => 4,
@@ -129,7 +128,7 @@ class DashboardOverview extends Widget
                 ));
             }
 
-            if ($status === ProjectStatus::Active && $project->end_date?->isBefore($today)) {
+            if ($status->isManagementStage() && $status !== ProjectStatus::Completed && $project->end_date?->isBefore($today)) {
                 $items->push($this->attentionItem(
                     $project,
                     'Project end date has passed',

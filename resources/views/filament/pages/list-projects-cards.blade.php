@@ -48,7 +48,7 @@
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : ($requiresBillingDetails ? 'Complete billing details to create projects' : 'No projects available')) }}</h2>
                 <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Archived projects are kept here for restoration by the account owner.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : ($requiresBillingDetails ? 'You can still accept invitations from other project owners, but creating your own project requires billing details first.' : 'Ask the project owner to create a project or invite you to an existing one.')) }}</p>
                 @if($archived)
-                    <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to active projects</x-filament::button>
+                    <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to current projects</x-filament::button>
                 @elseif($canCreate)
                     <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::accountUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
                 @endif
@@ -60,7 +60,7 @@
                 <p class="mc-project-muted" style="font-size:.8rem;">{{ $projects->count() }} {{ str('project')->plural($projects->count()) }} · {{ $archived ? 'archived projects remain restorable' : 'current work is shown first' }}</p>
                 @unless($archived)
                     <x-help-tip id="project-card-order" title="Project order and progress">
-                        Active and approved projects appear first, followed by applications and completed work. Each progress bar compares recorded expenses with the approved grant, or with the requested budget before approval.
+                        Approved projects appear first, followed by applications and completed work. Each progress bar compares recorded expenses with the approved grant, or with the requested budget before approval.
                     </x-help-tip>
                 @endunless
             </div>
@@ -141,7 +141,7 @@
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:auto;padding-top:1rem;">
                             <span class="mc-project-muted" style="font-size:.7rem;">Archived {{ $project->deleted_at?->diffForHumans() }}</span>
                             @if($project->canManageLifecycleBy(auth()->user()))
-                                <x-filament::button wire:click="restoreProject({{ $project->id }})" wire:confirm="Restore {{ $project->name }} to active projects?" color="gray" size="sm" icon="heroicon-o-arrow-uturn-left">Restore</x-filament::button>
+                                <x-filament::button wire:click="restoreProject({{ $project->id }})" wire:confirm="Restore {{ $project->name }} to current projects?" color="gray" size="sm" icon="heroicon-o-arrow-uturn-left">Restore</x-filament::button>
                             @endif
                         </div>
                     @else

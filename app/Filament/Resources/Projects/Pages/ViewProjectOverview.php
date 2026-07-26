@@ -509,21 +509,13 @@ class ViewProjectOverview extends Page
                 'url' => $urls['application'],
                 'icon' => 'heroicon-o-arrow-path',
             ],
-            ProjectStatus::Approved => [
+            ProjectStatus::Approved, ProjectStatus::Active => [
                 'eyebrow' => 'Recommended next step',
                 'title' => 'Review the approved budget',
-                'description' => 'Confirm the grant and budget baskets before starting project implementation.',
+                'description' => 'Use the management modules for budget, participants, mobility evidence and documents.',
                 'label' => 'Open budget',
                 'url' => $urls['budget'],
                 'icon' => 'heroicon-o-banknotes',
-            ],
-            ProjectStatus::Active => [
-                'eyebrow' => 'Recommended next step',
-                'title' => 'Keep implementation records current',
-                'description' => 'Review participant files, expenses and signed project documents as delivery progresses.',
-                'label' => 'Review participants',
-                'url' => $urls['participants'],
-                'icon' => 'heroicon-o-clipboard-document-check',
             ],
             ProjectStatus::Completed => [
                 'eyebrow' => 'Recommended next step',

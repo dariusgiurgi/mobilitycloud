@@ -5,7 +5,6 @@ namespace App\Filament\Resources\PlatformProjectPayments;
 use App\Filament\Resources\PlatformProjectPayments\Pages\ListPlatformProjectPayments;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\Project;
-use App\Models\User;
 use App\Services\ProjectPaymentNotificationService;
 use App\Support\PlatformAudit;
 use BackedEnum;
@@ -458,7 +457,7 @@ class PlatformProjectPaymentResource extends Resource
                 $attributes['status'] = 'approved';
             }
         } elseif ($status === Project::INVOICE_PAID) {
-            $attributes['status'] = in_array($project->status, ['approved', 'payment_overdue'], true) ? 'active' : $project->status;
+            $attributes['status'] = in_array($project->status, ['approved', 'payment_overdue', 'active'], true) ? 'approved' : $project->status;
             $attributes['payment_confirmed_at'] = now();
             $attributes['payment_confirmed_by'] = auth()->id();
         } elseif ($status === Project::INVOICE_OVERDUE) {

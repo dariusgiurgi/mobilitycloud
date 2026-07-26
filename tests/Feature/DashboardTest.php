@@ -126,7 +126,7 @@ class DashboardTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(ProjectStatsOverview::class)
-            ->assertSee('Active projects')
+            ->assertSee('Approved projects')
             ->assertSee('Approved funding')
             ->assertSee('5,000.00');
     }

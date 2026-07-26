@@ -26,8 +26,8 @@ class ProjectStatsOverview extends BaseWidget
         $available = $approvedFunding - $spent;
 
         return [
-            Stat::make('Active projects', $projects->count())
-                ->description('Approved or in implementation')
+            Stat::make('Approved projects', $projects->count())
+                ->description('Ready for management')
                 ->color('success'),
 
             Stat::make('Approved funding', '€ '.number_format($approvedFunding, 2))

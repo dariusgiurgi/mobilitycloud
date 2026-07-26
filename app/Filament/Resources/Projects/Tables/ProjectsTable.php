@@ -25,6 +25,7 @@ class ProjectsTable
 
                 TextColumn::make('status')
                     ->badge()
+                    ->formatStateUsing(fn ($record): string => $record->statusEnum()->getLabel())
                     ->color(fn (string $state): string => match ($state) {
                         'writing' => 'gray',
                         'submitted' => 'warning',
@@ -66,7 +67,6 @@ class ProjectsTable
                         'rejected' => 'Rejected',
                         'revise' => 'Revising',
                         'approved' => 'Approved',
-                        'active' => 'Active',
                         'payment_overdue' => 'Payment overdue',
                         'completed' => 'Completed',
                     ]),

@@ -178,6 +178,27 @@ class ProjectOverviewTest extends TestCase
             ->assertSee('Project stage');
     }
 
+    public function test_approved_project_moves_directly_to_completed_without_active_step(): void
+    {
+        [$project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'status' => 'approved',
+            'approved_grant_amount' => 9900,
+            'approved_budget' => 9900,
+            'approved_declared_at' => now(),
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertSee('Mark as Completed')
+            ->assertDontSee('Mark as Active')
+            ->call('requestTransitionTo', 'completed')
+            ->call('confirmPendingTransition');
+
+        $this->assertSame('completed', $project->fresh()->status);
+    }
+
     public function test_approved_project_overview_no_longer_scores_writing_answers(): void
     {
         [$project, $user] = $this->workspaceProjectAndUser('member');

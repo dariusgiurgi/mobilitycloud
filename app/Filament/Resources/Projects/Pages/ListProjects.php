@@ -34,7 +34,7 @@ class ListProjects extends ListRecords
     {
         return [
             Action::make('toggleArchive')
-                ->label(fn (): string => $this->archived ? 'Active projects' : 'Archived projects')
+                ->label(fn (): string => $this->archived ? 'Current projects' : 'Archived projects')
                 ->icon(fn (): string => $this->archived ? 'heroicon-o-arrow-left' : 'heroicon-o-archive-box')
                 ->color('gray')
                 ->action(fn () => $this->archived = ! $this->archived)
@@ -122,8 +122,8 @@ class ListProjects extends ListRecords
 
         return $query
             ->orderByRaw("CASE status
+                WHEN 'approved' THEN 0
                 WHEN 'active' THEN 0
-                WHEN 'approved' THEN 1
                 WHEN 'revise' THEN 2
                 WHEN 'writing' THEN 3
                 WHEN 'submitted' THEN 4

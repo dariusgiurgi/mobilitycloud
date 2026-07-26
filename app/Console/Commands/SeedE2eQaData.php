@@ -270,7 +270,7 @@ class SeedE2eQaData extends Command
     private function seedBudgetBoard(Project $project, User $owner): void
     {
         $project->update([
-            'status' => 'active',
+            'status' => 'approved',
             'total_budget' => 5000,
             'approved_budget' => 5000,
             'currencies' => [
@@ -318,7 +318,7 @@ class SeedE2eQaData extends Command
     private function seedParticipants(Project $project): void
     {
         $project->update([
-            'status' => 'active',
+            'status' => 'approved',
             'mobility_start_date' => '2026-08-01',
             'partner_orgs' => [
                 ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'is_coordinator' => true],
@@ -379,7 +379,7 @@ class SeedE2eQaData extends Command
     private function seedDocumentsCentre(Project $project, User $owner): array
     {
         $project->update([
-            'status' => 'active',
+            'status' => 'approved',
             'mobility_start_date' => '2026-08-01',
             'mobility_end_date' => '2026-08-08',
             'partner_orgs' => [

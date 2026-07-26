@@ -12,6 +12,8 @@ enum ProjectStatus: string implements HasColor, HasLabel
     case Rejected = 'rejected';
     case Revise = 'revise';
     case Approved = 'approved';
+    // Legacy database value kept only so older records can still be read.
+    // New projects no longer transition to or display a separate Active stage.
     case Active = 'active';
     case PaymentOverdue = 'payment_overdue';
     case Completed = 'completed';
@@ -24,7 +26,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
             self::Rejected => 'Rejected',
             self::Revise => 'Revising',
             self::Approved => 'Approved',
-            self::Active => 'Active',
+            self::Active => 'Approved',
             self::PaymentOverdue => 'Payment overdue',
             self::Completed => 'Completed',
         };
@@ -38,7 +40,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
             self::Rejected => 'danger',
             self::Revise => 'warning',
             self::Approved => 'success',
-            self::Active => 'primary',
+            self::Active => 'success',
             self::PaymentOverdue => 'danger',
             self::Completed => 'success',
         };
@@ -75,7 +77,7 @@ enum ProjectStatus: string implements HasColor, HasLabel
             self::Submitted => [self::Approved, self::Rejected],
             self::Rejected => [self::Revise],
             self::Revise => [self::Submitted, self::Approved],
-            self::Approved => [self::Active],
+            self::Approved => [self::Completed],
             self::Active => [self::Completed],
             self::PaymentOverdue => [],
             self::Completed => [],

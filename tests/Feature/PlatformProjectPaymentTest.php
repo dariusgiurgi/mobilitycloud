@@ -56,7 +56,7 @@ class PlatformProjectPaymentTest extends TestCase
         $project->refresh();
 
         $this->assertSame(Project::INVOICE_PAID, $project->invoice_status);
-        $this->assertSame(ProjectStatus::Active->value, $project->status);
+        $this->assertSame(ProjectStatus::Approved->value, $project->status);
         $this->assertNotNull($project->payment_confirmed_at);
         $this->assertTrue($project->implementationModulesAvailable());
     }
