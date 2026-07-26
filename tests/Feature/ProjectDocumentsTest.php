@@ -362,9 +362,8 @@ class ProjectDocumentsTest extends TestCase
         Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSet('activeDocumentTab', 'files')
             ->assertSee('Project document centre')
-            ->assertSee('Project readiness')
-            ->assertSee('Document readiness')
-            ->assertSee('Next:')
+            ->assertDontSee('Project readiness')
+            ->assertDontSee('Document readiness')
             ->assertSee('Upload project file')
             ->assertDontSee('Add document')
             ->assertDontSee('Dissemination evidence')
@@ -516,9 +515,7 @@ class ProjectDocumentsTest extends TestCase
         $this->actingAs($user);
 
         $component = Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
-            ->assertSee('Document readiness')
-            ->assertSee('Awaiting')
-            ->assertSee('View pending signatures')
+            ->assertDontSee('Document readiness')
             ->assertSee('Upload signed copy')
             ->set('documentFilter', 'unsigned')
             ->assertSet('documentFilter', 'unsigned');

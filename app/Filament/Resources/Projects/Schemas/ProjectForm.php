@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Schemas;
 
+use App\Models\Project;
 use App\Support\ApplicationTemplates;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
@@ -144,7 +145,7 @@ class ProjectForm
                                 : 'Calculated as 1% of the approved grant, minimum €100.'),
                         Select::make('invoice_status')
                             ->label('Invoice status')
-                            ->options(\App\Models\Project::invoiceStatusOptions())
+                            ->options(Project::invoiceStatusOptions())
                             ->disabled()
                             ->dehydrated(false)
                             ->native(false),
@@ -230,7 +231,6 @@ class ProjectForm
                     ->description('Expense numbering affects generated records and exports. Lifecycle changes are handled from Project overview.')
                     ->columns(2)
                     ->collapsible()
-                    ->collapsed()
                     ->schema([
                         TextInput::make('expense_prefix')
                             ->label('Expense prefix')

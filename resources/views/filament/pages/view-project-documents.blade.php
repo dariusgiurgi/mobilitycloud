@@ -19,15 +19,8 @@
         $civilConventions = $this->getCivilConventionExpenses();
         $civilSummary = $this->getCivilConventionSummary();
         $checklist = $this->getDocumentChecklist();
-        $command = $this->getDocumentCommandCenter();
-        $projectReadiness = $this->getProjectReadiness();
         $documentCount = $this->getDocumentsPageCount();
         $checklistIssues = $checklist['attention'] + $checklist['missing'];
-        $readinessColor = match ($projectReadiness['tone']) {
-            'success' => '#10b981',
-            'warning' => '#f59e0b',
-            default => '#ef4444',
-        };
     @endphp
 
     <x-filament::section>
@@ -38,58 +31,6 @@
             </div>
         </div>
     </x-filament::section>
-
-    <div style="margin-top:.65rem;padding:.65rem .8rem;border:1px solid rgba(148,163,184,.18);border-radius:.85rem;background:rgba(148,163,184,.045);display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
-        <div style="min-width:140px;">
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.6rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">Project readiness</p>
-            <div style="display:flex;align-items:center;gap:.5rem;margin-top:.16rem;">
-                <span class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:850;">{{ $projectReadiness['score'] }}%</span>
-                <div style="width:96px;height:6px;border-radius:999px;background:rgba(148,163,184,.25);overflow:hidden;">
-                    <div style="height:100%;width:{{ $projectReadiness['score'] }}%;border-radius:999px;background:{{ $readinessColor }};"></div>
-                </div>
-            </div>
-        </div>
-        <div style="flex:1;min-width:220px;">
-            <p class="text-gray-950 dark:text-white" style="font-size:.74rem;font-weight:750;">{{ $projectReadiness['status'] }}</p>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;line-height:1.35;margin-top:.08rem;">
-                {{ $projectReadiness['next']['label'] ?? 'Final review' }} · {{ $projectReadiness['next']['detail'] ?? 'No project readiness issues detected.' }}
-            </p>
-        </div>
-        <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-            @if($projectReadiness['critical'])<x-filament::badge color="danger">{{ $projectReadiness['critical'] }} critical</x-filament::badge>@endif
-            @if($projectReadiness['warning'])<x-filament::badge color="warning">{{ $projectReadiness['warning'] }} warnings</x-filament::badge>@endif
-            <x-filament::badge color="{{ $projectReadiness['tone'] === 'success' ? 'success' : ($projectReadiness['tone'] === 'warning' ? 'warning' : 'danger') }}">{{ $projectReadiness['complete'] }} complete</x-filament::badge>
-        </div>
-    </div>
-
-    <div style="margin-top:.65rem;padding:.65rem .8rem;border:1px solid rgba(99,102,241,.18);border-radius:.85rem;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(14,165,233,.04));display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;">
-        <div style="min-width:160px;">
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.6rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;">Document readiness</p>
-            <div style="display:flex;align-items:center;gap:.55rem;margin-top:.15rem;">
-                <span class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:850;">{{ $command['readiness'] }}%</span>
-                <div style="width:115px;height:6px;border-radius:999px;background:rgba(148,163,184,.25);overflow:hidden;">
-                    <div style="height:100%;width:{{ $command['readiness'] }}%;border-radius:999px;background:#6366f1;"></div>
-                </div>
-            </div>
-        </div>
-        <div style="flex:1;min-width:240px;">
-            <p class="text-gray-950 dark:text-white" style="font-size:.75rem;font-weight:750;">Next: {{ $command['next_label'] }}</p>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;line-height:1.35;margin-top:.08rem;">{{ $command['next_detail'] }}</p>
-        </div>
-        <x-filament::badge :color="$command['next_status'] === 'missing' ? 'danger' : ($command['next_status'] === 'attention' ? 'warning' : 'success')">
-            {{ $command['status'] }}
-        </x-filament::badge>
-        <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;font-size:.68rem;" class="text-gray-500 dark:text-gray-400">
-            <span>{{ $command['files'] }} files</span>
-            <span>·</span>
-            <span>{{ $command['generated'] }} generated</span>
-            <span>·</span>
-            <span>{{ $command['awaiting_signature'] }} awaiting signature</span>
-            @if($record->canBeManagedBy(auth()->user()) && $command['awaiting_signature'] > 0)
-                <x-filament::button wire:click="$set('documentFilter', 'unsigned')" color="gray" size="sm">View pending signatures</x-filament::button>
-            @endif
-        </div>
-    </div>
 
     <div style="display:flex;align-items:center;justify-content:center;gap:1rem;flex-wrap:wrap;margin-top:.8rem;">
         <x-filament::tabs label="Document sections">
