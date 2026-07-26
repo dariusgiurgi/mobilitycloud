@@ -13,10 +13,10 @@
         $categories = $sections->groupBy(fn ($section) => $section->category ?: 'Custom sections');
         $isActivityTableTemplate = $this->isActivityTableTemplate();
         $activityTableChecklist = $this->getActivityTableChecklist();
-        $sectionsWithTables = $this->getSectionsWithTables();
         $activityFlowSummary = $this->getActivityFlowSummary();
         $activityFlowReview = $this->getActivityFlowReview();
         $writingNotRequired = ! $record->isWritingStage() && $sections->isEmpty();
+        $showWritingSidebar = $record->isWritingStage() && $writingMode !== 'focus' && ! $writingNotRequired;
     @endphp
 
     <style>
@@ -217,7 +217,7 @@
         </div>
     </x-filament::section>
 
-    <div class="mc-wa-layout {{ $writingMode === 'focus' || $writingNotRequired ? 'mc-wa-layout-focus' : '' }}">
+    <div class="mc-wa-layout {{ ! $showWritingSidebar ? 'mc-wa-layout-focus' : '' }}">
         <main class="mc-wa-main-scroll">
 
     @if($writingMode === 'focus')
@@ -256,7 +256,6 @@
                 <option value="draft">Draft</option>
                 <option value="empty">Unanswered</option>
                 <option value="official-issues">Official issues</option>
-                <option value="tables">With standard tables</option>
                 <option value="over-limit">Over character limit</option>
                 <option value="review">Needs review</option>
                 <option value="ready">Ready</option>
@@ -529,7 +528,7 @@
 
         </main>
 
-        @if($writingMode !== 'focus' && ! $writingNotRequired)
+        @if($showWritingSidebar)
         <aside class="mc-wa-sidebar">
             <div class="mc-wa-sidecard">
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-bottom:.5rem;">
@@ -593,31 +592,6 @@
                     </button>
                 @endif
             </div>
-
-            @if(count($sectionsWithTables))
-                <div class="mc-wa-sidecard">
-                    <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;">
-                        <div>
-                            <span class="text-gray-950 dark:text-white" style="font-size:.78rem;font-weight:750;">Standard tables</span>
-                            <p class="text-gray-500 dark:text-gray-400" style="font-size:.64rem;margin-top:.12rem;">Jump to official questions that include structured tables.</p>
-                        </div>
-                        <button type="button" wire:click="filterReviewStatus('tables')" class="mc-wa-review-chip {{ $sectionFilter === 'tables' ? 'mc-wa-review-chip-active' : '' }}">Show</button>
-                    </div>
-                    <div style="display:grid;gap:.45rem;margin-top:.65rem;">
-                        @foreach($sectionsWithTables as $tableItem)
-                            <a href="#application-section-{{ $tableItem['section']->id }}" style="display:block;text-decoration:none;padding:.55rem .6rem;border:1px solid rgba(148,163,184,.18);border-radius:.6rem;background:rgba(148,163,184,.04);">
-                                <p class="text-gray-950 dark:text-white" style="font-size:.68rem;font-weight:750;line-height:1.35;">{{ $tableItem['section']->title }}</p>
-                                <p class="text-gray-500 dark:text-gray-400" style="font-size:.62rem;margin-top:.22rem;">{{ collect($tableItem['tables'])->pluck('label')->implode(', ') }}</p>
-                            </a>
-                        @endforeach
-                    </div>
-                </div>
-            @else
-                <div class="mc-wa-sidecard">
-                    <span class="text-gray-950 dark:text-white" style="font-size:.78rem;font-weight:750;">Standard tables</span>
-                    <p class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;line-height:1.45;margin-top:.25rem;">No table-ready official questions in the current draft. Switch/sync to a template such as KA151, KA152, KA210 or KA220 to load questions that use tables.</p>
-                </div>
-            @endif
 
             @if($this->supportsActivityBuilder())
                 <div class="mc-wa-sidecard">

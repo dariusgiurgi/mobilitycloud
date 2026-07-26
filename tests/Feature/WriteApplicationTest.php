@@ -92,6 +92,33 @@ class WriteApplicationTest extends TestCase
             ->assertDontSee('Start the application structure');
     }
 
+    public function test_approved_project_with_existing_application_keeps_writing_read_only_without_review_sidebar(): void
+    {
+        [$project, $user] = $this->workspaceProjectAndUser('member');
+        $this->createSection($project, 'Objectives', 'Approved application answer.', 1000, 'Context', 0);
+        $project->update([
+            'status' => 'approved',
+            'approved_grant_amount' => 9900,
+            'approved_budget' => 9900,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_PAID,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->assertSee('Application locked')
+            ->assertSee('Read-only access')
+            ->assertSet("content.{$project->applicationSections()->sole()->id}", 'Approved application answer.')
+            ->assertDontSee('Draft progress')
+            ->assertDontSee('Review queue')
+            ->assertDontSee('Standard tables')
+            ->assertDontSee('Official readiness')
+            ->assertDontSee('Submission checklist')
+            ->assertDontSee('Quality review');
+    }
+
     public function test_official_youth_templates_are_versioned_and_action_specific(): void
     {
         $this->assertSame(2026, ApplicationTemplates::get('ka152')['call_year']);
