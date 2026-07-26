@@ -9,7 +9,7 @@
             'features' => [
                 ['title' => 'Mobility report', 'body' => 'Write an implementation note about what happened during the mobility and what changed.'],
                 ['title' => 'Activity evidence', 'body' => 'Upload plans, worksheets, participant outputs, photos and supporting files.'],
-                ['title' => 'Final archive', 'body' => 'Mobility files are included in the final project archive in an ordered structure.'],
+                ['title' => 'Dissemination reports', 'body' => 'Collect one report and evidence files for every organisation involved in dissemination.'],
             ],
         ])
     @else
@@ -17,17 +17,17 @@
         $summary = $this->getMobilitySummary();
         $documents = $this->getMobilityDocuments();
         $categories = $this->getMobilityCategories();
+        $disseminationOrganisations = $this->getDisseminationOrganisations();
+        $disseminationEvidence = $this->getDisseminationEvidenceByOrganisation();
+        $disseminationSummary = $this->getDisseminationSummary();
     @endphp
 
     <x-filament::section>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
             <div style="min-width:240px;flex:1;">
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:0;">Mobility workspace</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:.18rem 0 0;line-height:1.45;">Upload materials created during the mobility: plans, worksheets, participant outputs, photos, evidence and other activity files.</p>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:.18rem 0 0;line-height:1.45;">Collect implementation evidence: mobility narrative, photo proof, activity materials, outputs and dissemination reports by organisation.</p>
             </div>
-            <x-filament::button tag="a" :href="route('projects.final-archive', $record)" color="gray" icon="heroicon-o-archive-box-arrow-down">
-                Download final archive
-            </x-filament::button>
         </div>
     </x-filament::section>
 
@@ -37,6 +37,8 @@
             ['label' => 'Plans', 'value' => $summary['plans'], 'color' => '#0f766e'],
             ['label' => 'Materials', 'value' => $summary['materials'], 'color' => '#7c3aed'],
             ['label' => 'Outputs', 'value' => $summary['outputs'], 'color' => '#059669'],
+            ['label' => 'Photo evidence', 'value' => $summary['evidence'], 'color' => '#2563eb'],
+            ['label' => 'Dissemination', 'value' => $disseminationSummary['with_reports'].'/'.$disseminationSummary['organisations'], 'color' => $disseminationSummary['complete'] ? '#059669' : '#d97706'],
         ] as $stat)
             <div class="bg-white dark:bg-gray-900" style="padding:.8rem .9rem;border:1px solid rgba(148,163,184,.22);border-radius:.85rem;">
                 <p class="text-gray-400" style="font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;">{{ $stat['label'] }}</p>
@@ -66,7 +68,127 @@
         </x-filament::section>
 
         @if($record->canBeManagedBy(auth()->user()))
-            <x-filament::section heading="Upload mobility document" description="Files uploaded here are included in the final project archive." icon="heroicon-o-arrow-up-tray">
+            <x-filament::section heading="Photo folder and evidence" description="Keep either a shared folder link, uploaded proof photos, or both." icon="heroicon-o-photo">
+                <div style="display:grid;gap:.75rem;">
+                    <div>
+                        <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">External photo folder link</label>
+                        <input type="url" wire:model="photoFolderUrl" placeholder="https://drive.google.com/..." aria-label="External photo folder link" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                        @error('photoFolderUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+                    </div>
+                    <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+                        <x-filament::button wire:click="savePhotoFolderUrl" color="gray" icon="heroicon-m-link">
+                            Save link
+                        </x-filament::button>
+                        <x-filament::badge :color="$summary['photo_folder_ready'] ? 'success' : 'gray'">
+                            {{ $summary['photo_folder_ready'] ? 'Folder link saved' : 'No folder link' }}
+                        </x-filament::badge>
+                        @if($summary['photo_folder_ready'])
+                            <x-filament::button tag="a" :href="$photoFolderUrl" target="_blank" color="gray" size="sm" icon="heroicon-m-arrow-top-right-on-square">
+                                Open folder
+                            </x-filament::button>
+                        @endif
+                    </div>
+
+                    <div style="height:1px;background:rgba(148,163,184,.18);"></div>
+
+                    <div>
+                        <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Photo batch title *</label>
+                        <input type="text" wire:model="photoEvidenceTitle" aria-label="Photo batch title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                    </div>
+                    <div>
+                        <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Date</label>
+                        <input type="date" wire:model="photoEvidenceDate" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                    </div>
+                    <div>
+                        <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Description</label>
+                        <textarea rows="2" wire:model="photoEvidenceNotes" placeholder="What do these photos prove?" aria-label="Photo evidence description" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;resize:vertical;"></textarea>
+                    </div>
+                    <div>
+                        <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Upload photos - max 20 files, 8 MB each</label>
+                        <input type="file" wire:model="photoUploads" multiple accept=".jpg,.jpeg,.png,.webp" aria-label="Upload mobility photos" style="width:100%;font-size:.78rem;">
+                        @error('photoUploads') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+                        @error('photoUploads.*') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+                    </div>
+                    <x-filament::button wire:click="uploadMobilityPhotos" wire:loading.attr="disabled" wire:target="uploadMobilityPhotos,photoUploads" icon="heroicon-m-arrow-up-tray">
+                        <span wire:loading.remove wire:target="uploadMobilityPhotos,photoUploads">Upload photo evidence</span>
+                        <span wire:loading wire:target="uploadMobilityPhotos,photoUploads">Uploading...</span>
+                    </x-filament::button>
+                </div>
+            </x-filament::section>
+        @endif
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.72fr);gap:1rem;margin-top:1rem;align-items:start;">
+        <x-filament::section heading="Dissemination reports by organisation" description="Each organisation should have a short report and attached visual/documentary evidence." icon="heroicon-o-megaphone">
+            <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-bottom:.85rem;">
+                <x-filament::badge :color="$disseminationSummary['complete'] ? 'success' : 'warning'">
+                    {{ $disseminationSummary['with_reports'] }} / {{ $disseminationSummary['organisations'] }} reports
+                </x-filament::badge>
+                <x-filament::badge :color="$disseminationSummary['with_evidence'] === $disseminationSummary['organisations'] ? 'success' : 'warning'">
+                    {{ $disseminationSummary['with_evidence'] }} / {{ $disseminationSummary['organisations'] }} with evidence
+                </x-filament::badge>
+            </div>
+
+            <div style="display:grid;gap:.75rem;">
+                @foreach($disseminationOrganisations as $organisation)
+                    @php $orgEvidence = $disseminationEvidence[$organisation['key']] ?? collect(); @endphp
+                    <div class="bg-white dark:bg-gray-900" style="border:1px solid rgba(148,163,184,.22);border-radius:.9rem;padding:.85rem;">
+                        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
+                            <div>
+                                <h3 class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:800;margin:0;">{{ $organisation['name'] }}</h3>
+                                <p class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;margin:.12rem 0 0;">
+                                    {{ $organisation['country'] ?: 'Country not set' }} @if($organisation['oid']) · OID {{ $organisation['oid'] }} @endif
+                                </p>
+                            </div>
+                            <x-filament::badge :color="$orgEvidence->isNotEmpty() ? 'success' : 'warning'">{{ $orgEvidence->count() }} evidence files</x-filament::badge>
+                        </div>
+
+                        <textarea rows="4" wire:model.defer="disseminationReports.{{ $organisation['key'] }}"
+                                  placeholder="Describe this organisation's dissemination: activity, date, audience, channels, number of people reached, links and results."
+                                  style="width:100%;margin-top:.65rem;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
+                        @error('disseminationReports.'.$organisation['key']) <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+
+                        @if($record->canBeManagedBy(auth()->user()))
+                            <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;">
+                                <x-filament::button wire:click="saveDisseminationReport('{{ $organisation['key'] }}')" size="sm" icon="heroicon-m-check">
+                                    Save report
+                                </x-filament::button>
+                                <x-filament::button wire:click="prepareDisseminationUpload('{{ $organisation['key'] }}')" color="gray" size="sm" icon="heroicon-m-arrow-up-tray">
+                                    Prepare upload
+                                </x-filament::button>
+                            </div>
+
+                            @if($disseminationUploadOrgKey === $organisation['key'])
+                                <div style="margin-top:.65rem;padding:.7rem;border:1px dashed rgba(99,102,241,.35);border-radius:.75rem;background:rgba(99,102,241,.045);display:grid;gap:.55rem;">
+                                    <input type="text" wire:model="disseminationUploadTitle" aria-label="Dissemination evidence title" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;">
+                                    <input type="date" wire:model="disseminationUploadDate" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;">
+                                    <input type="file" wire:model="disseminationUploads" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" aria-label="Upload dissemination evidence" style="font-size:.76rem;">
+                                    @error('disseminationUploads') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
+                                    @error('disseminationUploads.*') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
+                                    <x-filament::button wire:click="uploadDisseminationEvidence('{{ $organisation['key'] }}')" wire:loading.attr="disabled" wire:target="uploadDisseminationEvidence,disseminationUploads" size="sm" icon="heroicon-m-arrow-up-tray">
+                                        Upload selected evidence
+                                    </x-filament::button>
+                                </div>
+                            @endif
+                        @endif
+
+                        @if($orgEvidence->isNotEmpty())
+                            <div style="display:grid;gap:.35rem;margin-top:.65rem;">
+                                @foreach($orgEvidence->take(5) as $evidence)
+                                    <div style="display:flex;align-items:center;gap:.5rem;justify-content:space-between;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;padding:.45rem .55rem;">
+                                        <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $evidence->file_name ?: $evidence->title }}</span>
+                                        <x-filament::button tag="a" :href="route('project-documents.file', [$record, $evidence])" color="gray" size="xs" icon="heroicon-m-arrow-down-tray">Download</x-filament::button>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </x-filament::section>
+
+        @if($record->canBeManagedBy(auth()->user()))
+            <x-filament::section heading="Upload materials and outputs" description="Use this for agendas, worksheets, participant outputs, certificates, presentations or other implementation files." icon="heroicon-o-arrow-up-tray">
                 <div style="display:grid;gap:.65rem;">
                     <div>
                         <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Title *</label>
@@ -156,7 +278,7 @@
             <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2rem;text-align:center;">
                 <x-filament::icon icon="heroicon-o-folder-open" class="mx-auto h-10 w-10 text-gray-400" />
                 <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.5rem 0 .25rem;">Collect the mobility evidence here</h3>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;line-height:1.55;margin:0 auto;max-width:34rem;">Upload agendas, activity plans, worksheets, photos, participant outputs, certificates and any files that should be included in the final project archive.</p>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;line-height:1.55;margin:0 auto;max-width:34rem;">Upload agendas, activity plans, worksheets, photos, participant outputs, certificates and any files that should be kept as implementation evidence.</p>
             </div>
         @endforelse
     </x-filament::section>
