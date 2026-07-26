@@ -144,6 +144,79 @@ class ProjectCollaborationLockTest extends TestCase
             ->exists());
     }
 
+    public function test_five_users_can_be_present_with_independent_locks_but_not_edit_the_same_block(): void
+    {
+        $owner = User::factory()->create(['name' => 'User 1']);
+        $editors = User::factory()
+            ->count(4)
+            ->sequence(
+                ['name' => 'User 2'],
+                ['name' => 'User 3'],
+                ['name' => 'User 4'],
+                ['name' => 'User 5'],
+            )
+            ->create();
+        $users = collect([$owner])->merge($editors)->values();
+
+        $project = Project::create([
+            'owner_id' => $owner->id,
+            'access_mode' => 'restricted',
+            'name' => 'Five person collaboration',
+            'status' => 'active',
+            'ka_action' => 'ka152',
+            'invoice_status' => Project::INVOICE_NOT_REQUIRED,
+            'approved_budget' => 10000,
+            'approved_grant_amount' => 10000,
+            'approved_declared_at' => now(),
+        ]);
+
+        $editors->each(fn (User $editor) => $project->members()->attach($editor, ['role' => Project::PROJECT_ROLE_EDITOR]));
+
+        $basket = $project->budgetLines()->firstOrFail();
+        $expenses = collect(range(1, 5))->map(fn (int $index) => $basket->expenses()->create([
+            'description' => 'Expense '.$index,
+            'amount' => 100 * $index,
+            'currency' => 'EUR',
+            'exchange_rate' => 1,
+            'amount_eur' => 100 * $index,
+            'position' => $index,
+            'created_by' => $owner->id,
+        ]))->values();
+
+        $users->each(function (User $user, int $index) use ($project, $expenses): void {
+            $this->actingAs($user);
+
+            Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
+                ->call('startExpenseEditing', $expenses[$index]->id);
+        });
+
+        $this->assertSame(5, ProjectModuleLock::query()
+            ->where('project_id', $project->id)
+            ->where('module', 'board')
+            ->count());
+
+        $this->assertSame(5, ProjectModuleLock::query()
+            ->where('project_id', $project->id)
+            ->where('module', 'board')
+            ->distinct('lock_key')
+            ->count('lock_key'));
+
+        $this->actingAs($owner);
+        $component = Livewire::test(ViewProjectBoard::class, ['record' => $project->id]);
+
+        $this->assertCount(4, $component->instance()->projectPresenceState('board')['presences']);
+        $this->assertCount(5, $users
+            ->map(fn (User $user): string => $component->instance()->projectUserColor($user))
+            ->unique());
+
+        $this->actingAs($editors->first());
+        Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
+            ->call('updateExpense', $expenses->first()->id, 'description', 'Changed over User 1')
+            ->assertHasErrors(['project_lock']);
+
+        $this->assertSame('Expense 1', $expenses->first()->fresh()->description);
+    }
+
     private function projectWithEditor(string $status): array
     {
         $owner = User::factory()->create();
