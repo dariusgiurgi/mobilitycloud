@@ -15,10 +15,7 @@ class ProjectExportController extends Controller
 {
     public function finalArchive(Project $project, ProjectFinalArchiveService $archives)
     {
-        abort_unless(
-            Auth::check() && $project->canBeAccessedBy(Auth::user()),
-            403
-        );
+        $this->authorizeProjectModule($project, 'documents');
 
         $path = $archives->create($project);
 
@@ -29,10 +26,7 @@ class ProjectExportController extends Controller
 
     public function participantsCsv(Project $project): StreamedResponse
     {
-        abort_unless(
-            Auth::check() && $project->canBeAccessedBy(Auth::user()),
-            403
-        );
+        $this->authorizeProjectModule($project, 'participants');
 
         $participants = $project->participants()
             ->with('attachments')
@@ -92,10 +86,7 @@ class ProjectExportController extends Controller
 
     public function report(Project $project)
     {
-        abort_unless(
-            Auth::check() && $project->canBeAccessedBy(Auth::user()),
-            403
-        );
+        $this->authorizeProjectModule($project, 'board');
 
         $project->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses', 'ownerAccount']);
 
@@ -160,10 +151,7 @@ class ProjectExportController extends Controller
 
     public function exportApplication(Project $project)
     {
-        abort_unless(
-            Auth::check() && $project->canBeAccessedBy(Auth::user()),
-            403
-        );
+        $this->authorizeProjectModule($project, 'write');
 
         $sections = ProjectApplicationSection::where('project_id', $project->id)
             ->orderBy('sort_order')->orderBy('id')->get();
@@ -178,10 +166,7 @@ class ProjectExportController extends Controller
 
     public function exportApplicationWord(Project $project)
     {
-        abort_unless(
-            Auth::check() && $project->canBeAccessedBy(Auth::user()),
-            403
-        );
+        $this->authorizeProjectModule($project, 'write');
 
         $project->loadMissing('ownerAccount');
 
@@ -202,10 +187,7 @@ class ProjectExportController extends Controller
 
     public function exportApplicationPack(Project $project)
     {
-        abort_unless(
-            Auth::check() && $project->canBeAccessedBy(Auth::user()),
-            403
-        );
+        $this->authorizeProjectModule($project, 'write');
 
         $project->loadMissing(['ownerAccount', 'participants', 'budgetLines.expenses', 'tasks.assignee']);
 
@@ -236,5 +218,13 @@ class ProjectExportController extends Controller
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download('application-pack-'.Str::slug($project->name).'.pdf');
+    }
+
+    private function authorizeProjectModule(Project $project, string $module): void
+    {
+        abort_unless(
+            Auth::check() && $project->canAccessProjectModule(Auth::user(), $module),
+            403
+        );
     }
 }

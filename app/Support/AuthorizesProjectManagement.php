@@ -12,6 +12,14 @@ trait AuthorizesProjectManagement
         );
     }
 
+    protected function authorizeProjectModuleAccess(string $module): void
+    {
+        abort_unless(
+            isset($this->record) && $this->record->canAccessProjectModule(auth()->user(), $module),
+            404
+        );
+    }
+
     protected function authorizeProjectManagement(): void
     {
         abort_unless(
@@ -36,10 +44,15 @@ trait AuthorizesProjectManagement
         );
     }
 
-    protected function authorizeManagementModuleMutation(): void
+    protected function authorizeManagementModuleMutation(?string $module = null): void
     {
         abort_unless(
-            isset($this->record) && $this->record->canManageManagementModulesBy(auth()->user()),
+            isset($this->record)
+            && (
+                $module
+                    ? $this->record->canManageProjectModule(auth()->user(), $module)
+                    : $this->record->canManageManagementModulesBy(auth()->user())
+            ),
             403
         );
     }

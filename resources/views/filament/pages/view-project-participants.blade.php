@@ -21,7 +21,7 @@
         $countriesInUse = $this->getCountriesInUse();
         $orgsInUse = $this->getOrgsInUse();
         $activeFilters = $this->activeParticipantFilters();
-        $canManage = $record->canBeManagedBy(auth()->user());
+        $canManage = $record->canManageProjectModule(auth()->user(), 'participants');
         $registrationUrl = $this->getParticipantRegistrationUrl();
     @endphp
 

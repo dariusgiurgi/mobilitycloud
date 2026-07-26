@@ -64,6 +64,25 @@ class ProjectParticipantsPageTest extends TestCase
         ]);
     }
 
+    public function test_mobility_access_member_can_add_a_participant_from_the_register(): void
+    {
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_MOBILITY);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->assertSee('Participant register')
+            ->assertDontSee('Read-only access')
+            ->call('openCreate')
+            ->set('data.complete_name', 'Facilitator Participant')
+            ->call('save')
+            ->assertSee('Facilitator Participant');
+
+        $this->assertDatabaseHas('participants', [
+            'project_id' => $project->id,
+            'complete_name' => 'Facilitator Participant',
+        ]);
+    }
+
     public function test_manager_can_create_and_close_public_participant_form_link(): void
     {
         [$project, $user] = $this->projectAndUser();
@@ -112,9 +131,9 @@ class ProjectParticipantsPageTest extends TestCase
     private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
         $user = User::factory()->create();
-        $owner = $role === Project::PROJECT_ROLE_VIEWER
-            ? User::factory()->create()
-            : $user;
+        $owner = $role === Project::PROJECT_ROLE_EDITOR
+            ? $user
+            : User::factory()->create();
 
         $project = Project::create([
             'owner_id' => $owner->id,
@@ -125,8 +144,8 @@ class ProjectParticipantsPageTest extends TestCase
             'mobility_start_date' => '2026-07-01',
         ]);
 
-        if ($role === Project::PROJECT_ROLE_VIEWER) {
-            $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_VIEWER]);
+        if (! $project->isOwnedBy($user)) {
+            $project->members()->attach($user, ['role' => $role]);
         }
 
         return [$project, $user];

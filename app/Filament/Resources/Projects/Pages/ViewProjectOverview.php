@@ -68,6 +68,7 @@ class ViewProjectOverview extends Page
         $this->record = $this->resolveRecord($record);
 
         ProjectResource::ensureProjectAccountTenant($this->record);
+        $this->authorizeProjectModuleAccess('overview');
     }
 
     public function getTitle(): string

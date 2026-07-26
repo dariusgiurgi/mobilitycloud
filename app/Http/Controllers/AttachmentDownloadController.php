@@ -27,7 +27,7 @@ class AttachmentDownloadController extends Controller
         $expense->loadMissing('budgetLine.project');
         $project = $expense->budgetLine?->project;
 
-        abort_unless($project?->canBeAccessedBy(auth()->user()), 403);
+        abort_unless($project?->canAccessProjectModule(auth()->user(), 'board'), 403);
         abort_unless($expense->attachmentExists(), 404);
 
         return Storage::disk($expense->attachment_disk)->download(

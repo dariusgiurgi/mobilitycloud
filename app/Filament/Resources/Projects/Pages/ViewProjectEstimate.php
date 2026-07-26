@@ -44,6 +44,7 @@ class ViewProjectEstimate extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'estimate');
+        $this->authorizeProjectModuleAccess('estimate');
 
         $in = $this->record->action_data['estimate']['inputs'] ?? null;
         if (is_array($in)) {

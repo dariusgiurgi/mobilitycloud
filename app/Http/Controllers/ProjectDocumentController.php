@@ -90,7 +90,7 @@ class ProjectDocumentController extends Controller
             && $expense->budgetLine()->where('project_id', $project->id)->exists(),
             404
         );
-        abort_unless($project->canBeAccessedBy(auth()->user()), 403);
+        abort_unless($project->canAccessProjectModule(auth()->user(), 'documents'), 403);
         abort_unless($expense->hasCompleteConventionData(), 422);
 
         $expense->load('budgetLine');
@@ -163,7 +163,7 @@ class ProjectDocumentController extends Controller
             && $expense->budgetLine()->where('project_id', $project->id)->exists(),
             404
         );
-        abort_unless($project->canBeAccessedBy(auth()->user()), 403);
+        abort_unless($project->canAccessProjectModule(auth()->user(), 'documents'), 403);
     }
 
     private function conventionData(Project $project, Expense $expense): array
@@ -198,6 +198,13 @@ class ProjectDocumentController extends Controller
     private function authorizeDocument(Project $project, ProjectDocument $document): void
     {
         abort_unless($document->project_id === $project->id, 404);
-        abort_unless($project->canBeAccessedBy(auth()->user()), 403);
+
+        $user = auth()->user();
+        $canAccessDocuments = $project->canAccessProjectModule($user, 'documents');
+        $canAccessMobilityDocument = $project->canAccessProjectModule($user, 'mobility')
+            && $document->type === ProjectDocument::TYPE_UPLOAD
+            && in_array($document->category, array_keys(ProjectDocument::MOBILITY_CATEGORIES), true);
+
+        abort_unless($canAccessDocuments || $canAccessMobilityDocument, 403);
     }
 }

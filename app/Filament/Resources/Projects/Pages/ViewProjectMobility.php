@@ -92,7 +92,7 @@ class ViewProjectMobility extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'mobility');
-        $this->authorizeProjectAccess();
+        $this->authorizeProjectModuleAccess('mobility');
         $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
         $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
         $this->photoFolderLinks = $this->storedPhotoFolderLinks();
@@ -171,7 +171,7 @@ class ViewProjectMobility extends Page
 
     public function savePhotoFolderUrl(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'photoFolderUrl' => ['nullable', 'url', 'max:2000'],
         ]);
@@ -196,7 +196,7 @@ class ViewProjectMobility extends Page
 
     public function addPhotoFolderLink(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'newPhotoFolderLabel' => ['nullable', 'string', 'max:80'],
             'newPhotoFolderUrl' => ['required', 'url', 'max:2000'],
@@ -217,7 +217,7 @@ class ViewProjectMobility extends Page
 
     public function removePhotoFolderLink(string $linkId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
 
         $this->photoFolderLinks = collect($this->photoFolderLinks)
             ->reject(fn (array $link): bool => ($link['id'] ?? null) === $linkId)
@@ -229,7 +229,7 @@ class ViewProjectMobility extends Page
 
     public function savePhotoFolderLinks(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'photoFolderLinks' => ['nullable', 'array', 'max:20'],
             'photoFolderLinks.*.label' => ['nullable', 'string', 'max:80'],
@@ -243,7 +243,7 @@ class ViewProjectMobility extends Page
 
     public function saveFinalMobilityVideo(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'finalMobilityVideoUrl' => ['nullable', 'url', 'max:2000'],
         ]);
@@ -262,7 +262,7 @@ class ViewProjectMobility extends Page
 
     public function uploadMobilityPhotos(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'photoEvidenceTitle' => ['required', 'string', 'max:255'],
             'photoEvidenceDate' => ['nullable', 'date'],
@@ -316,7 +316,7 @@ class ViewProjectMobility extends Page
 
     public function saveMobilityReport(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'mobilityReport' => ['nullable', 'string', 'max:12000'],
         ]);
@@ -334,7 +334,7 @@ class ViewProjectMobility extends Page
 
     public function uploadMobilityDocument(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->validate([
             'documentTitle' => ['required', 'string', 'max:255'],
             'documentCategory' => ['required', 'in:'.implode(',', array_keys(ProjectDocument::MOBILITY_CATEGORIES))],
@@ -384,7 +384,7 @@ class ViewProjectMobility extends Page
 
     public function deleteMobilityDocument(int $documentId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $document = $this->record->documents()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
@@ -451,7 +451,7 @@ class ViewProjectMobility extends Page
             return;
         }
 
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         $this->normaliseEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
         $this->saveEvidenceDaysToRecord(refresh: false);
@@ -459,7 +459,7 @@ class ViewProjectMobility extends Page
 
     public function addEvidenceDay(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
 
         $id = 'day_'.Str::lower(Str::random(10));
         $this->evidenceDays[$id] = [
@@ -479,7 +479,7 @@ class ViewProjectMobility extends Page
 
     public function saveEvidenceDay(string $dayId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         $this->validate([
@@ -500,7 +500,7 @@ class ViewProjectMobility extends Page
 
     public function deleteEvidenceDay(string $dayId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         unset($this->evidenceDays[$dayId]);
@@ -511,7 +511,7 @@ class ViewProjectMobility extends Page
 
     public function addEvidenceLink(string $dayId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         $this->evidenceDays[$dayId]['links'][] = [
@@ -526,7 +526,7 @@ class ViewProjectMobility extends Page
 
     public function removeEvidenceLink(string $dayId, string $linkId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         $this->evidenceDays[$dayId]['links'] = collect($this->evidenceDays[$dayId]['links'] ?? [])
@@ -552,7 +552,7 @@ class ViewProjectMobility extends Page
 
     public function uploadEvidenceImages(string $dayId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         $this->evidenceUploadDayId = $dayId.'_images';
@@ -582,7 +582,7 @@ class ViewProjectMobility extends Page
 
     public function uploadEvidenceFiles(string $dayId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         $this->evidenceUploadDayId = $dayId.'_files';
@@ -689,7 +689,7 @@ class ViewProjectMobility extends Page
 
     public function saveDisseminationReport(string $organisationKey): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
 
         $this->validate([
@@ -709,7 +709,7 @@ class ViewProjectMobility extends Page
 
     public function prepareDisseminationUpload(string $organisationKey): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
 
         $organisation = collect($this->getDisseminationOrganisations())->firstWhere('key', $organisationKey);
@@ -722,7 +722,7 @@ class ViewProjectMobility extends Page
 
     public function uploadDisseminationEvidence(string $organisationKey): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(collect($this->getDisseminationOrganisations())->contains('key', $organisationKey), 404);
 
         $this->disseminationUploadOrgKey = $organisationKey;
@@ -907,7 +907,7 @@ class ViewProjectMobility extends Page
 
     private function prepareEvidenceUpload(string $dayId, string $kind): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('mobility');
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         $this->evidenceUploadDayId = $dayId.'_'.$kind;

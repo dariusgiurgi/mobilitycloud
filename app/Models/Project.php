@@ -35,6 +35,8 @@ class Project extends Model
 
     public const PROJECT_ROLE_EDITOR = 'editor';
 
+    public const PROJECT_ROLE_MOBILITY = 'mobility';
+
     public const PROJECT_ROLE_VIEWER = 'viewer';
 
     public const DEFAULT_BUDGET_LINES = [
@@ -125,6 +127,7 @@ class Project extends Model
     {
         return [
             self::PROJECT_ROLE_EDITOR => 'Editor',
+            self::PROJECT_ROLE_MOBILITY => 'Mobility access',
             self::PROJECT_ROLE_VIEWER => 'Viewer',
         ];
     }
@@ -263,6 +266,49 @@ class Project extends Model
         return $this->isManagementStage()
             && $this->implementationModulesAvailable()
             && $this->canBeManagedBy($user);
+    }
+
+    public function canAccessProjectModule(?User $user, string $module): bool
+    {
+        if (! $this->canBeAccessedBy($user)) {
+            return false;
+        }
+
+        if ($this->hasMobilityAccessRoleFor($user)) {
+            return in_array($module, ['participants', 'mobility'], true)
+                && $this->isManagementStage()
+                && $this->implementationModulesAvailable();
+        }
+
+        if ($module === 'edit') {
+            return $this->canBeManagedBy($user);
+        }
+
+        return true;
+    }
+
+    public function canManageProjectModule(?User $user, string $module): bool
+    {
+        if ($this->hasMobilityAccessRoleFor($user)) {
+            return in_array($module, ['participants', 'mobility'], true)
+                && $this->isManagementStage()
+                && $this->implementationModulesAvailable()
+                && ! AccountAccess::isReadOnly($this->owner());
+        }
+
+        return match ($module) {
+            'write' => $this->canEditApplicationBy($user),
+            'participants', 'mobility', 'documents', 'board' => $this->canManageManagementModulesBy($user),
+            'edit' => $this->canBeManagedBy($user),
+            default => $this->canBeManagedBy($user),
+        };
+    }
+
+    public function hasMobilityAccessRoleFor(?User $user): bool
+    {
+        return $user !== null
+            && ! $this->isOwnedBy($user)
+            && self::normaliseProjectRole($this->projectRoleFor($user)) === self::PROJECT_ROLE_MOBILITY;
     }
 
     public function owner(): ?User

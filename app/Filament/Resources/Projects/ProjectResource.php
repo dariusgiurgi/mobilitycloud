@@ -100,37 +100,43 @@ class ProjectResource extends Resource
             NavigationItem::make('Overview')
                 ->icon(Heroicon::OutlinedHome)
                 ->url(static::projectUrl($record))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'overview'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectOverview),
 
             NavigationItem::make('Application')
                 ->icon(Heroicon::OutlinedDocumentText)
                 ->url(static::projectUrl($record, 'write'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'write'))
                 ->isActiveWhen(fn () => $page instanceof WriteApplication),
 
             NavigationItem::make('Budget')
                 ->icon(Heroicon::OutlinedBanknotes)
                 ->url(static::projectUrl($record, 'board'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'board'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectEstimate || $page instanceof ViewProjectBoard),
 
             NavigationItem::make('Mobility')
                 ->icon(Heroicon::OutlinedMap)
                 ->url(static::projectUrl($record, 'mobility'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'mobility'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
 
             NavigationItem::make('Participants')
                 ->icon(Heroicon::OutlinedUsers)
                 ->url(static::projectUrl($record, 'participants'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'participants'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
 
             NavigationItem::make('Documents')
                 ->icon(Heroicon::OutlinedDocumentDuplicate)
                 ->url(static::projectUrl($record, 'documents'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'documents'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectDocuments),
 
             NavigationItem::make('Settings')
                 ->icon(Heroicon::OutlinedCog6Tooth)
                 ->url(static::projectUrl($record, 'edit'))
-                ->visible(fn (): bool => $record->canBeManagedBy(auth()->user()))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'edit'))
                 ->isActiveWhen(fn () => $page instanceof EditProject),
         ];
     }
@@ -148,6 +154,12 @@ class ProjectResource extends Resource
 
     public static function projectUrl(Project $project, string $page = 'overview', ?User $user = null): string
     {
+        $user ??= auth()->user();
+
+        if ($page === 'overview' && ! $project->canAccessProjectModule($user, $page)) {
+            $page = $project->canAccessProjectModule($user, 'participants') ? 'participants' : $page;
+        }
+
         return static::accountUrl($page, ['record' => $project], $user);
     }
 

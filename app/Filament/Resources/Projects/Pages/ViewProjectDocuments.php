@@ -93,7 +93,7 @@ class ViewProjectDocuments extends Page
     {
         $this->record = $this->resolveRecord($record);
         ProjectResource::ensureProjectAccountTenant($this->record, 'documents');
-        $this->authorizeProjectAccess();
+        $this->authorizeProjectModuleAccess('documents');
     }
 
     public function getTitle(): string

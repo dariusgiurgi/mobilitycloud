@@ -70,6 +70,36 @@ class ProjectMobilityTest extends TestCase
         Storage::disk('local')->assertExists($document->file_path);
     }
 
+    public function test_mobility_access_member_can_save_mobility_report_and_upload_activity_files(): void
+    {
+        Storage::fake('local');
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_MOBILITY);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertSee('Mobility workspace')
+            ->set('mobilityReport', 'Facilitator report about delivered mobility activities.')
+            ->call('saveMobilityReport')
+            ->call('setMobilityTab', 'materials')
+            ->assertSee('Upload material or output')
+            ->set('documentTitle', 'Facilitator worksheet')
+            ->set('documentCategory', 'mobility_material')
+            ->set('documentUpload', UploadedFile::fake()->create('facilitator-worksheet.pdf', 80, 'application/pdf'))
+            ->call('uploadMobilityDocument')
+            ->assertHasNoErrors()
+            ->assertSee('Facilitator worksheet');
+
+        $this->assertSame(
+            'Facilitator report about delivered mobility activities.',
+            data_get($project->fresh()->action_data, 'mobility.report')
+        );
+        $this->assertDatabaseHas('project_documents', [
+            'project_id' => $project->id,
+            'category' => 'mobility_material',
+            'file_name' => 'facilitator-worksheet.pdf',
+        ]);
+    }
+
     public function test_member_can_create_evidence_day_with_links_images_and_files(): void
     {
         Storage::fake('local');
@@ -281,14 +311,16 @@ class ProjectMobilityTest extends TestCase
         $this->assertStringContainsString('/mobility', ProjectResource::getUrl('mobility', ['record' => $project]));
     }
 
-    private function projectAndUser(): array
+    private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
         $project = Project::create([
             'name' => 'Youth Exchange',
             'status' => 'active',
         ]);
+        $owner = User::factory()->create();
+        $project->update(['owner_id' => $owner->id]);
         $user = User::factory()->create();
-        $project->members()->attach($user, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $project->members()->attach($user, ['role' => $role]);
 
         return [$project, $user];
     }

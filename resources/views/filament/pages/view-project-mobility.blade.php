@@ -26,6 +26,7 @@
         $evidenceDays = $this->getEvidenceDays();
         $storedEvidenceDays = $this->evidenceDays;
         $evidenceDocuments = $this->getEvidenceDocumentsByDay();
+        $canManage = $record->canManageProjectModule(auth()->user(), 'mobility');
     @endphp
 
     <x-filament::section>
@@ -79,7 +80,7 @@
                           style="width:100%;padding:.75rem .85rem;border:1px solid rgba(100,116,139,.28);border-radius:.75rem;background:transparent;font-size:.82rem;resize:vertical;"></textarea>
                 @error('mobilityReport') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
 
-                @if($record->canBeManagedBy(auth()->user()))
+                @if($canManage)
                     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.75rem;">
                         <x-filament::button wire:click="saveMobilityReport" icon="heroicon-m-check">
                             Save report
@@ -143,7 +144,7 @@
                                   style="width:100%;margin-top:.65rem;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
                         @error('disseminationReports.'.$organisation['key']) <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
 
-                        @if($record->canBeManagedBy(auth()->user()))
+                        @if($canManage)
                             <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-top:.6rem;">
                                 <x-filament::button wire:click="saveDisseminationReport('{{ $organisation['key'] }}')" size="sm" icon="heroicon-m-check">
                                     Save report
@@ -226,7 +227,7 @@
                 @endif
             </x-filament::section>
 
-            @if($record->canBeManagedBy(auth()->user()))
+            @if($canManage)
                 <x-filament::section heading="Upload material or output" description="Use this for agendas, worksheets, participant outputs, certificates, presentations or other implementation files." icon="heroicon-o-arrow-up-tray">
                     <div style="display:grid;gap:.65rem;">
                         <div>
@@ -275,7 +276,7 @@
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.45fr);gap:1rem;margin-top:1rem;align-items:start;">
             <div style="display:grid;gap:.85rem;">
                 <x-filament::section heading="Evidence by day" description="Create one card for each mobility day, then attach photos, links and participant/presentation files to that day." icon="heroicon-o-calendar-days">
-                    @if($record->canBeManagedBy(auth()->user()) && $evidenceDays !== [])
+                    @if($canManage && $evidenceDays !== [])
                         <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem;">
                             <x-filament::button wire:click="addEvidenceDay" icon="heroicon-m-plus">
                                 Add day
@@ -288,7 +289,7 @@
                             <x-filament::icon icon="heroicon-o-camera" class="mx-auto h-10 w-10 text-gray-400" />
                             <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.5rem 0 .25rem;">Start with the first mobility day</h3>
                             <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;line-height:1.55;margin:0 auto .9rem;max-width:34rem;">Each day can have its own title, date, narrative, observations, links, photos and files.</p>
-                            @if($record->canBeManagedBy(auth()->user()))
+                            @if($canManage)
                                 <x-filament::button wire:click="addEvidenceDay" icon="heroicon-m-plus">Add day</x-filament::button>
                             @endif
                         </div>
@@ -321,7 +322,7 @@
 
                                 <div style="padding:0 .9rem .9rem;">
 
-                                @if($record->canBeManagedBy(auth()->user()))
+                                @if($canManage)
                                     <div style="display:grid;gap:.65rem;margin-top:.85rem;">
                                         <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 160px;gap:.55rem;">
                                             <input type="text" wire:model.live.debounce.700ms="evidenceDays.{{ $day['id'] }}.title" aria-label="Evidence day title" placeholder="Day title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
@@ -450,7 +451,7 @@
                             <div style="display:grid;gap:.45rem;">
                                 @foreach($photoFolderLinks as $linkIndex => $link)
                                     <div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto auto;gap:.4rem;align-items:center;">
-                                        @if($record->canBeManagedBy(auth()->user()))
+                                        @if($canManage)
                                             <input type="text" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.label" aria-label="External folder label" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
                                             <input type="url" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.url" aria-label="External folder URL" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
                                             <x-filament::icon-button tag="a" :href="$link['url']" target="_blank" icon="heroicon-m-arrow-top-right-on-square" color="gray" label="Open link" />
@@ -465,7 +466,7 @@
                             </div>
                         @endif
 
-                        @if($record->canBeManagedBy(auth()->user()))
+                        @if($canManage)
                             <div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:.4rem;align-items:start;">
                                 <input type="text" wire:model="newPhotoFolderLabel" placeholder="Drive" aria-label="New folder label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
                                 <div>
@@ -493,7 +494,7 @@
                         <input type="url" wire:model.defer="finalMobilityVideoUrl" placeholder="https://youtube.com/..." aria-label="Final mobility video URL" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.65rem;background:transparent;font-size:.76rem;">
                         @error('finalMobilityVideoUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                         <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;">
-                            @if($record->canBeManagedBy(auth()->user()))
+                            @if($canManage)
                                 <x-filament::button wire:click="saveFinalMobilityVideo" color="gray" size="sm" icon="heroicon-m-video-camera">
                                     Save video link
                                 </x-filament::button>

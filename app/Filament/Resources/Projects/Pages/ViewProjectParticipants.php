@@ -65,7 +65,7 @@ class ViewProjectParticipants extends Page
         $this->record = $this->resolveRecord($record);
 
         ProjectResource::ensureProjectAccountTenant($this->record, 'participants');
-        $this->authorizeProjectAccess();
+        $this->authorizeProjectModuleAccess('participants');
     }
 
     public function getTitle(): string
@@ -188,7 +188,7 @@ class ViewProjectParticipants extends Page
 
     public function createParticipantRegistrationLink(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
 
         $this->record->forceFill([
             'participant_registration_token' => Str::random(48),
@@ -207,7 +207,7 @@ class ViewProjectParticipants extends Page
 
     public function closeParticipantRegistrationLink(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
 
         $this->record->forceFill([
             'participant_registration_closed_at' => now(),
@@ -224,7 +224,7 @@ class ViewProjectParticipants extends Page
 
     public function openImport(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $this->resetValidation('importFile');
         $this->importFile = null;
         $this->showImportModal = true;
@@ -232,7 +232,7 @@ class ViewProjectParticipants extends Page
 
     public function importParticipants(ParticipantCsvImporter $importer): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $this->validate([
             'importFile' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
@@ -263,7 +263,7 @@ class ViewProjectParticipants extends Page
 
     public function openCreate(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $this->editingId = null;
         $this->data = $this->blankData();
         $this->showModal = true;
@@ -302,7 +302,7 @@ class ViewProjectParticipants extends Page
 
     public function save(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $organisationNames = collect($this->getPartnerOrgs())->pluck('name')->all();
         $organisationRules = count($organisationNames) > 0
             ? ['required', 'string', 'max:255', Rule::in($organisationNames)]
@@ -341,14 +341,14 @@ class ViewProjectParticipants extends Page
 
     public function deleteParticipant(int $id): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         Participant::where('project_id', $this->record->id)->where('id', $id)->delete();
         Notification::make()->title('Participant removed')->success()->send();
     }
 
     public function setGdprConsent(int $id): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $p = Participant::where('project_id', $this->record->id)->find($id);
         if (! $p) {
             return;
@@ -372,7 +372,7 @@ class ViewProjectParticipants extends Page
 
     public function uploadAttachment(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $this->validate([
             'uploadFile' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx', // 10 MB
             'uploadType' => 'required|in:'.implode(',', array_keys(ParticipantAttachment::TYPES)),
@@ -429,7 +429,7 @@ class ViewProjectParticipants extends Page
 
     public function deleteAttachment(int $attachmentId): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('participants');
         $att = ParticipantAttachment::find($attachmentId);
         // Verificam ca apartine unui participant din acest proiect.
         if ($att && $att->participant && $att->participant->project_id === $this->record->id) {

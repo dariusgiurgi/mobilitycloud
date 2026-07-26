@@ -139,6 +139,46 @@ class ProjectAccessTest extends TestCase
         $this->assertTrue($collaboratorMenu[PlanCatalog::MODULE_REPORTS]);
     }
 
+    public function test_mobility_access_role_is_limited_to_participants_and_mobility_modules(): void
+    {
+        $owner = User::factory()->create();
+        $facilitator = User::factory()->create();
+        $project = Project::create([
+            'owner_id' => $owner->id,
+            'access_mode' => 'restricted',
+            'name' => 'Partner Mobility Project',
+            'status' => 'approved',
+        ]);
+        $project->members()->attach($facilitator, ['role' => Project::PROJECT_ROLE_MOBILITY]);
+
+        $project->refresh();
+
+        $this->assertTrue($project->canAccessProjectModule($facilitator, 'participants'));
+        $this->assertTrue($project->canAccessProjectModule($facilitator, 'mobility'));
+        $this->assertTrue($project->canManageProjectModule($facilitator, 'participants'));
+        $this->assertTrue($project->canManageProjectModule($facilitator, 'mobility'));
+        $this->assertFalse($project->canAccessProjectModule($facilitator, 'overview'));
+        $this->assertFalse($project->canAccessProjectModule($facilitator, 'write'));
+        $this->assertFalse($project->canAccessProjectModule($facilitator, 'board'));
+        $this->assertFalse($project->canAccessProjectModule($facilitator, 'documents'));
+        $this->assertFalse($project->canAccessProjectModule($facilitator, 'edit'));
+        $this->assertStringContainsString(
+            '/participants',
+            ProjectResource::projectUrl($project, 'overview', $facilitator)
+        );
+
+        $this->actingAs($facilitator);
+
+        $this->get(ProjectResource::getUrl('participants', ['record' => $project]))->assertOk();
+        $this->get(ProjectResource::getUrl('mobility', ['record' => $project]))->assertOk();
+        foreach (['overview', 'write', 'board', 'documents', 'edit'] as $blockedPage) {
+            $this->assertContains(
+                $this->get(ProjectResource::getUrl($blockedPage, ['record' => $project]))->status(),
+                [403, 404],
+            );
+        }
+    }
+
     public function test_project_access_action_can_invite_a_project_only_collaborator(): void
     {
         Notification::fake();
@@ -162,6 +202,33 @@ class ProjectAccessTest extends TestCase
             'project_id' => $project->id,
             'email' => 'project-only@example.test',
             'role' => 'project_editor',
+        ]);
+        Notification::assertSentOnDemand(ProjectInvitationNotification::class);
+    }
+
+    public function test_project_access_action_can_invite_a_mobility_access_collaborator(): void
+    {
+        Notification::fake();
+        $owner = User::factory()->create();
+        $project = Project::create([
+            'owner_id' => $owner->id,
+            'name' => 'Mobility Invitation Project',
+            'status' => 'approved',
+        ]);
+
+        $this->actingAs($owner);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->callAction('manageAccess', data: [
+                'collaborators' => [],
+                'invite_email' => 'facilitator@example.test',
+                'invite_role' => Project::PROJECT_ROLE_MOBILITY,
+            ]);
+
+        $this->assertDatabaseHas('project_invitations', [
+            'project_id' => $project->id,
+            'email' => 'facilitator@example.test',
+            'role' => 'project_mobility',
         ]);
         Notification::assertSentOnDemand(ProjectInvitationNotification::class);
     }
