@@ -11,7 +11,15 @@ class ProjectStatsOverview extends BaseWidget
 {
     protected static bool $isLazy = false;
 
+    protected string $view = 'filament.widgets.project-stats-overview';
+
     protected ?string $pollingInterval = null;
+
+    protected int | array | null $columns = [
+        'default' => 1,
+        'md' => 2,
+        'xl' => 4,
+    ];
 
     protected function getStats(): array
     {
@@ -28,19 +36,23 @@ class ProjectStatsOverview extends BaseWidget
         return [
             Stat::make('Approved projects', $projects->count())
                 ->description('Ready for management')
-                ->color('success'),
+                ->color('success')
+                ->extraAttributes(['class' => 'mc-project-stats']),
 
             Stat::make('Approved funding', $this->formatCurrencyStat($approvedFunding))
                 ->description('Across current projects')
-                ->color('primary'),
+                ->color('primary')
+                ->extraAttributes(['class' => 'mc-project-stats mc-project-stats-money']),
 
             Stat::make('Total spent', $this->formatCurrencyStat($spent))
                 ->description($approvedFunding > 0 ? round($spent / $approvedFunding * 100).'% of available funding' : 'No approved funding yet')
-                ->color('info'),
+                ->color('info')
+                ->extraAttributes(['class' => 'mc-project-stats mc-project-stats-money']),
 
             Stat::make('Available balance', $this->formatCurrencyStat($available))
                 ->description($available < 0 ? 'Budget exceeded' : 'Remaining to allocate and spend')
-                ->color($available < 0 ? 'danger' : 'gray'),
+                ->color($available < 0 ? 'danger' : 'gray')
+                ->extraAttributes(['class' => 'mc-project-stats mc-project-stats-money']),
         ];
     }
 
