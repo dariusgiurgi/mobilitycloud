@@ -42,9 +42,9 @@
     @endphp
 
     <style>
-        .mc-focus-grid { display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:1rem;margin-top:1rem;align-items:start; }
+        .mc-focus-grid { display:grid;grid-template-columns:1fr;gap:.75rem;margin-top:1rem;align-items:start; }
         .mc-focus-card { padding:1rem;border:1px solid rgba(148,163,184,.22);border-radius:.95rem;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.045); }
-        .mc-focus-card.is-primary { background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(14,165,233,.04));border-color:rgba(99,102,241,.2); }
+        .mc-focus-card.is-primary { padding:.85rem 1rem;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(14,165,233,.04));border-color:rgba(99,102,241,.2); }
         .mc-focus-head { display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap; }
         .mc-focus-icon { width:42px;height:42px;display:inline-flex;align-items:center;justify-content:center;flex:none;border-radius:.75rem;background:rgba(99,102,241,.1);color:#6366f1; }
         .mc-overview-grid { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem; }
@@ -78,7 +78,7 @@
         .dark .mc-readiness-score::after { background:rgb(17,24,39); }
         .dark .mc-readiness-score span { color:#f9fafb; }
         .dark .mc-readiness-group,.dark .mc-readiness-issue { background:rgba(17,24,39,.68);border-color:rgba(255,255,255,.1); }
-        @media (max-width:1100px) { .mc-focus-grid,.mc-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+        @media (max-width:1100px) { .mc-overview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
         @media (max-width:900px) { .mc-readiness-head { grid-template-columns:1fr; }.mc-readiness-groups { grid-template-columns:repeat(2,minmax(0,1fr)); }.mc-readiness-issues { grid-template-columns:1fr; } }
         @media (max-width:700px) { .mc-focus-grid,.mc-overview-grid,.mc-overview-detail-grid,.mc-task-form-grid { grid-template-columns:1fr; } }
     </style>
