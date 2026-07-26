@@ -8,6 +8,8 @@ use App\Models\BudgetTransfer;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -95,6 +97,40 @@ class ProjectBudgetPageTest extends TestCase
         $this->assertSame('RON', $expense->fresh()->currency);
         $this->assertSame('5.000000', $expense->fresh()->exchange_rate);
         $this->assertSame('100.00', $expense->fresh()->amount_eur);
+    }
+
+    public function test_expense_uploads_are_named_after_the_expense_number(): void
+    {
+        Storage::fake('local');
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR, 'active');
+        $line = $project->budgetLines()->orderBy('sort_order')->first();
+        $expense = $line->expenses()->create([
+            'description' => 'Approved application',
+            'amount' => 1200,
+            'currency' => 'EUR',
+            'exchange_rate' => 1,
+            'amount_eur' => 1200,
+            'position' => 0,
+            'created_by' => $user->id,
+        ]);
+        $expectedName = $expense->supportingFileName($project, 'pdf');
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
+            ->call('setUploadTarget', $expense->id)
+            ->set('uploadFile', UploadedFile::fake()->create('application-project-demo-with-a-very-long-file-name.pdf', 80, 'application/pdf'))
+            ->assertSee($expectedName)
+            ->assertDontSee('application-project-demo-with-a-very-long-file-name.pdf');
+
+        $expense->refresh();
+
+        $this->assertSame($expectedName, $expense->attachment_name);
+        $this->assertSame('expenses/'.$expense->id.'/'.$expectedName, $expense->attachment_path);
+        Storage::disk('local')->assertExists($expense->attachment_path);
+
+        $this->get(route('attachments.expenses.download', $expense))
+            ->assertDownload($expectedName);
     }
 
     public function test_viewer_sees_budget_pages_without_mutation_controls(): void

@@ -289,10 +289,13 @@ class ViewProjectBoard extends Page
             Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
         }
 
-        $path = $this->uploadFile->store('expenses', 'local');
+        $extension = $this->uploadFile->getClientOriginalExtension()
+            ?: pathinfo((string) $this->uploadFile->getClientOriginalName(), PATHINFO_EXTENSION);
+        $filename = $expense->supportingFileName($this->record, $extension);
+        $path = $this->uploadFile->storeAs('expenses/'.$expense->id, $filename, 'local');
         $expense->attachment_path = $path;
         $expense->attachment_disk = 'local';
-        $expense->attachment_name = $this->uploadFile->getClientOriginalName();
+        $expense->attachment_name = $filename;
         $expense->save();
 
         $this->uploadFile = null;

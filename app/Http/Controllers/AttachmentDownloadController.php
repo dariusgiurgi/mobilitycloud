@@ -32,7 +32,7 @@ class AttachmentDownloadController extends Controller
 
         return Storage::disk($expense->attachment_disk)->download(
             $expense->attachment_path,
-            $expense->attachment_name ?: basename($expense->attachment_path)
+            $expense->supportingFileName($project)
         );
     }
 }

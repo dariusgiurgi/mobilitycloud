@@ -28,11 +28,11 @@
     };
 @endphp
 
-<span style="display:inline-flex;align-items:center;gap:.42rem;min-width:0;max-width:100%;">
+<span style="display:inline-flex;align-items:center;gap:.42rem;min-width:0;max-width:{{ $maxWidth ?? '100%' }};">
     <a href="{{ $url }}"
        target="{{ $target ?? '_blank' }}"
        title="{{ $name }}"
-       style="display:inline-flex;align-items:center;gap:.42rem;min-width:0;max-width:100%;padding:.25rem .42rem;border:1px solid rgba(148,163,184,.25);border-radius:.55rem;background:rgba(148,163,184,.06);text-decoration:none;">
+       style="display:inline-flex;align-items:center;gap:.42rem;min-width:0;max-width:{{ $maxWidth ?? '100%' }};padding:.25rem .42rem;border:1px solid rgba(148,163,184,.25);border-radius:.55rem;background:rgba(148,163,184,.06);text-decoration:none;">
         <span style="min-width:1.85rem;height:1.45rem;padding:0 .24rem;border-radius:.35rem;background:{{ $accent }};color:white;font-size:.55rem;font-weight:900;letter-spacing:.03em;display:inline-flex;align-items:center;justify-content:center;">
             {{ $label }}
         </span>

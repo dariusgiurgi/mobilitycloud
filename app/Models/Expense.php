@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class Expense extends Model
 {
@@ -58,6 +59,36 @@ class Expense extends Model
     {
         return $this->attachment_path
             && Storage::disk($this->attachment_disk ?: 'local')->exists($this->attachment_path);
+    }
+
+    public function supportingFileName(?Project $project = null, ?string $extension = null): string
+    {
+        $project ??= $this->budgetLine?->project;
+
+        if (! $project && $this->budget_line_id) {
+            $this->loadMissing('budgetLine.project');
+            $project = $this->budgetLine?->project;
+        }
+
+        $prefix = $project?->expense_prefix ?: 'EXP';
+        $pad = (int) ($project?->expense_pad_length ?: 3);
+        $code = $this->reference_nr
+            ?: $prefix.'-'.str_pad((string) $this->id, $pad, '0', STR_PAD_LEFT);
+
+        $extension = strtolower(trim((string) (
+            $extension
+            ?: pathinfo((string) $this->attachment_name, PATHINFO_EXTENSION)
+            ?: pathinfo((string) $this->attachment_path, PATHINFO_EXTENSION)
+        ), '.'));
+
+        $filename = Str::of($code)
+            ->replaceMatches('/^#+/', '')
+            ->replaceMatches('/[^A-Za-z0-9._-]+/', '-')
+            ->trim('-_.')
+            ->upper()
+            ->toString();
+
+        return $filename.($extension !== '' ? '.'.$extension : '');
     }
 
     public function hasCompleteConventionData(): bool

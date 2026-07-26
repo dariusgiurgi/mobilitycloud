@@ -42,7 +42,7 @@ class ExpenseReportSnapshot
                 'exchange_rate' => (float) ($expense->exchange_rate ?: 1),
                 'amount_eur' => (float) $expense->amount_eur,
                 'evidence' => $expense->attachmentExists() ? 'Attached' : 'Missing',
-                'evidence_name' => $expense->attachment_name,
+                'evidence_name' => $expense->supportingFileName($project),
                 'notes' => $expense->notes,
             ]))
             ->values();

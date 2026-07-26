@@ -96,8 +96,8 @@ class ProjectFinalArchiveService
                     'evidence',
                     $expense->attachment_disk,
                     $expense->attachment_path,
-                    $projectDir.'/04-budget-expenses/'.$this->safeName($line->title).'/'.$expense->id.'-'.$this->safeFilename($expense->attachment_name),
-                    $expense->attachment_name,
+                    $projectDir.'/04-budget-expenses/'.$this->safeName($line->title).'/'.$expense->id.'-'.$this->safeFilename($expense->supportingFileName($project)),
+                    $expense->supportingFileName($project),
                 );
 
                 foreach (['agreement', 'payment'] as $kind) {

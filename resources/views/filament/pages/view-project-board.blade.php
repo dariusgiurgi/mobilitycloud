@@ -251,13 +251,14 @@
                             </td>
                             <td style="padding:6px 10px;text-align:right;font-weight:600;">€ {{ number_format((float) $expense->amount_eur, 2) }}</td>
 
-                            <td style="padding:6px 10px;text-align:center;">
+                            <td style="padding:6px 10px;text-align:center;width:180px;max-width:180px;">
                                 @if($expense->attachment_path)
                                     @include('filament.pages.partials.file-mini-chip', [
-                                        'name' => $expense->attachment_name ?: \Illuminate\Support\Str::afterLast($expense->attachment_path, '/'),
+                                        'name' => $expense->supportingFileName($record),
                                         'url' => route('attachments.expenses.download', $expense),
                                         'deleteAction' => $canManage ? 'deleteAttachment('.$expense->id.')' : null,
                                         'deleteTitle' => 'Remove file',
+                                        'maxWidth' => '150px',
                                     ])
                                 @elseif($canManage)
                                     <label style="cursor:pointer;display:inline-flex;" title="Upload file"
