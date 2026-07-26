@@ -89,16 +89,32 @@
 
                 @if($registrationUrl)
                     <div style="display:flex;align-items:center;gap:.5rem;flex:1.2;min-width:320px;">
-                        <input type="text" readonly value="{{ $registrationUrl }}" class="mc-part-in" style="font-size:12px;background:rgba(34,197,94,.04);" aria-label="Participant registration link">
-                        <x-filament::button
-                            color="gray"
-                            size="sm"
-                            icon="heroicon-o-clipboard"
-                            x-data
-                            x-on:click="navigator.clipboard.writeText(@js($registrationUrl))"
+                        <input id="participant-registration-link-{{ $record->id }}" type="text" readonly value="{{ $registrationUrl }}" class="mc-part-in" style="font-size:12px;background:rgba(34,197,94,.04);" aria-label="Participant registration link">
+                        <button
+                            type="button"
+                            class="text-gray-700 dark:text-gray-200"
+                            style="display:inline-flex;align-items:center;gap:.35rem;padding:8px 12px;border:1px solid rgba(100,116,139,.25);border-radius:8px;background:transparent;cursor:pointer;font-size:12px;font-weight:650;white-space:nowrap;"
+                            x-data="{ copied: false }"
+                            x-on:click="
+                                const input = document.getElementById('participant-registration-link-{{ $record->id }}');
+                                const text = input.value;
+
+                                if (navigator.clipboard && window.isSecureContext) {
+                                    navigator.clipboard.writeText(text);
+                                } else {
+                                    input.focus();
+                                    input.select();
+                                    document.execCommand('copy');
+                                    input.setSelectionRange(0, 0);
+                                }
+
+                                copied = true;
+                                setTimeout(() => copied = false, 1600);
+                            "
                         >
-                            Copy
-                        </x-filament::button>
+                            <x-filament::icon icon="heroicon-o-clipboard" style="width:14px;height:14px;" />
+                            <span x-text="copied ? 'Copied' : 'Copy'">Copy</span>
+                        </button>
                     </div>
                     <x-filament::badge color="success">Open</x-filament::badge>
                 @else
