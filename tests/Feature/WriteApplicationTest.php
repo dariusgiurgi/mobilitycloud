@@ -33,10 +33,10 @@ class WriteApplicationTest extends TestCase
             ->assertSee('1 of 2 sections')
             ->assertSee('Search questions or answers')
             ->assertSee('Review queue')
-            ->assertSee('Export full pack')
             ->assertSee('Export Word')
             ->assertSee('More')
-            ->assertSee('Export PDF');
+            ->assertSee('Export PDF')
+            ->assertDontSee('Export full pack');
     }
 
     public function test_manager_changes_are_saved_to_the_application(): void

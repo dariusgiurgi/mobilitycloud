@@ -209,9 +209,6 @@
                     <x-filament::dropdown.list.item tag="a" :href="route('projects.export-application-word', $record)" target="_blank" icon="heroicon-o-document-text">
                         Export Word
                     </x-filament::dropdown.list.item>
-                    <x-filament::dropdown.list.item tag="a" :href="route('projects.export-application-pack', $record)" target="_blank" icon="heroicon-o-archive-box">
-                        Export full pack
-                    </x-filament::dropdown.list.item>
                 </x-filament::dropdown.list>
             </x-filament::dropdown>
         </div>
