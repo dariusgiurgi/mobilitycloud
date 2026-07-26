@@ -1441,6 +1441,44 @@ class WriteApplication extends Page
         $this->activityFlows = $this->normaliseActivityFlows((array) (($this->record->action_data ?? [])['application_flows'] ?? []));
     }
 
+    protected function syncProjectCollaborationState(string $module): void
+    {
+        if ($module !== 'write') {
+            return;
+        }
+
+        $locksOwnedByMe = $this->projectLocksForModule('write')
+            ->filter(fn ($lock) => (int) $lock->user_id === (int) auth()->id())
+            ->keys();
+
+        $freshSections = $this->sectionsQuery()->get();
+        $freshIds = $freshSections->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        foreach (array_keys($this->content) as $sectionId) {
+            $sectionId = (int) $sectionId;
+            if (! in_array($sectionId, $freshIds, true) && ! $locksOwnedByMe->contains('section:'.$sectionId)) {
+                unset($this->content[$sectionId], $this->titles[$sectionId], $this->reviewStatuses[$sectionId], $this->internalNotes[$sectionId], $this->tables[$sectionId]);
+            }
+        }
+
+        foreach ($freshSections as $section) {
+            if ($locksOwnedByMe->contains($this->writingSectionLockKey($section->id))) {
+                continue;
+            }
+
+            $this->content[$section->id] = (string) $section->content;
+            $this->titles[$section->id] = (string) $section->title;
+            $this->reviewStatuses[$section->id] = (string) ($section->review_status ?: 'draft');
+            $this->internalNotes[$section->id] = (string) $section->internal_notes;
+            $this->tables[$section->id] = $section->application_tables ?: [];
+        }
+
+        if (! $locksOwnedByMe->contains('activity-flows')) {
+            $this->record = $this->record->fresh() ?: $this->record;
+            $this->activityFlows = $this->normaliseActivityFlows((array) (($this->record->action_data ?? [])['application_flows'] ?? []));
+        }
+    }
+
     // ─── Auto-save hooks ───
     public function updatedContent($value, $key): void
     {

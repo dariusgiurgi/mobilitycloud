@@ -173,8 +173,16 @@ trait AuthorizesProjectManagement
     public function projectUserColor(?object $user): string
     {
         $palette = [
-            '#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626',
-            '#7c3aed', '#db2777', '#2563eb', '#16a34a', '#ea580c',
+            '#2563eb', // blue
+            '#16a34a', // green
+            '#7c3aed', // violet
+            '#dc2626', // red
+            '#0891b2', // cyan
+            '#9333ea', // purple
+            '#0f766e', // teal
+            '#be123c', // rose
+            '#4f46e5', // indigo
+            '#ca8a04', // gold
         ];
 
         $id = (int) ($user?->id ?? 0);
@@ -189,10 +197,34 @@ trait AuthorizesProjectManagement
         return [
             'name' => $lock->user?->name ?: 'Another user',
             'color' => $color,
-            'background' => $color.'14',
-            'border' => $color.'66',
+            'background' => $color.'10',
+            'soft_background' => $color.'0f',
+            'border' => $color,
+            'shadow' => $color.'2b',
             'label' => $lock->lock_label,
         ];
+    }
+
+    public function projectLockFrameStyle(?ProjectModuleLock $lock, string $defaultBorder = 'rgba(148,163,184,.22)', string $extra = ''): string
+    {
+        if (! $lock) {
+            return trim('position:relative;border:1px solid '.$defaultBorder.';'.$extra);
+        }
+
+        $badge = $this->projectLockBadge($lock);
+
+        return trim('position:relative;border:2px solid '.$badge['color'].';box-shadow:0 0 0 3px '.$badge['shadow'].';margin-top:.75rem;'.$extra);
+    }
+
+    public function projectLockRowStyle(?ProjectModuleLock $lock, string $defaultBorder = 'rgba(100,116,139,.12)', string $extra = ''): string
+    {
+        if (! $lock) {
+            return trim('border-top:1px solid '.$defaultBorder.';'.$extra);
+        }
+
+        $badge = $this->projectLockBadge($lock);
+
+        return trim('border-top:1px solid '.$badge['color'].';box-shadow:inset 4px 0 0 '.$badge['color'].';'.$extra);
     }
 
     protected function activeProjectPresences(?string $module = null): Collection

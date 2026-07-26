@@ -47,6 +47,11 @@ class ViewProjectEstimate extends Page
         $this->authorizeProjectModuleAccess('estimate');
         $this->touchProjectCollaboration('estimate');
 
+        $this->loadEstimateInputs();
+    }
+
+    protected function loadEstimateInputs(): void
+    {
         $in = $this->record->action_data['estimate']['inputs'] ?? null;
         if (is_array($in)) {
             $this->persons = (int) ($in['persons'] ?? $this->persons);
@@ -61,6 +66,21 @@ class ViewProjectEstimate extends Page
             $this->includeOS = (bool) ($in['includeOS'] ?? $this->includeOS);
             $this->inclusionOrgTotal = (float) ($in['inclusionOrgTotal'] ?? $this->inclusionOrgTotal);
         }
+    }
+
+    protected function syncProjectCollaborationState(string $module): void
+    {
+        if ($module !== 'estimate') {
+            return;
+        }
+
+        $lock = $this->projectLocksForModule('estimate')->get('estimate');
+        if ($lock && (int) $lock->user_id === (int) auth()->id()) {
+            return;
+        }
+
+        $this->record = $this->record->fresh() ?: $this->record;
+        $this->loadEstimateInputs();
     }
 
     public function getTitle(): string

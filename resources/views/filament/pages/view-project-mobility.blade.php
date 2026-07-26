@@ -82,12 +82,15 @@
             $canManageReport = $canManage && ! $reportLockedByOther;
         @endphp
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,.42fr);gap:1rem;margin-top:1rem;align-items:start;">
+            <div class="mc-lock-frame"
+                 @if($reportLock && (int) $reportLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'mobility-report')" @endif
+                 style="{{ $this->projectLockFrameStyle($reportLock, 'transparent', 'border-radius:1rem;') }}">
             <x-filament::section heading="Mobility implementation report" description="Use this for the main internal report about what happened during the mobility." icon="heroicon-o-clipboard-document-check">
                 @if($reportBadge)
-                    <div style="display:inline-flex;align-items:center;gap:.35rem;margin-bottom:.6rem;padding:.18rem .52rem;border-radius:999px;background:{{ $reportBadge['background'] }};border:1px solid {{ $reportBadge['border'] }};color:{{ $reportBadge['color'] }};font-size:.6rem;font-weight:800;">
-                        <span style="width:.4rem;height:.4rem;border-radius:999px;background:{{ $reportBadge['color'] }};"></span>
-                        {{ $reportLockedByOther ? $reportBadge['name'].' edits this report' : 'You are editing this report' }}
-                    </div>
+                    @include('filament.pages.partials.project-lock-badge', [
+                        'badge' => $reportBadge,
+                        'text' => $reportLockedByOther ? $reportBadge['name'].' edits this report' : 'You are editing this report',
+                    ])
                 @endif
                 <textarea rows="10" wire:model.defer="mobilityReport"
                           wire:focus="startProjectEditing('mobility', 'mobility-report', 'Mobility report')"
@@ -108,6 +111,7 @@
                     </div>
                 @endif
             </x-filament::section>
+            </div>
 
             <x-filament::section heading="Report structure" description="A practical structure testers can understand quickly." icon="heroicon-o-list-bullet">
                 <div style="display:grid;gap:.65rem;">
@@ -149,7 +153,9 @@
                         $orgBadge = $orgLock ? $this->projectLockBadge($orgLock) : null;
                         $canManageOrg = $canManage && ! $orgLockedByOther;
                     @endphp
-                    <div class="bg-white dark:bg-gray-900" style="border:1px solid {{ $orgBadge ? $orgBadge['border'] : 'rgba(148,163,184,.22)' }};border-radius:.9rem;padding:.85rem;background:{{ $orgBadge ? $orgBadge['background'] : '' }};">
+                    <div class="mc-lock-frame bg-white dark:bg-gray-900"
+                         @if($orgLock && (int) $orgLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'dissemination:{{ $organisation['key'] }}')" @endif
+                         style="{{ $this->projectLockFrameStyle($orgLock, 'rgba(148,163,184,.22)', 'border-radius:.9rem;padding:.85rem;') }}">
                         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
                             <div>
                                 <h3 class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:800;margin:0;">{{ $organisation['name'] }}</h3>
@@ -160,10 +166,10 @@
                             <x-filament::badge :color="$orgEvidence->isNotEmpty() ? 'success' : 'warning'">{{ $orgEvidence->count() }} evidence files</x-filament::badge>
                         </div>
                         @if($orgBadge)
-                            <div style="display:inline-flex;align-items:center;gap:.3rem;margin-top:.55rem;padding:.14rem .46rem;border-radius:999px;background:{{ $orgBadge['background'] }};border:1px solid {{ $orgBadge['border'] }};color:{{ $orgBadge['color'] }};font-size:.58rem;font-weight:800;">
-                                <span style="width:.38rem;height:.38rem;border-radius:999px;background:{{ $orgBadge['color'] }};"></span>
-                                {{ $orgLockedByOther ? $orgBadge['name'].' edits this report' : 'You edit this report' }}
-                            </div>
+                            @include('filament.pages.partials.project-lock-badge', [
+                                'badge' => $orgBadge,
+                                'text' => $orgLockedByOther ? $orgBadge['name'].' edits this report' : 'You edit this report',
+                            ])
                         @endif
 
                         <textarea rows="4" wire:model.defer="disseminationReports.{{ $organisation['key'] }}"
@@ -257,18 +263,33 @@
             </x-filament::section>
 
             @if($canManage)
+                @php
+                    $materialsLock = $mobilityLocks->get('materials');
+                    $materialsLockedByOther = $materialsLock && (int) $materialsLock->user_id !== (int) auth()->id();
+                    $materialsBadge = $materialsLock ? $this->projectLockBadge($materialsLock) : null;
+                    $canManageMaterials = $canManage && ! $materialsLockedByOther;
+                @endphp
+                <div class="mc-lock-frame"
+                     @if($materialsLock && (int) $materialsLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'materials')" @endif
+                     style="{{ $this->projectLockFrameStyle($materialsLock, 'transparent', 'border-radius:1rem;') }}">
                 <x-filament::section heading="Upload material or output" description="Use this for agendas, worksheets, participant outputs, certificates, presentations or other implementation files." icon="heroicon-o-arrow-up-tray">
+                    @if($materialsBadge)
+                        @include('filament.pages.partials.project-lock-badge', [
+                            'badge' => $materialsBadge,
+                            'text' => $materialsLockedByOther ? $materialsBadge['name'].' uploads materials' : 'You upload materials',
+                        ])
+                    @endif
                     <div style="display:grid;gap:.65rem;">
                         <div>
                             <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Title *</label>
-                            <input type="text" wire:model="documentTitle" aria-label="Mobility document title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                            <input type="text" wire:focus="startProjectEditing('mobility', 'materials', 'Materials & outputs')" wire:model="documentTitle" aria-label="Mobility document title" @disabled(!$canManageMaterials) style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                             @error('documentTitle') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                         </div>
 
                         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;">
                             <div>
                                 <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Category *</label>
-                                <select wire:model="documentCategory" aria-label="Mobility document category" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                                <select wire:focus="startProjectEditing('mobility', 'materials', 'Materials & outputs')" wire:model="documentCategory" aria-label="Mobility document category" @disabled(!$canManageMaterials) style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                                     @foreach($materialCategories as $key => $label)
                                         <option value="{{ $key }}">{{ $label }}</option>
                                     @endforeach
@@ -276,27 +297,28 @@
                             </div>
                             <div>
                                 <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Date</label>
-                                <input type="date" wire:model="documentDate" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                                <input type="date" wire:focus="startProjectEditing('mobility', 'materials', 'Materials & outputs')" wire:model="documentDate" @disabled(!$canManageMaterials) style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                             </div>
                         </div>
 
                         <div>
                             <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Notes</label>
-                            <textarea rows="3" wire:model="documentNotes" aria-label="Mobility document notes" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;resize:vertical;"></textarea>
+                            <textarea rows="3" wire:focus="startProjectEditing('mobility', 'materials', 'Materials & outputs')" wire:model="documentNotes" aria-label="Mobility document notes" @readonly(!$canManageMaterials) style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;resize:vertical;"></textarea>
                         </div>
 
                         <div>
                             <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">File *</label>
-                            <input type="file" wire:model="documentUpload" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" aria-label="Mobility document file" style="width:100%;font-size:.78rem;">
+                            <input type="file" wire:focus="startProjectEditing('mobility', 'materials', 'Materials & outputs')" wire:model="documentUpload" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" aria-label="Mobility document file" @disabled(!$canManageMaterials) style="width:100%;font-size:.78rem;">
                             @error('documentUpload') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                         </div>
 
-                        <x-filament::button wire:click="uploadMobilityDocument" wire:loading.attr="disabled" wire:target="uploadMobilityDocument,documentUpload" icon="heroicon-m-arrow-up-tray">
+                        <x-filament::button wire:click="uploadMobilityDocument" wire:loading.attr="disabled" wire:target="uploadMobilityDocument,documentUpload" icon="heroicon-m-arrow-up-tray" :disabled="! $canManageMaterials">
                             <span wire:loading.remove wire:target="uploadMobilityDocument,documentUpload">Upload document</span>
                             <span wire:loading wire:target="uploadMobilityDocument,documentUpload">Uploading...</span>
                         </x-filament::button>
                     </div>
                 </x-filament::section>
+                </div>
             @endif
         </div>
     @endif
@@ -339,12 +361,13 @@
                             @endphp
                             <div wire:key="evidence-day-{{ $day['id'] }}"
                                  @if($dayLock && (int) $dayLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}')" @endif
-                                 class="bg-white dark:bg-gray-900"
-                                 style="position:relative;border:{{ $dayBadge ? '2px' : '1px' }} solid {{ $dayBadge ? $dayBadge['color'] : 'rgba(148,163,184,.22)' }};border-radius:1rem;padding:.15rem .15rem .2rem;margin-top:{{ $dayBadge ? '.7rem' : '0' }};">
+                                 class="mc-lock-frame bg-white dark:bg-gray-900"
+                                 style="{{ $this->projectLockFrameStyle($dayLock, 'rgba(148,163,184,.22)', 'border-radius:1rem;padding:.15rem .15rem .2rem;') }}">
                                 @if($dayBadge)
-                                    <span style="position:absolute;top:-.7rem;right:.9rem;z-index:2;display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .58rem;border-radius:999px;background:{{ $dayBadge['color'] }};color:white;font-size:.62rem;font-weight:850;line-height:1;box-shadow:0 10px 24px {{ $dayBadge['color'] }}33;">
-                                        {{ $dayBadge['name'] }} {{ $dayLockedByOther ? 'edits' : '(you)' }}
-                                    </span>
+                                    @include('filament.pages.partials.project-lock-badge', [
+                                        'badge' => $dayBadge,
+                                        'text' => $dayLockedByOther ? $dayBadge['name'].' edits this day' : 'You edit this day',
+                                    ])
                                 @endif
 
                                 <button type="button" wire:click="toggleEvidenceDay('{{ $day['id'] }}')" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;cursor:pointer;padding:.85rem .9rem;text-align:left;background:transparent;border:0;">
@@ -474,9 +497,27 @@
                 </x-filament::section>
             </div>
 
+            @php
+                $photoFolderLock = $mobilityLocks->get('external-photo-folders');
+                $photoFolderLockedByOther = $photoFolderLock && (int) $photoFolderLock->user_id !== (int) auth()->id();
+                $photoFolderBadge = $photoFolderLock ? $this->projectLockBadge($photoFolderLock) : null;
+                $canManagePhotoFolders = $canManage && ! $photoFolderLockedByOther;
+                $finalVideoLock = $mobilityLocks->get('final-video');
+                $finalVideoLockedByOther = $finalVideoLock && (int) $finalVideoLock->user_id !== (int) auth()->id();
+                $finalVideoBadge = $finalVideoLock ? $this->projectLockBadge($finalVideoLock) : null;
+                $canManageFinalVideo = $canManage && ! $finalVideoLockedByOther;
+            @endphp
             <x-filament::section heading="External links" description="Useful when the photo/video set is too large for direct uploads." icon="heroicon-o-photo">
                 <div style="display:grid;gap:.95rem;">
-                    <div style="display:grid;gap:.55rem;">
+                    <div class="mc-lock-frame"
+                         @if($photoFolderLock && (int) $photoFolderLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'external-photo-folders')" @endif
+                         style="{{ $this->projectLockFrameStyle($photoFolderLock, 'rgba(148,163,184,.18)', 'border-radius:.85rem;padding:.75rem;display:grid;gap:.55rem;') }}">
+                        @if($photoFolderBadge)
+                            @include('filament.pages.partials.project-lock-badge', [
+                                'badge' => $photoFolderBadge,
+                                'text' => $photoFolderLockedByOther ? $photoFolderBadge['name'].' edits photo folders' : 'You edit photo folders',
+                            ])
+                        @endif
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;">
                             <div>
                                 <h3 class="text-gray-950 dark:text-white" style="font-size:.82rem;font-weight:800;margin:0;">Photo folders</h3>
@@ -495,9 +536,9 @@
                             <div style="display:grid;gap:.45rem;">
                                 @foreach($photoFolderLinks as $linkIndex => $link)
                                     <div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto auto;gap:.4rem;align-items:center;">
-                                        @if($canManage)
-                                            <input type="text" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.label" aria-label="External folder label" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
-                                            <input type="url" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.url" aria-label="External folder URL" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
+                                        @if($canManagePhotoFolders)
+                                            <input type="text" wire:focus="startProjectEditing('mobility', 'external-photo-folders', 'External photo folders')" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.label" aria-label="External folder label" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
+                                            <input type="url" wire:focus="startProjectEditing('mobility', 'external-photo-folders', 'External photo folders')" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.url" aria-label="External folder URL" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
                                             <x-filament::icon-button tag="a" :href="$link['url']" target="_blank" icon="heroicon-m-arrow-top-right-on-square" color="gray" label="Open link" />
                                             <x-filament::icon-button wire:click="removePhotoFolderLink('{{ $link['id'] }}')" icon="heroicon-m-x-mark" color="gray" label="Remove link" />
                                         @else
@@ -510,11 +551,11 @@
                             </div>
                         @endif
 
-                        @if($canManage)
+                        @if($canManagePhotoFolders)
                             <div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:.4rem;align-items:start;">
-                                <input type="text" wire:model="newPhotoFolderLabel" placeholder="Drive" aria-label="New folder label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                <input type="text" wire:focus="startProjectEditing('mobility', 'external-photo-folders', 'External photo folders')" wire:model="newPhotoFolderLabel" placeholder="Drive" aria-label="New folder label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
                                 <div>
-                                    <input type="url" wire:model="newPhotoFolderUrl" placeholder="https://drive.google.com/..." aria-label="New folder URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                    <input type="url" wire:focus="startProjectEditing('mobility', 'external-photo-folders', 'External photo folders')" wire:model="newPhotoFolderUrl" placeholder="https://drive.google.com/..." aria-label="New folder URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
                                     @error('newPhotoFolderUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                                 </div>
                                 <x-filament::button wire:click="addPhotoFolderLink" color="gray" size="sm" icon="heroicon-m-plus">
@@ -530,15 +571,23 @@
                         @endif
                     </div>
 
-                    <div style="border-top:1px solid rgba(148,163,184,.2);padding-top:.85rem;display:grid;gap:.55rem;">
+                    <div class="mc-lock-frame"
+                         @if($finalVideoLock && (int) $finalVideoLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'final-video')" @endif
+                         style="{{ $this->projectLockFrameStyle($finalVideoLock, 'rgba(148,163,184,.18)', 'border-radius:.85rem;padding:.75rem;display:grid;gap:.55rem;') }}">
+                        @if($finalVideoBadge)
+                            @include('filament.pages.partials.project-lock-badge', [
+                                'badge' => $finalVideoBadge,
+                                'text' => $finalVideoLockedByOther ? $finalVideoBadge['name'].' edits final video' : 'You edit final video',
+                            ])
+                        @endif
                         <div>
                             <h3 class="text-gray-950 dark:text-white" style="font-size:.82rem;font-weight:800;margin:0;">Final mobility video</h3>
                             <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin:.12rem 0 0;">Usually YouTube, Vimeo or another public/unlisted video link.</p>
                         </div>
-                        <input type="url" wire:model.defer="finalMobilityVideoUrl" placeholder="https://youtube.com/..." aria-label="Final mobility video URL" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.65rem;background:transparent;font-size:.76rem;">
+                        <input type="url" wire:focus="startProjectEditing('mobility', 'final-video', 'Final mobility video')" wire:model.defer="finalMobilityVideoUrl" placeholder="https://youtube.com/..." aria-label="Final mobility video URL" @disabled(!$canManageFinalVideo) style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.65rem;background:transparent;font-size:.76rem;">
                         @error('finalMobilityVideoUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
                         <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;">
-                            @if($canManage)
+                            @if($canManageFinalVideo)
                                 <x-filament::button wire:click="saveFinalMobilityVideo" color="gray" size="sm" icon="heroicon-m-video-camera">
                                     Save video link
                                 </x-filament::button>

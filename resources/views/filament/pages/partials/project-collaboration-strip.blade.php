@@ -15,7 +15,7 @@
                     @php
                         $color = $this->projectUserColor($presence->user);
                     @endphp
-                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.24rem .5rem;border-radius:999px;border:1px solid {{ $color }}55;background:{{ $color }}12;color:{{ $color }};font-size:.68rem;font-weight:750;">
+                    <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.24rem .5rem;border-radius:999px;border:1px solid {{ $color }};background:{{ $color }}10;color:{{ $color }};font-size:.68rem;font-weight:750;">
                         <span style="width:.45rem;height:.45rem;border-radius:999px;background:{{ $color }};"></span>
                         {{ $presence->user?->name ?: 'User' }}
                     </span>

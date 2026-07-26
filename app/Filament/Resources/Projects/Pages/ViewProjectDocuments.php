@@ -396,6 +396,10 @@ class ViewProjectDocuments extends Page
 
     public function closeConvention(): void
     {
+        if ($this->conventionExpenseId) {
+            $this->stopProjectEditing('documents', $this->conventionLockKey($this->conventionExpenseId));
+        }
+
         $this->showConventionModal = false;
         $this->conventionExpenseId = null;
         $this->conventionData = [];
@@ -504,6 +508,10 @@ class ViewProjectDocuments extends Page
 
     public function closeConventionSignedUpload(): void
     {
+        if ($this->conventionSignedExpenseId) {
+            $this->stopProjectEditing('documents', $this->conventionLockKey($this->conventionSignedExpenseId));
+        }
+
         $this->showConventionSignedUploadModal = false;
         $this->conventionSignedExpenseId = null;
         $this->conventionSignedKind = 'agreement';
@@ -668,6 +676,10 @@ class ViewProjectDocuments extends Page
 
     public function closeSignedUpload(): void
     {
+        if ($this->signedDocumentId) {
+            $this->stopProjectEditing('documents', $this->documentLockKey($this->signedDocumentId));
+        }
+
         $this->showSignedUploadModal = false;
         $this->signedDocumentId = null;
         $this->signedUpload = null;

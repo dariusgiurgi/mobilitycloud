@@ -10,6 +10,9 @@
     $deleteConfirm = $deleteConfirm ?? 'Delete this document and its stored files?';
     $showDelete = $showDelete ?? true;
     $compact = $compact ?? false;
+    $documentLock = $documentLock ?? null;
+    $documentLockedByOther = $documentLock && (int) $documentLock->user_id !== (int) auth()->id();
+    $documentBadge = $documentLock ? $this->projectLockBadge($documentLock) : null;
     $isGenerated = in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true);
     $downloadUrl = $downloadUrl ?? (
         $isGenerated
@@ -45,8 +48,15 @@
     }
 @endphp
 
-<div class="mc-file-card bg-white dark:bg-gray-900"
-     style="border:1px solid rgba(148,163,184,.24);border-radius:1rem;overflow:hidden;box-shadow:0 12px 30px rgba(15,23,42,.06);display:flex;flex-direction:column;min-height:{{ $compact ? '190px' : '230px' }};">
+<div class="mc-file-card mc-lock-frame bg-white dark:bg-gray-900"
+     @if($documentLock && (int) $documentLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('documents', 'document:{{ $document->id }}')" @endif
+     style="{{ $this->projectLockFrameStyle($documentLock, 'rgba(148,163,184,.24)', 'border-radius:1rem;overflow:hidden;display:flex;flex-direction:column;min-height:'.($compact ? '190px' : '230px').';') }}">
+    @if($documentBadge)
+        @include('filament.pages.partials.project-lock-badge', [
+            'badge' => $documentBadge,
+            'text' => $documentLockedByOther ? $documentBadge['name'].' edits this file' : 'You edit this file',
+        ])
+    @endif
     <div style="position:relative;aspect-ratio:{{ $compact ? '16/10' : '4/3' }};background:linear-gradient(135deg,rgba(148,163,184,.12),rgba(148,163,184,.04));overflow:hidden;">
         @if($previewUrl)
             <img src="{{ $previewUrl }}"

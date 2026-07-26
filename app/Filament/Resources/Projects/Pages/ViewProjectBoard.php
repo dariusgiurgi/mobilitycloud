@@ -93,6 +93,20 @@ class ViewProjectBoard extends Page
         $this->record->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses']);
     }
 
+    protected function syncProjectCollaborationState(string $module): void
+    {
+        if ($module !== 'board') {
+            return;
+        }
+
+        $hasOwnLock = $this->projectLocksForModule('board')
+            ->contains(fn ($lock) => (int) $lock->user_id === (int) auth()->id());
+
+        if (! $hasOwnLock && ! $this->showBasketModal && ! $this->showNotesModal && ! $this->showTransferModal && $this->uploadExpenseId === null) {
+            $this->reload();
+        }
+    }
+
     public function startBasketEditing(int $basketId): void
     {
         $line = BudgetLine::where('project_id', $this->record->id)->find($basketId);

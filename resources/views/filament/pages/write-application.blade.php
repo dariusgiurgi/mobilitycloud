@@ -314,13 +314,14 @@
                 $questionTables = $this->getQuestionTables($sec);
             @endphp
 
-            <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" class="mc-wa-section fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-                 style="position:relative;padding:1.1rem 1.25rem;margin-bottom:1rem;border:1px solid {{ $sectionLockBadge ? $sectionLockBadge['border'] : 'transparent' }};box-shadow:{{ $sectionLockBadge ? '0 0 0 1px '.$sectionLockBadge['border'] : '' }};">
+            <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" class="mc-wa-section mc-lock-frame fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+                 @if($sectionLock && (int) $sectionLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('write', '{{ $sectionLockKey }}')" @endif
+                 style="{{ $this->projectLockFrameStyle($sectionLock, 'transparent', 'padding:1.1rem 1.25rem;margin-bottom:1rem;') }}">
                 @if($sectionLockBadge)
-                    <div style="position:absolute;top:-.72rem;right:1rem;z-index:2;display:inline-flex;align-items:center;gap:.35rem;padding:.18rem .55rem;border-radius:999px;background:{{ $sectionLockBadge['background'] }};border:1px solid {{ $sectionLockBadge['border'] }};color:{{ $sectionLockBadge['color'] }};font-size:.62rem;font-weight:800;box-shadow:0 8px 20px rgba(15,23,42,.08);">
-                        <span style="width:.45rem;height:.45rem;border-radius:999px;background:{{ $sectionLockBadge['color'] }};"></span>
-                        {{ $sectionLockedByOther ? $sectionLockBadge['name'].' edits this question' : 'You are editing' }}
-                    </div>
+                    @include('filament.pages.partials.project-lock-badge', [
+                        'badge' => $sectionLockBadge,
+                        'text' => $sectionLockedByOther ? $sectionLockBadge['name'].' edits this question' : 'You are editing',
+                    ])
                 @endif
                 <div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;">
                     <div style="min-width:0;flex:1;">

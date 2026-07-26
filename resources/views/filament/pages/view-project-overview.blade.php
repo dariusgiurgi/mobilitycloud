@@ -9,6 +9,7 @@
         $activity = $this->getRecentActivity();
         $tasks = $this->getProjectTasks();
         $taskAssignees = $this->getTaskAssignees();
+        $overviewLocks = $this->projectLocksForModule('overview');
         $nextStep = $this->getNextStep();
         $urls = $this->getModuleUrls();
         $readiness = $this->getProjectReadiness();
@@ -213,8 +214,21 @@
 
             <div style="margin-top:.65rem;">
                 @forelse($tasks as $task)
-                    @php $canToggleTask = $task->canBeCompletedBy(auth()->user()); @endphp
-                    <div class="mc-task-row" wire:key="project-task-focus-{{ $task->id }}">
+                    @php
+                        $canToggleTask = $task->canBeCompletedBy(auth()->user());
+                        $taskLock = $overviewLocks->get('task:'.$task->id);
+                        $taskLockedByOther = $taskLock && (int) $taskLock->user_id !== (int) auth()->id();
+                        $taskBadge = $taskLock ? $this->projectLockBadge($taskLock) : null;
+                    @endphp
+                    <div class="mc-task-row mc-lock-frame" wire:key="project-task-focus-{{ $task->id }}"
+                         @if($taskLock && (int) $taskLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('overview', 'task:{{ $task->id }}')" @endif
+                         style="{{ $this->projectLockFrameStyle($taskLock, 'transparent', 'padding:.68rem .55rem;border-radius:.8rem;') }}">
+                        @if($taskBadge)
+                            @include('filament.pages.partials.project-lock-badge', [
+                                'badge' => $taskBadge,
+                                'text' => $taskLockedByOther ? $taskBadge['name'].' edits this task' : 'You edit this task',
+                            ])
+                        @endif
                         @if($canToggleTask)
                             <button type="button" wire:click="toggleTask({{ $task->id }})" class="mc-task-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="{{ $task->isCompleted() ? 'Reopen' : 'Complete' }} {{ $task->title }}">
                                 @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.75rem;height:.75rem;" />@endif
@@ -593,7 +607,7 @@
     @endif
 
     @if($showTaskModal)
-        <div class="mc-modal-backdrop" wire:click.self="$set('showTaskModal', false)">
+        <div class="mc-modal-backdrop" wire:click.self="closeTaskModal">
             <div class="mc-modal-panel">
                 <div class="mc-modal-body">
                     <h3 class="mc-modal-heading">{{ $editingTaskId ? 'Edit task' : 'Add project task' }}</h3>
@@ -629,7 +643,7 @@
                     </select>
 
                     <div class="mc-modal-actions">
-                        <x-filament::button wire:click="$set('showTaskModal', false)" color="gray" size="sm">Cancel</x-filament::button>
+                        <x-filament::button wire:click="closeTaskModal" color="gray" size="sm">Cancel</x-filament::button>
                         <x-filament::button wire:click="saveTask" wire:loading.attr="disabled" wire:target="saveTask" size="sm">{{ $editingTaskId ? 'Save changes' : 'Add task' }}</x-filament::button>
                     </div>
                 </div>

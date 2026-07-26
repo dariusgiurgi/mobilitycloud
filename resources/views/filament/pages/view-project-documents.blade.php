@@ -21,6 +21,7 @@
         $checklist = $this->getDocumentChecklist();
         $documentCount = $this->getDocumentsPageCount();
         $checklistIssues = $checklist['attention'] + $checklist['missing'];
+        $documentLocks = $this->projectLocksForModule('documents');
     @endphp
 
     <x-filament::section>
@@ -155,8 +156,19 @@
                         $agreementSigned = $expense->hasConventionSignedCopy('agreement');
                         $paymentSigned = $expense->hasConventionSignedCopy('payment');
                         $conventionComplete = $detailsReady && $agreementSigned;
+                        $conventionLock = $documentLocks->get('convention:'.$expense->id);
+                        $conventionLockedByOther = $conventionLock && (int) $conventionLock->user_id !== (int) auth()->id();
+                        $conventionBadge = $conventionLock ? $this->projectLockBadge($conventionLock) : null;
                     @endphp
-                    <details class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="width:100%;overflow:hidden;">
+                    <details class="mc-lock-frame fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+                             @if($conventionLock && (int) $conventionLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('documents', 'convention:{{ $expense->id }}')" @endif
+                             style="{{ $this->projectLockFrameStyle($conventionLock, 'rgba(148,163,184,.22)', 'width:100%;overflow:hidden;') }}">
+                        @if($conventionBadge)
+                            @include('filament.pages.partials.project-lock-badge', [
+                                'badge' => $conventionBadge,
+                                'text' => $conventionLockedByOther ? $conventionBadge['name'].' edits this convention' : 'You edit this convention',
+                            ])
+                        @endif
                         <summary style="padding:.85rem 1.1rem;display:flex;align-items:center;gap:.75rem;cursor:pointer;list-style:none;flex-wrap:wrap;">
                             <x-filament::icon icon="heroicon-m-document-text" class="h-5 w-5 text-gray-400" />
                             <div style="flex:1;min-width:180px;">
@@ -314,6 +326,7 @@
                 @include('filament.pages.partials.project-file-card', [
                     'record' => $record,
                     'document' => $document,
+                    'documentLock' => $documentLocks->get('document:'.$document->id),
                     'deleteMethod' => 'deleteDocument',
                     'deleteConfirm' => 'Delete this document and its stored files?',
                 ])

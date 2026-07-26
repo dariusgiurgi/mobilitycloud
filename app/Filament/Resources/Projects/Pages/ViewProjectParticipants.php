@@ -301,8 +301,44 @@ class ViewProjectParticipants extends Page
 
     public function closeModal(): void
     {
+        if ($this->editingId) {
+            $this->stopProjectEditing('participants', $this->participantLockKey($this->editingId));
+        }
+
         $this->showModal = false;
         $this->editingId = null;
+    }
+
+    protected function syncProjectCollaborationState(string $module): void
+    {
+        if ($module !== 'participants') {
+            return;
+        }
+
+        if ($this->showModal && $this->editingId) {
+            $lock = $this->projectLocksForModule('participants')->get($this->participantLockKey($this->editingId));
+
+            if ($lock && (int) $lock->user_id === (int) auth()->id()) {
+                return;
+            }
+
+            $participant = Participant::where('project_id', $this->record->id)->find($this->editingId);
+            if ($participant) {
+                $this->data = [
+                    'complete_name' => $participant->fullName(),
+                    'first_name' => $participant->first_name, 'last_name' => $participant->last_name,
+                    'birth_date' => $participant->birth_date?->format('Y-m-d'),
+                    'nationality' => $participant->nationality, 'gender' => $participant->gender,
+                    'partner_organisation' => $participant->partner_organisation, 'country' => $participant->country,
+                    'role' => $participant->role,
+                    'email' => $participant->email, 'phone' => $participant->phone, 'address' => $participant->address,
+                    'medical_conditions' => $participant->medical_conditions, 'allergies' => $participant->allergies,
+                    'dietary_restrictions' => $participant->dietary_restrictions, 'special_needs' => $participant->special_needs,
+                    'fewer_opportunities' => (bool) $participant->fewer_opportunities,
+                    'guardian_name' => $participant->guardian_name, 'guardian_contact' => $participant->guardian_contact,
+                ];
+            }
+        }
     }
 
     public function save(): void

@@ -150,13 +150,14 @@
             $canManageBasket = $canManage && ! $basketLockedByOther;
         @endphp
 
-        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-             style="position:relative;border-left:4px solid {{ $basketBadge ? $basketBadge['color'] : $color }};margin-bottom:1rem;overflow:hidden;box-shadow:{{ $basketBadge ? '0 0 0 1px '.$basketBadge['border'] : '' }};">
+        <div class="fi-section mc-lock-frame rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+             @if($basketLock && (int) $basketLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('board', 'basket:{{ $line->id }}')" @endif
+             style="{{ $this->projectLockFrameStyle($basketLock, 'rgba(148,163,184,.22)', 'border-left:4px solid '.($basketBadge ? $basketBadge['color'] : $color).';margin-bottom:1rem;overflow:hidden;') }}">
             @if($basketBadge)
-                <span style="position:absolute;top:.7rem;right:.8rem;display:inline-flex;align-items:center;gap:.3rem;padding:.16rem .5rem;border-radius:999px;background:{{ $basketBadge['background'] }};border:1px solid {{ $basketBadge['border'] }};color:{{ $basketBadge['color'] }};font-size:.58rem;font-weight:800;">
-                    <span style="width:.4rem;height:.4rem;border-radius:999px;background:{{ $basketBadge['color'] }};"></span>
-                    {{ $basketLockedByOther ? $basketBadge['name'].' edits basket' : 'You edit basket' }}
-                </span>
+                @include('filament.pages.partials.project-lock-badge', [
+                    'badge' => $basketBadge,
+                    'text' => $basketLockedByOther ? $basketBadge['name'].' edits basket' : 'You edit basket',
+                ])
             @endif
 
             <div style="display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.1rem;gap:1rem;flex-wrap:wrap;">
@@ -233,13 +234,17 @@
                             $expenseBadge = $expenseLock ? $this->projectLockBadge($expenseLock) : null;
                             $canManageExpense = $canManage && ! $expenseLockedByOther;
                         @endphp
-                        <tr class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);background:{{ $expenseBadge ? $expenseBadge['background'] : 'transparent' }};box-shadow:{{ $expenseBadge ? 'inset 3px 0 0 '.$expenseBadge['color'] : 'none' }};">
+                        <tr class="text-gray-950 dark:text-white"
+                            @if($expenseLock && (int) $expenseLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('board', 'expense:{{ $expense->id }}')" @endif
+                            style="{{ $this->projectLockRowStyle($expenseLock) }}">
                             <td style="padding:6px 10px;font-family:monospace;font-size:11px;" class="text-gray-400">{{ $this->expenseCode($expense) }}</td>
                             <td style="padding:6px 10px;">
                                 @if($expenseBadge)
-                                    <div style="display:inline-flex;align-items:center;gap:.3rem;margin-bottom:.22rem;padding:.1rem .4rem;border-radius:999px;background:{{ $expenseBadge['background'] }};border:1px solid {{ $expenseBadge['border'] }};color:{{ $expenseBadge['color'] }};font-size:.56rem;font-weight:800;">
-                                        {{ $expenseLockedByOther ? $expenseBadge['name'].' edits' : 'You edit' }}
-                                    </div>
+                                    @include('filament.pages.partials.project-lock-badge', [
+                                        'badge' => $expenseBadge,
+                                        'mode' => 'inline',
+                                        'text' => $expenseLockedByOther ? $expenseBadge['name'].' edits' : 'You edit',
+                                    ])
                                 @endif
                                 <input type="text" value="{{ $expense->description }}"
                                        wire:focus="startExpenseEditing({{ $expense->id }})"

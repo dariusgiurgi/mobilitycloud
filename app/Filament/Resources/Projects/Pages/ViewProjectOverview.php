@@ -399,9 +399,23 @@ class ViewProjectOverview extends Page
             }
         }
 
+        if ($wasEditing) {
+            $this->stopProjectEditing('overview', $this->taskLockKey($task->id));
+        }
+
         $this->showTaskModal = false;
         $this->resetTaskForm();
         Notification::make()->title($wasEditing ? 'Task updated' : 'Task added')->success()->send();
+    }
+
+    public function closeTaskModal(): void
+    {
+        if ($this->editingTaskId) {
+            $this->stopProjectEditing('overview', $this->taskLockKey($this->editingTaskId));
+        }
+
+        $this->showTaskModal = false;
+        $this->resetTaskForm();
     }
 
     public function toggleTask(int $taskId): void

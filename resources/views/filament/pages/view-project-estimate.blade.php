@@ -1,5 +1,6 @@
 {{-- Budget estimate (Writing stage). Pre-fills the grant + baskets at approval. --}}
 <x-filament-panels::page>
+    <x-ui-polish />
     @php
         $bands = $this->getBands();
         $eur = fn ($v) => number_format((float) $v, 2, '.', ',') . ' €';
@@ -24,12 +25,6 @@
     <div class="mc-est">
     @include('filament.pages.partials.project-collaboration-strip', ['module' => 'estimate'])
 
-    @if($estimateLockBadge)
-        <div style="margin-bottom:.75rem;display:inline-flex;align-items:center;gap:.4rem;padding:.32rem .68rem;border-radius:999px;background:{{ $estimateLockBadge['background'] }};border:1px solid {{ $estimateLockBadge['border'] }};color:{{ $estimateLockBadge['color'] }};font-size:.68rem;font-weight:800;">
-            <span style="width:.48rem;height:.48rem;border-radius:999px;background:{{ $estimateLockBadge['color'] }};"></span>
-            {{ $estimateState['locked_by_other'] ? $estimateLockBadge['name'].' edits the estimator' : 'You are editing the estimator' }}
-        </div>
-    @endif
     <x-filament::section>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
             <div>
@@ -52,8 +47,17 @@
     </x-filament::section>
 
     <div class="mc-est-grid">
+    <div class="mc-lock-frame"
+         @if($estimateState['locked_by_me']) wire:click.outside="stopProjectEditing('estimate', 'estimate')" @endif
+         style="{{ $this->projectLockFrameStyle($estimateState['lock'], 'transparent', 'border-radius:1rem;') }}">
     <x-filament::section heading="Inputs">
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;">
+            @if($estimateLockBadge)
+                @include('filament.pages.partials.project-lock-badge', [
+                    'badge' => $estimateLockBadge,
+                    'text' => $estimateState['locked_by_other'] ? $estimateLockBadge['name'].' edits the estimator' : 'You are editing the estimator',
+                ])
+            @endif
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;">
             <div>
                 <div class="fl">
                     <label class="f">Persons (IS + travel)</label>
@@ -113,6 +117,7 @@
             <label class="row"><input type="checkbox" wire:focus="startProjectEditing('estimate', 'estimate', 'Grant estimator')" wire:model.live="includeOS" @disabled(!$canManage)> Include Organisational Support</label>
         </div>
     </x-filament::section>
+    </div>
 
     <x-filament::section heading="Estimated grant">
         @php

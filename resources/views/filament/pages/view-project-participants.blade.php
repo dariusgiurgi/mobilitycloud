@@ -300,15 +300,17 @@
                             $participantBadge = $participantLock ? $this->projectLockBadge($participantLock) : null;
                             $canManageParticipant = $canManage && ! $participantLockedByOther;
                         @endphp
-                        <tr wire:key="part-{{ $p->id }}" class="text-gray-950 dark:text-white" style="border-top:1px solid rgba(100,116,139,.12);background:{{ $participantBadge ? $participantBadge['background'] : 'transparent' }};box-shadow:{{ $participantBadge ? 'inset 3px 0 0 '.$participantBadge['color'] : 'none' }};">
+                        <tr wire:key="part-{{ $p->id }}" class="text-gray-950 dark:text-white"
+                            style="{{ $this->projectLockRowStyle($participantLock) }}">
                             <td style="padding:9px 12px;">
                                 <div style="font-weight:600;">{{ $p->fullName() }}</div>
                                 @if($p->email)<div class="text-gray-400" style="font-size:11px;margin-top:1px;">{{ $p->email }}</div>@endif
                                 @if($participantBadge)
-                                    <div style="display:inline-flex;align-items:center;gap:.28rem;margin-top:.28rem;padding:.1rem .42rem;border-radius:999px;background:{{ $participantBadge['background'] }};border:1px solid {{ $participantBadge['border'] }};color:{{ $participantBadge['color'] }};font-size:.56rem;font-weight:800;">
-                                        <span style="width:.38rem;height:.38rem;border-radius:999px;background:{{ $participantBadge['color'] }};"></span>
-                                        {{ $participantLockedByOther ? $participantBadge['name'].' edits this participant' : 'You edit this participant' }}
-                                    </div>
+                                    @include('filament.pages.partials.project-lock-badge', [
+                                        'badge' => $participantBadge,
+                                        'mode' => 'inline',
+                                        'text' => $participantLockedByOther ? $participantBadge['name'].' edits this participant' : 'You edit this participant',
+                                    ])
                                 @endif
                             </td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->roleLabel() }}</td>
@@ -380,9 +382,12 @@
             <h3 class="mc-modal-heading" style="margin-bottom:1.25rem;">{{ !$canManage ? 'View participant' : ($editingId ? 'Edit participant' : 'Add participant') }}</h3>
 
             @if($editingParticipantBadge)
-                <div style="margin-bottom:.9rem;display:inline-flex;align-items:center;gap:.35rem;padding:.24rem .58rem;border-radius:999px;background:{{ $editingParticipantBadge['background'] }};border:1px solid {{ $editingParticipantBadge['border'] }};color:{{ $editingParticipantBadge['color'] }};font-size:.62rem;font-weight:800;">
-                    <span style="width:.42rem;height:.42rem;border-radius:999px;background:{{ $editingParticipantBadge['color'] }};"></span>
-                    {{ $editingParticipantLockedByOther ? $editingParticipantBadge['name'].' edits this participant' : 'You are editing this participant' }}
+                <div style="margin-bottom:.9rem;">
+                    @include('filament.pages.partials.project-lock-badge', [
+                        'badge' => $editingParticipantBadge,
+                        'mode' => 'inline',
+                        'text' => $editingParticipantLockedByOther ? $editingParticipantBadge['name'].' edits this participant' : 'You are editing this participant',
+                    ])
                 </div>
             @endif
 
