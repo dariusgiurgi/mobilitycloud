@@ -7,9 +7,10 @@
             'icon' => 'heroicon-o-map',
             'accent' => '#0f766e',
             'features' => [
-                ['title' => 'Mobility reports', 'body' => 'Write the implementation narrative and keep the mobility story in one place.'],
                 ['title' => 'Evidence by day', 'body' => 'Organise photos, links and files around the actual daily programme.'],
+                ['title' => 'Materials & outputs', 'body' => 'Keep files created for participants and participant outputs in one place.'],
                 ['title' => 'Dissemination reports', 'body' => 'Collect one report and evidence files for every organisation involved in dissemination.'],
+                ['title' => 'Mobility report', 'body' => 'Write the implementation narrative after the evidence is organised.'],
             ],
         ])
     @else
@@ -31,7 +32,7 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
             <div style="min-width:240px;flex:1;">
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:0;">Mobility workspace</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:.18rem 0 0;line-height:1.45;">Collect the mobility story, dissemination reports, materials and day-by-day evidence without mixing everything in one long page.</p>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:.18rem 0 0;line-height:1.45;">Start from day-by-day evidence, then organise materials, dissemination and the final mobility narrative.</p>
             </div>
         </div>
     </x-filament::section>
@@ -54,17 +55,17 @@
 
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
         <x-filament::tabs label="Mobility sections">
-            <x-filament::tabs.item wire:click="setMobilityTab('reports')" :active="$activeMobilityTab === 'reports'" icon="heroicon-m-clipboard-document-check" :badge="$summary['report_ready'] ? null : '!' " :badge-color="$summary['report_ready'] ? 'success' : 'warning'">
-                Mobility Reports
-            </x-filament::tabs.item>
-            <x-filament::tabs.item wire:click="setMobilityTab('dissemination')" :active="$activeMobilityTab === 'dissemination'" icon="heroicon-m-megaphone" :badge="$disseminationSummary['missing'] ?: null" :badge-color="$disseminationSummary['complete'] ? 'success' : 'warning'">
-                Dissemination Reports
+            <x-filament::tabs.item wire:click="setMobilityTab('evidences')" :active="$activeMobilityTab === 'evidences'" icon="heroicon-m-camera" :badge="$summary['evidence_days'] ?: null">
+                Evidences
             </x-filament::tabs.item>
             <x-filament::tabs.item wire:click="setMobilityTab('materials')" :active="$activeMobilityTab === 'materials'" icon="heroicon-m-folder" :badge="$materialDocuments->count() ?: null">
                 Materials & Outputs
             </x-filament::tabs.item>
-            <x-filament::tabs.item wire:click="setMobilityTab('evidences')" :active="$activeMobilityTab === 'evidences'" icon="heroicon-m-camera" :badge="$summary['evidence_days'] ?: null">
-                Evidences
+            <x-filament::tabs.item wire:click="setMobilityTab('dissemination')" :active="$activeMobilityTab === 'dissemination'" icon="heroicon-m-megaphone" :badge="$disseminationSummary['missing'] ?: null" :badge-color="$disseminationSummary['complete'] ? 'success' : 'warning'">
+                Dissemination
+            </x-filament::tabs.item>
+            <x-filament::tabs.item wire:click="setMobilityTab('reports')" :active="$activeMobilityTab === 'reports'" icon="heroicon-m-clipboard-document-check" :badge="$summary['report_ready'] ? null : '!' " :badge-color="$summary['report_ready'] ? 'success' : 'warning'">
+                Mobility
             </x-filament::tabs.item>
         </x-filament::tabs>
 

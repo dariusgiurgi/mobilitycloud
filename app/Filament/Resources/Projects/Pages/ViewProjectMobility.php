@@ -21,7 +21,7 @@ class ViewProjectMobility extends Page
 
     protected string $view = 'filament.pages.view-project-mobility';
 
-    public string $activeMobilityTab = 'reports';
+    public string $activeMobilityTab = 'evidences';
 
     public string $mobilityReport = '';
 
@@ -75,9 +75,9 @@ class ViewProjectMobility extends Page
 
     public function setMobilityTab(string $tab): void
     {
-        $this->activeMobilityTab = in_array($tab, ['reports', 'dissemination', 'materials', 'evidences'], true)
+        $this->activeMobilityTab = in_array($tab, ['evidences', 'materials', 'dissemination', 'reports'], true)
             ? $tab
-            : 'reports';
+            : 'evidences';
     }
 
     public function mount(int|string $record): void
