@@ -71,6 +71,8 @@ class ProjectBudgetPageTest extends TestCase
         Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
             ->call('openBasketCreate')
             ->assertSet('showBasketModal', true)
+            ->assertSee('Choose color')
+            ->assertSee('#6366F1')
             ->set('basketTitle', 'QA Bot Materials')
             ->set('basketEmoji', '🎨')
             ->call('saveBasket')

@@ -332,9 +332,18 @@
             </div>
 
             <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:4px;" class="mc-modal-label">Color</label>
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;">
-                <input type="color" wire:model="basketColor"
-                       style="width:48px;height:36px;border:1px solid rgba(100,116,139,.3);border-radius:6px;cursor:pointer;background:transparent;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:.75rem;flex-wrap:wrap;">
+                <label class="mc-color-picker-trigger" title="Choose custom color">
+                    <span class="mc-color-wheel" aria-hidden="true"></span>
+                    <span class="mc-color-picker-text">Choose color</span>
+                    <input type="color" wire:model.live="basketColor" aria-label="Choose basket color">
+                </label>
+                <div class="mc-selected-color">
+                    <span class="mc-selected-color-swatch" style="background:{{ $basketColor ?: '#6366f1' }};"></span>
+                    <span>{{ strtoupper($basketColor ?: '#6366f1') }}</span>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap;">
                 @foreach(['#3b82f6','#22c55e','#8b5cf6','#ec4899','#f59e0b','#ef4444'] as $c)
                     <button type="button" wire:click="$set('basketColor', '{{ $c }}')"
                             style="width:26px;height:26px;border-radius:6px;border:2px solid rgba(0,0,0,.1);background:{{ $c }};cursor:pointer;"></button>
@@ -489,12 +498,22 @@
         .mc-modal-input { background:#fafafa; color:#18181b; }
         .mc-modal-cancel { color:#3f3f46; }
         .mc-emoji-btn { background:#fafafa; color:#18181b; }
+        .mc-color-picker-trigger { position:relative;display:inline-flex;align-items:center;gap:.5rem;height:38px;padding:0 .78rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:#fafafa;color:#334155;font-size:.76rem;font-weight:700;cursor:pointer;overflow:hidden; }
+        .mc-color-picker-trigger:hover { border-color:#6366f1;background:rgba(99,102,241,.06);color:#4f46e5; }
+        .mc-color-picker-trigger input[type=color] { position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer; }
+        .mc-color-wheel { width:22px;height:22px;border-radius:999px;background:conic-gradient(#ef4444,#f59e0b,#fde047,#22c55e,#06b6d4,#3b82f6,#8b5cf6,#ec4899,#ef4444);box-shadow:inset 0 0 0 2px rgba(255,255,255,.85),0 0 0 1px rgba(100,116,139,.22); }
+        .mc-selected-color { display:inline-flex;align-items:center;gap:.45rem;height:38px;padding:0 .7rem;border:1px solid rgba(100,116,139,.22);border-radius:.65rem;background:rgba(100,116,139,.045);color:#64748b;font-size:.7rem;font-weight:750;letter-spacing:.03em; }
+        .mc-selected-color-swatch { width:24px;height:24px;border-radius:.38rem;border:1px solid rgba(15,23,42,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.35); }
         .dark .mc-modal { background:#18212f !important; }
         .dark .mc-modal-title { color:#f4f4f5 !important; }
         .dark .mc-modal-label { color:#a1a1aa !important; }
         .dark .mc-modal-input { background:#27303f !important; color:#f4f4f5 !important; border-color:rgba(148,163,184,.3) !important; }
         .dark .mc-modal-cancel { color:#d4d4d8 !important; }
         .dark .mc-emoji-btn { background:#27303f !important; color:#f4f4f5 !important; }
+        .dark .mc-color-picker-trigger { background:#27303f;color:#e2e8f0;border-color:rgba(148,163,184,.3); }
+        .dark .mc-color-picker-trigger:hover { border-color:#818cf8;background:rgba(99,102,241,.12);color:#c4b5fd; }
+        .dark .mc-selected-color { background:rgba(15,23,42,.5);border-color:rgba(148,163,184,.25);color:#cbd5e1; }
+        .dark .mc-selected-color-swatch { border-color:rgba(255,255,255,.18); }
     </style>
     @endif
 
