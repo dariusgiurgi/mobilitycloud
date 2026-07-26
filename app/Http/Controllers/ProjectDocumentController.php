@@ -17,8 +17,8 @@ class ProjectDocumentController extends Controller
         abort_unless($document->type === ProjectDocument::TYPE_ATTENDANCE, 404);
 
         $participants = $project->participants()
+            ->orderBy('complete_name')
             ->orderBy('last_name')
-            ->orderBy('first_name')
             ->get();
 
         $groups = $participants

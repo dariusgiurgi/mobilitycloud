@@ -20,7 +20,7 @@ class ProjectFinalArchiveService
             'applicationSections' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
             'budgetLines' => fn ($query) => $query->orderBy('sort_order')->orderBy('id'),
             'budgetLines.expenses' => fn ($query) => $query->withTrashed()->orderBy('expense_date')->orderBy('id'),
-            'participants' => fn ($query) => $query->orderBy('last_name')->orderBy('first_name'),
+            'participants' => fn ($query) => $query->orderBy('complete_name')->orderBy('last_name'),
             'participants.attachments',
             'documents' => fn ($query) => $query
                 ->orderBy('category')

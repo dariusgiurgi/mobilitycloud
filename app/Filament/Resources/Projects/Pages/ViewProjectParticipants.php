@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
 
 class ViewProjectParticipants extends Page
@@ -76,8 +77,8 @@ class ViewProjectParticipants extends Page
     {
         $all = Participant::where('project_id', $this->record->id)
             ->with('attachments')
+            ->orderBy('complete_name')
             ->orderBy('last_name')
-            ->orderBy('first_name')
             ->get();
 
         return $all->filter(function (Participant $p) {
@@ -176,6 +177,51 @@ class ViewProjectParticipants extends Page
             ->all();
     }
 
+    public function getParticipantRegistrationUrl(): ?string
+    {
+        if (! $this->record->hasActiveParticipantRegistrationLink()) {
+            return null;
+        }
+
+        return route('public.participant-registration.show', $this->record->participant_registration_token);
+    }
+
+    public function createParticipantRegistrationLink(): void
+    {
+        $this->authorizeManagementModuleMutation();
+
+        $this->record->forceFill([
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+            'participant_registration_closed_at' => null,
+        ])->save();
+
+        $this->record->refresh();
+
+        Notification::make()
+            ->title('Participant form link created')
+            ->body('Participants can now complete the form from the shared link.')
+            ->success()
+            ->send();
+    }
+
+    public function closeParticipantRegistrationLink(): void
+    {
+        $this->authorizeManagementModuleMutation();
+
+        $this->record->forceFill([
+            'participant_registration_closed_at' => now(),
+        ])->save();
+
+        $this->record->refresh();
+
+        Notification::make()
+            ->title('Participant form link closed')
+            ->body('The previous link can no longer be accessed.')
+            ->success()
+            ->send();
+    }
+
     public function openImport(): void
     {
         $this->authorizeManagementModuleMutation();
@@ -205,7 +251,7 @@ class ViewProjectParticipants extends Page
     protected function blankData(): array
     {
         return [
-            'first_name' => '', 'last_name' => '', 'birth_date' => null,
+            'complete_name' => '', 'first_name' => '', 'last_name' => '', 'birth_date' => null,
             'nationality' => '', 'gender' => '',
             'partner_organisation' => '', 'country' => '', 'role' => 'participant',
             'email' => '', 'phone' => '', 'address' => '',
@@ -233,6 +279,7 @@ class ViewProjectParticipants extends Page
         $this->editingId = $p->id;
         $this->attachParticipantId = $p->id;
         $this->data = [
+            'complete_name' => $p->fullName(),
             'first_name' => $p->first_name, 'last_name' => $p->last_name,
             'birth_date' => $p->birth_date?->format('Y-m-d'),
             'nationality' => $p->nationality, 'gender' => $p->gender,
@@ -256,17 +303,24 @@ class ViewProjectParticipants extends Page
     public function save(): void
     {
         $this->authorizeManagementModuleMutation();
+        $organisationNames = collect($this->getPartnerOrgs())->pluck('name')->all();
+        $organisationRules = count($organisationNames) > 0
+            ? ['required', 'string', 'max:255', Rule::in($organisationNames)]
+            : ['nullable', 'string', 'max:255'];
+
         $this->validate([
-            'data.first_name' => 'required|string|max:255',
-            'data.last_name' => 'required|string|max:255',
+            'data.complete_name' => 'required|string|max:255',
             'data.email' => 'nullable|email|max:255',
             'data.birth_date' => 'nullable|date',
+            'data.partner_organisation' => $organisationRules,
         ], [], [
-            'data.first_name' => 'first name',
-            'data.last_name' => 'last name',
+            'data.complete_name' => 'complete name',
+            'data.partner_organisation' => 'organisation',
         ]);
 
         $payload = $this->data;
+        $payload['complete_name'] = trim((string) $payload['complete_name']);
+        [$payload['first_name'], $payload['last_name']] = Participant::splitCompleteName($payload['complete_name']);
         $payload['fewer_opportunities'] = (bool) ($payload['fewer_opportunities'] ?? false);
         $payload['birth_date'] = $payload['birth_date'] ?: null;
 
@@ -337,7 +391,7 @@ class ViewProjectParticipants extends Page
 
         // Numele generat: {prefix}_{Nume}_{Prenume}.{ext}, fara diacritice.
         $prefix = ParticipantAttachment::FILE_PREFIXES[$this->uploadType] ?? 'document';
-        $namePart = Str::ascii($participant->last_name.'_'.$participant->first_name);
+        $namePart = Str::ascii($participant->fullName());
         $namePart = preg_replace('/[^A-Za-z0-9_]+/', '_', $namePart);
         $namePart = trim($namePart, '_');
         $ext = $this->uploadFile->getClientOriginalExtension() ?: 'dat';

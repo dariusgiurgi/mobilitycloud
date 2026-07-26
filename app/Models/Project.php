@@ -53,7 +53,7 @@ class Project extends Model
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
         'expense_prefix', 'expense_pad_length',
         'start_date', 'end_date', 'mobility_start_date', 'mobility_end_date', 'partner_org', 'partner_orgs', 'notes',
-        'action_data',
+        'action_data', 'participant_registration_token', 'participant_registration_opened_at', 'participant_registration_closed_at',
     ];
 
     protected $casts = [
@@ -71,6 +71,8 @@ class Project extends Model
         'currencies' => 'array',
         'partner_orgs' => 'array',
         'action_data' => 'array',
+        'participant_registration_opened_at' => 'datetime',
+        'participant_registration_closed_at' => 'datetime',
         'start_date' => 'date',
         'end_date' => 'date',
         'mobility_start_date' => 'date',
@@ -487,6 +489,12 @@ class Project extends Model
         }
 
         return [];
+    }
+
+    public function hasActiveParticipantRegistrationLink(): bool
+    {
+        return filled($this->participant_registration_token)
+            && $this->participant_registration_closed_at === null;
     }
 
     public function getSpentAttribute(): float

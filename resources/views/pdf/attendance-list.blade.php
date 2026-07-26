@@ -23,8 +23,7 @@
         table.attendance th { background: #eef2ff; color: #312e81; border: 1px solid #a5b4fc; padding: 6px 5px; text-align: left; font-size: 8px; text-transform: uppercase; }
         table.attendance td { border: 1px solid #cbd5e1; padding: 6px 5px; height: 34px; vertical-align: middle; overflow: hidden; }
         .col-no { width: 4%; text-align: center; }
-        .col-last { width: 14%; }
-        .col-first { width: 14%; }
+        .col-name { width: 28%; }
         .col-org { width: 18%; }
         .col-email { width: 19%; }
         .col-phone { width: 12%; }
@@ -55,8 +54,7 @@
             <thead>
             <tr>
                 <th class="col-no">No.</th>
-                <th class="col-last">Last name</th>
-                <th class="col-first">First name</th>
+                <th class="col-name">Complete name</th>
                 <th class="col-org">Organisation</th>
                 <th class="col-email">Email</th>
                 <th class="col-phone">Phone</th>
@@ -67,8 +65,7 @@
             @foreach($participants as $participant)
                 <tr>
                     <td class="col-no">{{ $loop->iteration }}</td>
-                    <td>{{ $participant->last_name }}</td>
-                    <td>{{ $participant->first_name }}</td>
+                    <td>{{ $participant->fullName() }}</td>
                     <td>{{ $participant->partner_organisation ?: 'Unassigned' }}</td>
                     <td>{{ $participant->email ?: '-' }}</td>
                     <td>{{ $participant->phone ?: '-' }}</td>

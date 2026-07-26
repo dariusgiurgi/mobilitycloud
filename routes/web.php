@@ -4,6 +4,7 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\ParticipantRegistrationController;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectInvitationController;
@@ -25,6 +26,8 @@ Route::get('/terms', [LegalPageController::class, 'terms'])->name('legal.terms')
 Route::get('/privacy', [LegalPageController::class, 'privacy'])->name('legal.privacy');
 Route::get('/cookies', [LegalPageController::class, 'cookies'])->name('legal.cookies');
 Route::get('/security', [LegalPageController::class, 'security'])->name('legal.security');
+Route::get('/participant-registration/{token}', [ParticipantRegistrationController::class, 'show'])->name('public.participant-registration.show');
+Route::post('/participant-registration/{token}', [ParticipantRegistrationController::class, 'store'])->name('public.participant-registration.store');
 
 Route::get('/account-suspended', function () {
     return view('account-suspended');

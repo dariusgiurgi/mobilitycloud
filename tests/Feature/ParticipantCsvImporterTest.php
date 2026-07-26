@@ -16,8 +16,8 @@ class ParticipantCsvImporterTest extends TestCase
     {
         $project = $this->project();
         $path = $this->csv(implode("\n", [
-            "\xEF\xBB\xBF\"Last name\";\"First name\";Organisation;Role;Country;\"Birth date\";Age;Nationality;Gender;Email;Phone;Address;\"Medical conditions\";Allergies;\"Dietary restrictions\";\"Special needs\";\"Fewer opportunities\";\"Guardian name\";\"Guardian contact\";\"GDPR consent date\";\"Documents complete\"",
-            "Pop;Ana;Association A;\"Group leader\";Romania;2000-04-12;26;Romanian;female;ana@example.test;'+40123;\"Main Street 10\";Asthma;Pollen;Vegetarian;\"Wheelchair access\";Yes;\"Maria Pop\";'+40999;2026-06-20;No",
+            "\xEF\xBB\xBF\"Complete name\";Organisation;Role;Country;\"Birth date\";Age;Nationality;Gender;Email;Phone;Address;\"Medical conditions\";Allergies;\"Dietary restrictions\";\"Special needs\";\"Fewer opportunities\";\"Guardian name\";\"Guardian contact\";\"GDPR consent date\";\"Documents complete\"",
+            "\"Ana Pop\";Association A;\"Group leader\";Romania;2000-04-12;26;Romanian;female;ana@example.test;'+40123;\"Main Street 10\";Asthma;Pollen;Vegetarian;\"Wheelchair access\";Yes;\"Maria Pop\";'+40999;2026-06-20;No",
         ]));
 
         $count = app(ParticipantCsvImporter::class)->import($project, $path);
@@ -25,6 +25,7 @@ class ParticipantCsvImporterTest extends TestCase
         $this->assertSame(1, $count);
         $this->assertDatabaseHas('participants', [
             'project_id' => $project->id,
+            'complete_name' => 'Ana Pop',
             'first_name' => 'Ana',
             'last_name' => 'Pop',
             'role' => 'group_leader',
@@ -40,13 +41,33 @@ class ParticipantCsvImporterTest extends TestCase
         ]);
     }
 
+    public function test_it_still_imports_the_old_first_and_last_name_format(): void
+    {
+        $project = $this->project();
+        $path = $this->csv(implode("\n", [
+            'Last name;First name;Organisation;Email',
+            'Pop;Ana;Association A;ana@example.test',
+        ]));
+
+        $count = app(ParticipantCsvImporter::class)->import($project, $path);
+
+        $this->assertSame(1, $count);
+        $this->assertDatabaseHas('participants', [
+            'project_id' => $project->id,
+            'complete_name' => 'Ana Pop',
+            'first_name' => 'Ana',
+            'last_name' => 'Pop',
+            'email' => 'ana@example.test',
+        ]);
+    }
+
     public function test_invalid_row_cancels_the_entire_import(): void
     {
         $project = $this->project();
         $path = $this->csv(implode("\n", [
-            'Last name,First name,Email',
-            'Adams,Ana,ana@example.test',
-            'Zimmer,Zoe,not-an-email',
+            'Complete name,Email',
+            'Ana Adams,ana@example.test',
+            'Zoe Zimmer,not-an-email',
         ]));
 
         try {
@@ -63,9 +84,9 @@ class ParticipantCsvImporterTest extends TestCase
     {
         $project = $this->project();
         $path = $this->csv(implode("\n", [
-            'Last name;First name;Birth date;GDPR consent date',
-            'Pop;Ana;12.04.2000;20/06/2026',
-            'Marin;Daria;45292;',
+            'Complete name;Birth date;GDPR consent date',
+            'Ana Pop;12.04.2000;20/06/2026',
+            'Daria Marin;45292;',
         ]));
 
         $count = app(ParticipantCsvImporter::class)->import($project, $path);

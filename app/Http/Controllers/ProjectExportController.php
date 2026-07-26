@@ -36,8 +36,8 @@ class ProjectExportController extends Controller
 
         $participants = $project->participants()
             ->with('attachments')
+            ->orderBy('complete_name')
             ->orderBy('last_name')
-            ->orderBy('first_name')
             ->get();
 
         $filename = 'participants-'.Str::slug($project->name).'.csv';
@@ -47,7 +47,7 @@ class ProjectExportController extends Controller
 
             fwrite($output, "\xEF\xBB\xBF");
             fputcsv($output, [
-                'Last name', 'First name', 'Organisation', 'Role', 'Country',
+                'Complete name', 'Organisation', 'Role', 'Country',
                 'Birth date', 'Age', 'Nationality', 'Gender', 'Email', 'Phone',
                 'Address', 'Medical conditions', 'Allergies', 'Dietary restrictions',
                 'Special needs', 'Fewer opportunities', 'Guardian name', 'Guardian contact',
@@ -56,8 +56,7 @@ class ProjectExportController extends Controller
 
             foreach ($participants as $participant) {
                 fputcsv($output, array_map($this->csvValue(...), [
-                    $participant->last_name,
-                    $participant->first_name,
+                    $participant->fullName(),
                     $participant->partner_organisation,
                     $participant->roleLabel(),
                     $participant->country,

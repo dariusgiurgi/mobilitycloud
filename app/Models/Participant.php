@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Participant extends Model
 {
     protected $fillable = [
-        'project_id', 'first_name', 'last_name', 'birth_date', 'nationality', 'gender',
+        'project_id', 'complete_name', 'first_name', 'last_name', 'birth_date', 'nationality', 'gender',
         'partner_organisation', 'country', 'role',
         'email', 'phone', 'address',
         'medical_conditions', 'allergies', 'dietary_restrictions', 'special_needs', 'fewer_opportunities',
@@ -44,6 +44,14 @@ class Participant extends Model
 
     protected static function booted(): void
     {
+        static::saving(function (Participant $participant): void {
+            $participant->complete_name = trim((string) ($participant->complete_name ?: trim($participant->first_name.' '.$participant->last_name)));
+
+            if ($participant->complete_name !== '' && (blank($participant->first_name) || blank($participant->last_name))) {
+                [$participant->first_name, $participant->last_name] = self::splitCompleteName($participant->complete_name);
+            }
+        });
+
         static::deleting(function (Participant $participant): void {
             $participant->attachments()->get()->each->delete();
         });
@@ -51,7 +59,26 @@ class Participant extends Model
 
     public function fullName(): string
     {
-        return trim($this->first_name.' '.$this->last_name);
+        return trim((string) ($this->complete_name ?: trim($this->first_name.' '.$this->last_name)));
+    }
+
+    public static function splitCompleteName(string $completeName): array
+    {
+        $name = preg_replace('/\s+/', ' ', trim($completeName));
+
+        if ($name === '') {
+            return ['', ''];
+        }
+
+        $parts = explode(' ', $name);
+
+        if (count($parts) === 1) {
+            return [$name, ''];
+        }
+
+        $lastName = array_pop($parts);
+
+        return [implode(' ', $parts), $lastName];
     }
 
     public function roleLabel(): string

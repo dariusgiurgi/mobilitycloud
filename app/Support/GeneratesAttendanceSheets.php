@@ -45,7 +45,7 @@ trait GeneratesAttendanceSheets
             'activity_title' => $this->attendanceActivity,
             'activity_date' => $this->attendanceDate,
             'location' => $this->attendanceLocation ?: null,
-            'metadata' => ['grouping' => 'partner_organisation', 'sort' => 'last_name_first_name'],
+            'metadata' => ['grouping' => 'partner_organisation', 'sort' => 'complete_name'],
             'generated_at' => now(),
         ]);
 

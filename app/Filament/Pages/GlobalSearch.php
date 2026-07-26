@@ -63,11 +63,12 @@ class GlobalSearch extends Page
 
         $participants = Participant::query()
             ->whereHas('project', $accessible)
-            ->where(fn (Builder $query) => $query->where('first_name', 'like', $like)
+            ->where(fn (Builder $query) => $query->where('complete_name', 'like', $like)
+                ->orWhere('first_name', 'like', $like)
                 ->orWhere('last_name', 'like', $like)
                 ->orWhere('email', 'like', $like)
                 ->orWhere('partner_organisation', 'like', $like))
-            ->with('project')->orderBy('last_name')->limit(8)->get()
+            ->with('project')->orderBy('complete_name')->orderBy('last_name')->limit(8)->get()
             ->map(fn (Participant $participant): array => [
                 'title' => $participant->fullName(),
                 'detail' => $participant->project->name.' · '.($participant->email ?: $participant->partner_organisation ?: 'Participant'),

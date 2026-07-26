@@ -52,16 +52,43 @@ class ProjectParticipantsPageTest extends TestCase
 
         Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
             ->call('openCreate')
-            ->set('data.first_name', 'Daria')
-            ->set('data.last_name', 'Marin')
+            ->set('data.complete_name', 'Daria Marin')
             ->call('save')
             ->assertSee('Daria Marin');
 
         $this->assertDatabaseHas('participants', [
             'project_id' => $project->id,
+            'complete_name' => 'Daria Marin',
             'first_name' => 'Daria',
             'last_name' => 'Marin',
         ]);
+    }
+
+    public function test_manager_can_create_and_close_public_participant_form_link(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->assertSee('Participant self-registration')
+            ->assertSee('Create form link')
+            ->call('createParticipantRegistrationLink')
+            ->assertSee('Close form link')
+            ->assertSee('Copy');
+
+        $project->refresh();
+        $this->assertNotNull($project->participant_registration_token);
+        $this->assertTrue($project->hasActiveParticipantRegistrationLink());
+        $this->assertSame(
+            route('public.participant-registration.show', $project->participant_registration_token),
+            $component->instance()->getParticipantRegistrationUrl(),
+        );
+
+        $component
+            ->call('closeParticipantRegistrationLink')
+            ->assertSee('Create form link');
+
+        $this->assertFalse($project->fresh()->hasActiveParticipantRegistrationLink());
     }
 
     public function test_viewer_gets_participant_details_without_mutation_controls(): void

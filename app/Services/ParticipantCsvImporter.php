@@ -23,7 +23,7 @@ class ParticipantCsvImporter
 
         try {
             [$headers, $delimiter] = $this->readHeaders($handle);
-            $rows = $this->readRows($handle, $headers, $delimiter);
+            $rows = $this->readRows($project, $handle, $headers, $delimiter);
         } finally {
             fclose($handle);
         }
@@ -55,18 +55,19 @@ class ParticipantCsvImporter
             return mb_strtolower(trim($value, " \t\n\r\0\x0B\""));
         }, $row);
 
-        foreach (['first name', 'last name'] as $required) {
-            if (! in_array($required, $headers, true)) {
-                throw ValidationException::withMessages([
-                    'importFile' => 'Missing required column: '.ucfirst($required).'.',
-                ]);
-            }
+        $hasCompleteName = in_array('complete name', $headers, true);
+        $hasLegacyName = in_array('first name', $headers, true) && in_array('last name', $headers, true);
+
+        if (! $hasCompleteName && ! $hasLegacyName) {
+            throw ValidationException::withMessages([
+                'importFile' => 'Missing required column: Complete name.',
+            ]);
         }
 
         return [$headers, $delimiter];
     }
 
-    private function readRows($handle, array $headers, string $delimiter): array
+    private function readRows(Project $project, $handle, array $headers, string $delimiter): array
     {
         $rows = [];
         $line = 1;
@@ -84,7 +85,7 @@ class ParticipantCsvImporter
 
             $values = array_pad($values, count($headers), null);
             $row = array_combine($headers, array_slice($values, 0, count($headers)));
-            $rows[] = $this->validateRow($row, $line);
+            $rows[] = $this->validateRow($project, $row, $line);
         }
 
         if ($rows === []) {
@@ -94,12 +95,22 @@ class ParticipantCsvImporter
         return $rows;
     }
 
-    private function validateRow(array $row, int $line): array
+    private function validateRow(Project $project, array $row, int $line): array
     {
         $role = $this->roleKey($row['role'] ?? '');
+        $completeName = trim((string) ($row['complete name'] ?? ''));
+        $organisationNames = collect($project->partners)->pluck('name')->filter()->values()->all();
+
+        if ($completeName === '') {
+            $completeName = trim(trim((string) ($row['first name'] ?? '')).' '.trim((string) ($row['last name'] ?? '')));
+        }
+
+        [$firstName, $lastName] = Participant::splitCompleteName($completeName);
+
         $data = [
-            'first_name' => trim((string) ($row['first name'] ?? '')),
-            'last_name' => trim((string) ($row['last name'] ?? '')),
+            'complete_name' => $completeName,
+            'first_name' => $firstName,
+            'last_name' => $lastName,
             'partner_organisation' => $this->nullable($row['organisation'] ?? null),
             'role' => $role,
             'country' => $this->nullable($row['country'] ?? null),
@@ -120,9 +131,15 @@ class ParticipantCsvImporter
         ];
 
         $validator = Validator::make($data, [
+            'complete_name' => ['required', 'string', 'max:255'],
             'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'partner_organisation' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
+            'partner_organisation' => array_filter([
+                count($organisationNames) > 0 ? 'required' : 'nullable',
+                'string',
+                'max:255',
+                count($organisationNames) > 0 ? Rule::in($organisationNames) : null,
+            ]),
             'role' => ['required', Rule::in(array_keys(Participant::ROLES))],
             'country' => ['nullable', 'string', 'max:255'],
             'birth_date' => ['nullable', 'date_format:Y-m-d'],

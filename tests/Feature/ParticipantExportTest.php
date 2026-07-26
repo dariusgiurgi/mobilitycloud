@@ -46,8 +46,8 @@ class ParticipantExportTest extends TestCase
         $response->assertDownload('participants-youth-exchange.csv');
         $content = $response->streamedContent();
 
-        $this->assertStringStartsWith("\xEF\xBB\xBF\"Last name\";\"First name\"", $content);
-        $this->assertLessThan(strpos($content, 'Zimmer;Zoe'), strpos($content, 'Adams;Ana'));
+        $this->assertStringStartsWith("\xEF\xBB\xBF\"Complete name\"", $content);
+        $this->assertLessThan(strpos($content, 'Zoe Zimmer'), strpos($content, 'Ana Adams'));
         $this->assertStringContainsString("'=HYPERLINK", $content);
         $this->assertStringContainsString('Main Street 10', $content);
         $this->assertStringContainsString('Vegetarian', $content);
