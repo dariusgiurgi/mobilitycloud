@@ -74,6 +74,7 @@ class ProjectMobilityTest extends TestCase
         $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
             ->call('setMobilityTab', 'evidences')
             ->assertSee('Evidence by day')
+            ->assertDontSee('Save day')
             ->call('addEvidenceDay');
 
         $dayId = array_key_first($component->instance()->evidenceDays);
@@ -83,14 +84,15 @@ class ProjectMobilityTest extends TestCase
             ->set('evidenceDays.'.$dayId.'.date', '2026-07-03')
             ->set('evidenceDays.'.$dayId.'.description', 'Participants arrived, worked in mixed teams and created first outputs.')
             ->set('evidenceDays.'.$dayId.'.observations', 'The programme started 30 minutes later because of airport transfers.')
-            ->call('addEvidenceLink', $dayId);
+            ->call('addEvidenceLink', $dayId)
+            ->assertSee('Autosaved')
+            ->assertSee('Facebook');
 
         $linkId = $component->instance()->evidenceDays[$dayId]['links'][0]['id'];
 
         $component
             ->set('evidenceDays.'.$dayId.'.links.0.label', 'Facebook')
             ->set('evidenceDays.'.$dayId.'.links.0.url', 'https://facebook.com/example-post')
-            ->call('saveEvidenceDay', $dayId)
             ->call('prepareEvidenceImageUpload', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_images')
             ->set('evidenceImageTitle', 'Workshop photo evidence')

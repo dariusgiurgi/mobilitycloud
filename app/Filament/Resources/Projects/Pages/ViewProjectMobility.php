@@ -379,6 +379,15 @@ class ViewProjectMobility extends Page
         Notification::make()->title('Evidence day added')->success()->send();
     }
 
+    public function updatedEvidenceDays(): void
+    {
+        if (! $this->record->canBeManagedBy(auth()->user())) {
+            return;
+        }
+
+        $this->saveEvidenceDaysToRecord(refresh: false);
+    }
+
     public function saveEvidenceDay(string $dayId): void
     {
         $this->authorizeManagementModuleMutation();
@@ -420,6 +429,8 @@ class ViewProjectMobility extends Page
             'label' => '',
             'url' => '',
         ];
+
+        $this->saveEvidenceDaysToRecord(refresh: false);
     }
 
     public function removeEvidenceLink(string $dayId, string $linkId): void
@@ -722,7 +733,7 @@ class ViewProjectMobility extends Page
             ->all();
     }
 
-    private function saveEvidenceDaysToRecord(): void
+    private function saveEvidenceDaysToRecord(bool $refresh = true): void
     {
         $data = $this->record->action_data ?? [];
         data_set($data, 'mobility.evidence_days', collect($this->evidenceDays)->values()->all());
@@ -730,8 +741,11 @@ class ViewProjectMobility extends Page
         data_set($data, 'mobility.evidence_days_updated_by', auth()->id());
 
         $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
-        $this->evidenceDays = $this->storedEvidenceDays();
+
+        if ($refresh) {
+            $this->record = $this->record->fresh();
+            $this->evidenceDays = $this->storedEvidenceDays();
+        }
     }
 
     private function prepareEvidenceUpload(string $dayId, string $kind): void
