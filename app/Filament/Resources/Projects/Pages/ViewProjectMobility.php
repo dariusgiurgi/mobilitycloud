@@ -21,6 +21,8 @@ class ViewProjectMobility extends Page
 
     protected string $view = 'filament.pages.view-project-mobility';
 
+    public string $activeMobilityTab = 'reports';
+
     public string $mobilityReport = '';
 
     public string $photoFolderUrl = '';
@@ -57,6 +59,27 @@ class ViewProjectMobility extends Page
 
     public ?string $disseminationUploadOrgKey = null;
 
+    public array $evidenceDays = [];
+
+    public ?string $evidenceUploadDayId = null;
+
+    public array $evidenceImageUploads = [];
+
+    public array $evidenceFileUploads = [];
+
+    public string $evidenceImageTitle = '';
+
+    public string $evidenceFileTitle = '';
+
+    public string $evidenceUploadNotes = '';
+
+    public function setMobilityTab(string $tab): void
+    {
+        $this->activeMobilityTab = in_array($tab, ['reports', 'dissemination', 'materials', 'evidences'], true)
+            ? $tab
+            : 'reports';
+    }
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -68,6 +91,7 @@ class ViewProjectMobility extends Page
         $this->photoEvidenceDate = now()->toDateString();
         $this->disseminationUploadDate = now()->toDateString();
         $this->disseminationReports = $this->storedDisseminationReports();
+        $this->evidenceDays = $this->storedEvidenceDays();
     }
 
     public function getTitle(): string
@@ -114,10 +138,23 @@ class ViewProjectMobility extends Page
             'materials' => $documents->where('category', 'mobility_material')->count(),
             'outputs' => $documents->where('category', 'mobility_output')->count(),
             'evidence' => $documents->whereIn('category', ['mobility_photo_video', 'mobility_other'])->count(),
+            'evidence_days' => count($this->evidenceDays),
+            'evidence_links' => collect($this->evidenceDays)->sum(fn (array $day): int => count($day['links'] ?? [])),
+            'evidence_files' => $documents
+                ->filter(fn (ProjectDocument $document): bool => filled(data_get($document->metadata, 'evidence_day_id')))
+                ->count(),
             'report_ready' => filled(trim($this->mobilityReport)),
             'photo_folder_ready' => filled(trim($this->photoFolderUrl)),
             'dissemination' => $this->getDisseminationSummary(),
         ];
+    }
+
+    public function getMaterialOutputDocuments()
+    {
+        return $this->getMobilityDocuments()
+            ->filter(fn (ProjectDocument $document): bool => ! filled(data_get($document->metadata, 'evidence_day_id'))
+                && in_array($document->category, ['mobility_plan', 'mobility_material', 'mobility_output', 'mobility_other'], true))
+            ->values();
     }
 
     public function savePhotoFolderUrl(): void
@@ -275,6 +312,199 @@ class ViewProjectMobility extends Page
 
         $document->delete();
         Notification::make()->title('Mobility document removed')->success()->send();
+    }
+
+    public function getEvidenceDocumentsByDay(): array
+    {
+        $documents = $this->record->documents()
+            ->where('type', ProjectDocument::TYPE_UPLOAD)
+            ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
+            ->latest('id')
+            ->get()
+            ->filter(fn (ProjectDocument $document): bool => filled(data_get($document->metadata, 'evidence_day_id')));
+
+        return collect($this->getEvidenceDays())
+            ->mapWithKeys(fn (array $day): array => [
+                $day['id'] => [
+                    'images' => $documents
+                        ->filter(fn (ProjectDocument $document): bool => data_get($document->metadata, 'evidence_day_id') === $day['id']
+                            && data_get($document->metadata, 'evidence_kind') === 'image')
+                        ->values(),
+                    'files' => $documents
+                        ->filter(fn (ProjectDocument $document): bool => data_get($document->metadata, 'evidence_day_id') === $day['id']
+                            && data_get($document->metadata, 'evidence_kind') === 'file')
+                        ->values(),
+                ],
+            ])
+            ->all();
+    }
+
+    public function getEvidenceDays(): array
+    {
+        return collect($this->evidenceDays)
+            ->map(function (array $day, string|int $key): array {
+                $id = (string) ($day['id'] ?? $key);
+
+                return [
+                    'id' => $id,
+                    'title' => (string) ($day['title'] ?? ''),
+                    'date' => (string) ($day['date'] ?? ''),
+                    'description' => (string) ($day['description'] ?? ''),
+                    'observations' => (string) ($day['observations'] ?? ''),
+                    'links' => array_values($day['links'] ?? []),
+                ];
+            })
+            ->sortBy(fn (array $day): string => ($day['date'] ?: '9999-12-31').$day['title'])
+            ->values()
+            ->all();
+    }
+
+    public function addEvidenceDay(): void
+    {
+        $this->authorizeManagementModuleMutation();
+
+        $id = 'day_'.Str::lower(Str::random(10));
+        $this->evidenceDays[$id] = [
+            'id' => $id,
+            'title' => 'Mobility day '.(count($this->evidenceDays) + 1),
+            'date' => now()->toDateString(),
+            'description' => '',
+            'observations' => '',
+            'links' => [],
+        ];
+
+        $this->saveEvidenceDaysToRecord();
+        $this->activeMobilityTab = 'evidences';
+
+        Notification::make()->title('Evidence day added')->success()->send();
+    }
+
+    public function saveEvidenceDay(string $dayId): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        $this->validate([
+            'evidenceDays.'.$dayId.'.title' => ['required', 'string', 'max:255'],
+            'evidenceDays.'.$dayId.'.date' => ['nullable', 'date'],
+            'evidenceDays.'.$dayId.'.description' => ['nullable', 'string', 'max:8000'],
+            'evidenceDays.'.$dayId.'.observations' => ['nullable', 'string', 'max:4000'],
+            'evidenceDays.'.$dayId.'.links' => ['nullable', 'array', 'max:20'],
+            'evidenceDays.'.$dayId.'.links.*.label' => ['nullable', 'string', 'max:80'],
+            'evidenceDays.'.$dayId.'.links.*.url' => ['nullable', 'url', 'max:2000'],
+        ]);
+
+        $this->saveEvidenceDaysToRecord();
+
+        Notification::make()->title('Evidence day saved')->success()->send();
+    }
+
+    public function deleteEvidenceDay(string $dayId): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        unset($this->evidenceDays[$dayId]);
+        $this->saveEvidenceDaysToRecord();
+
+        Notification::make()->title('Evidence day removed')->success()->send();
+    }
+
+    public function addEvidenceLink(string $dayId): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        $this->evidenceDays[$dayId]['links'][] = [
+            'id' => 'link_'.Str::lower(Str::random(8)),
+            'label' => '',
+            'url' => '',
+        ];
+    }
+
+    public function removeEvidenceLink(string $dayId, string $linkId): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        $this->evidenceDays[$dayId]['links'] = collect($this->evidenceDays[$dayId]['links'] ?? [])
+            ->reject(fn (array $link): bool => ($link['id'] ?? null) === $linkId)
+            ->values()
+            ->all();
+
+        $this->saveEvidenceDaysToRecord();
+    }
+
+    public function prepareEvidenceImageUpload(string $dayId): void
+    {
+        $this->prepareEvidenceUpload($dayId, 'images');
+        $this->evidenceImageTitle = 'Images - '.$this->evidenceDays[$dayId]['title'];
+    }
+
+    public function prepareEvidenceFileUpload(string $dayId): void
+    {
+        $this->prepareEvidenceUpload($dayId, 'files');
+        $this->evidenceFileTitle = 'Files - '.$this->evidenceDays[$dayId]['title'];
+    }
+
+    public function uploadEvidenceImages(string $dayId): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        $this->evidenceUploadDayId = $dayId.'_images';
+        $this->validate([
+            'evidenceImageTitle' => ['required', 'string', 'max:255'],
+            'evidenceUploadNotes' => ['nullable', 'string', 'max:3000'],
+            'evidenceImageUploads' => ['required', 'array', 'max:20'],
+            'evidenceImageUploads.*' => ['file', 'max:8192', 'mimes:jpg,jpeg,png,webp'],
+        ]);
+
+        $count = $this->storeEvidenceUploads(
+            dayId: $dayId,
+            uploads: $this->evidenceImageUploads,
+            kind: 'image',
+            category: 'mobility_photo_video',
+            title: trim($this->evidenceImageTitle),
+            notes: trim($this->evidenceUploadNotes)
+        );
+
+        $this->evidenceImageUploads = [];
+        $this->evidenceImageTitle = '';
+        $this->evidenceUploadNotes = '';
+        $this->evidenceUploadDayId = null;
+
+        Notification::make()->title($count.' evidence image'.($count === 1 ? '' : 's').' uploaded')->success()->send();
+    }
+
+    public function uploadEvidenceFiles(string $dayId): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        $this->evidenceUploadDayId = $dayId.'_files';
+        $this->validate([
+            'evidenceFileTitle' => ['required', 'string', 'max:255'],
+            'evidenceUploadNotes' => ['nullable', 'string', 'max:3000'],
+            'evidenceFileUploads' => ['required', 'array', 'max:20'],
+            'evidenceFileUploads.*' => ['file', 'max:51200', 'mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,zip'],
+        ]);
+
+        $count = $this->storeEvidenceUploads(
+            dayId: $dayId,
+            uploads: $this->evidenceFileUploads,
+            kind: 'file',
+            category: 'mobility_material',
+            title: trim($this->evidenceFileTitle),
+            notes: trim($this->evidenceUploadNotes)
+        );
+
+        $this->evidenceFileUploads = [];
+        $this->evidenceFileTitle = '';
+        $this->evidenceUploadNotes = '';
+        $this->evidenceUploadDayId = null;
+
+        Notification::make()->title($count.' evidence file'.($count === 1 ? '' : 's').' uploaded')->success()->send();
     }
 
     public function getDisseminationOrganisations(): array
@@ -465,5 +695,98 @@ class ViewProjectMobility extends Page
         $base = trim(($partner['name'] ?? 'organisation').'|'.($partner['country'] ?? '').'|'.$index);
 
         return 'org_'.substr(sha1($base), 0, 12);
+    }
+
+    private function storedEvidenceDays(): array
+    {
+        return collect(data_get($this->record->action_data ?? [], 'mobility.evidence_days', []))
+            ->mapWithKeys(function (array $day, string|int $key): array {
+                $id = (string) ($day['id'] ?? $key);
+
+                return [$id => [
+                    'id' => $id,
+                    'title' => (string) ($day['title'] ?? ''),
+                    'date' => (string) ($day['date'] ?? ''),
+                    'description' => (string) ($day['description'] ?? ''),
+                    'observations' => (string) ($day['observations'] ?? ''),
+                    'links' => collect($day['links'] ?? [])
+                        ->map(fn (array $link): array => [
+                            'id' => (string) ($link['id'] ?? 'link_'.Str::lower(Str::random(8))),
+                            'label' => (string) ($link['label'] ?? ''),
+                            'url' => (string) ($link['url'] ?? ''),
+                        ])
+                        ->values()
+                        ->all(),
+                ]];
+            })
+            ->all();
+    }
+
+    private function saveEvidenceDaysToRecord(): void
+    {
+        $data = $this->record->action_data ?? [];
+        data_set($data, 'mobility.evidence_days', collect($this->evidenceDays)->values()->all());
+        data_set($data, 'mobility.evidence_days_updated_at', now()->toIso8601String());
+        data_set($data, 'mobility.evidence_days_updated_by', auth()->id());
+
+        $this->record->update(['action_data' => $data]);
+        $this->record = $this->record->fresh();
+        $this->evidenceDays = $this->storedEvidenceDays();
+    }
+
+    private function prepareEvidenceUpload(string $dayId, string $kind): void
+    {
+        $this->authorizeManagementModuleMutation();
+        abort_unless(isset($this->evidenceDays[$dayId]), 404);
+
+        $this->evidenceUploadDayId = $dayId.'_'.$kind;
+        $this->evidenceImageUploads = [];
+        $this->evidenceFileUploads = [];
+        $this->evidenceUploadNotes = '';
+        $this->resetValidation(['evidenceImageUploads', 'evidenceFileUploads']);
+    }
+
+    private function storeEvidenceUploads(string $dayId, array $uploads, string $kind, string $category, string $title, string $notes): int
+    {
+        $day = $this->evidenceDays[$dayId];
+
+        foreach ($uploads as $upload) {
+            $document = $this->record->documents()->create([
+                'type' => ProjectDocument::TYPE_UPLOAD,
+                'category' => $category,
+                'title' => $title,
+                'document_date' => filled($day['date'] ?? null) ? $day['date'] : null,
+                'notes' => $notes ?: null,
+                'metadata' => [
+                    'source' => 'mobility',
+                    'uploaded_from' => 'mobility_evidence_day',
+                    'evidence_day_id' => $dayId,
+                    'evidence_day_title' => $day['title'],
+                    'evidence_kind' => $kind,
+                ],
+            ]);
+
+            try {
+                $extension = strtolower($upload->getClientOriginalExtension() ?: 'dat');
+                $filename = Str::slug($title).'_'.$document->id.'.'.$extension;
+                $path = $upload->storeAs(
+                    'project-documents/'.$this->record->id.'/mobility/evidence/'.$dayId.'/'.$kind,
+                    $filename,
+                    'local'
+                );
+
+                $document->update([
+                    'file_path' => $path,
+                    'file_disk' => 'local',
+                    'file_name' => $upload->getClientOriginalName(),
+                    'file_size' => $upload->getSize(),
+                ]);
+            } catch (\Throwable $exception) {
+                $document->delete();
+                throw $exception;
+            }
+        }
+
+        return count($uploads);
     }
 }

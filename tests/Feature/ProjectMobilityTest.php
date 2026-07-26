@@ -27,14 +27,20 @@ class ProjectMobilityTest extends TestCase
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
             ->assertSee('Mobility workspace')
-            ->assertSee('Photo folder and evidence')
-            ->assertSee('Dissemination reports by organisation')
-            ->assertSee('Upload materials and outputs')
+            ->assertSee('Mobility Reports')
+            ->assertSee('Dissemination Reports')
+            ->assertSee('Materials')
+            ->assertSee('Outputs')
+            ->assertSee('Evidences')
             ->assertDontSee('Download final archive')
             ->set('mobilityReport', 'The mobility delivered workshops, worksheets and participant outputs.')
             ->call('saveMobilityReport')
+            ->call('setMobilityTab', 'evidences')
+            ->assertSee('Evidence by day')
             ->set('photoFolderUrl', 'https://drive.google.com/drive/folders/mobility-evidence')
             ->call('savePhotoFolderUrl')
+            ->call('setMobilityTab', 'materials')
+            ->assertSee('Upload material or output')
             ->set('documentTitle', 'Activity worksheet')
             ->set('documentCategory', 'mobility_material')
             ->set('documentDate', '2026-07-02')
@@ -54,36 +60,72 @@ class ProjectMobilityTest extends TestCase
             ->sole();
 
         $this->assertSame('mobility', data_get($document->metadata, 'source'));
+        $this->assertSame('mobility_page', data_get($document->metadata, 'uploaded_from'));
         $this->assertSame('worksheet.pdf', $document->file_name);
         Storage::disk('local')->assertExists($document->file_path);
     }
 
-    public function test_member_can_upload_multiple_photo_evidence_files(): void
+    public function test_member_can_create_evidence_day_with_links_images_and_files(): void
     {
         Storage::fake('local');
         [$project, $user] = $this->projectAndUser();
         $this->actingAs($user);
 
-        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
-            ->set('photoEvidenceTitle', 'Workshop photo evidence')
-            ->set('photoEvidenceDate', '2026-07-03')
-            ->set('photoEvidenceNotes', 'Group work and presentation proof.')
-            ->set('photoUploads', [
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'evidences')
+            ->assertSee('Evidence by day')
+            ->call('addEvidenceDay');
+
+        $dayId = array_key_first($component->instance()->evidenceDays);
+
+        $component
+            ->set('evidenceDays.'.$dayId.'.title', 'Day 1 - Arrival and workshops')
+            ->set('evidenceDays.'.$dayId.'.date', '2026-07-03')
+            ->set('evidenceDays.'.$dayId.'.description', 'Participants arrived, worked in mixed teams and created first outputs.')
+            ->set('evidenceDays.'.$dayId.'.observations', 'The programme started 30 minutes later because of airport transfers.')
+            ->call('addEvidenceLink', $dayId);
+
+        $linkId = $component->instance()->evidenceDays[$dayId]['links'][0]['id'];
+
+        $component
+            ->set('evidenceDays.'.$dayId.'.links.0.label', 'Facebook')
+            ->set('evidenceDays.'.$dayId.'.links.0.url', 'https://facebook.com/example-post')
+            ->call('saveEvidenceDay', $dayId)
+            ->call('prepareEvidenceImageUpload', $dayId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_images')
+            ->set('evidenceImageTitle', 'Workshop photo evidence')
+            ->set('evidenceUploadNotes', 'Group work and presentation proof.')
+            ->set('evidenceImageUploads', [
                 UploadedFile::fake()->image('group-work.jpg'),
                 UploadedFile::fake()->image('presentation.png'),
             ])
-            ->call('uploadMobilityPhotos')
+            ->call('uploadEvidenceImages', $dayId)
+            ->assertSet('evidenceUploadDayId', null)
+            ->call('prepareEvidenceFileUpload', $dayId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_files')
+            ->set('evidenceFileTitle', 'Participant files')
+            ->set('evidenceUploadNotes', 'Outputs and presentation used during the day.')
+            ->set('evidenceFileUploads', [
+                UploadedFile::fake()->create('worksheet.pdf', 80, 'application/pdf'),
+                UploadedFile::fake()->create('presentation.pptx', 90, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'),
+            ])
+            ->call('uploadEvidenceFiles', $dayId)
             ->assertHasNoErrors();
+
+        $project->refresh();
+        $this->assertSame('Day 1 - Arrival and workshops', data_get($project->action_data, 'mobility.evidence_days.0.title'));
+        $this->assertSame('Facebook', data_get($project->action_data, 'mobility.evidence_days.0.links.0.label'));
+        $this->assertSame($linkId, data_get($project->action_data, 'mobility.evidence_days.0.links.0.id'));
 
         $documents = ProjectDocument::query()
             ->where('project_id', $project->id)
-            ->where('category', 'mobility_photo_video')
             ->orderBy('file_name')
             ->get();
 
-        $this->assertCount(2, $documents);
-        $this->assertEqualsCanonicalizing(['group-work.jpg', 'presentation.png'], $documents->pluck('file_name')->all());
-        $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'uploaded_from') === 'mobility_photo_batch'));
+        $this->assertCount(4, $documents);
+        $this->assertEqualsCanonicalizing(['group-work.jpg', 'presentation.png', 'presentation.pptx', 'worksheet.pdf'], $documents->pluck('file_name')->all());
+        $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'uploaded_from') === 'mobility_evidence_day'));
+        $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'evidence_day_id') === $dayId));
 
         $documents->each(fn (ProjectDocument $document) => Storage::disk('local')->assertExists($document->file_path));
     }
@@ -100,6 +142,7 @@ class ProjectMobilityTest extends TestCase
         $this->actingAs($user);
 
         $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->call('setMobilityTab', 'dissemination')
             ->assertSee('Dissemination reports by organisation')
             ->assertSee('Coordinator Association')
             ->assertSee('Partner Association')
