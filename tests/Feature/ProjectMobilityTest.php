@@ -37,8 +37,11 @@ class ProjectMobilityTest extends TestCase
             ->call('saveMobilityReport')
             ->call('setMobilityTab', 'evidences')
             ->assertSee('Evidence by day')
-            ->set('photoFolderUrl', 'https://drive.google.com/drive/folders/mobility-evidence')
-            ->call('savePhotoFolderUrl')
+            ->set('newPhotoFolderLabel', 'Drive')
+            ->set('newPhotoFolderUrl', 'https://drive.google.com/drive/folders/mobility-evidence')
+            ->call('addPhotoFolderLink')
+            ->set('finalMobilityVideoUrl', 'https://www.youtube.com/watch?v=mobility-final')
+            ->call('saveFinalMobilityVideo')
             ->call('setMobilityTab', 'materials')
             ->assertSee('Upload material or output')
             ->set('documentTitle', 'Activity worksheet')
@@ -53,6 +56,8 @@ class ProjectMobilityTest extends TestCase
         $project->refresh();
         $this->assertSame('The mobility delivered workshops, worksheets and participant outputs.', data_get($project->action_data, 'mobility.report'));
         $this->assertSame('https://drive.google.com/drive/folders/mobility-evidence', data_get($project->action_data, 'mobility.photo_folder_url'));
+        $this->assertSame('Drive', data_get($project->action_data, 'mobility.photo_folder_links.0.label'));
+        $this->assertSame('https://www.youtube.com/watch?v=mobility-final', data_get($project->action_data, 'mobility.final_video_url'));
 
         $document = ProjectDocument::query()
             ->where('project_id', $project->id)
@@ -214,6 +219,13 @@ class ProjectMobilityTest extends TestCase
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_key') === $organisation['key']));
 
         $documents->each(fn (ProjectDocument $document) => Storage::disk('local')->assertExists($document->file_path));
+
+        $imageDocument = $documents->firstWhere('file_name', 'partner-dissemination.jpg');
+        $this->assertTrue($imageDocument->isImageFile());
+
+        $this->get(route('project-documents.file', [$project, $imageDocument, 'preview' => 1]))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/jpeg');
 
         $summary = $component->instance()->getDisseminationSummary();
         $this->assertSame(2, $summary['organisations']);

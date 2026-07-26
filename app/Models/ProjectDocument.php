@@ -86,6 +86,17 @@ class ProjectDocument extends Model
         return number_format(max(0, $bytes) / 1024, 0).' KB';
     }
 
+    public function isImageFile(): bool
+    {
+        $name = strtolower((string) ($this->file_name ?: $this->file_path));
+
+        return str_ends_with($name, '.jpg')
+            || str_ends_with($name, '.jpeg')
+            || str_ends_with($name, '.png')
+            || str_ends_with($name, '.webp')
+            || str_ends_with($name, '.gif');
+    }
+
     public function statusLabel(): string
     {
         return $this->hasSignedCopy() ? 'Signed' : 'Awaiting signatures';

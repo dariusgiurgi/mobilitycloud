@@ -27,6 +27,14 @@ class ViewProjectMobility extends Page
 
     public string $photoFolderUrl = '';
 
+    public array $photoFolderLinks = [];
+
+    public string $newPhotoFolderLabel = '';
+
+    public string $newPhotoFolderUrl = '';
+
+    public string $finalMobilityVideoUrl = '';
+
     public string $photoEvidenceTitle = 'Mobility photo evidence';
 
     public ?string $photoEvidenceDate = null;
@@ -87,6 +95,8 @@ class ViewProjectMobility extends Page
         $this->authorizeProjectAccess();
         $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
         $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+        $this->photoFolderLinks = $this->storedPhotoFolderLinks();
+        $this->finalMobilityVideoUrl = (string) data_get($this->record->action_data ?? [], 'mobility.final_video_url', '');
         $this->documentDate = now()->toDateString();
         $this->photoEvidenceDate = now()->toDateString();
         $this->disseminationUploadDate = now()->toDateString();
@@ -144,7 +154,9 @@ class ViewProjectMobility extends Page
                 ->filter(fn (ProjectDocument $document): bool => filled(data_get($document->metadata, 'evidence_day_id')))
                 ->count(),
             'report_ready' => filled(trim($this->mobilityReport)),
-            'photo_folder_ready' => filled(trim($this->photoFolderUrl)),
+            'photo_folder_ready' => count($this->photoFolderLinks) > 0,
+            'photo_folder_links' => count($this->photoFolderLinks),
+            'final_video_ready' => filled(trim($this->finalMobilityVideoUrl)),
             'dissemination' => $this->getDisseminationSummary(),
         ];
     }
@@ -166,14 +178,86 @@ class ViewProjectMobility extends Page
 
         $data = $this->record->action_data ?? [];
         data_set($data, 'mobility.photo_folder_url', trim($this->photoFolderUrl));
+        data_set($data, 'mobility.photo_folder_links', filled(trim($this->photoFolderUrl)) ? [[
+            'id' => 'folder_legacy',
+            'label' => 'Photo folder',
+            'url' => trim($this->photoFolderUrl),
+        ]] : []);
         data_set($data, 'mobility.photo_folder_updated_at', now()->toIso8601String());
         data_set($data, 'mobility.photo_folder_updated_by', auth()->id());
 
         $this->record->update(['action_data' => $data]);
         $this->record = $this->record->fresh();
         $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+        $this->photoFolderLinks = $this->storedPhotoFolderLinks();
 
         Notification::make()->title('Photo folder link saved')->success()->send();
+    }
+
+    public function addPhotoFolderLink(): void
+    {
+        $this->authorizeManagementModuleMutation();
+        $this->validate([
+            'newPhotoFolderLabel' => ['nullable', 'string', 'max:80'],
+            'newPhotoFolderUrl' => ['required', 'url', 'max:2000'],
+        ]);
+
+        $this->photoFolderLinks[] = [
+            'id' => 'folder_'.Str::lower(Str::random(8)),
+            'label' => trim($this->newPhotoFolderLabel) ?: 'Photo folder',
+            'url' => trim($this->newPhotoFolderUrl),
+        ];
+
+        $this->newPhotoFolderLabel = '';
+        $this->newPhotoFolderUrl = '';
+        $this->savePhotoFolderLinksToRecord();
+
+        Notification::make()->title('External evidence link added')->success()->send();
+    }
+
+    public function removePhotoFolderLink(string $linkId): void
+    {
+        $this->authorizeManagementModuleMutation();
+
+        $this->photoFolderLinks = collect($this->photoFolderLinks)
+            ->reject(fn (array $link): bool => ($link['id'] ?? null) === $linkId)
+            ->values()
+            ->all();
+
+        $this->savePhotoFolderLinksToRecord();
+    }
+
+    public function savePhotoFolderLinks(): void
+    {
+        $this->authorizeManagementModuleMutation();
+        $this->validate([
+            'photoFolderLinks' => ['nullable', 'array', 'max:20'],
+            'photoFolderLinks.*.label' => ['nullable', 'string', 'max:80'],
+            'photoFolderLinks.*.url' => ['required', 'url', 'max:2000'],
+        ]);
+
+        $this->savePhotoFolderLinksToRecord();
+
+        Notification::make()->title('External evidence links saved')->success()->send();
+    }
+
+    public function saveFinalMobilityVideo(): void
+    {
+        $this->authorizeManagementModuleMutation();
+        $this->validate([
+            'finalMobilityVideoUrl' => ['nullable', 'url', 'max:2000'],
+        ]);
+
+        $data = $this->record->action_data ?? [];
+        data_set($data, 'mobility.final_video_url', trim($this->finalMobilityVideoUrl));
+        data_set($data, 'mobility.final_video_updated_at', now()->toIso8601String());
+        data_set($data, 'mobility.final_video_updated_by', auth()->id());
+
+        $this->record->update(['action_data' => $data]);
+        $this->record = $this->record->fresh();
+        $this->finalMobilityVideoUrl = (string) data_get($this->record->action_data ?? [], 'mobility.final_video_url', '');
+
+        Notification::make()->title('Final mobility video link saved')->success()->send();
     }
 
     public function uploadMobilityPhotos(): void
@@ -703,6 +787,53 @@ class ViewProjectMobility extends Page
         return collect(data_get($this->record->action_data ?? [], 'dissemination_reports', []))
             ->map(fn ($value): string => (string) $value)
             ->all();
+    }
+
+    private function storedPhotoFolderLinks(): array
+    {
+        $links = collect(data_get($this->record->action_data ?? [], 'mobility.photo_folder_links', []))
+            ->map(fn (array $link): array => [
+                'id' => (string) ($link['id'] ?? 'folder_'.Str::lower(Str::random(8))),
+                'label' => (string) ($link['label'] ?? 'Photo folder'),
+                'url' => (string) ($link['url'] ?? ''),
+            ])
+            ->filter(fn (array $link): bool => filled(trim($link['url'])))
+            ->values();
+
+        if ($links->isEmpty() && filled(trim($this->photoFolderUrl))) {
+            $links->push([
+                'id' => 'folder_legacy',
+                'label' => 'Photo folder',
+                'url' => trim($this->photoFolderUrl),
+            ]);
+        }
+
+        return $links->all();
+    }
+
+    private function savePhotoFolderLinksToRecord(): void
+    {
+        $this->photoFolderLinks = collect($this->photoFolderLinks)
+            ->take(20)
+            ->map(fn (array $link): array => [
+                'id' => (string) ($link['id'] ?? 'folder_'.Str::lower(Str::random(8))),
+                'label' => trim((string) ($link['label'] ?? '')) ?: 'Photo folder',
+                'url' => trim((string) ($link['url'] ?? '')),
+            ])
+            ->filter(fn (array $link): bool => filled($link['url']))
+            ->values()
+            ->all();
+
+        $data = $this->record->action_data ?? [];
+        data_set($data, 'mobility.photo_folder_links', $this->photoFolderLinks);
+        data_set($data, 'mobility.photo_folder_url', (string) data_get($this->photoFolderLinks, '0.url', ''));
+        data_set($data, 'mobility.photo_folder_updated_at', now()->toIso8601String());
+        data_set($data, 'mobility.photo_folder_updated_by', auth()->id());
+
+        $this->record->update(['action_data' => $data]);
+        $this->record = $this->record->fresh();
+        $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+        $this->photoFolderLinks = $this->storedPhotoFolderLinks();
     }
 
     private function disseminationOrganisationKey(array $partner, int $index): string

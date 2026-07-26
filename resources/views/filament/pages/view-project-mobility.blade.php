@@ -68,12 +68,6 @@
                 Mobility
             </x-filament::tabs.item>
         </x-filament::tabs>
-
-        @if($record->canBeManagedBy(auth()->user()) && $activeMobilityTab === 'evidences')
-            <x-filament::button wire:click="addEvidenceDay" icon="heroicon-m-plus">
-                Add day
-            </x-filament::button>
-        @endif
     </div>
 
     @if($activeMobilityTab === 'reports')
@@ -128,7 +122,11 @@
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:.75rem;">
                 @foreach($disseminationOrganisations as $organisation)
-                    @php $orgEvidence = $disseminationEvidence[$organisation['key']] ?? collect(); @endphp
+                    @php
+                        $orgEvidence = $disseminationEvidence[$organisation['key']] ?? collect();
+                        $orgImages = $orgEvidence->filter(fn ($evidence) => $evidence->isImageFile())->values();
+                        $orgFiles = $orgEvidence->reject(fn ($evidence) => $evidence->isImageFile())->values();
+                    @endphp
                     <div class="bg-white dark:bg-gray-900" style="border:1px solid rgba(148,163,184,.22);border-radius:.9rem;padding:.85rem;">
                         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;flex-wrap:wrap;">
                             <div>
@@ -170,13 +168,38 @@
                         @endif
 
                         @if($orgEvidence->isNotEmpty())
-                            <div style="display:grid;gap:.35rem;margin-top:.65rem;">
-                                @foreach($orgEvidence->take(5) as $evidence)
-                                    <div style="display:flex;align-items:center;gap:.5rem;justify-content:space-between;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;padding:.45rem .55rem;">
-                                        <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $evidence->file_name ?: $evidence->title }}</span>
-                                        <x-filament::button tag="a" :href="route('project-documents.file', [$record, $evidence])" color="gray" size="xs" icon="heroicon-m-arrow-down-tray">Download</x-filament::button>
+                            <div style="display:grid;gap:.65rem;margin-top:.75rem;">
+                                @if($orgImages->isNotEmpty())
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.5rem;">
+                                        @foreach($orgImages->take(6) as $evidence)
+                                            <div style="position:relative;border-radius:.7rem;overflow:hidden;border:1px solid rgba(148,163,184,.22);background:rgba(15,23,42,.04);aspect-ratio:4/3;">
+                                                <img src="{{ route('project-documents.file', [$record, $evidence, 'preview' => 1]) }}"
+                                                     alt="{{ $evidence->file_name ?: $evidence->title }}"
+                                                     loading="lazy"
+                                                     style="width:100%;height:100%;object-fit:cover;display:block;">
+                                                <a href="{{ route('project-documents.file', [$record, $evidence]) }}"
+                                                   title="Download {{ $evidence->file_name ?: $evidence->title }}"
+                                                   style="position:absolute;right:.32rem;top:.32rem;width:1.65rem;height:1.65rem;border-radius:.5rem;background:rgba(15,23,42,.72);color:white;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 8px 20px rgba(15,23,42,.22);">
+                                                    <x-filament::icon icon="heroicon-m-arrow-down-tray" class="h-4 w-4" />
+                                                </a>
+                                                <div style="position:absolute;left:0;right:0;bottom:0;padding:.4rem .45rem;background:linear-gradient(180deg,rgba(15,23,42,0),rgba(15,23,42,.72));color:white;font-size:.58rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                                    {{ $evidence->file_name ?: $evidence->title }}
+                                                </div>
+                                            </div>
+                                        @endforeach
                                     </div>
-                                @endforeach
+                                @endif
+
+                                @if($orgFiles->isNotEmpty())
+                                    <div style="display:grid;gap:.35rem;">
+                                        @foreach($orgFiles->take(5) as $evidence)
+                                            <div style="display:flex;align-items:center;gap:.5rem;justify-content:space-between;border:1px solid rgba(148,163,184,.18);border-radius:.55rem;padding:.45rem .55rem;">
+                                                <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $evidence->file_name ?: $evidence->title }}</span>
+                                                <x-filament::button tag="a" :href="route('project-documents.file', [$record, $evidence])" color="gray" size="xs" icon="heroicon-m-arrow-down-tray">Download</x-filament::button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </div>
                         @endif
                     </div>
@@ -288,6 +311,14 @@
         <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.45fr);gap:1rem;margin-top:1rem;align-items:start;">
             <div style="display:grid;gap:.85rem;">
                 <x-filament::section heading="Evidence by day" description="Create one card for each mobility day, then attach photos, links and participant/presentation files to that day." icon="heroicon-o-calendar-days">
+                    @if($record->canBeManagedBy(auth()->user()) && $evidenceDays !== [])
+                        <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem;">
+                            <x-filament::button wire:click="addEvidenceDay" icon="heroicon-m-plus">
+                                Add day
+                            </x-filament::button>
+                        </div>
+                    @endif
+
                     @if($evidenceDays === [])
                         <div class="mc-empty-state" style="padding:2rem;text-align:center;border:1px dashed rgba(148,163,184,.3);border-radius:.9rem;">
                             <x-filament::icon icon="heroicon-o-camera" class="mx-auto h-10 w-10 text-gray-400" />
@@ -458,26 +489,85 @@
                 </x-filament::section>
             </div>
 
-            <x-filament::section heading="External photo folder" description="Optional, useful when the photo set is too large for manual uploads." icon="heroicon-o-photo">
-                <div style="display:grid;gap:.75rem;">
-                    <div>
-                        <label class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.62rem;font-weight:750;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.25rem;">Shared folder link</label>
-                        <input type="url" wire:model="photoFolderUrl" placeholder="https://drive.google.com/..." aria-label="External photo folder link" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
-                        @error('photoFolderUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+            <x-filament::section heading="External links" description="Useful when the photo/video set is too large for direct uploads." icon="heroicon-o-photo">
+                <div style="display:grid;gap:.95rem;">
+                    <div style="display:grid;gap:.55rem;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;">
+                            <div>
+                                <h3 class="text-gray-950 dark:text-white" style="font-size:.82rem;font-weight:800;margin:0;">Photo folders</h3>
+                                <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin:.12rem 0 0;">Google Drive, iCloud, Dropbox or another shared folder.</p>
+                            </div>
+                            <x-filament::badge :color="$summary['photo_folder_ready'] ? 'success' : 'gray'">
+                                {{ $summary['photo_folder_links'] }} link{{ $summary['photo_folder_links'] === 1 ? '' : 's' }}
+                            </x-filament::badge>
+                        </div>
+
+                        @if($photoFolderLinks === [])
+                            <div style="border:1px dashed rgba(148,163,184,.28);border-radius:.75rem;padding:.75rem;text-align:center;">
+                                <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;margin:0;">No external photo folder added yet.</p>
+                            </div>
+                        @else
+                            <div style="display:grid;gap:.45rem;">
+                                @foreach($photoFolderLinks as $linkIndex => $link)
+                                    <div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto auto;gap:.4rem;align-items:center;">
+                                        @if($record->canBeManagedBy(auth()->user()))
+                                            <input type="text" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.label" aria-label="External folder label" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
+                                            <input type="url" wire:model.defer="photoFolderLinks.{{ $linkIndex }}.url" aria-label="External folder URL" style="width:100%;padding:.5rem .58rem;border:1px solid rgba(100,116,139,.25);border-radius:.58rem;background:transparent;font-size:.74rem;">
+                                            <x-filament::icon-button tag="a" :href="$link['url']" target="_blank" icon="heroicon-m-arrow-top-right-on-square" color="gray" label="Open link" />
+                                            <x-filament::icon-button wire:click="removePhotoFolderLink('{{ $link['id'] }}')" icon="heroicon-m-x-mark" color="gray" label="Remove link" />
+                                        @else
+                                            <span class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;font-weight:750;">{{ $link['label'] ?: 'Photo folder' }}</span>
+                                            <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ $link['url'] }}</span>
+                                            <x-filament::icon-button tag="a" :href="$link['url']" target="_blank" icon="heroicon-m-arrow-top-right-on-square" color="gray" label="Open link" />
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+
+                        @if($record->canBeManagedBy(auth()->user()))
+                            <div style="display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:.4rem;align-items:start;">
+                                <input type="text" wire:model="newPhotoFolderLabel" placeholder="Drive" aria-label="New folder label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                <div>
+                                    <input type="url" wire:model="newPhotoFolderUrl" placeholder="https://drive.google.com/..." aria-label="New folder URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                    @error('newPhotoFolderUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+                                </div>
+                                <x-filament::button wire:click="addPhotoFolderLink" color="gray" size="sm" icon="heroicon-m-plus">
+                                    Add
+                                </x-filament::button>
+                            </div>
+
+                            @if($photoFolderLinks !== [])
+                                <x-filament::button wire:click="savePhotoFolderLinks" color="gray" size="sm" icon="heroicon-m-check">
+                                    Save folder links
+                                </x-filament::button>
+                            @endif
+                        @endif
                     </div>
-                    @if($record->canBeManagedBy(auth()->user()))
-                        <x-filament::button wire:click="savePhotoFolderUrl" color="gray" icon="heroicon-m-link">
-                            Save folder link
-                        </x-filament::button>
-                    @endif
-                    <x-filament::badge :color="$summary['photo_folder_ready'] ? 'success' : 'gray'">
-                        {{ $summary['photo_folder_ready'] ? 'Folder link saved' : 'No folder link' }}
-                    </x-filament::badge>
-                    @if($summary['photo_folder_ready'])
-                        <x-filament::button tag="a" :href="$photoFolderUrl" target="_blank" color="gray" size="sm" icon="heroicon-m-arrow-top-right-on-square">
-                            Open folder
-                        </x-filament::button>
-                    @endif
+
+                    <div style="border-top:1px solid rgba(148,163,184,.2);padding-top:.85rem;display:grid;gap:.55rem;">
+                        <div>
+                            <h3 class="text-gray-950 dark:text-white" style="font-size:.82rem;font-weight:800;margin:0;">Final mobility video</h3>
+                            <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin:.12rem 0 0;">Usually YouTube, Vimeo or another public/unlisted video link.</p>
+                        </div>
+                        <input type="url" wire:model.defer="finalMobilityVideoUrl" placeholder="https://youtube.com/..." aria-label="Final mobility video URL" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.65rem;background:transparent;font-size:.76rem;">
+                        @error('finalMobilityVideoUrl') <span style="display:block;color:#dc2626;font-size:11px;margin-top:5px;">{{ $message }}</span> @enderror
+                        <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;">
+                            @if($record->canBeManagedBy(auth()->user()))
+                                <x-filament::button wire:click="saveFinalMobilityVideo" color="gray" size="sm" icon="heroicon-m-video-camera">
+                                    Save video link
+                                </x-filament::button>
+                            @endif
+                            <x-filament::badge :color="$summary['final_video_ready'] ? 'success' : 'gray'">
+                                {{ $summary['final_video_ready'] ? 'Video link saved' : 'No video link' }}
+                            </x-filament::badge>
+                            @if($summary['final_video_ready'])
+                                <x-filament::button tag="a" :href="$finalMobilityVideoUrl" target="_blank" color="gray" size="sm" icon="heroicon-m-arrow-top-right-on-square">
+                                    Open video
+                                </x-filament::button>
+                            @endif
+                        </div>
+                    </div>
                 </div>
             </x-filament::section>
         </div>
