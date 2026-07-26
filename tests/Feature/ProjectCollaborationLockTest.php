@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\Pages\WriteApplication;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Models\ProjectModuleLock;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -94,6 +95,53 @@ class ProjectCollaborationLockTest extends TestCase
             ->assertHasErrors(['project_lock']);
 
         $this->assertSame('Ana Popescu', $participant->fresh()->complete_name);
+    }
+
+    public function test_current_user_can_release_their_own_lock_without_releasing_other_users_locks(): void
+    {
+        [$project, $owner, $editor] = $this->projectWithEditor('writing');
+        $section = ProjectApplicationSection::create([
+            'project_id' => $project->id,
+            'question_key' => 'objectives',
+            'title' => 'Project objectives',
+            'content' => 'Original answer',
+            'char_limit' => 1000,
+            'category' => 'Context',
+            'sort_order' => 0,
+        ]);
+        $lockKey = 'section:'.$section->id;
+
+        $this->actingAs($owner);
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('startWritingSectionEditing', $section->id);
+
+        $this->assertDatabaseHas('project_module_locks', [
+            'project_id' => $project->id,
+            'user_id' => $owner->id,
+            'module' => 'write',
+            'lock_key' => $lockKey,
+        ]);
+
+        $this->actingAs($editor);
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('stopProjectEditing', 'write', $lockKey);
+
+        $this->assertDatabaseHas('project_module_locks', [
+            'project_id' => $project->id,
+            'user_id' => $owner->id,
+            'module' => 'write',
+            'lock_key' => $lockKey,
+        ]);
+
+        $this->actingAs($owner);
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('stopProjectEditing', 'write', $lockKey);
+
+        $this->assertFalse(ProjectModuleLock::query()
+            ->where('project_id', $project->id)
+            ->where('module', 'write')
+            ->where('lock_key', $lockKey)
+            ->exists());
     }
 
     private function projectWithEditor(string $status): array

@@ -114,6 +114,22 @@ trait AuthorizesProjectManagement
         $this->claimProjectEditingLock($module, $lockKey, $lockLabel);
     }
 
+    public function stopProjectEditing(string $module, string $lockKey): void
+    {
+        $user = auth()->user();
+
+        if (! $user || ! isset($this->record)) {
+            return;
+        }
+
+        ProjectModuleLock::query()
+            ->where('project_id', $this->record->getKey())
+            ->where('user_id', $user->id)
+            ->where('module', $module)
+            ->where('lock_key', $lockKey)
+            ->delete();
+    }
+
     public function canManageProjectModuleNow(string $module, ?string $lockKey = null): bool
     {
         return isset($this->record)

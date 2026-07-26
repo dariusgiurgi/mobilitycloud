@@ -337,7 +337,10 @@
                                 $dayBadge = $dayLock ? $this->projectLockBadge($dayLock) : null;
                                 $canManageDay = $canManage && ! $dayLockedByOther;
                             @endphp
-                            <div wire:key="evidence-day-{{ $day['id'] }}" class="bg-white dark:bg-gray-900" style="position:relative;border:{{ $dayBadge ? '2px' : '1px' }} solid {{ $dayBadge ? $dayBadge['color'] : 'rgba(148,163,184,.22)' }};border-radius:1rem;padding:.15rem .15rem .2rem;margin-top:{{ $dayBadge ? '.7rem' : '0' }};">
+                            <div wire:key="evidence-day-{{ $day['id'] }}"
+                                 @if($dayLock && (int) $dayLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('mobility', 'evidence-day:{{ $day['id'] }}')" @endif
+                                 class="bg-white dark:bg-gray-900"
+                                 style="position:relative;border:{{ $dayBadge ? '2px' : '1px' }} solid {{ $dayBadge ? $dayBadge['color'] : 'rgba(148,163,184,.22)' }};border-radius:1rem;padding:.15rem .15rem .2rem;margin-top:{{ $dayBadge ? '.7rem' : '0' }};">
                                 @if($dayBadge)
                                     <span style="position:absolute;top:-.7rem;right:.9rem;z-index:2;display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .58rem;border-radius:999px;background:{{ $dayBadge['color'] }};color:white;font-size:.62rem;font-weight:850;line-height:1;box-shadow:0 10px 24px {{ $dayBadge['color'] }}33;">
                                         {{ $dayBadge['name'] }} {{ $dayLockedByOther ? 'edits' : '(you)' }}
