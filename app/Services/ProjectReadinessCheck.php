@@ -107,6 +107,10 @@ class ProjectReadinessCheck
 
     protected function applicationItems(Project $project): array
     {
+        if ($project->isManagementStage()) {
+            return [];
+        }
+
         $sections = $project->applicationSections;
         $usesWritingTemplate = filled($project->ka_action) || $sections->isNotEmpty();
         $answered = $sections->filter(fn (ProjectApplicationSection $section): bool => filled(trim(strip_tags($section->content ?? ''))))->count();

@@ -7,6 +7,7 @@ use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\User;
+use App\Services\ProjectReadinessCheck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -175,6 +176,36 @@ class ProjectOverviewTest extends TestCase
             ->assertDontSee('Fiscal invoice pending')
             ->assertDontSee('Access paused until payment is confirmed')
             ->assertSee('Project stage');
+    }
+
+    public function test_approved_project_overview_no_longer_scores_writing_answers(): void
+    {
+        [$project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'status' => 'approved',
+            'approved_grant_amount' => 43000,
+            'approved_budget' => 43000,
+            'approved_declared_at' => now(),
+        ]);
+
+        ProjectApplicationSection::create([
+            'project_id' => $project->id,
+            'title' => 'Objectives',
+            'content' => '',
+            'sort_order' => 1,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertSee('Approved application')
+            ->assertSee('implementation readiness')
+            ->assertDontSee('Application answers')
+            ->assertDontSee('sections contain text');
+
+        $readiness = app(ProjectReadinessCheck::class)->build($project->fresh());
+
+        $this->assertFalse(collect($readiness['items'])->contains('label', 'Application answers'));
     }
 
     public function test_readiness_transition_warning_can_be_cancelled(): void

@@ -42,7 +42,7 @@
     @endphp
 
     <style>
-        .mc-focus-grid { display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:1rem;margin-top:1rem;align-items:stretch; }
+        .mc-focus-grid { display:grid;grid-template-columns:minmax(0,.92fr) minmax(0,1.08fr);gap:1rem;margin-top:1rem;align-items:start; }
         .mc-focus-card { padding:1rem;border:1px solid rgba(148,163,184,.22);border-radius:.95rem;background:#fff;box-shadow:0 10px 30px rgba(15,23,42,.045); }
         .mc-focus-card.is-primary { background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(14,165,233,.04));border-color:rgba(99,102,241,.2); }
         .mc-focus-head { display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap; }
@@ -181,19 +181,12 @@
                 @endif
             </div>
 
-            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem;margin-top:1rem;">
-                <div class="mc-readiness-group">
-                    <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Stage</p>
-                    <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;margin-top:.2rem;">{{ $status->getLabel() }}</p>
-                </div>
-                <div class="mc-readiness-group">
-                    <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Application</p>
-                    <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;margin-top:.2rem;">{{ $application['progress'] }}%</p>
-                </div>
-                <div class="mc-readiness-group">
-                    <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Grant</p>
-                    <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;margin-top:.2rem;">{{ $this->record->approvedGrantAmount() > 0 ? $eur($this->record->approvedGrantAmount()) : $eur($requested) }}</p>
-                </div>
+            <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;margin-top:.9rem;">
+                <x-filament::badge :color="$status->getColor()">{{ $status->getLabel() }}</x-filament::badge>
+                <x-filament::badge color="gray">{{ $this->record->approvedGrantAmount() > 0 ? 'Approved grant '.$eur($this->record->approvedGrantAmount()) : 'Requested grant '.$eur($requested) }}</x-filament::badge>
+                @if($implementationAvailable)
+                    <x-filament::badge color="success">Management modules available</x-filament::badge>
+                @endif
             </div>
         </section>
 
@@ -287,7 +280,9 @@
                 <p style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">Project readiness check</p>
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1.03rem;font-weight:750;margin-top:.18rem;">{{ $readiness['status'] }}</h2>
                 <p class="mc-overview-muted" style="font-size:.76rem;line-height:1.5;margin-top:.28rem;">
-                    Checks application, dates, grant/budget, participants, documents, signed records and open tasks. It adapts to the current project stage.
+                    {{ $isManagementStage
+                        ? 'Checks implementation readiness: dates, grant allocation, participants, documents, signed records and open tasks.'
+                        : 'Checks writing readiness: application, dates, grant estimate and open tasks before submission.' }}
                 </p>
                 <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.55rem;">
                     <x-filament::badge color="success">{{ $readiness['complete'] }} complete</x-filament::badge>
@@ -355,14 +350,20 @@
                 <span style="width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:.55rem;background:rgba(99,102,241,.1);color:#6366f1;">
                     <x-filament::icon icon="heroicon-o-document-text" style="width:1.05rem;height:1.05rem;" />
                 </span>
-                <span class="mc-overview-muted" style="font-size:.68rem;">{{ $application['completed'] }}/{{ $application['total'] }} sections</span>
+                <span class="mc-overview-muted" style="font-size:.68rem;">{{ $isManagementStage ? 'Read-only' : $application['completed'].'/'.$application['total'].' sections' }}</span>
             </div>
-            <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Application</h3>
-            <p class="mc-overview-muted" style="font-size:.73rem;line-height:1.45;margin-top:.2rem;">{{ $application['total'] > 0 ? $application['progress'].'% of sections contain text' : 'No application template loaded' }}</p>
-            <div style="height:6px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden;margin-top:auto;">
-                <div style="height:100%;width:{{ $application['progress'] }}%;border-radius:9999px;background:#6366f1;"></div>
-            </div>
-            <span style="font-size:.72rem;font-weight:600;color:#6366f1;margin-top:.55rem;">Open application →</span>
+            <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">{{ $isManagementStage ? 'Approved application' : 'Application' }}</h3>
+            <p class="mc-overview-muted" style="font-size:.73rem;line-height:1.45;margin-top:.2rem;">
+                {{ $isManagementStage
+                    ? 'Kept as an archive. Implementation work continues in Budget, Participants and Documents.'
+                    : ($application['total'] > 0 ? $application['progress'].'% of sections contain text' : 'No application template loaded') }}
+            </p>
+            @if(! $isManagementStage)
+                <div style="height:6px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden;margin-top:auto;">
+                    <div style="height:100%;width:{{ $application['progress'] }}%;border-radius:9999px;background:#6366f1;"></div>
+                </div>
+            @endif
+            <span style="font-size:.72rem;font-weight:600;color:#6366f1;margin-top:auto;padding-top:.7rem;">{{ $isManagementStage ? 'View archive →' : 'Open application →' }}</span>
         </a>
 
         <a href="{{ $urls['budget'] }}" class="mc-overview-card">
