@@ -69,6 +69,8 @@ class ViewProjectMobility extends Page
 
     public array $evidenceDays = [];
 
+    public array $openEvidenceDays = [];
+
     public ?string $evidenceUploadDayId = null;
 
     public array $evidenceImageUploads = [];
@@ -108,6 +110,22 @@ class ViewProjectMobility extends Page
     public function getTitle(): string
     {
         return $this->record->name.' - Mobility';
+    }
+
+    public function toggleEvidenceDay(string $dayId): void
+    {
+        if (! isset($this->evidenceDays[$dayId])) {
+            return;
+        }
+
+        $this->openEvidenceDays[$dayId] = ! (bool) ($this->openEvidenceDays[$dayId] ?? false);
+    }
+
+    public function openEvidenceDay(string $dayId): void
+    {
+        if (isset($this->evidenceDays[$dayId])) {
+            $this->openEvidenceDays[$dayId] = true;
+        }
     }
 
     public function getMobilityCategories(): array
@@ -454,6 +472,7 @@ class ViewProjectMobility extends Page
 
         $this->authorizeManagementModuleMutation('mobility', $this->evidenceDayLockKey($dayId), $this->evidenceDayLockLabel($dayId));
         $this->normaliseEvidenceDay($dayId);
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
         $this->saveEvidenceDaysToRecord(refresh: false);
     }
@@ -474,6 +493,7 @@ class ViewProjectMobility extends Page
 
         $this->saveEvidenceDaysToRecord();
         $this->activeMobilityTab = 'evidences';
+        $this->openEvidenceDay($id);
 
         Notification::make()->title('Evidence day added')->success()->send();
     }
@@ -494,6 +514,7 @@ class ViewProjectMobility extends Page
         ]);
 
         $this->saveEvidenceDaysToRecord();
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
 
         Notification::make()->title('Evidence day saved')->success()->send();
@@ -505,6 +526,7 @@ class ViewProjectMobility extends Page
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
         unset($this->evidenceDays[$dayId]);
+        unset($this->openEvidenceDays[$dayId]);
         $this->saveEvidenceDaysToRecord();
 
         Notification::make()->title('Evidence day removed')->success()->send();
@@ -522,6 +544,7 @@ class ViewProjectMobility extends Page
         ];
 
         $this->saveEvidenceDaysToRecord(refresh: false);
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
     }
 
@@ -536,6 +559,7 @@ class ViewProjectMobility extends Page
             ->all();
 
         $this->saveEvidenceDaysToRecord();
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
     }
 
@@ -576,6 +600,7 @@ class ViewProjectMobility extends Page
         $this->evidenceImageUploads = [];
         $this->evidenceImageTitle = '';
         $this->evidenceUploadNotes = '';
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
 
         Notification::make()->title($count.' evidence image'.($count === 1 ? '' : 's').' uploaded')->success()->send();
@@ -606,6 +631,7 @@ class ViewProjectMobility extends Page
         $this->evidenceFileUploads = [];
         $this->evidenceFileTitle = '';
         $this->evidenceUploadNotes = '';
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_open';
 
         Notification::make()->title($count.' evidence file'.($count === 1 ? '' : 's').' uploaded')->success()->send();
@@ -935,6 +961,7 @@ class ViewProjectMobility extends Page
         $this->authorizeManagementModuleMutation('mobility', $this->evidenceDayLockKey($dayId), $this->evidenceDayLockLabel($dayId));
         abort_unless(isset($this->evidenceDays[$dayId]), 404);
 
+        $this->openEvidenceDay($dayId);
         $this->evidenceUploadDayId = $dayId.'_'.$kind;
         $this->evidenceImageUploads = [];
         $this->evidenceFileUploads = [];

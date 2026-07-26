@@ -331,31 +331,35 @@
                                 $dayImages = $dayDocuments['images'] ?? collect();
                                 $dayFiles = $dayDocuments['files'] ?? collect();
                                 $dayLinks = $storedEvidenceDays[$day['id']]['links'] ?? [];
-                                $isDayOpen = str_starts_with((string) $evidenceUploadDayId, $day['id'].'_');
+                                $isDayOpen = (bool) ($openEvidenceDays[$day['id']] ?? false) || str_starts_with((string) $evidenceUploadDayId, $day['id'].'_');
                                 $dayLock = $mobilityLocks->get('evidence-day:'.$day['id']);
                                 $dayLockedByOther = $dayLock && (int) $dayLock->user_id !== (int) auth()->id();
                                 $dayBadge = $dayLock ? $this->projectLockBadge($dayLock) : null;
                                 $canManageDay = $canManage && ! $dayLockedByOther;
                             @endphp
-                            <details class="bg-white dark:bg-gray-900" style="border:1px solid {{ $dayBadge ? $dayBadge['border'] : 'rgba(148,163,184,.22)' }};border-radius:1rem;padding:.15rem .15rem .2rem;background:{{ $dayBadge ? $dayBadge['background'] : '' }};" @if($isDayOpen) open @endif>
-                                <summary style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;cursor:pointer;list-style:none;padding:.85rem .9rem;">
+                            <div wire:key="evidence-day-{{ $day['id'] }}" class="bg-white dark:bg-gray-900" style="position:relative;border:{{ $dayBadge ? '2px' : '1px' }} solid {{ $dayBadge ? $dayBadge['color'] : 'rgba(148,163,184,.22)' }};border-radius:1rem;padding:.15rem .15rem .2rem;margin-top:{{ $dayBadge ? '.7rem' : '0' }};">
+                                @if($dayBadge)
+                                    <span style="position:absolute;top:-.7rem;right:.9rem;z-index:2;display:inline-flex;align-items:center;gap:.35rem;padding:.22rem .58rem;border-radius:999px;background:{{ $dayBadge['color'] }};color:white;font-size:.62rem;font-weight:850;line-height:1;box-shadow:0 10px 24px {{ $dayBadge['color'] }}33;">
+                                        {{ $dayBadge['name'] }} {{ $dayLockedByOther ? 'edits' : '(you)' }}
+                                    </span>
+                                @endif
+
+                                <button type="button" wire:click="toggleEvidenceDay('{{ $day['id'] }}')" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;cursor:pointer;padding:.85rem .9rem;text-align:left;background:transparent;border:0;">
                                     <div style="display:flex;align-items:center;gap:.65rem;min-width:220px;">
-                                        <span style="width:2rem;height:2rem;border-radius:.7rem;background:rgba(37,99,235,.1);display:inline-flex;align-items:center;justify-content:center;color:#2563eb;">▾</span>
+                                        <span style="width:2rem;height:2rem;border-radius:.7rem;background:rgba(37,99,235,.1);display:inline-flex;align-items:center;justify-content:center;color:#2563eb;">{{ $isDayOpen ? '▴' : '▾' }}</span>
                                         <div>
                                             <h3 class="text-gray-950 dark:text-white" style="font-size:.92rem;font-weight:850;margin:0;">{{ $day['title'] ?: 'Untitled day' }}</h3>
                                             <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin:.1rem 0 0;">{{ $day['date'] ?: 'Date not set' }}</p>
                                         </div>
                                     </div>
                                     <div style="display:flex;gap:.35rem;flex-wrap:wrap;">
-                                        @if($dayBadge)
-                                            <x-filament::badge color="gray">{{ $dayLockedByOther ? $dayBadge['name'].' edits' : 'You edit' }}</x-filament::badge>
-                                        @endif
                                         <x-filament::badge color="gray">{{ $dayImages->count() }} images</x-filament::badge>
                                         <x-filament::badge color="gray">{{ $dayFiles->count() }} files</x-filament::badge>
                                         <x-filament::badge color="gray">{{ count($dayLinks) }} links</x-filament::badge>
                                     </div>
-                                </summary>
+                                </button>
 
+                                @if($isDayOpen)
                                 <div style="padding:0 .9rem .9rem;">
 
                                 @if($canManageDay)
@@ -460,7 +464,8 @@
                                     </div>
                                 @endif
                                 </div>
-                            </details>
+                                @endif
+                            </div>
                         @endforeach
                     </div>
                 </x-filament::section>
