@@ -152,7 +152,7 @@
 
         <div class="fi-section mc-lock-frame rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
              @if($basketLock && (int) $basketLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('board', 'basket:{{ $line->id }}')" @endif
-             style="{{ $this->projectLockFrameStyle($basketLock, 'rgba(148,163,184,.22)', 'border-left:4px solid '.($basketBadge ? $basketBadge['color'] : $color).';margin-bottom:1rem;overflow:hidden;') }}">
+             style="{{ $this->projectLockFrameStyle($basketLock, 'rgba(148,163,184,.22)', 'border-left:4px solid '.($basketBadge ? $basketBadge['color'] : $color).';margin-bottom:1rem;') }}">
             @if($basketBadge)
                 @include('filament.pages.partials.project-lock-badge', [
                     'badge' => $basketBadge,
