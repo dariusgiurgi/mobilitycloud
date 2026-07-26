@@ -86,7 +86,7 @@ class ProjectMobilityTest extends TestCase
             ->set('evidenceDays.'.$dayId.'.observations', 'The programme started 30 minutes later because of airport transfers.')
             ->call('addEvidenceLink', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_open')
-            ->assertSee('Save day')
+            ->assertSee('Changes save automatically.')
             ->assertSee('Facebook');
 
         $linkId = $component->instance()->evidenceDays[$dayId]['links'][0]['id'];
@@ -94,7 +94,6 @@ class ProjectMobilityTest extends TestCase
         $component
             ->set('evidenceDays.'.$dayId.'.links.0.label', 'Facebook')
             ->set('evidenceDays.'.$dayId.'.links.0.url', 'https://facebook.com/example-post')
-            ->call('saveEvidenceDay', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_open')
             ->call('prepareEvidenceImageUpload', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_images')
@@ -105,7 +104,7 @@ class ProjectMobilityTest extends TestCase
                 UploadedFile::fake()->image('presentation.png'),
             ])
             ->call('uploadEvidenceImages', $dayId)
-            ->assertSet('evidenceUploadDayId', null)
+            ->assertSet('evidenceUploadDayId', $dayId.'_open')
             ->call('prepareEvidenceFileUpload', $dayId)
             ->assertSet('evidenceUploadDayId', $dayId.'_files')
             ->set('evidenceFileTitle', 'Participant files')
@@ -115,6 +114,7 @@ class ProjectMobilityTest extends TestCase
                 UploadedFile::fake()->create('presentation.pptx', 90, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'),
             ])
             ->call('uploadEvidenceFiles', $dayId)
+            ->assertSet('evidenceUploadDayId', $dayId.'_open')
             ->assertHasNoErrors();
 
         $project->refresh();
@@ -133,6 +133,12 @@ class ProjectMobilityTest extends TestCase
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'evidence_day_id') === $dayId));
 
         $documents->each(fn (ProjectDocument $document) => Storage::disk('local')->assertExists($document->file_path));
+
+        $imageDocument = $documents->firstWhere('file_name', 'group-work.jpg');
+
+        $this->get(route('project-documents.file', [$project, $imageDocument, 'preview' => 1]))
+            ->assertOk()
+            ->assertHeader('content-type', 'image/jpeg');
     }
 
     public function test_removing_an_evidence_link_keeps_the_day_open(): void

@@ -359,6 +359,20 @@ class ViewProjectMobility extends Page
             ->all();
     }
 
+    public function updatedEvidenceDays(mixed $value, string $key): void
+    {
+        $dayId = Str::before($key, '.');
+
+        if (! isset($this->evidenceDays[$dayId])) {
+            return;
+        }
+
+        $this->authorizeManagementModuleMutation();
+        $this->normaliseEvidenceDay($dayId);
+        $this->evidenceUploadDayId = $dayId.'_open';
+        $this->saveEvidenceDaysToRecord(refresh: false);
+    }
+
     public function addEvidenceDay(): void
     {
         $this->authorizeManagementModuleMutation();
@@ -477,7 +491,7 @@ class ViewProjectMobility extends Page
         $this->evidenceImageUploads = [];
         $this->evidenceImageTitle = '';
         $this->evidenceUploadNotes = '';
-        $this->evidenceUploadDayId = null;
+        $this->evidenceUploadDayId = $dayId.'_open';
 
         Notification::make()->title($count.' evidence image'.($count === 1 ? '' : 's').' uploaded')->success()->send();
     }
@@ -507,7 +521,7 @@ class ViewProjectMobility extends Page
         $this->evidenceFileUploads = [];
         $this->evidenceFileTitle = '';
         $this->evidenceUploadNotes = '';
-        $this->evidenceUploadDayId = null;
+        $this->evidenceUploadDayId = $dayId.'_open';
 
         Notification::make()->title($count.' evidence file'.($count === 1 ? '' : 's').' uploaded')->success()->send();
     }
@@ -740,6 +754,24 @@ class ViewProjectMobility extends Page
             $this->record = $this->record->fresh();
             $this->evidenceDays = $this->storedEvidenceDays();
         }
+    }
+
+    private function normaliseEvidenceDay(string $dayId): void
+    {
+        $this->evidenceDays[$dayId]['id'] = $dayId;
+        $this->evidenceDays[$dayId]['title'] = (string) ($this->evidenceDays[$dayId]['title'] ?? '');
+        $this->evidenceDays[$dayId]['date'] = (string) ($this->evidenceDays[$dayId]['date'] ?? '');
+        $this->evidenceDays[$dayId]['description'] = (string) ($this->evidenceDays[$dayId]['description'] ?? '');
+        $this->evidenceDays[$dayId]['observations'] = (string) ($this->evidenceDays[$dayId]['observations'] ?? '');
+        $this->evidenceDays[$dayId]['links'] = collect($this->evidenceDays[$dayId]['links'] ?? [])
+            ->take(20)
+            ->map(fn (array $link): array => [
+                'id' => (string) ($link['id'] ?? 'link_'.Str::lower(Str::random(8))),
+                'label' => (string) ($link['label'] ?? ''),
+                'url' => (string) ($link['url'] ?? ''),
+            ])
+            ->values()
+            ->all();
     }
 
     private function prepareEvidenceUpload(string $dayId, string $kind): void

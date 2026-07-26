@@ -66,9 +66,20 @@ class ProjectDocumentController extends Controller
         $this->authorizeDocument($project, $document);
         abort_unless($document->type === ProjectDocument::TYPE_UPLOAD && $document->hasFile(), 404);
 
-        return Storage::disk($document->file_disk ?: 'local')->download(
+        $storage = Storage::disk($document->file_disk ?: 'local');
+        $filename = $document->file_name ?: basename($document->file_path);
+        $mimeType = $storage->mimeType($document->file_path) ?: 'application/octet-stream';
+
+        if (request()->boolean('preview') && Str::startsWith($mimeType, 'image/')) {
+            return $storage->response($document->file_path, $filename, [
+                'Content-Disposition' => 'inline; filename="'.$filename.'"',
+                'Content-Type' => $mimeType,
+            ]);
+        }
+
+        return $storage->download(
             $document->file_path,
-            $document->file_name ?: basename($document->file_path)
+            $filename
         );
     }
 
