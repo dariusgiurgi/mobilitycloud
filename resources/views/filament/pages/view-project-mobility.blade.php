@@ -328,13 +328,13 @@
                                 @if($record->canBeManagedBy(auth()->user()))
                                     <div style="display:grid;gap:.65rem;margin-top:.85rem;">
                                         <div style="display:grid;grid-template-columns:minmax(0,1.3fr) 160px;gap:.55rem;">
-                                            <input type="text" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.title" aria-label="Evidence day title" placeholder="Day title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
-                                            <input type="date" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.date" aria-label="Evidence day date" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                                            <input type="text" wire:model.defer="evidenceDays.{{ $day['id'] }}.title" aria-label="Evidence day title" placeholder="Day title" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
+                                            <input type="date" wire:model.defer="evidenceDays.{{ $day['id'] }}.date" aria-label="Evidence day date" style="width:100%;padding:.62rem .72rem;border:1px solid rgba(100,116,139,.28);border-radius:.65rem;background:transparent;">
                                         </div>
                                         @error('evidenceDays.'.$day['id'].'.title') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
 
-                                        <textarea rows="3" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.description" placeholder="Describe the day: programme, activities, participants, outputs and important moments." aria-label="Evidence day description" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
-                                        <textarea rows="2" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.observations" placeholder="Observations, incidents, quality notes, changes from the plan or useful context for final reporting." aria-label="Evidence day observations" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
+                                        <textarea rows="3" wire:model.defer="evidenceDays.{{ $day['id'] }}.description" placeholder="Describe the day: programme, activities, participants, outputs and important moments." aria-label="Evidence day description" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
+                                        <textarea rows="2" wire:model.defer="evidenceDays.{{ $day['id'] }}.observations" placeholder="Observations, incidents, quality notes, changes from the plan or useful context for final reporting." aria-label="Evidence day observations" style="width:100%;padding:.65rem .75rem;border:1px solid rgba(100,116,139,.25);border-radius:.7rem;background:transparent;font-size:.78rem;resize:vertical;"></textarea>
 
                                         <div style="border:1px solid rgba(148,163,184,.18);border-radius:.75rem;padding:.7rem;display:grid;gap:.45rem;">
                                             <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;">
@@ -343,15 +343,17 @@
                                             </div>
                                             @foreach($dayLinks as $linkIndex => $link)
                                                 <div style="display:grid;grid-template-columns:130px minmax(0,1fr) auto;gap:.45rem;align-items:center;">
-                                                    <input type="text" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.label" placeholder="Facebook" aria-label="Link label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
-                                                    <input type="url" wire:model.live.debounce.900ms="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.url" placeholder="https://..." aria-label="Link URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                                    <input type="text" wire:model.defer="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.label" placeholder="Facebook" aria-label="Link label" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
+                                                    <input type="url" wire:model.defer="evidenceDays.{{ $day['id'] }}.links.{{ $linkIndex }}.url" placeholder="https://..." aria-label="Link URL" style="width:100%;padding:.52rem .62rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;font-size:.76rem;">
                                                     <x-filament::icon-button wire:click="removeEvidenceLink('{{ $day['id'] }}', '{{ $link['id'] }}')" icon="heroicon-m-x-mark" color="gray" label="Remove link" />
                                                 </div>
                                             @endforeach
                                         </div>
 
                                         <div style="display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;">
-                                            <x-filament::badge color="success">Autosaved</x-filament::badge>
+                                            <x-filament::button wire:click="saveEvidenceDay('{{ $day['id'] }}')" size="sm" icon="heroicon-m-check">
+                                                Save day
+                                            </x-filament::button>
                                             <x-filament::button wire:click="prepareEvidenceImageUpload('{{ $day['id'] }}')" color="gray" size="sm" icon="heroicon-m-camera">
                                                 Images
                                             </x-filament::button>

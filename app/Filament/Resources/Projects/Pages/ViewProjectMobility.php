@@ -379,15 +379,6 @@ class ViewProjectMobility extends Page
         Notification::make()->title('Evidence day added')->success()->send();
     }
 
-    public function updatedEvidenceDays(): void
-    {
-        if (! $this->record->canBeManagedBy(auth()->user())) {
-            return;
-        }
-
-        $this->saveEvidenceDaysToRecord(refresh: false);
-    }
-
     public function saveEvidenceDay(string $dayId): void
     {
         $this->authorizeManagementModuleMutation();
