@@ -101,6 +101,10 @@ trait AuthorizesProjectManagement
     public function refreshProjectCollaboration(string $module): void
     {
         $this->touchProjectCollaboration($module);
+
+        if (method_exists($this, 'syncProjectCollaborationState')) {
+            $this->syncProjectCollaborationState($module);
+        }
     }
 
     public function startProjectEditing(string $module, string $lockKey, ?string $lockLabel = null): void
@@ -215,6 +219,10 @@ trait AuthorizesProjectManagement
 
         $lock = $this->projectEditingLockConflict($module, $lockKey);
         $name = $lock?->user?->name ?: 'Another user';
+
+        if (method_exists($this, 'syncProjectCollaborationState')) {
+            $this->syncProjectCollaborationState($module);
+        }
 
         Notification::make()
             ->title(($lock?->lock_label ?: $this->projectModuleLabel($module)).' is being edited')

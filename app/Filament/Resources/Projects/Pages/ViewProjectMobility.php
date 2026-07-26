@@ -833,6 +833,61 @@ class ViewProjectMobility extends Page
         return 'Dissemination: '.($organisation['name'] ?? 'Organisation');
     }
 
+    protected function syncProjectCollaborationState(string $module): void
+    {
+        if ($module !== 'mobility' || ! isset($this->record)) {
+            return;
+        }
+
+        $ownLocks = $this->projectLocksForModule('mobility')
+            ->filter(fn ($lock): bool => (int) $lock->user_id === (int) auth()->id())
+            ->keys()
+            ->flip();
+
+        $this->record = $this->record->fresh();
+
+        if (! $ownLocks->has('mobility-report')) {
+            $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
+        }
+
+        if (! $ownLocks->has('external-photo-folders')) {
+            $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+            $this->photoFolderLinks = $this->storedPhotoFolderLinks();
+        }
+
+        if (! $ownLocks->has('final-video')) {
+            $this->finalMobilityVideoUrl = (string) data_get($this->record->action_data ?? [], 'mobility.final_video_url', '');
+        }
+
+        $freshDisseminationReports = $this->storedDisseminationReports();
+        foreach ($freshDisseminationReports as $organisationKey => $report) {
+            if (! $ownLocks->has($this->disseminationLockKey((string) $organisationKey))) {
+                $this->disseminationReports[$organisationKey] = $report;
+            }
+        }
+
+        foreach (array_keys($this->disseminationReports) as $organisationKey) {
+            if (! array_key_exists($organisationKey, $freshDisseminationReports)
+                && ! $ownLocks->has($this->disseminationLockKey((string) $organisationKey))) {
+                unset($this->disseminationReports[$organisationKey]);
+            }
+        }
+
+        $freshEvidenceDays = $this->storedEvidenceDays();
+        foreach ($freshEvidenceDays as $dayId => $day) {
+            if (! $ownLocks->has($this->evidenceDayLockKey((string) $dayId))) {
+                $this->evidenceDays[$dayId] = $day;
+            }
+        }
+
+        foreach (array_keys($this->evidenceDays) as $dayId) {
+            if (! array_key_exists($dayId, $freshEvidenceDays)
+                && ! $ownLocks->has($this->evidenceDayLockKey((string) $dayId))) {
+                unset($this->evidenceDays[$dayId], $this->openEvidenceDays[$dayId]);
+            }
+        }
+    }
+
     private function storedDisseminationReports(): array
     {
         return collect(data_get($this->record->action_data ?? [], 'dissemination_reports', []))

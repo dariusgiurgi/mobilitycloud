@@ -311,6 +311,40 @@ class ProjectMobilityTest extends TestCase
         $this->assertStringContainsString('/mobility', ProjectResource::getUrl('mobility', ['record' => $project]));
     }
 
+    public function test_evidence_day_text_syncs_to_other_users_on_collaboration_refresh(): void
+    {
+        [$project, $editorA] = $this->projectAndUser();
+        $editorB = User::factory()->create();
+        $project->members()->attach($editorB, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $project->update([
+            'action_data' => [
+                'mobility' => [
+                    'evidence_days' => [[
+                        'id' => 'day_1',
+                        'title' => 'Day 1',
+                        'date' => '2026-07-03',
+                        'description' => 'Original description',
+                        'observations' => '',
+                        'links' => [],
+                    ]],
+                ],
+            ],
+        ]);
+
+        $this->actingAs($editorB);
+        $editorBComponent = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertSet('evidenceDays.day_1.description', 'Original description');
+
+        $this->actingAs($editorA);
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->set('evidenceDays.day_1.description', 'Updated from editor A');
+
+        $this->actingAs($editorB);
+        $editorBComponent
+            ->call('refreshProjectCollaboration', 'mobility')
+            ->assertSet('evidenceDays.day_1.description', 'Updated from editor A');
+    }
+
     private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
     {
         $project = Project::create([
