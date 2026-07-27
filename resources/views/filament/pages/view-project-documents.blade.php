@@ -321,7 +321,7 @@
             @endif
         </div>
     @else
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:.8rem;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr));gap:.8rem;">
             @foreach($documents as $document)
                 @include('filament.pages.partials.project-file-card', [
                     'record' => $record,

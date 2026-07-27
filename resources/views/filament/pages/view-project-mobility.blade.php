@@ -204,7 +204,7 @@
                         @endif
 
                         @if($orgEvidence->isNotEmpty())
-                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.6rem;margin-top:.75rem;">
+                            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(170px,100%),1fr));gap:.6rem;margin-top:.75rem;">
                                 @foreach($orgEvidence->take(12) as $evidence)
                                     @include('filament.pages.partials.project-file-card', [
                                         'record' => $record,
@@ -243,7 +243,7 @@
                 </div>
 
                 @if($materialDocuments->isNotEmpty())
-                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:.75rem;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:.75rem;">
                         @foreach($materialDocuments as $document)
                             @include('filament.pages.partials.project-file-card', [
                                 'record' => $record,
@@ -476,7 +476,7 @@
                                 @if($dayImages->isNotEmpty() || $dayFiles->isNotEmpty())
                                     <div style="margin-top:.85rem;">
                                         <strong style="font-size:.75rem;">Files and images</strong>
-                                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:.6rem;margin-top:.5rem;">
+                                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(170px,100%),1fr));gap:.6rem;margin-top:.5rem;">
                                             @foreach($dayImages->merge($dayFiles)->take(16) as $file)
                                                 @include('filament.pages.partials.project-file-card', [
                                                     'record' => $record,
