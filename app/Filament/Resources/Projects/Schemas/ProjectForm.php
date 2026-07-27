@@ -27,16 +27,20 @@ class ProjectForm
                         TextInput::make('name')
                             ->label('Project name')
                             ->required()
+                            ->live(onBlur: true)
                             ->maxLength(255)
                             ->columnSpanFull(),
                         TextInput::make('acronym')
+                            ->live(onBlur: true)
                             ->maxLength(255),
                         TextInput::make('grant_ref')
                             ->label('Grant reference')
+                            ->live(onBlur: true)
                             ->maxLength(255)
                             ->placeholder('Assigned after approval'),
                         Textarea::make('description')
                             ->rows(3)
+                            ->live(onBlur: true)
                             ->placeholder('Short internal description of the project')
                             ->columnSpanFull(),
                     ]),
@@ -67,6 +71,7 @@ class ProjectForm
                             ->label('Application template')
                             ->options(ApplicationTemplates::list())
                             ->placeholder('No application template')
+                            ->live()
                             ->formatStateUsing(fn (?string $state): ?string => filled($state) ? ApplicationTemplates::normaliseKey($state) : null)
                             ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? ApplicationTemplates::normaliseKey($state) : null)
                             ->searchable()
@@ -80,15 +85,19 @@ class ProjectForm
                     ->columns(2)
                     ->schema([
                         DatePicker::make('start_date')
-                            ->label('Project start'),
+                            ->label('Project start')
+                            ->live(),
                         DatePicker::make('end_date')
                             ->label('Project end')
+                            ->live()
                             ->afterOrEqual('start_date'),
                         DatePicker::make('mobility_start_date')
                             ->label('Mobility start')
+                            ->live()
                             ->helperText('Used to determine which participants are minors.'),
                         DatePicker::make('mobility_end_date')
                             ->label('Mobility end')
+                            ->live()
                             ->afterOrEqual('mobility_start_date'),
                     ]),
 
@@ -97,20 +106,25 @@ class ProjectForm
                     ->schema([
                         Repeater::make('partner_orgs')
                             ->hiddenLabel()
+                            ->live()
                             ->schema([
                                 TextInput::make('name')
                                     ->label('Organisation name')
                                     ->required()
+                                    ->live(onBlur: true)
                                     ->maxLength(255)
                                     ->columnSpan(2),
                                 TextInput::make('country')
+                                    ->live(onBlur: true)
                                     ->maxLength(100),
                                 TextInput::make('oid')
                                     ->label('OID')
+                                    ->live(onBlur: true)
                                     ->maxLength(50)
                                     ->placeholder('E00000000'),
                                 Toggle::make('is_coordinator')
                                     ->label('Coordinator')
+                                    ->live()
                                     ->inline(false)
                                     ->columnSpan(1),
                             ])
@@ -165,6 +179,7 @@ class ProjectForm
                         TextInput::make('first_tranche_pct')
                             ->label('1st tranche (%)')
                             ->numeric()
+                            ->live(onBlur: true)
                             ->default(80)
                             ->suffix('%')
                             ->minValue(0)
@@ -172,6 +187,7 @@ class ProjectForm
                         TextInput::make('withholding_tax_rate')
                             ->label('Withholding tax (%)')
                             ->numeric()
+                            ->live(onBlur: true)
                             ->default(10)
                             ->suffix('%')
                             ->minValue(0)
@@ -184,11 +200,13 @@ class ProjectForm
                     ->schema([
                         Repeater::make('currencies')
                             ->hiddenLabel()
+                            ->live()
                             ->schema([
                                 TextInput::make('code')
                                     ->label('Currency code')
                                     ->placeholder('RON')
                                     ->required()
+                                    ->live(onBlur: true)
                                     ->maxLength(3)
                                     ->minLength(3)
                                     ->regex('/^[A-Za-z]{3}$/')
@@ -198,6 +216,7 @@ class ProjectForm
                                     ->label('Rate')
                                     ->numeric()
                                     ->required()
+                                    ->live(onBlur: true)
                                     ->minValue(0.000001)
                                     ->maxValue(1000000)
                                     ->helperText('How many units equal 1 EUR. Example: 1 EUR = 5.07 RON.'),
@@ -234,6 +253,7 @@ class ProjectForm
                         TextInput::make('expense_prefix')
                             ->label('Expense prefix')
                             ->default('EXP')
+                            ->live(onBlur: true)
                             ->maxLength(20)
                             ->regex('/^[A-Za-z0-9_-]+$/')
                             ->dehydrateStateUsing(fn (?string $state): string => Str::upper(trim($state ?: 'EXP')))
@@ -242,6 +262,7 @@ class ProjectForm
                             ->label('Expense number padding')
                             ->options([2 => '2 digits', 3 => '3 digits', 4 => '4 digits', 5 => '5 digits', 6 => '6 digits'])
                             ->default(3)
+                            ->live()
                             ->native(false),
                     ]),
             ]);

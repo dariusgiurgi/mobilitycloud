@@ -12,14 +12,14 @@ class ListPlatformAnnouncements extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Create header notices for maintenance, outages, urgent support notes or product announcements.';
+        return 'Create platform banners or send in-app notifications to all users, selected groups or individual accounts.';
     }
 
     protected function getHeaderActions(): array
     {
         return [
             CreateAction::make()
-                ->label('New announcement'),
+                ->label('New communication'),
         ];
     }
 }

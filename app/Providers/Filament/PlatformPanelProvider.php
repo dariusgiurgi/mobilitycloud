@@ -73,7 +73,7 @@ class PlatformPanelProvider extends PanelProvider
                 fn () => view('filament.hooks.platform-announcements', [
                     'announcements' => auth()->check()
                         ? PlatformAnnouncement::query()
-                            ->active()
+                            ->activeBanner()
                             ->latest('starts_at')
                             ->latest('created_at')
                             ->get()

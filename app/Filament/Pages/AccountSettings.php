@@ -60,6 +60,30 @@ class AccountSettings extends Page
 
     public string $billingAddress = '';
 
+    public string $autosaveMessage = 'Changes are saved automatically.';
+
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['name', 'email'], true)) {
+            $this->saveProfile(sendNotification: false);
+            $this->autosaveMessage = 'Profile saved automatically.';
+
+            return;
+        }
+
+        if (! $this->isPlatformPanel() && in_array($property, ['billingName', 'billingVat', 'billingCountry', 'billingAddress'], true)) {
+            $this->saveBillingDetails(sendNotification: false, requireComplete: false);
+            $this->autosaveMessage = 'Billing details saved automatically.';
+
+            return;
+        }
+
+        if (in_array($property, ['defaultLanding', 'interfaceDensity', 'taskAssigned', 'taskDueSoon', 'taskOverdue'], true)) {
+            $this->savePreferences(sendNotification: false);
+            $this->autosaveMessage = 'Preferences saved automatically.';
+        }
+    }
+
     public function mount(): void
     {
         $user = auth()->user();
@@ -97,7 +121,7 @@ class AccountSettings extends Page
         return 'Manage your personal profile, security, billing identity and platform preferences.';
     }
 
-    public function saveProfile(): void
+    public function saveProfile(bool $sendNotification = true): void
     {
         $user = auth()->user();
 
@@ -111,7 +135,9 @@ class AccountSettings extends Page
             'email' => trim($data['email']),
         ]);
 
-        Notification::make()->title('Account details saved')->success()->send();
+        if ($sendNotification) {
+            Notification::make()->title('Account details saved')->success()->send();
+        }
     }
 
     public function updatePassword(): void
@@ -134,7 +160,7 @@ class AccountSettings extends Page
         Notification::make()->title('Password updated')->success()->send();
     }
 
-    public function savePreferences(): void
+    public function savePreferences(bool $sendNotification = true): void
     {
         $data = $this->validate([
             'defaultLanding' => ['required', Rule::in(array_keys($this->landingOptions()))],
@@ -159,18 +185,24 @@ class AccountSettings extends Page
 
         auth()->user()->update(['notification_preferences' => $preferences]);
 
-        Notification::make()->title('Account preferences saved')->success()->send();
+        if ($sendNotification) {
+            Notification::make()->title('Account preferences saved')->success()->send();
+        }
     }
 
-    public function saveBillingDetails(): void
+    public function saveBillingDetails(bool $sendNotification = true, bool $requireComplete = true): void
     {
         abort_if($this->isPlatformPanel(), 404);
 
+        if (! $requireComplete && blank($this->billingName) && blank($this->billingVat) && blank($this->billingCountry) && blank($this->billingAddress)) {
+            return;
+        }
+
         $data = $this->validate([
-            'billingName' => ['required', 'string', 'max:255'],
+            'billingName' => [$requireComplete ? 'required' : 'nullable', 'string', 'max:255'],
             'billingVat' => ['nullable', 'string', 'max:255'],
-            'billingCountry' => ['required', 'string', 'max:255'],
-            'billingAddress' => ['required', 'string', 'max:2000'],
+            'billingCountry' => [$requireComplete ? 'required' : 'nullable', 'string', 'max:255'],
+            'billingAddress' => [$requireComplete ? 'required' : 'nullable', 'string', 'max:2000'],
         ]);
 
         auth()->user()->update([
@@ -180,11 +212,13 @@ class AccountSettings extends Page
             'billing_address' => trim($data['billingAddress']),
         ]);
 
-        Notification::make()
-            ->title('Billing details saved')
-            ->body('These fiscal details will be used when approved project invoices are issued.')
-            ->success()
-            ->send();
+        if ($sendNotification) {
+            Notification::make()
+                ->title('Billing details saved')
+                ->body('These fiscal details will be used when approved project invoices are issued.')
+                ->success()
+                ->send();
+        }
     }
 
     public function getCurrentAccountProperty(): ?User

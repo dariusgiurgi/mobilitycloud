@@ -3,7 +3,9 @@
 namespace App\Filament\Resources\PlatformAnnouncements\Pages;
 
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
+use App\Services\PlatformCommunicationDeliveryService;
 use App\Support\PlatformAudit;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreatePlatformAnnouncement extends CreateRecord
@@ -19,7 +21,17 @@ class CreatePlatformAnnouncement extends CreateRecord
 
     protected function afterCreate(): void
     {
-        PlatformAudit::log('announcement.created', 'Created announcement '.$this->record->title, $this->record);
+        PlatformAudit::log('communication.created', 'Created communication '.$this->record->title, $this->record);
+
+        if ($this->record->sendsNotification()) {
+            $sent = app(PlatformCommunicationDeliveryService::class)->sendNotification($this->record);
+
+            Notification::make()
+                ->title('Notification delivered')
+                ->body($sent.' '.str('recipient')->plural($sent).' reached.')
+                ->success()
+                ->send();
+        }
     }
 
     protected function getRedirectUrl(): string

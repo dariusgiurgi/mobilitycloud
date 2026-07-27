@@ -10,6 +10,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class EditProject extends EditRecord
 {
@@ -18,6 +19,8 @@ class EditProject extends EditRecord
     protected static string $resource = ProjectResource::class;
 
     protected array $previousCurrencyRates = [];
+
+    private bool $isAutosaving = false;
 
     public function mount(int|string $record): void
     {
@@ -32,11 +35,6 @@ class EditProject extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            // Save / Cancel pulled up here, next to the destructive actions.
-            // formId('form') lets the Save button submit the page form even
-            // though the header sits outside the <form> element.
-            $this->getSaveFormAction()->formId('form'),
-            $this->getCancelFormAction(),
             ActionGroup::make([
                 DeleteAction::make()
                     ->label('Archive project')
@@ -57,6 +55,32 @@ class EditProject extends EditRecord
     protected function getFormActions(): array
     {
         return [];
+    }
+
+    public function updated(string $propertyName, mixed $value = null): void
+    {
+        if (! str_starts_with($propertyName, 'data.')) {
+            return;
+        }
+
+        if ($this->isAutosaving || ! isset($this->record)) {
+            return;
+        }
+
+        $this->isAutosaving = true;
+
+        try {
+            $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+
+            Notification::make()
+                ->title('Project settings saved automatically')
+                ->success()
+                ->send();
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } finally {
+            $this->isAutosaving = false;
+        }
     }
 
     protected function beforeSave(): void

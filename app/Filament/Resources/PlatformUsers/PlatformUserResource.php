@@ -121,16 +121,19 @@ class PlatformUserResource extends Resource
                 ->schema([
                     TextInput::make('name')
                         ->required()
+                        ->live(onBlur: true)
                         ->maxLength(255),
                     TextInput::make('email')
                         ->email()
                         ->required()
+                        ->live(onBlur: true)
                         ->maxLength(255)
                         ->unique(ignoreRecord: true),
                     TextInput::make('password')
                         ->password()
                         ->revealable()
                         ->minLength(8)
+                        ->visible(fn (string $operation): bool => $operation === 'create')
                         ->required(fn (string $operation): bool => $operation === 'create')
                         ->dehydrated(fn (?string $state): bool => filled($state))
                         ->columnSpanFull(),
@@ -142,6 +145,7 @@ class PlatformUserResource extends Resource
                         ])
                         ->default(User::ROLE_USER)
                         ->required()
+                        ->live()
                         ->disabled(fn (): bool => ! (auth()->user()?->canManagePlatformAdmins() ?? false))
                         ->dehydrated(fn (): bool => auth()->user()?->canManagePlatformAdmins() ?? false)
                         ->helperText('Only platform owners can promote or demote platform staff.'),
@@ -154,27 +158,32 @@ class PlatformUserResource extends Resource
                         ->label('Suspension category')
                         ->options(self::suspensionCategoryOptions())
                         ->native(false)
+                        ->live()
                         ->required(fn (callable $get): bool => (bool) $get('is_suspended'))
                         ->visible(fn (callable $get): bool => (bool) $get('is_suspended')),
                     Textarea::make('suspension_reason')
                         ->label('Suspension reason')
                         ->rows(4)
+                        ->live(onBlur: true)
                         ->maxLength(2000)
                         ->columnSpanFull()
                         ->required(fn (callable $get): bool => (bool) $get('is_suspended'))
                         ->visible(fn (callable $get): bool => (bool) $get('is_suspended')),
                     Toggle::make('must_change_password')
                         ->label('Require password change')
+                        ->live()
                         ->inline(false),
                     Textarea::make('support_notes')
                         ->label('Internal support notes')
                         ->rows(5)
+                        ->live(onBlur: true)
                         ->maxLength(3000)
                         ->columnSpanFull(),
                     Select::make('plan')
                         ->label('Account access')
                         ->options(PlanCatalog::planOptions())
                         ->default('standard')
+                        ->live()
                         ->required(),
                     Select::make('subscription_status')
                         ->label('Access status')
@@ -184,20 +193,25 @@ class PlatformUserResource extends Resource
                             'suspended' => 'Suspended',
                         ])
                         ->default('active')
+                        ->live()
                         ->required(),
                     TextInput::make('billing_name')
                         ->label('Billing name')
+                        ->live(onBlur: true)
                         ->maxLength(255)
                         ->columnSpanFull(),
                     TextInput::make('billing_vat')
                         ->label('VAT / registration')
+                        ->live(onBlur: true)
                         ->maxLength(255),
                     TextInput::make('billing_country')
                         ->label('Billing country')
+                        ->live(onBlur: true)
                         ->maxLength(255),
                     Textarea::make('billing_address')
                         ->label('Billing address')
                         ->rows(3)
+                        ->live(onBlur: true)
                         ->maxLength(2000)
                         ->columnSpanFull(),
                 ]),

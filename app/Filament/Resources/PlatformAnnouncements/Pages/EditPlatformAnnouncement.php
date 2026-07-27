@@ -12,7 +12,7 @@ class EditPlatformAnnouncement extends EditRecord
 
     protected function afterSave(): void
     {
-        PlatformAudit::log('announcement.updated', 'Updated announcement '.$this->record->title, $this->record);
+        PlatformAudit::log('communication.updated', 'Updated communication '.$this->record->title, $this->record);
     }
 
     protected function getRedirectUrl(): string

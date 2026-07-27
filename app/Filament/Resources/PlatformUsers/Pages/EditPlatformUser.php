@@ -4,13 +4,17 @@ namespace App\Filament\Resources\PlatformUsers\Pages;
 
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Support\PlatformAudit;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Illuminate\Validation\ValidationException;
 
 class EditPlatformUser extends EditRecord
 {
     protected static string $resource = PlatformUserResource::class;
 
     protected array $originalAccountState = [];
+
+    private bool $isAutosaving = false;
 
     public function getSubheading(): ?string
     {
@@ -28,6 +32,42 @@ class EditPlatformUser extends EditRecord
         parent::authorizeAccess();
     }
 
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
+
+    public function updated(string $propertyName, mixed $value = null): void
+    {
+        if (! str_starts_with($propertyName, 'data.')) {
+            return;
+        }
+
+        if ($this->isAutosaving || ! isset($this->record)) {
+            return;
+        }
+
+        $this->isAutosaving = true;
+
+        try {
+            $this->save(shouldRedirect: false, shouldSendSavedNotification: false);
+
+            Notification::make()
+                ->title('Account saved automatically')
+                ->success()
+                ->send();
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } finally {
+            $this->isAutosaving = false;
+        }
+    }
+
     protected function beforeSave(): void
     {
         $this->originalAccountState = $this->record->only([
@@ -40,6 +80,12 @@ class EditPlatformUser extends EditRecord
             'suspended_at',
             'must_change_password',
             'support_notes',
+            'plan',
+            'subscription_status',
+            'billing_name',
+            'billing_vat',
+            'billing_country',
+            'billing_address',
         ]);
     }
 

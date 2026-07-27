@@ -6,7 +6,11 @@ use App\Filament\Resources\PlatformAnnouncements\Pages\CreatePlatformAnnouncemen
 use App\Filament\Resources\PlatformAnnouncements\Pages\EditPlatformAnnouncement;
 use App\Filament\Resources\PlatformAnnouncements\Pages\ListPlatformAnnouncements;
 use App\Models\PlatformAnnouncement;
+use App\Models\User;
+use App\Services\PlatformCommunicationDeliveryService;
+use App\Support\PlanCatalog;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -16,6 +20,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -34,7 +39,11 @@ class PlatformAnnouncementResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Platform management';
 
-    protected static ?string $navigationLabel = 'Announcements';
+    protected static ?string $navigationLabel = 'Communications';
+
+    protected static ?string $modelLabel = 'communication';
+
+    protected static ?string $pluralModelLabel = 'communications';
 
     protected static ?int $navigationSort = 30;
 
@@ -51,7 +60,8 @@ class PlatformAnnouncementResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Announcement')
+            Section::make('Communication')
+                ->description('Send an in-app notification, show a banner in the platform header, or do both.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('title')
@@ -66,19 +76,43 @@ class PlatformAnnouncementResource extends Resource
                     Select::make('severity')
                         ->options(PlatformAnnouncement::SEVERITIES)
                         ->default('info')
+                        ->native(false)
+                        ->required(),
+                    Select::make('delivery_type')
+                        ->label('Delivery')
+                        ->options(PlatformAnnouncement::DELIVERY_TYPES)
+                        ->default('banner')
+                        ->native(false)
                         ->required(),
                     Select::make('audience')
                         ->options(PlatformAnnouncement::AUDIENCES)
                         ->default('all')
                         ->required()
+                        ->native(false)
                         ->live(),
                     Select::make('plans')
                         ->multiple()
-                        ->options(\App\Support\PlanCatalog::planOptions())
+                        ->options(PlanCatalog::planOptions())
                         ->visible(fn (callable $get): bool => $get('audience') === 'plans')
+                        ->columnSpanFull(),
+                    Select::make('target_user_ids')
+                        ->label('Recipients')
+                        ->multiple()
+                        ->searchable()
+                        ->preload()
+                        ->options(fn (): array => User::query()
+                            ->whereNull('archived_at')
+                            ->orderBy('name')
+                            ->limit(250)
+                            ->get()
+                            ->mapWithKeys(fn (User $user): array => [$user->id => $user->name.' · '.$user->email])
+                            ->all())
+                        ->visible(fn (callable $get): bool => $get('audience') === 'selected_users')
+                        ->required(fn (callable $get): bool => $get('audience') === 'selected_users')
                         ->columnSpanFull(),
                 ]),
             Section::make('Schedule')
+                ->description('Schedule applies to banners. Notifications are sent when the communication is created, or manually from the table.')
                 ->columns(2)
                 ->schema([
                     DateTimePicker::make('starts_at'),
@@ -115,9 +149,25 @@ class PlatformAnnouncementResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => PlatformAnnouncement::AUDIENCES[$state] ?? ucfirst($state))
                     ->color('gray'),
+                TextColumn::make('delivery_type')
+                    ->label('Delivery')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state): string => PlatformAnnouncement::DELIVERY_TYPES[$state ?: 'banner'] ?? ucfirst((string) $state))
+                    ->color(fn (?string $state): string => match ($state ?: 'banner') {
+                        'notification' => 'info',
+                        'both' => 'success',
+                        default => 'gray',
+                    }),
                 IconColumn::make('is_active')
                     ->label('Active')
                     ->boolean(),
+                TextColumn::make('notification_sent_count')
+                    ->label('Sent')
+                    ->state(fn (PlatformAnnouncement $record): string => $record->sendsNotification()
+                        ? (string) ($record->notification_sent_count ?? 0)
+                        : '—')
+                    ->description(fn (PlatformAnnouncement $record): ?string => $record->notification_sent_at?->format('d M Y, H:i'))
+                    ->alignEnd(),
                 TextColumn::make('starts_at')
                     ->dateTime('d M Y, H:i')
                     ->placeholder('Immediately'),
@@ -138,6 +188,23 @@ class PlatformAnnouncementResource extends Resource
                     ->label('Active'),
             ])
             ->recordActions([
+                Action::make('sendNotificationNow')
+                    ->label('Send notification')
+                    ->icon('heroicon-o-bell-alert')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (PlatformAnnouncement $record): string => 'Send notification · '.$record->title)
+                    ->modalDescription('This will add the message to the in-app notifications of every matching recipient now.')
+                    ->visible(fn (PlatformAnnouncement $record): bool => $record->sendsNotification())
+                    ->action(function (PlatformAnnouncement $record): void {
+                        $sent = app(PlatformCommunicationDeliveryService::class)->sendNotification($record);
+
+                        Notification::make()
+                            ->title('Notification sent')
+                            ->body($sent.' '.str('recipient')->plural($sent).' reached.')
+                            ->success()
+                            ->send();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

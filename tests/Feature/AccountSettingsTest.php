@@ -23,8 +23,7 @@ class AccountSettingsTest extends TestCase
             ->assertSee('Account Center')
             ->assertSee('Personal details')
             ->set('name', 'Darius Mobility')
-            ->set('email', 'darius@example.test')
-            ->call('saveProfile');
+            ->set('email', 'darius@example.test');
 
         $user->refresh();
         $this->assertSame('Darius Mobility', $user->name);
@@ -76,8 +75,7 @@ class AccountSettingsTest extends TestCase
             ->set('interfaceDensity', 'compact')
             ->set('taskAssigned', false)
             ->set('taskDueSoon', true)
-            ->set('taskOverdue', false)
-            ->call('savePreferences');
+            ->set('taskOverdue', false);
 
         $preferences = $user->fresh()->notification_preferences;
         $this->assertFalse($preferences['task_assigned']);

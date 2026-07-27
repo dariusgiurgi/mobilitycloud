@@ -129,8 +129,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/Billing and limits count only projects owned by your account/i)).toBeVisible();
     await page.getByLabel(/Default landing/i).selectOption('projects');
     await page.getByLabel(/Interface density/i).selectOption('compact');
-    await page.getByRole('button', { name: /^Save preferences$/i }).click();
-    await expect(page.getByText(/Account preferences saved/i)).toBeVisible();
+    await expect(page.getByText(/Preferences saved automatically|Changes are saved automatically/i)).toBeVisible();
 
     await page.goto(`/app/projects/${state.projects.writing_ka152.id}/write`);
     await expect(page.getByRole('heading', { name: /Application workspace/i })).toBeVisible();
@@ -606,7 +605,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('heading', { name: /Platform administration/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /workspace/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Announcements', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Communications', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Plans & entitlements', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Audit log', exact: true })).toBeVisible();
     await expect(page.getByText(/No access deadlines or blocked accounts need attention/i)).toBeVisible();
@@ -617,8 +616,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/Project plan/i)).toHaveCount(0);
     await page.getByLabel(/Default landing/i).selectOption('audit');
     await page.getByLabel(/Interface density/i).selectOption('compact');
-    await page.getByRole('button', { name: /^Save preferences$/i }).click();
-    await expect(page.getByText(/Account preferences saved/i)).toBeVisible();
+    await expect(page.getByText(/Preferences saved automatically|Changes are saved automatically/i)).toBeVisible();
 
     await page.goto('/platform/platform-users');
     await expect(page.getByRole('heading', { name: /Accounts/i })).toBeVisible();
@@ -631,7 +629,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await page.goto('/platform/platform-announcements/create');
     await expect(page.getByRole('heading', { name: /Create account/i })).toHaveCount(0);
     await page.getByRole('textbox', { name: /Title/i }).fill(announcementTitle);
-    await page.getByRole('textbox', { name: /Message/i }).fill('QA Bot verifies that platform owners can create operational announcements from the admin panel.');
+    await page.getByRole('textbox', { name: /Message/i }).fill('QA Bot verifies that platform owners can create operational communications from the admin panel.');
     await page.getByRole('button', { name: /^Create$/i }).click();
     await expect(page).toHaveURL(/\/platform\/platform-announcements$/);
     await expect(page.getByText(announcementTitle).first()).toBeVisible();
@@ -640,6 +638,6 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('heading', { name: /Audit log/i })).toBeVisible();
     const auditRow = page.getByRole('row').filter({ hasText: announcementTitle }).first();
     await expect(auditRow).toBeVisible();
-    await expect(auditRow).toContainText('announcement.created');
+    await expect(auditRow).toContainText('communication.created');
   });
 });
