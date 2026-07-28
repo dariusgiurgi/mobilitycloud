@@ -29,12 +29,11 @@ Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, Pr
     Route::get('/guide', [MarketingPageController::class, 'guide'])->name('marketing.guide');
     Route::get('/help', [MarketingPageController::class, 'help'])->name('marketing.help');
     Route::get('/contact', [MarketingPageController::class, 'contact'])->name('marketing.contact');
+    Route::get('/terms', [LegalPageController::class, 'terms'])->name('legal.terms');
+    Route::get('/privacy', [LegalPageController::class, 'privacy'])->name('legal.privacy');
+    Route::get('/cookies', [LegalPageController::class, 'cookies'])->name('legal.cookies');
+    Route::get('/security', [LegalPageController::class, 'security'])->name('legal.security');
 });
-
-Route::get('/terms', [LegalPageController::class, 'terms'])->name('legal.terms');
-Route::get('/privacy', [LegalPageController::class, 'privacy'])->name('legal.privacy');
-Route::get('/cookies', [LegalPageController::class, 'cookies'])->name('legal.cookies');
-Route::get('/security', [LegalPageController::class, 'security'])->name('legal.security');
 Route::get('/participant-registration/{token}', [ParticipantRegistrationController::class, 'show'])->name('public.participant-registration.show');
 Route::post('/participant-registration/{token}', [ParticipantRegistrationController::class, 'store'])->name('public.participant-registration.store');
 

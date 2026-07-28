@@ -76,7 +76,7 @@
 
     $faq = [
         ['q' => 'Can I use MobilityCloud before my project is approved?', 'a' => 'Yes. The writing, planning and support tools are designed to help before approval. The administration fee applies after approval.'],
-        ['q' => 'When do I pay?', 'a' => 'After you mark a project as approved and declare the approved grant amount. MobilityCloud issues a manual fiscal invoice.'],
+        ['q' => 'When do I pay?', 'a' => 'After you mark a project as approved and declare the approved grant amount. Management modules unlock immediately, and MobilityCloud issues a manual fiscal invoice with a payment due date.'],
         ['q' => 'What is the administration fee?', 'a' => 'The current model is 1% of the approved grant, with a minimum fee of €100 per approved project.'],
         ['q' => 'Can collaborators access only one project?', 'a' => 'Yes. Invitations are project-based, and access can be limited by role, including view-only and mobility-focused access.'],
         ['q' => 'Is MobilityCloud an official Erasmus+ tool?', 'a' => 'No. MobilityCloud is an independent project management platform that helps organise Erasmus+ workflows. Official decisions remain with the National Agency and programme rules.'],
@@ -621,7 +621,7 @@
                     <article class="mc-price-card featured">
                         <span class="mc-kicker"><span>Pricing model</span></span>
                         <h2 style="margin-top:.9rem;">Use it before approval. Pay after success.</h2>
-                        <p class="mc-note">MobilityCloud is designed to support application writing without forcing payment upfront. When a project is approved, the administration fee is calculated from the approved grant.</p>
+                        <p class="mc-note">MobilityCloud is designed to support application writing without forcing payment upfront. When a project is approved and the grant amount is declared, implementation modules unlock immediately and the administration fee is calculated from that approved grant.</p>
                         <div class="mc-price">1% <small>of approved grant</small></div>
                         <p class="mc-note">Minimum administration fee: <strong>€100</strong>. Fiscal invoices are currently handled manually.</p>
                     </article>
@@ -685,7 +685,8 @@
                         <div class="mc-price-list">
                             <span>No online payment required at launch</span>
                             <span>Manual fiscal invoice issued after approval</span>
-                            <span>Implementation modules unlock after payment confirmation</span>
+                            <span>Implementation modules unlock immediately after the approved grant is declared</span>
+                            <span>Payment can be completed manually until the fiscal invoice due date</span>
                             <span>Unlimited or partner access can be granted manually by MobilityCloud</span>
                         </div>
                     </article>
@@ -693,7 +694,7 @@
                         <h3>Before approval</h3>
                         <p class="mc-note">Use the writing and planning tools to prepare the project. Collaborators can be invited to work on the application.</p>
                         <h3 style="margin-top:1.4rem;">After approval</h3>
-                        <p class="mc-note">Declare the approved amount, receive the manual fiscal invoice, then continue with budget, participants, documents and mobility management.</p>
+                        <p class="mc-note">Declare the approved amount and continue immediately with budget, participants, documents and mobility management. The fiscal invoice is handled manually and paid by its due date.</p>
                         <div style="margin-top:1.3rem;">
                             <a class="mc-btn primary" href="{{ $registerUrl }}">Start now</a>
                         </div>

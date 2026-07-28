@@ -42,13 +42,13 @@ return [
     */
 
     'company' => [
-        'name' => env('MOBILITYCLOUD_COMPANY_NAME'),
-        'legal_name' => env('MOBILITYCLOUD_COMPANY_LEGAL_NAME'),
-        'registration_number' => env('MOBILITYCLOUD_COMPANY_REGISTRATION_NUMBER'),
-        'vat_number' => env('MOBILITYCLOUD_COMPANY_VAT_NUMBER'),
-        'address' => env('MOBILITYCLOUD_COMPANY_ADDRESS'),
+        'name' => env('MOBILITYCLOUD_COMPANY_NAME', 'Xeotype'),
+        'legal_name' => env('MOBILITYCLOUD_COMPANY_LEGAL_NAME', 'XEOTYPE SRL'),
+        'registration_number' => env('MOBILITYCLOUD_COMPANY_REGISTRATION_NUMBER', 'J24/1044/2023'),
+        'vat_number' => env('MOBILITYCLOUD_COMPANY_VAT_NUMBER', 'RO48497754'),
+        'address' => env('MOBILITYCLOUD_COMPANY_ADDRESS', 'Municipiul Sighetu Marmației, Strada Dragoș Vodă, Nr. 185, Județ Maramureș, Romania'),
         'country' => env('MOBILITYCLOUD_COMPANY_COUNTRY', 'Romania'),
-        'email' => env('MOBILITYCLOUD_COMPANY_EMAIL', env('MOBILITYCLOUD_CONTACT_EMAIL', 'contact@mobilitycloud.eu')),
+        'email' => env('MOBILITYCLOUD_COMPANY_EMAIL', 'contact@xeotype.com'),
     ],
 
 ];
