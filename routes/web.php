@@ -4,6 +4,7 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\MarketingPageController;
 use App\Http\Controllers\ParticipantRegistrationController;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
@@ -14,12 +15,20 @@ use App\Support\AuthSessionHash;
 use App\Support\PlatformAudit;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
+use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\View\Middleware\ShareErrorsFromSession;
 
-Route::get('/', function () {
-    return redirect('/app/login');
+Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])->group(function (): void {
+    Route::get('/', [MarketingPageController::class, 'home'])->name('marketing.home');
+    Route::get('/features', [MarketingPageController::class, 'features'])->name('marketing.features');
+    Route::get('/pricing', [MarketingPageController::class, 'pricing'])->name('marketing.pricing');
+    Route::get('/guide', [MarketingPageController::class, 'guide'])->name('marketing.guide');
+    Route::get('/help', [MarketingPageController::class, 'help'])->name('marketing.help');
+    Route::get('/contact', [MarketingPageController::class, 'contact'])->name('marketing.contact');
 });
 
 Route::get('/terms', [LegalPageController::class, 'terms'])->name('legal.terms');
