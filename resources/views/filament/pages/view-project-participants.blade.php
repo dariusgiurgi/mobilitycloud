@@ -256,26 +256,23 @@
 
     {{-- List --}}
     @if($participants->isEmpty())
-        <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
-            <x-filament::icon icon="heroicon-o-users" class="mx-auto h-10 w-10 text-gray-400" />
-            <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.65rem 0 .25rem;">{{ $activeFilters > 0 ? 'No participants match these filters' : 'Build the participant register' }}</h3>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;line-height:1.55;margin:0 auto {{ $canManage ? '1rem' : '0' }};max-width:36rem;">
-                {{ $activeFilters > 0 ? 'Clear the filters or search by another name, organisation or status.' : 'Add people one by one, import the CSV you exported earlier, or create a self-registration link so participants can complete the form themselves.' }}
-            </p>
+        <x-mobi-empty-state
+            image="{{ $activeFilters > 0 ? 'mobi-empty.png' : 'mobi-participants.png' }}"
+            title="{{ $activeFilters > 0 ? 'No participants match these filters' : 'Build the participant register' }}"
+            description="{{ $activeFilters > 0 ? 'Clear the filters or search by another name, organisation or status.' : 'Add people one by one, import the CSV you exported earlier, or create a self-registration link so participants can complete the form themselves.' }}"
+        >
             @if($canManage && $activeFilters === 0)
-                <div style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;">
-                    <x-filament::button wire:click="openCreate" icon="heroicon-o-plus">
-                        Add participant
-                    </x-filament::button>
-                    <x-filament::button wire:click="openImport" color="gray" icon="heroicon-o-arrow-up-tray">
-                        Import CSV
-                    </x-filament::button>
-                    <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list">
-                        Generate attendance list
-                    </x-filament::button>
-                </div>
+                <x-filament::button wire:click="openCreate" icon="heroicon-o-plus">
+                    Add participant
+                </x-filament::button>
+                <x-filament::button wire:click="openImport" color="gray" icon="heroicon-o-arrow-up-tray">
+                    Import CSV
+                </x-filament::button>
+                <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list">
+                    Generate attendance list
+                </x-filament::button>
             @endif
-        </div>
+        </x-mobi-empty-state>
     @else
         <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="overflow:hidden;">
             <div class="mc-table-scroll" style="overflow-x:auto;">

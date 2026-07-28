@@ -49,8 +49,12 @@ class AdminPanelProvider extends PanelProvider
             ->registration()
             ->emailVerification(isRequired: false)
             ->brandName('MobilityCloud')
+            ->brandLogo(asset('brand/mobilitycloud-logo-horizontal.png'))
+            ->darkModeBrandLogo(asset('brand/mobilitycloud-logo-horizontal.png'))
+            ->brandLogoHeight('2.25rem')
+            ->favicon(asset('favicon.ico'))
             ->colors([
-                'primary' => Color::Indigo,
+                'primary' => Color::hex('#1677ff'),
             ])
             ->sidebarCollapsibleOnDesktop()
             ->tenantSwitcher(false)

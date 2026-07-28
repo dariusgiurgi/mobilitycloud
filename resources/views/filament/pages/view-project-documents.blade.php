@@ -305,21 +305,17 @@
         </div>
 
     @if($documents->isEmpty())
-        <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-             style="padding:2.5rem;text-align:center;">
-            <x-filament::icon icon="heroicon-o-folder-open" class="mx-auto h-10 w-10 text-gray-400" />
-            <h3 class="text-gray-950 dark:text-white" style="font-size:16px;font-weight:700;margin:0 0 .35rem;">{{ $documentFilter !== 'all' || filled($documentSearch) ? 'No matching documents' : 'No project documents yet' }}</h3>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;line-height:1.55;margin:0 auto {{ $record->canBeManagedBy(auth()->user()) && $documentFilter === 'all' && blank($documentSearch) ? '1rem' : '0' }};max-width:34rem;">
-                {{ $documentFilter !== 'all' || filled($documentSearch) ? 'Try another filter or search term.' : 'Upload source files, signed copies and project evidence here.' }}
-            </p>
+        <x-mobi-empty-state
+            image="{{ $documentFilter !== 'all' || filled($documentSearch) ? 'mobi-empty.png' : 'mobi-documents.png' }}"
+            title="{{ $documentFilter !== 'all' || filled($documentSearch) ? 'No matching documents' : 'No project documents yet' }}"
+            description="{{ $documentFilter !== 'all' || filled($documentSearch) ? 'Try another filter or search term.' : 'Upload source files, signed copies and project evidence here.' }}"
+        >
             @if($record->canBeManagedBy(auth()->user()) && $documentFilter === 'all' && blank($documentSearch))
-                <div style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;">
-                    <x-filament::button wire:click="openDocumentUpload" icon="heroicon-o-arrow-up-tray">
-                        Upload project file
-                    </x-filament::button>
-                </div>
+                <x-filament::button wire:click="openDocumentUpload" icon="heroicon-o-arrow-up-tray">
+                    Upload project file
+                </x-filament::button>
             @endif
-        </div>
+        </x-mobi-empty-state>
     @else
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(210px,100%),1fr));gap:.8rem;">
             @foreach($documents as $document)

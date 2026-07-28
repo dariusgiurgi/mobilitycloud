@@ -265,27 +265,20 @@
     @endif
 
     @if($sections->isEmpty())
-        <div class="mc-empty-state fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10" style="padding:2.5rem;text-align:center;">
-            <x-filament::icon :icon="$writingNotRequired ? 'heroicon-o-check-circle' : 'heroicon-o-document-plus'" class="mx-auto h-10 w-10 {{ $writingNotRequired ? 'text-success-500' : 'text-gray-400' }}" />
-            <h3 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:.65rem 0 .25rem;">{{ $writingNotRequired ? 'Writing is not required for this project' : 'Start the application structure' }}</h3>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:14px;line-height:1.55;margin:0 auto {{ $canManage && ! $writingNotRequired ? '1rem' : '0' }};max-width:34rem;">
-                @if($writingNotRequired)
-                    This approved project can be managed directly through Budget, Participants, Documents and Mobility. No submission checklist or quality score is shown because there is no application draft in this project.
-                @else
-                    Choose an official KA template to load the correct application questions, or add a free section for a manual/internal project.
-                @endif
-            </p>
+        <x-mobi-empty-state
+            image="{{ $writingNotRequired ? 'mobi-success.png' : 'mobi-writing.png' }}"
+            title="{{ $writingNotRequired ? 'Writing is not required for this project' : 'Start the application structure' }}"
+            description="{{ $writingNotRequired ? 'This approved project can be managed directly through Budget, Participants, Documents and Mobility. No submission checklist or quality score is shown because there is no application draft in this project.' : 'Choose an official KA template to load the correct application questions, or add a free section for a manual/internal project.' }}"
+        >
             @if($canManage && ! $writingNotRequired)
-                <div style="display:flex;gap:.55rem;justify-content:center;flex-wrap:wrap;">
-                    <x-filament::button wire:click="openTemplateDetails" icon="heroicon-o-squares-2x2">
-                        Open Template manager
-                    </x-filament::button>
-                    <x-filament::button wire:click="addSection" color="gray" icon="heroicon-o-plus">
-                        Add free section
-                    </x-filament::button>
-                </div>
+                <x-filament::button wire:click="openTemplateDetails" icon="heroicon-o-squares-2x2">
+                    Open Template manager
+                </x-filament::button>
+                <x-filament::button wire:click="addSection" color="gray" icon="heroicon-o-plus">
+                    Add free section
+                </x-filament::button>
             @endif
-        </div>
+        </x-mobi-empty-state>
     @else
         @php $currentCat = null; @endphp
         @forelse($visibleSections as $sec)

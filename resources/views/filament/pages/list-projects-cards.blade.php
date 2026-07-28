@@ -40,20 +40,18 @@
     @endif
 
     @if ($projects->isEmpty())
-        <x-filament::section wire:poll.5s>
-            <div style="padding:2.75rem 1rem;text-align:center;max-width:460px;margin:0 auto;">
-                <span style="display:inline-flex;width:48px;height:48px;align-items:center;justify-content:center;border-radius:.8rem;background:rgba(99,102,241,.1);color:#6366f1;margin-bottom:.9rem;">
-                    <x-filament::icon icon="heroicon-o-rectangle-stack" style="width:1.5rem;height:1.5rem;" />
-                </span>
-                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;">{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : ($requiresBillingDetails ? 'Complete billing details to create projects' : 'No projects available')) }}</h2>
-                <p class="mc-project-muted" style="font-size:.83rem;line-height:1.55;margin:.35rem 0 1rem;">{{ $archived ? 'Archived projects are kept here for restoration by the account owner.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : ($requiresBillingDetails ? 'You can still accept invitations from other project owners, but creating your own project requires billing details first.' : 'Ask the project owner to create a project or invite you to an existing one.')) }}</p>
-                @if($archived)
-                    <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to current projects</x-filament::button>
-                @elseif($canCreate)
-                    <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::accountUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
-                @endif
-            </div>
-        </x-filament::section>
+        <x-mobi-empty-state
+            wire:poll.5s
+            image="{{ $archived ? 'mobi-documents.png' : ($requiresBillingDetails ? 'mobi-warning.png' : 'mobi-welcome.png') }}"
+            title="{{ $archived ? 'No archived projects' : ($canCreate ? 'Create your first project' : ($requiresBillingDetails ? 'Complete billing details to create projects' : 'No projects available')) }}"
+            description="{{ $archived ? 'Archived projects are kept here for restoration by the account owner.' : ($canCreate ? 'Keep the application, budget, participants and documents together from the beginning.' : ($requiresBillingDetails ? 'You can still accept invitations from other project owners, but creating your own project requires billing details first.' : 'Ask the project owner to create a project or invite you to an existing one.')) }}"
+        >
+            @if($archived)
+                <x-filament::button wire:click="$set('archived', false)" color="gray" icon="heroicon-o-arrow-left">Back to current projects</x-filament::button>
+            @elseif($canCreate)
+                <x-filament::button tag="a" :href="\App\Filament\Resources\Projects\ProjectResource::accountUrl('create')" icon="heroicon-o-plus">New project</x-filament::button>
+            @endif
+        </x-mobi-empty-state>
     @else
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.2rem;">
             <div style="display:flex;align-items:center;gap:.35rem;">
