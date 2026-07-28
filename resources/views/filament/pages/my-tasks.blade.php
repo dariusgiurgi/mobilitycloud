@@ -89,7 +89,12 @@
                 </div>
             @empty
                 <div style="padding:2rem 1rem;text-align:center;">
-                    <x-filament::icon icon="heroicon-o-check-circle" class="mx-auto h-9 w-9 text-gray-400" />
+                    <img
+                        src="{{ asset('brand/mobi-no-tasks.png') }}"
+                        alt="MobilityCloud assistant resting because there are no tasks"
+                        loading="lazy"
+                        style="width:min(160px,48vw);height:auto;margin:0 auto .75rem;filter:drop-shadow(0 18px 28px rgba(37,99,235,.16));"
+                    >
                     <p class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:650;margin-top:.6rem;">{{ $search || $dueFilter !== 'all' || $statusFilter !== 'open' ? 'No matching tasks' : 'No assigned tasks yet' }}</p>
                     <p class="mc-my-muted" style="font-size:.75rem;line-height:1.5;margin:.2rem auto 0;max-width:34rem;">
                         {{ $search || $dueFilter !== 'all' || $statusFilter !== 'open' ? 'Try another filter or open a project to review its task board.' : 'Tasks are created inside a project overview. Once someone assigns a task to you, it will appear here automatically.' }}
