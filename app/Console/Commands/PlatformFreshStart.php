@@ -75,7 +75,7 @@ class PlatformFreshStart extends Command
             'plan_limits' => ['unlimited' => true],
             'billing_name' => $name,
             'billing_country' => 'Romania',
-            'billing_address' => 'To be completed',
+            'billing_address' => null,
         ]);
 
         if ($this->option('seed-public-library')) {

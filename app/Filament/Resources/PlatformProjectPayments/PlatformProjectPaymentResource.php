@@ -266,13 +266,7 @@ class PlatformProjectPaymentResource extends Resource
     {
         return $query
             ->where('invoice_status', Project::INVOICE_PENDING)
-            ->whereHas('ownerAccount', fn (Builder $query): Builder => $query
-                ->whereNotNull('billing_name')
-                ->where('billing_name', '!=', '')
-                ->whereNotNull('billing_country')
-                ->where('billing_country', '!=', '')
-                ->whereNotNull('billing_address')
-                ->where('billing_address', '!=', ''));
+            ->whereHas('ownerAccount', fn (Builder $query): Builder => $query->withCompleteBillingDetails());
     }
 
     public static function applyOverdueScope(Builder $query): Builder
@@ -291,13 +285,7 @@ class PlatformProjectPaymentResource extends Resource
 
     public static function applyMissingBillingScope(Builder $query): Builder
     {
-        return $query->whereHas('ownerAccount', fn (Builder $query): Builder => $query
-            ->where(function (Builder $query): void {
-                $query
-                    ->whereNull('billing_name')->orWhere('billing_name', '')
-                    ->orWhereNull('billing_country')->orWhere('billing_country', '')
-                    ->orWhereNull('billing_address')->orWhere('billing_address', '');
-            }));
+        return $query->whereHas('ownerAccount', fn (Builder $query): Builder => $query->missingBillingDetails());
     }
 
     public static function paymentQueueQuery(): Builder

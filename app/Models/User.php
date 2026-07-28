@@ -6,6 +6,7 @@ use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +17,28 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 {
     use HasFactory, Notifiable, SoftDeletes;
+
+    private const BILLING_DETAIL_PLACEHOLDERS = [
+        '',
+        '-',
+        '—',
+        'n/a',
+        'na',
+        'none',
+        'null',
+        'not set',
+        'not provided',
+        'to be completed',
+        'to complete',
+        'tbd',
+        'test',
+        'testing',
+        'demo',
+        'de completat',
+        'necompletat',
+        'fara date',
+        'fără date',
+    ];
 
     protected $fillable = [
         'name', 'email', 'password', 'notification_preferences', 'role',
@@ -190,9 +213,59 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
 
     public function hasBillingDetails(): bool
     {
-        return filled($this->billing_name)
-            && filled($this->billing_country)
-            && filled($this->billing_address);
+        return self::isMeaningfulBillingDetail($this->billing_name, 2)
+            && self::isMeaningfulBillingDetail($this->billing_country, 2)
+            && self::isMeaningfulBillingDetail($this->billing_address, 8);
+    }
+
+    public function scopeWithCompleteBillingDetails(Builder $query): Builder
+    {
+        return $query
+            ->where(fn (Builder $query): Builder => self::addMeaningfulBillingDetailConstraint($query, 'billing_name', 2))
+            ->where(fn (Builder $query): Builder => self::addMeaningfulBillingDetailConstraint($query, 'billing_country', 2))
+            ->where(fn (Builder $query): Builder => self::addMeaningfulBillingDetailConstraint($query, 'billing_address', 8));
+    }
+
+    public function scopeMissingBillingDetails(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            self::addMissingBillingDetailConstraint($query, 'billing_name', 2);
+            self::addMissingBillingDetailConstraint($query, 'billing_country', 2);
+            self::addMissingBillingDetailConstraint($query, 'billing_address', 8);
+        });
+    }
+
+    private static function isMeaningfulBillingDetail(mixed $value, int $minLength): bool
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return false;
+        }
+
+        $normalized = trim((string) preg_replace('/\s+/u', ' ', (string) $value));
+
+        if (mb_strlen($normalized) < $minLength) {
+            return false;
+        }
+
+        return ! in_array(mb_strtolower($normalized), self::BILLING_DETAIL_PLACEHOLDERS, true);
+    }
+
+    private static function addMeaningfulBillingDetailConstraint(Builder $query, string $column, int $minLength): Builder
+    {
+        $placeholders = implode(',', array_fill(0, count(self::BILLING_DETAIL_PLACEHOLDERS), '?'));
+
+        return $query
+            ->whereRaw("LENGTH(TRIM(COALESCE({$column}, ''))) >= ?", [$minLength])
+            ->whereRaw("LOWER(TRIM(COALESCE({$column}, ''))) NOT IN ({$placeholders})", self::BILLING_DETAIL_PLACEHOLDERS);
+    }
+
+    private static function addMissingBillingDetailConstraint(Builder $query, string $column, int $minLength): void
+    {
+        $placeholders = implode(',', array_fill(0, count(self::BILLING_DETAIL_PLACEHOLDERS), '?'));
+
+        $query
+            ->orWhereRaw("LENGTH(TRIM(COALESCE({$column}, ''))) < ?", [$minLength])
+            ->orWhereRaw("LOWER(TRIM(COALESCE({$column}, ''))) IN ({$placeholders})", self::BILLING_DETAIL_PLACEHOLDERS);
     }
 
     public function billingDetailsForDisplay(): array
