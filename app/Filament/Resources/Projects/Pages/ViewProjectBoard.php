@@ -60,7 +60,10 @@ class ViewProjectBoard extends Page
     private const OPTIONAL_BASKET_PRESETS = [
         'ka2_project_management' => ['title' => 'Project Management', 'emoji' => '📋', 'color' => '#0f766e'],
         'inclusion' => ['title' => 'Inclusion Support', 'emoji' => '🤝', 'color' => '#ec4899'],
-        'exceptional' => ['title' => 'Exceptional Support', 'emoji' => '⚡', 'color' => '#f59e0b'],
+        'preparatory_visits' => ['title' => 'Preparatory Visits', 'emoji' => '🧭', 'color' => '#0284c7'],
+        'course_fees' => ['title' => 'Course Fees', 'emoji' => '🎓', 'color' => '#7c3aed'],
+        'linguistic_support' => ['title' => 'Linguistic Support', 'emoji' => '🗣️', 'color' => '#2563eb'],
+        'exceptional_costs' => ['title' => 'Exceptional Costs', 'emoji' => '⚡', 'color' => '#f59e0b'],
     ];
 
     public function mount(int|string $record): void
