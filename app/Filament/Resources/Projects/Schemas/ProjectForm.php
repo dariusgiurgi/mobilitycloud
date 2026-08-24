@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Schemas;
 
 use App\Models\Project;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -135,6 +136,21 @@ class ProjectForm
                         ->reorderable()
                         ->defaultItems(0)
                         ->columnSpanFull(),
+                ]),
+
+            Section::make('Project period')
+                ->description('Set the overall start and end of the project. Individual mobility dates are managed separately in Mobility.')
+                ->visible(fn (string $operation): bool => $operation !== 'create')
+                ->extraAttributes(['class' => 'mc-project-settings-section'])
+                ->columns(2)
+                ->schema([
+                    DatePicker::make('start_date')
+                        ->label('Project start date')
+                        ->live(),
+                    DatePicker::make('end_date')
+                        ->label('Project end date')
+                        ->live()
+                        ->afterOrEqual('start_date'),
                 ]),
 
             self::approvalAndInvoice(),

@@ -23,6 +23,8 @@ class ProjectSettingsTest extends TestCase
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->assertSee('Project details')
             ->assertSee('Involved organisations')
+            ->assertSee('Project period')
+            ->assertSee('Individual mobility dates are managed separately in Mobility.')
             ->assertSee('Approval and invoice')
             ->assertSee('Approval not recorded yet')
             ->assertSee('Operational finance settings')
@@ -64,6 +66,26 @@ class ProjectSettingsTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame('ERAS-26', $project->fresh()->expense_prefix);
+    }
+
+    public function test_project_period_can_be_saved_without_creating_a_mobility(): void
+    {
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
+        $this->actingAs($user);
+
+        Livewire::test(EditProject::class, ['record' => $project->id])
+            ->fillForm([
+                'start_date' => '2026-09-01',
+                'end_date' => '2027-02-28',
+            ])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $project->refresh();
+
+        $this->assertSame('2026-09-01', $project->start_date?->toDateString());
+        $this->assertSame('2027-02-28', $project->end_date?->toDateString());
+        $this->assertCount(0, $project->mobilities);
     }
 
     public function test_project_settings_manage_project_currencies_and_recalculate_project_expenses(): void
