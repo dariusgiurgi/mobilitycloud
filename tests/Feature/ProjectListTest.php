@@ -60,6 +60,7 @@ class ProjectListTest extends TestCase
 
         Livewire::test(CreateProject::class)
             ->fillForm([
+                'project_entry_mode' => 'application',
                 'name' => 'New Account Project',
                 'status' => 'writing',
             ])
@@ -70,6 +71,24 @@ class ProjectListTest extends TestCase
 
         $this->assertSame($user->id, $project->owner_id);
         $this->assertTrue($project->isOwnedBy($user));
+    }
+
+    public function test_new_project_shows_details_only_after_a_starting_route_is_selected(): void
+    {
+        $user = User::factory()->create([
+            'billing_name' => 'Test NGO',
+            'billing_country' => 'RO',
+            'billing_address' => 'Main Street 1',
+        ]);
+        $this->actingAs($user);
+
+        Livewire::test(CreateProject::class)
+            ->assertSee('New application')
+            ->assertSee('Already approved')
+            ->assertDontSee('Project details')
+            ->set('data.project_entry_mode', 'application')
+            ->assertSee('Project details')
+            ->assertSee('What is this project about?');
     }
 
     public function test_existing_approved_project_skips_writing_and_saves_multiple_mobilities(): void
@@ -160,6 +179,7 @@ class ProjectListTest extends TestCase
 
         Livewire::test(CreateProject::class)
             ->fillForm([
+                'project_entry_mode' => 'application',
                 'name' => 'Unlimited Project',
                 'status' => 'writing',
             ])

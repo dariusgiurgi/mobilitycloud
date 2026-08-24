@@ -5,8 +5,8 @@ namespace App\Filament\Resources\Projects\Schemas;
 use App\Models\Project;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -23,29 +23,46 @@ class ProjectForm
     {
         return $schema->components([
             Section::make('How would you like to start?')
-                ->description('Choose the shortest route. You can add the remaining project details later.')
+                ->description('Pick a starting point. You can switch it before creating the project.')
                 ->visible(fn (string $operation): bool => $operation === 'create')
+                ->extraAttributes(['class' => 'mc-project-start-section'])
                 ->schema([
-                    Radio::make('project_entry_mode')
-                        ->label('Project type')
-                        ->options([
-                            'application' => 'I am preparing a new application',
-                            'approved' => 'I already have an approved project',
-                        ])
-                        ->descriptions([
-                            'application' => 'Start in Writing. Choose the official application template there.',
-                            'approved' => 'Skip Writing and start directly with project implementation.',
-                        ])
-                        ->default('application')
-                        ->live()
+                    Hidden::make('project_entry_mode')
                         ->required()
                         ->dehydrated(),
+                    Placeholder::make('project_entry_picker')
+                        ->hiddenLabel()
+                        ->content(function (callable $get): HtmlString {
+                            $mode = $get('project_entry_mode');
+                            $applicationSelected = $mode === 'application' ? ' is-selected' : '';
+                            $approvedSelected = $mode === 'approved' ? ' is-selected' : '';
+                            $applicationPressed = self::boolAttribute($mode === 'application');
+                            $approvedPressed = self::boolAttribute($mode === 'approved');
+
+                            return new HtmlString(<<<HTML
+                                <div class="mc-project-entry-grid">
+                                    <button type="button" wire:click="\$set('data.project_entry_mode', 'application')" class="mc-project-entry-card{$applicationSelected}" aria-pressed="{$applicationPressed}">
+                                        <span class="mc-project-entry-icon">✍️</span>
+                                        <span class="mc-project-entry-copy"><strong>New application</strong><small>I want to write and prepare an Erasmus+ application.</small></span>
+                                        <span class="mc-project-entry-arrow">→</span>
+                                    </button>
+                                    <button type="button" wire:click="\$set('data.project_entry_mode', 'approved')" class="mc-project-entry-card mc-project-entry-card-approved{$approvedSelected}" aria-pressed="{$approvedPressed}">
+                                        <span class="mc-project-entry-icon">✓</span>
+                                        <span class="mc-project-entry-copy"><strong>Already approved</strong><small>I already have a grant and want to manage implementation.</small></span>
+                                        <span class="mc-project-entry-arrow">→</span>
+                                    </button>
+                                </div>
+                            HTML);
+                        })
+                        ->columnSpanFull(),
                 ]),
 
             Section::make('Project details')
                 ->description(fn (string $operation): string => $operation === 'create'
                     ? 'Start with the essentials. Everything else can be completed from Project settings.'
                     : 'The basic information used across the workspace and generated documents.')
+                ->visible(fn (callable $get, string $operation): bool => $operation !== 'create' || filled($get('project_entry_mode')))
+                ->extraAttributes(['class' => 'mc-project-settings-section mc-project-details-section'])
                 ->columns(2)
                 ->schema([
                     TextInput::make('name')
@@ -76,6 +93,7 @@ class ProjectForm
             Section::make('Approval details')
                 ->description('These details create an approved implementation project. They are locked once saved.')
                 ->visible(fn (callable $get, string $operation): bool => $operation === 'create' && $get('project_entry_mode') === 'approved')
+                ->extraAttributes(['class' => 'mc-project-settings-section mc-project-approval-section'])
                 ->columns(2)
                 ->schema([
                     TextInput::make('approved_grant_declaration')
@@ -102,6 +120,8 @@ class ProjectForm
 
             Section::make('Involved organisations')
                 ->description('Add the coordinator and partners when you need them for participant grouping and attendance sheets.')
+                ->visible(fn (callable $get, string $operation): bool => $operation !== 'create' || filled($get('project_entry_mode')))
+                ->extraAttributes(['class' => 'mc-project-settings-section'])
                 ->schema([
                     Repeater::make('partner_orgs')
                         ->hiddenLabel()
@@ -127,6 +147,7 @@ class ProjectForm
             Section::make('Operational finance settings')
                 ->description('Used by generated project documents. Approved grant values are managed in the approval record above.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
+                ->extraAttributes(['class' => 'mc-project-settings-section'])
                 ->columns(2)
                 ->schema([
                     TextInput::make('first_tranche_pct')->label('1st tranche (%)')->numeric()->live(onBlur: true)->default(80)->suffix('%')->minValue(0)->maxValue(100),
@@ -136,6 +157,7 @@ class ProjectForm
             Section::make('Project currencies')
                 ->description('EUR is the base currency. Add only currencies used by this project.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
+                ->extraAttributes(['class' => 'mc-project-settings-section'])
                 ->schema([
                     Repeater::make('currencies')
                         ->hiddenLabel()
@@ -165,6 +187,7 @@ class ProjectForm
             Section::make('Advanced controls')
                 ->description('Usually these can be left as they are.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
+                ->extraAttributes(['class' => 'mc-project-settings-section'])
                 ->columns(2)
                 ->collapsible()
                 ->collapsed()
@@ -182,6 +205,7 @@ class ProjectForm
             ->visible(fn (callable $get, string $operation, ?Project $record): bool => $operation === 'create'
                 ? $get('project_entry_mode') === 'approved'
                 : $record?->isManagementStage() === true)
+            ->extraAttributes(['class' => 'mc-project-settings-section mc-project-timeline-section'])
             ->columns(2)
             ->schema([
                 DatePicker::make('start_date')->label('Project start')->live()->required(fn (string $operation): bool => $operation === 'create'),
@@ -214,6 +238,7 @@ class ProjectForm
         return Section::make('Approval and invoice')
             ->description('This information is recorded once and is read-only for your project team.')
             ->visible(fn (string $operation): bool => $operation !== 'create')
+            ->extraAttributes(['class' => 'mc-project-settings-section mc-project-readonly-section'])
             ->schema([
                 Placeholder::make('approval_and_invoice_summary')
                     ->hiddenLabel()
@@ -233,5 +258,10 @@ class ProjectForm
                     })
                     ->columnSpanFull(),
             ]);
+    }
+
+    private static function boolAttribute(bool $value): string
+    {
+        return $value ? 'true' : 'false';
     }
 }
