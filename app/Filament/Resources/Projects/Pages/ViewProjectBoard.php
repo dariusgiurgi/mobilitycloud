@@ -58,6 +58,7 @@ class ViewProjectBoard extends Page
     public string $transferReason = '';
 
     private const OPTIONAL_BASKET_PRESETS = [
+        'ka2_project_management' => ['title' => 'Project Management', 'emoji' => '📋', 'color' => '#0f766e'],
         'inclusion' => ['title' => 'Inclusion Support', 'emoji' => '🤝', 'color' => '#ec4899'],
         'exceptional' => ['title' => 'Exceptional Support', 'emoji' => '⚡', 'color' => '#f59e0b'],
     ];

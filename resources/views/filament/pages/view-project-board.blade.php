@@ -356,6 +356,7 @@
                 <div style="margin:-.2rem 0 1rem;">
                     <p class="mc-modal-label" style="font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:7px;">Useful Erasmus+ categories</p>
                     <div style="display:flex;gap:.45rem;flex-wrap:wrap;">
+                        <button type="button" wire:click="applyBasketPreset('ka2_project_management')" class="mc-modal-cancel" style="padding:6px 9px;border-radius:7px;border:1px solid rgba(15,118,110,.28);background:rgba(15,118,110,.07);cursor:pointer;font-size:12px;">📋 Project Management <span style="opacity:.7;">· KA2</span></button>
                         <button type="button" wire:click="applyBasketPreset('inclusion')" class="mc-modal-cancel" style="padding:6px 9px;border-radius:7px;border:1px solid rgba(236,72,153,.28);background:rgba(236,72,153,.07);cursor:pointer;font-size:12px;">🤝 Inclusion Support</button>
                         <button type="button" wire:click="applyBasketPreset('exceptional')" class="mc-modal-cancel" style="padding:6px 9px;border-radius:7px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);cursor:pointer;font-size:12px;">⚡ Exceptional Support</button>
                     </div>
