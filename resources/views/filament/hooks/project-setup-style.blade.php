@@ -11,7 +11,7 @@
     .mc-project-entry-copy { display:grid; gap:.16rem; }
     .mc-project-entry-copy strong { font-size:.95rem; font-weight:800; }
     .mc-project-entry-copy small { color:#64748b; font-size:.72rem; line-height:1.35; }
-    .mc-project-settings-section .fi-section { border:0; border-radius:1.5rem; background:rgb(248 250 252 / 72%); box-shadow:none; }
+    .mc-project-settings-section .fi-section { border:1px solid rgb(148 163 184 / 18%); border-radius:1.5rem; background:rgb(248 250 252 / 72%); box-shadow:0 3px 12px rgb(15 23 42 / 3%); }
     .mc-project-settings-section .fi-section-header { padding-bottom:.5rem; }
     .mc-project-settings-section .fi-section-content-ctn { padding-top:.35rem; }
     .mc-project-details-section .fi-section { background:linear-gradient(135deg,#f8fbff 0%,#f8fafc 100%); }
