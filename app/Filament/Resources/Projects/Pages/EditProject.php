@@ -9,6 +9,7 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +22,11 @@ class EditProject extends EditRecord
     protected array $previousCurrencyRates = [];
 
     private bool $isAutosaving = false;
+
+    public function form(Schema $schema): Schema
+    {
+        return parent::form($schema)->columns(2);
+    }
 
     public function mount(int|string $record): void
     {

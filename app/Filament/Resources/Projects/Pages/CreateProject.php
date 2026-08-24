@@ -5,11 +5,14 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Pages\AccountSettings;
 use App\Filament\Resources\Projects\ProjectResource;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Arr;
 
 class CreateProject extends CreateRecord
 {
     protected static string $resource = ProjectResource::class;
+
+    protected static bool $canCreateAnother = false;
 
     protected bool $createAsApproved = false;
 
@@ -26,6 +29,11 @@ class CreateProject extends CreateRecord
         }
 
         parent::mount();
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return parent::form($schema)->columns(1);
     }
 
     protected function mutateFormDataBeforeCreate(array $data): array

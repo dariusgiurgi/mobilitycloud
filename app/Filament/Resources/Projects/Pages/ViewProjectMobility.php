@@ -4,10 +4,17 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectDocument;
+use App\Models\ProjectMobility;
 use App\Support\AuthorizesProjectManagement;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\WithFileUploads;
 
@@ -110,6 +117,84 @@ class ViewProjectMobility extends Page
     public function getTitle(): string
     {
         return $this->record->name.' - Mobility';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('manageMobilities')
+                ->label('Manage mobilities')
+                ->icon('heroicon-o-map-pin')
+                ->modalHeading('Project mobilities')
+                ->modalDescription('Add the trips you will manage separately. You can keep up to 10 mobilities in one project.')
+                ->modalSubmitActionLabel('Save mobilities')
+                ->fillForm(fn (): array => [
+                    'mobilities' => $this->record->mobilities()
+                        ->get()
+                        ->map(fn (ProjectMobility $mobility): array => [
+                            'id' => $mobility->id,
+                            'name' => $mobility->name,
+                            'start_date' => $mobility->start_date?->toDateString(),
+                            'end_date' => $mobility->end_date?->toDateString(),
+                            'destination_country' => $mobility->destination_country,
+                            'host_organisation' => $mobility->host_organisation,
+                        ])
+                        ->all(),
+                ])
+                ->form([
+                    Repeater::make('mobilities')
+                        ->hiddenLabel()
+                        ->schema([
+                            Hidden::make('id'),
+                            TextInput::make('name')->label('Mobility name')->required()->maxLength(255)->placeholder('e.g. VET group — Porto'),
+                            DatePicker::make('start_date')->label('Start date')->required()->live(),
+                            DatePicker::make('end_date')->label('End date')->required()->live()->afterOrEqual('start_date'),
+                            TextInput::make('destination_country')->label('Destination country')->maxLength(100)->placeholder('Optional'),
+                            TextInput::make('host_organisation')->label('Host organisation')->maxLength(255)->placeholder('Optional'),
+                        ])
+                        ->columns(2)
+                        ->addActionLabel('Add mobility')
+                        ->maxItems(10)
+                        ->defaultItems(0)
+                        ->itemLabel(fn (array $state): string => $state['name'] ?: 'New mobility')
+                        ->collapsible(),
+                ])
+                ->action(function (array $data): void {
+                    $this->authorizeManagementModuleMutation('mobility', 'project-mobilities', 'Project mobilities');
+
+                    $rows = collect($data['mobilities'] ?? [])->values();
+                    $existing = $this->record->mobilities()->get()->keyBy('id');
+                    $keptIds = [];
+
+                    DB::transaction(function () use ($rows, $existing, &$keptIds): void {
+                        foreach ($rows as $sortOrder => $row) {
+                            $attributes = [
+                                'name' => trim((string) $row['name']),
+                                'start_date' => $row['start_date'],
+                                'end_date' => $row['end_date'],
+                                'destination_country' => filled($row['destination_country'] ?? null) ? trim((string) $row['destination_country']) : null,
+                                'host_organisation' => filled($row['host_organisation'] ?? null) ? trim((string) $row['host_organisation']) : null,
+                                'sort_order' => $sortOrder,
+                            ];
+                            $mobility = $existing->get((int) ($row['id'] ?? 0));
+
+                            if ($mobility) {
+                                $mobility->update($attributes);
+                            } else {
+                                $mobility = $this->record->mobilities()->create($attributes);
+                            }
+
+                            $keptIds[] = $mobility->id;
+                        }
+
+                        $this->record->mobilities()->whereNotIn('id', $keptIds)->get()->each->delete();
+                    });
+
+                    $this->record->refresh();
+                    Notification::make()->title('Mobilities saved')->success()->send();
+                })
+                ->visible(fn (): bool => $this->record->canManageProjectModule(auth()->user(), 'mobility')),
+        ];
     }
 
     public function toggleEvidenceDay(string $dayId): void

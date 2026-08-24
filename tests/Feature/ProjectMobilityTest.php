@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use App\Models\ProjectMobility;
 use App\Models\ProjectModuleLock;
 use App\Models\User;
 use App\Services\ProjectFinalArchiveService;
@@ -19,6 +20,31 @@ use ZipArchive;
 class ProjectMobilityTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_mobilities_are_managed_only_from_the_mobility_module_and_limited_to_ten(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        $mobilities = collect(range(1, 10))->map(fn (int $number): array => [
+            'name' => 'Mobility '.$number,
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-07-05',
+        ])->all();
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertActionVisible('manageMobilities')
+            ->callAction('manageMobilities', data: ['mobilities' => $mobilities])
+            ->assertHasNoActionErrors()
+            ->callAction('manageMobilities', data: ['mobilities' => [...$mobilities, [
+                'name' => 'Mobility 11',
+                'start_date' => '2026-07-10',
+                'end_date' => '2026-07-14',
+            ]]])
+            ->assertHasActionErrors(['mobilities' => 'max']);
+
+        $this->assertCount(10, ProjectMobility::query()->where('project_id', $project->id)->get());
+    }
 
     public function test_member_can_save_mobility_report_and_upload_activity_files(): void
     {

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Projects\Schemas;
 
 use App\Models\Project;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -21,9 +20,7 @@ class ProjectForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema
-            ->columns(1)
-            ->components([
+        return $schema->components([
             Section::make('How would you like to start?')
                 ->description('Pick a starting point. You can switch it before creating the project.')
                 ->visible(fn (string $operation): bool => $operation === 'create')
@@ -64,6 +61,7 @@ class ProjectForm
                 ->visible(fn (callable $get, string $operation): bool => $operation !== 'create' || filled($get('project_entry_mode')))
                 ->extraAttributes(['class' => 'mc-project-settings-section mc-project-details-section'])
                 ->columns(fn (string $operation): int => $operation === 'create' ? 1 : 2)
+                ->columnSpanFull()
                 ->schema([
                     TextInput::make('name')
                         ->label('Project name')
@@ -116,12 +114,11 @@ class ProjectForm
                         ->helperText('Upload the approval letter or approved budget. PDF or image, maximum 10 MB.'),
                 ]),
 
-            self::timelineAndMobilities(),
-
             Section::make('Involved organisations')
                 ->description('Add the coordinator and partners when you need them for participant grouping and attendance sheets.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
                 ->extraAttributes(['class' => 'mc-project-settings-section'])
+                ->columnSpanFull()
                 ->schema([
                     Repeater::make('partner_orgs')
                         ->hiddenLabel()
@@ -142,7 +139,7 @@ class ProjectForm
                         ->columnSpanFull(),
                 ]),
 
-            self::approvalAndInvoice(),
+            self::approvalAndInvoice()->columnSpanFull(),
 
             Section::make('Operational finance settings')
                 ->description('Used by generated project documents. Approved grant values are managed in the approval record above.')
@@ -188,6 +185,7 @@ class ProjectForm
                 ->description('Usually these can be left as they are.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
                 ->extraAttributes(['class' => 'mc-project-settings-section'])
+                ->columnSpanFull()
                 ->columns(2)
                 ->collapsible()
                 ->collapsed()
@@ -196,41 +194,6 @@ class ProjectForm
                     Select::make('expense_pad_length')->label('Expense number padding')->options([2 => '2 digits', 3 => '3 digits', 4 => '4 digits', 5 => '5 digits', 6 => '6 digits'])->default(3)->live()->native(false),
                 ]),
         ]);
-    }
-
-    private static function timelineAndMobilities(): Section
-    {
-        return Section::make('Timeline and mobilities')
-            ->description('Add dates only after the project is approved. Each mobility has its own period.')
-            ->visible(fn (callable $get, string $operation, ?Project $record): bool => $operation === 'create'
-                ? $get('project_entry_mode') === 'approved'
-                : $record?->isManagementStage() === true)
-            ->extraAttributes(['class' => 'mc-project-settings-section mc-project-timeline-section'])
-            ->columns(fn (string $operation): int => $operation === 'create' ? 1 : 2)
-            ->schema([
-                DatePicker::make('start_date')->label('Project start')->live()->required(fn (string $operation): bool => $operation === 'create'),
-                DatePicker::make('end_date')->label('Project end')->live()->afterOrEqual('start_date')->required(fn (string $operation): bool => $operation === 'create'),
-                Repeater::make('mobilities')
-                    ->relationship()
-                    ->hiddenLabel()
-                    ->schema([
-                        TextInput::make('name')->label('Mobility name')->required()->maxLength(255)->placeholder('e.g. VET group — Porto'),
-                        DatePicker::make('start_date')->label('Start date')->required()->live(),
-                        DatePicker::make('end_date')->label('End date')->required()->live()->afterOrEqual('start_date'),
-                        TextInput::make('destination_country')->label('Destination country')->maxLength(100)->placeholder('Optional'),
-                        TextInput::make('host_organisation')->label('Host organisation')->maxLength(255)->placeholder('Optional'),
-                    ])
-                    ->columns(2)
-                    ->addActionLabel('Add another mobility')
-                    ->defaultItems(0)
-                    ->minItems(fn (string $operation): ?int => $operation === 'create' ? 1 : null)
-                    ->maxItems(10)
-                    ->orderColumn('sort_order')
-                    ->itemLabel(fn (array $state): string => $state['name'] ?: 'New mobility')
-                    ->collapsible()
-                    ->helperText('You can add up to 10 mobilities to one project. Add only the trips you will manage separately.')
-                    ->columnSpanFull(),
-            ]);
     }
 
     private static function approvalAndInvoice(): Section

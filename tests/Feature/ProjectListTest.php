@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\AccountSettings;
+use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\Pages\CreateProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Models\Project;
@@ -107,12 +108,6 @@ class ProjectListTest extends TestCase
                 'grant_ref' => '2026-1-RO01-KA122-VET-0001',
                 'approved_grant_declaration' => 24000,
                 'approved_grant_proof_upload' => UploadedFile::fake()->create('approval.pdf', 100, 'application/pdf'),
-                'start_date' => '2026-09-01',
-                'end_date' => '2027-08-31',
-                'mobilities' => [
-                    ['name' => 'VET group — Porto', 'start_date' => '2026-11-10', 'end_date' => '2026-11-24'],
-                    ['name' => 'Staff — Valencia', 'start_date' => '2027-02-08', 'end_date' => '2027-02-15'],
-                ],
             ])
             ->call('create')
             ->assertHasNoFormErrors();
@@ -122,9 +117,21 @@ class ProjectListTest extends TestCase
         $this->assertSame('approved', $project->status);
         $this->assertSame('24000.00', $project->approved_grant_amount);
         $this->assertSame('pending', $project->invoice_status);
-        $this->assertCount(2, $project->mobilities);
-        $this->assertSame('2026-11-10', $project->mobility_start_date?->toDateString());
+        $this->assertCount(0, $project->mobilities);
         $this->assertFalse($project->canAccessProjectModule($user, 'write'));
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertActionVisible('manageMobilities')
+            ->callAction('manageMobilities', data: [
+                'mobilities' => [
+                    ['name' => 'VET group — Porto', 'start_date' => '2026-11-10', 'end_date' => '2026-11-24'],
+                    ['name' => 'Staff — Valencia', 'start_date' => '2027-02-08', 'end_date' => '2027-02-15'],
+                ],
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertCount(2, $project->fresh()->mobilities);
+        $this->assertSame('2026-11-10', $project->fresh()->mobility_start_date?->toDateString());
     }
 
     public function test_standard_account_cannot_create_projects_with_placeholder_billing_details(): void

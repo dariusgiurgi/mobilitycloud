@@ -36,47 +36,21 @@ class ProjectSettingsTest extends TestCase
             ->assertDontSee('Approved budget (€)');
     }
 
-    public function test_approved_project_settings_validate_dates_and_financial_percentages(): void
+    public function test_project_settings_validate_financial_percentages_without_mobility_fields(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
-        $project->update(['status' => 'approved']);
         $this->actingAs($user);
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm([
-                'start_date' => '2026-06-10',
-                'end_date' => '2026-06-01',
-                'mobilities' => [
-                    ['name' => 'First mobility', 'start_date' => '2026-07-10', 'end_date' => '2026-07-01'],
-                ],
                 'first_tranche_pct' => 110,
                 'withholding_tax_rate' => 101,
             ])
             ->call('save')
             ->assertHasFormErrors([
-                'end_date' => 'after_or_equal',
-                'mobilities.0.end_date' => 'after_or_equal',
                 'first_tranche_pct' => 'max',
                 'withholding_tax_rate' => 'max',
             ]);
-    }
-
-    public function test_project_can_have_up_to_ten_mobilities(): void
-    {
-        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
-        $project->update(['status' => 'approved']);
-        $this->actingAs($user);
-
-        $mobilities = collect(range(1, 11))->map(fn (int $number): array => [
-            'name' => 'Mobility '.$number,
-            'start_date' => '2026-07-01',
-            'end_date' => '2026-07-05',
-        ])->all();
-
-        Livewire::test(EditProject::class, ['record' => $project->id])
-            ->fillForm(['mobilities' => $mobilities])
-            ->call('save')
-            ->assertHasFormErrors(['mobilities' => 'max']);
     }
 
     public function test_expense_prefix_is_saved_in_a_consistent_format(): void
