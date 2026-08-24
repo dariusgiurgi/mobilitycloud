@@ -34,8 +34,15 @@
     @endphp
 
     <x-filament::section heading="Choose a mobility" description="Everything below belongs only to the selected mobility. The same submenus are kept for every trip.">
+        @if($canManage)
+            <div style="display:flex;justify-content:flex-end;margin-bottom:.7rem;">
+                <x-filament::button wire:click="mountAction('manageMobilities')" icon="heroicon-m-map-pin">
+                    Manage mobilities
+                </x-filament::button>
+            </div>
+        @endif
         @if($mobilities->isEmpty())
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:0;">Add the first mobility from <strong>Manage mobilities</strong> above to begin.</p>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:0;">Add the first mobility to begin organising its evidence, materials, dissemination and report.</p>
         @else
             <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
                 @foreach($mobilities as $mobility)
@@ -54,6 +61,7 @@
         @endif
     </x-filament::section>
 
+    @if($selectedMobility)
     @include('filament.pages.partials.project-collaboration-strip', ['module' => 'mobility'])
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.65rem;margin-top:.8rem;">
@@ -620,6 +628,7 @@
                 </div>
             </x-filament::section>
         </div>
+    @endif
     @endif
     @endif
 </x-filament-panels::page>

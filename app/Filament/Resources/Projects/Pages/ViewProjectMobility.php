@@ -173,6 +173,7 @@ class ViewProjectMobility extends Page
             Action::make('manageMobilities')
                 ->label('Manage mobilities')
                 ->icon('heroicon-o-map-pin')
+                ->extraAttributes(['style' => 'display:none'])
                 ->modalHeading('Project mobilities')
                 ->modalDescription('Add the trips you will manage separately. You can keep up to 10 mobilities in one project.')
                 ->modalSubmitActionLabel('Save mobilities')
