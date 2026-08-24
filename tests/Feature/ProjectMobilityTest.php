@@ -76,6 +76,33 @@ class ProjectMobilityTest extends TestCase
         $this->assertCount(10, ProjectMobility::query()->where('project_id', $project->id)->get());
     }
 
+    public function test_mobility_uses_only_its_selected_organisations_for_dissemination(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $project->update(['partner_orgs' => [
+            ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => 'E10000001', 'is_coordinator' => true],
+            ['name' => 'Partner Association', 'country' => 'IT', 'oid' => 'E10000002'],
+            ['name' => 'Observer Association', 'country' => 'ES', 'oid' => 'E10000003'],
+        ]]);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->callAction('manageMobilities', data: ['mobilities' => [[
+                'name' => 'Porto',
+                'start_date' => '2026-07-01',
+                'end_date' => '2026-07-05',
+                'participating_organisations' => ['oid_e10000001', 'oid_e10000002'],
+            ]]])
+            ->assertHasNoActionErrors()
+            ->call('setMobilityTab', 'dissemination')
+            ->assertSee('Coordinator Association')
+            ->assertSee('Partner Association')
+            ->assertDontSee('Observer Association');
+
+        $mobility = $project->fresh()->mobilities()->sole();
+        $this->assertSame(['oid_e10000001', 'oid_e10000002'], $mobility->participating_organisations);
+    }
+
     public function test_member_can_save_mobility_report_and_upload_activity_files(): void
     {
         Storage::fake('local');

@@ -17,7 +17,7 @@ class ProjectMobility extends Model
     ];
 
     protected $fillable = [
-        'project_id', 'name', 'start_date', 'end_date', 'destination_country', 'host_organisation', 'workspace_data', 'sort_order',
+        'project_id', 'name', 'start_date', 'end_date', 'destination_country', 'host_organisation', 'participating_organisations', 'workspace_data', 'sort_order',
         'participant_registration_token', 'participant_registration_opened_at', 'participant_registration_closed_at',
     ];
 
@@ -25,6 +25,7 @@ class ProjectMobility extends Model
         'start_date' => 'date',
         'end_date' => 'date',
         'workspace_data' => 'array',
+        'participating_organisations' => 'array',
         'participant_registration_opened_at' => 'datetime',
         'participant_registration_closed_at' => 'datetime',
     ];

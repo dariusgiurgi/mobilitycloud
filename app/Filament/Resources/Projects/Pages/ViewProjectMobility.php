@@ -7,6 +7,7 @@ use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
@@ -150,7 +151,7 @@ class ViewProjectMobility extends Page
         return $this->record->mobilities()->get()->map(function (ProjectMobility $mobility): array {
             $documents = $mobility->documents()->where('type', ProjectDocument::TYPE_UPLOAD)->get();
             $workspace = $mobility->workspace_data ?? [];
-            $organisations = collect($this->getDisseminationOrganisations());
+            $organisations = collect($this->getDisseminationOrganisations($mobility));
             $reports = collect(data_get($workspace, 'dissemination_reports', []));
             $evidence = $documents->where('category', 'dissemination_evidence');
             $disseminationReady = $organisations->isNotEmpty() && $organisations->every(fn (array $organisation): bool => filled(trim((string) $reports->get($organisation['key']))) && $evidence->contains(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_key') === $organisation['key']));
@@ -187,6 +188,7 @@ class ViewProjectMobility extends Page
                             'end_date' => $mobility->end_date?->toDateString(),
                             'destination_country' => $mobility->destination_country,
                             'host_organisation' => $mobility->host_organisation,
+                            'participating_organisations' => $mobility->participating_organisations ?? $this->projectOrganisationKeys(),
                         ])
                         ->all(),
                 ])
@@ -200,6 +202,13 @@ class ViewProjectMobility extends Page
                             DatePicker::make('end_date')->label('End date')->required()->live()->afterOrEqual('start_date'),
                             TextInput::make('destination_country')->label('Destination country')->maxLength(100)->placeholder('Optional'),
                             TextInput::make('host_organisation')->label('Host organisation')->maxLength(255)->placeholder('Optional'),
+                            CheckboxList::make('participating_organisations')
+                                ->label('Participating organisations')
+                                ->options(fn (): array => $this->projectOrganisationOptions())
+                                ->default(fn (): array => $this->projectOrganisationKeys())
+                                ->columns(2)
+                                ->columnSpanFull()
+                                ->helperText('Only selected organisations receive dissemination fields for this mobility.'),
                         ])
                         ->columns(2)
                         ->addActionLabel('Add mobility')
@@ -223,6 +232,11 @@ class ViewProjectMobility extends Page
                                 'end_date' => $row['end_date'],
                                 'destination_country' => filled($row['destination_country'] ?? null) ? trim((string) $row['destination_country']) : null,
                                 'host_organisation' => filled($row['host_organisation'] ?? null) ? trim((string) $row['host_organisation']) : null,
+                                'participating_organisations' => collect($row['participating_organisations'] ?? $this->projectOrganisationKeys())
+                                    ->filter(fn ($key): bool => array_key_exists((string) $key, $this->projectOrganisationOptions()))
+                                    ->map(fn ($key): string => (string) $key)
+                                    ->values()
+                                    ->all(),
                                 'sort_order' => $sortOrder,
                             ];
                             $mobility = $existing->get((int) ($row['id'] ?? 0));
@@ -780,7 +794,24 @@ class ViewProjectMobility extends Page
         Notification::make()->title($count.' evidence file'.($count === 1 ? '' : 's').' uploaded')->success()->send();
     }
 
-    public function getDisseminationOrganisations(): array
+    /** @return array<string, string> */
+    public function projectOrganisationOptions(): array
+    {
+        return collect($this->projectOrganisations())
+            ->mapWithKeys(fn (array $organisation): array => [
+                $organisation['key'] => $organisation['name'].($organisation['country'] ? ' · '.$organisation['country'] : ''),
+            ])
+            ->all();
+    }
+
+    /** @return array<int, string> */
+    public function projectOrganisationKeys(): array
+    {
+        return array_keys($this->projectOrganisationOptions());
+    }
+
+    /** @return array<int, array{key: string, name: string, country: ?string, oid: ?string, is_coordinator: bool}> */
+    private function projectOrganisations(): array
     {
         $partners = collect($this->record->partners)
             ->filter(fn (array $partner): bool => filled($partner['name'] ?? null))
@@ -813,6 +844,29 @@ class ViewProjectMobility extends Page
                     'is_coordinator' => (bool) ($partner['is_coordinator'] ?? false),
                 ];
             })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Organisations participating in the currently selected mobility. Legacy
+     * records without an explicit selection keep the earlier all-organisations
+     * behaviour until they are saved again.
+     *
+     * @return array<int, array{key: string, name: string, country: ?string, oid: ?string, is_coordinator: bool}>
+     */
+    public function getDisseminationOrganisations(?ProjectMobility $mobility = null): array
+    {
+        $mobility ??= $this->getSelectedMobility();
+        $selected = $mobility?->participating_organisations;
+        $organisations = collect($this->projectOrganisations());
+
+        if (! is_array($selected)) {
+            return $organisations->all();
+        }
+
+        return $organisations
+            ->whereIn('key', $selected)
             ->values()
             ->all();
     }
