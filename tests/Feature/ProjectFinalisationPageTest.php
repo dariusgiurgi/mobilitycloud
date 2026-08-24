@@ -27,6 +27,9 @@ class ProjectFinalisationPageTest extends TestCase
 
         Livewire::test(ViewProjectFinalisation::class, ['record' => $project->id])
             ->assertSee('Prepare the final project archive')
+            ->assertSee('Recommended before handover')
+            ->assertSee('not requirements for downloading the archive')
+            ->assertSee('Download ZIP')
             ->assertSee('Project essentials')
             ->assertSee('Evidence & files')
             ->assertSee('records included')

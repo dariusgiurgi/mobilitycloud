@@ -9,6 +9,7 @@
             ->sum('count');
         $exportsLocked = $record->exportsLockedUntilPayment();
         $canConfigure = $this->canConfigureArchive();
+        $recommendations = $this->finalisationRecommendations();
         $groups = [
             'Project essentials' => ['project_data', 'application', 'participants', 'budget', 'agreements'],
             'Evidence & files' => ['generated_records', 'project_files', 'mobility', 'dissemination'],
@@ -44,12 +45,30 @@
         .mc-final-row-copy { display:block;color:#7c8799;font-size:.64rem;line-height:1.35;margin-top:.12rem; }
         .mc-final-count { color:#64748b;font-size:.63rem;font-weight:700;white-space:nowrap; }
         .mc-final-note { display:flex;gap:.6rem;align-items:flex-start;padding:.75rem .85rem;margin-top:1rem;border:1px solid rgba(245,158,11,.25);border-radius:.8rem;background:rgba(255,251,235,.72); }
+        .mc-final-preflight { margin-top:1rem;padding:.85rem;border:1px solid rgba(148,163,184,.2);border-radius:.9rem;background:rgba(248,250,252,.75); }
+        .mc-final-preflight-head { display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin:0 0 .7rem; }
+        .mc-final-preflight-head h3 { color:#27272a;font-size:.82rem;font-weight:780;margin:.14rem 0 0; }
+        .mc-final-preflight-head p { color:#7c8799;font-size:.66rem;line-height:1.4;margin:.16rem 0 0; }
+        .mc-final-preflight-note { color:#64748b;font-size:.62rem;font-weight:700;text-align:right;line-height:1.35;max-width:165px; }
+        .mc-final-recommendations { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem; }
+        .mc-final-recommendation { display:grid;grid-template-columns:18px minmax(0,1fr) auto;gap:.45rem;align-items:center;padding:.55rem .6rem;border:1px solid rgba(148,163,184,.2);border-radius:.65rem;background:#fff;text-decoration:none;transition:.15s border-color,.15s background; }
+        .mc-final-recommendation:hover { border-color:rgba(99,102,241,.45);background:rgba(99,102,241,.04); }
+        .mc-final-recommendation-dot { width:16px;height:16px;display:inline-grid;place-items:center;border-radius:999px;background:rgba(245,158,11,.13);color:#b45309;font-size:.64rem;font-weight:800; }
+        .mc-final-recommendation.is-critical .mc-final-recommendation-dot { background:rgba(239,68,68,.1);color:#dc2626; }
+        .mc-final-recommendation-title { color:#27272a;font-size:.7rem;font-weight:750;line-height:1.3; }
+        .mc-final-recommendation-copy { display:block;color:#7c8799;font-size:.61rem;line-height:1.32;margin-top:.1rem; }
+        .mc-final-recommendation-action { color:#4f46e5;font-size:.62rem;font-weight:750;white-space:nowrap; }
+        .mc-final-ready { display:flex;align-items:center;gap:.5rem;color:#15803d;font-size:.68rem;font-weight:700;padding:.15rem 0; }
+        .mc-final-ready i { width:19px;height:19px;display:inline-grid;place-items:center;border-radius:999px;background:rgba(34,197,94,.12);font-style:normal; }
         .dark .mc-final-title,.dark .mc-final-stat strong,.dark .mc-final-group-head h3,.dark .mc-final-row-title { color:#f4f4f5; }
-        .dark .mc-final-stat,.dark .mc-final-group { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
+        .dark .mc-final-stat,.dark .mc-final-group,.dark .mc-final-recommendation { background:rgb(17,24,39);border-color:rgba(255,255,255,.1); }
+        .dark .mc-final-preflight { background:rgba(17,24,39,.65);border-color:rgba(255,255,255,.1); }
+        .dark .mc-final-preflight-head h3,.dark .mc-final-recommendation-title { color:#f4f4f5; }
         .dark .mc-final-row { border-color:rgba(255,255,255,.1); }
         .dark .mc-final-row.is-selected { background:rgba(99,102,241,.18); }
         @media (max-width:800px) { .mc-final-layout { grid-template-columns:1fr; } }
-        @media (max-width:520px) { .mc-final-summary { width:100%; }.mc-final-stat { flex:1; }.mc-final-row { grid-template-columns:22px minmax(0,1fr); }.mc-final-count { grid-column:2; } }
+        @media (max-width:650px) { .mc-final-recommendations { grid-template-columns:1fr; } }
+        @media (max-width:520px) { .mc-final-summary { width:100%; }.mc-final-stat { flex:1; }.mc-final-row { grid-template-columns:22px minmax(0,1fr); }.mc-final-count { grid-column:2; }.mc-final-preflight-head { display:block; }.mc-final-preflight-note { text-align:left;margin-top:.35rem;max-width:none; } }
     </style>
 
     <section class="mc-final-hero">
@@ -85,6 +104,34 @@
             </div>
         </div>
     @endif
+
+    <section class="mc-final-preflight">
+        <div class="mc-final-preflight-head">
+            <div>
+                <div class="mc-final-eyebrow">Recommended before handover</div>
+                <h3>{{ count($recommendations) ? count($recommendations).' item'.(count($recommendations) === 1 ? '' : 's').' worth checking' : 'The project looks ready to hand over' }}</h3>
+                <p>These are helpful final checks, not requirements for downloading the archive.</p>
+            </div>
+            <span class="mc-final-preflight-note">You can export the ZIP at any time.</span>
+        </div>
+
+        @if (count($recommendations))
+            <div class="mc-final-recommendations">
+                @foreach ($recommendations as $recommendation)
+                    <a href="{{ $recommendation['url'] }}" class="mc-final-recommendation {{ $recommendation['severity'] === 'critical' ? 'is-critical' : '' }}">
+                        <span class="mc-final-recommendation-dot">!</span>
+                        <span>
+                            <span class="mc-final-recommendation-title">{{ $recommendation['label'] }}</span>
+                            <span class="mc-final-recommendation-copy">{{ $recommendation['detail'] }}</span>
+                        </span>
+                        <span class="mc-final-recommendation-action">{{ $recommendation['action'] }} →</span>
+                    </a>
+                @endforeach
+            </div>
+        @else
+            <div class="mc-final-ready"><i>✓</i> Key final checks are complete. You can still update the archive selection whenever you need.</div>
+        @endif
+    </section>
 
     <div class="mc-final-layout">
         @foreach ($groups as $groupLabel => $keys)

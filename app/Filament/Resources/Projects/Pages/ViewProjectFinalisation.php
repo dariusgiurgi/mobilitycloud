@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectDocument;
+use App\Services\ProjectReadinessCheck;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
@@ -67,6 +68,65 @@ class ViewProjectFinalisation extends Page
     public function selectedCount(): int
     {
         return collect($this->include)->filter()->count();
+    }
+
+    /**
+     * Surface useful handover checks without coupling them to archive access.
+     * A project may always be finalised and exported, even when recommendations
+     * remain open.
+     */
+    public function finalisationRecommendations(): array
+    {
+        $urls = [
+            'application' => ProjectResource::projectUrl($this->record, 'write'),
+            'budget' => ProjectResource::projectUrl($this->record, $this->record->implementationModulesAvailable() ? 'board' : 'estimate'),
+            'mobility' => ProjectResource::projectUrl($this->record, 'mobility'),
+            'participants' => ProjectResource::projectUrl($this->record, 'participants'),
+            'documents' => ProjectResource::projectUrl($this->record, 'documents'),
+            'settings' => ProjectResource::projectUrl($this->record, 'edit'),
+            'tasks' => ProjectResource::projectUrl($this->record, 'overview'),
+        ];
+
+        $actions = [
+            'application' => 'Open writing',
+            'budget' => 'Open budget',
+            'mobility' => 'Open mobility',
+            'participants' => 'Open participants',
+            'documents' => 'Open documents',
+            'settings' => 'Open settings',
+            'tasks' => 'Open overview',
+        ];
+
+        $priority = [
+            'Project dates' => 10,
+            'Grant amount' => 20,
+            'Budget baskets' => 30,
+            'Overspending' => 40,
+            'Mobility dates' => 50,
+            'Participant documents' => 60,
+            'Participant contact data' => 70,
+            'Project file checklist' => 80,
+            'Signed generated records' => 90,
+            'Expense evidence' => 100,
+            'Open tasks' => 110,
+        ];
+
+        return collect(app(ProjectReadinessCheck::class)->build($this->record)['items'])
+            ->filter(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true))
+            ->sortBy(fn (array $item): array => [
+                $item['severity'] === 'critical' ? 0 : 1,
+                $priority[$item['label']] ?? 999,
+            ])
+            ->take(6)
+            ->map(fn (array $item): array => [
+                'label' => $item['label'],
+                'detail' => $item['detail'],
+                'url' => $urls[$item['target']] ?? ProjectResource::projectUrl($this->record),
+                'action' => $actions[$item['target']] ?? 'Open project',
+                'severity' => $item['severity'],
+            ])
+            ->values()
+            ->all();
     }
 
     public function canConfigureArchive(): bool
