@@ -41,15 +41,13 @@ class ProjectForm
 
                             return new HtmlString(<<<HTML
                                 <div class="mc-project-entry-grid">
-                                    <button type="button" wire:click="\$set('data.project_entry_mode', 'application')" class="mc-project-entry-card{$applicationSelected}" aria-pressed="{$applicationPressed}">
+                                    <button type="button" wire:click="\$set('data.project_entry_mode', 'application')" class="mc-project-entry-button{$applicationSelected}" aria-pressed="{$applicationPressed}">
                                         <span class="mc-project-entry-icon">✍️</span>
-                                        <span class="mc-project-entry-copy"><strong>New application</strong><small>I want to write and prepare an Erasmus+ application.</small></span>
-                                        <span class="mc-project-entry-arrow">→</span>
+                                        <span class="mc-project-entry-copy"><strong>New application</strong><small>Write and prepare an Erasmus+ application</small></span>
                                     </button>
-                                    <button type="button" wire:click="\$set('data.project_entry_mode', 'approved')" class="mc-project-entry-card mc-project-entry-card-approved{$approvedSelected}" aria-pressed="{$approvedPressed}">
+                                    <button type="button" wire:click="\$set('data.project_entry_mode', 'approved')" class="mc-project-entry-button mc-project-entry-button-approved{$approvedSelected}" aria-pressed="{$approvedPressed}">
                                         <span class="mc-project-entry-icon">✓</span>
-                                        <span class="mc-project-entry-copy"><strong>Already approved</strong><small>I already have a grant and want to manage implementation.</small></span>
-                                        <span class="mc-project-entry-arrow">→</span>
+                                        <span class="mc-project-entry-copy"><strong>Already approved</strong><small>Manage an existing project and its implementation</small></span>
                                     </button>
                                 </div>
                             HTML);
