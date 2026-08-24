@@ -61,7 +61,6 @@ class ProjectForm
                 ->visible(fn (callable $get, string $operation): bool => $operation !== 'create' || filled($get('project_entry_mode')))
                 ->extraAttributes(['class' => 'mc-project-settings-section mc-project-details-section'])
                 ->columns(fn (string $operation): int => $operation === 'create' ? 1 : 2)
-                ->columnSpanFull()
                 ->schema([
                     TextInput::make('name')
                         ->label('Project name')
@@ -118,7 +117,6 @@ class ProjectForm
                 ->description('Add the coordinator and partners when you need them for participant grouping and attendance sheets.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
                 ->extraAttributes(['class' => 'mc-project-settings-section'])
-                ->columnSpanFull()
                 ->schema([
                     Repeater::make('partner_orgs')
                         ->hiddenLabel()
@@ -139,7 +137,7 @@ class ProjectForm
                         ->columnSpanFull(),
                 ]),
 
-            self::approvalAndInvoice()->columnSpanFull(),
+            self::approvalAndInvoice(),
 
             Section::make('Operational finance settings')
                 ->description('Used by generated project documents. Approved grant values are managed in the approval record above.')
@@ -185,7 +183,6 @@ class ProjectForm
                 ->description('Usually these can be left as they are.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
                 ->extraAttributes(['class' => 'mc-project-settings-section'])
-                ->columnSpanFull()
                 ->columns(2)
                 ->collapsible()
                 ->collapsed()
