@@ -28,7 +28,31 @@
         $evidenceDocuments = $this->getEvidenceDocumentsByDay();
         $canManage = $record->canManageProjectModule(auth()->user(), 'mobility');
         $mobilityLocks = $this->projectLocksForModule('mobility');
+        $mobilities = $record->mobilities()->get();
+        $selectedMobility = $this->getSelectedMobility();
+        $mobilityStatuses = collect($this->getMobilityStatuses())->keyBy('id');
     @endphp
+
+    <x-filament::section heading="Choose a mobility" description="Everything below belongs only to the selected mobility. The same submenus are kept for every trip.">
+        @if($mobilities->isEmpty())
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:0;">Add the first mobility from <strong>Manage mobilities</strong> above to begin.</p>
+        @else
+            <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+                @foreach($mobilities as $mobility)
+                    @php $status = $mobilityStatuses->get($mobility->id); @endphp
+                    <button type="button" wire:click="selectMobility({{ $mobility->id }})" style="min-width:210px;flex:1 1 230px;padding:.75rem .85rem;text-align:left;border:1px solid {{ $selectedMobility?->id === $mobility->id ? '#6366f1' : 'rgba(148,163,184,.26)' }};border-radius:.8rem;background:{{ $selectedMobility?->id === $mobility->id ? 'rgba(99,102,241,.07)' : 'transparent' }};cursor:pointer;">
+                        <strong class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;">{{ $mobility->name }}</strong>
+                        <span class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.68rem;margin-top:.16rem;">{{ $status['dates'] ?: 'Dates not set' }}</span>
+                        <span style="display:flex;gap:.25rem;flex-wrap:wrap;margin-top:.45rem;">
+                            @foreach(['evidence' => 'Evidence', 'materials' => 'Materials', 'dissemination' => 'Dissemination', 'report' => 'Report'] as $key => $label)
+                                <span style="font-size:.58rem;font-weight:750;padding:.14rem .35rem;border-radius:999px;background:{{ $status[$key] ? 'rgba(16,185,129,.13)' : 'rgba(148,163,184,.12)' }};color:{{ $status[$key] ? '#047857' : '#64748b' }};">{{ $label }}</span>
+                            @endforeach
+                        </span>
+                    </button>
+                @endforeach
+            </div>
+        @endif
+    </x-filament::section>
 
     <x-filament::section>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">

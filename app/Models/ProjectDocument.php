@@ -39,7 +39,7 @@ class ProjectDocument extends Model
     ];
 
     protected $fillable = [
-        'project_id', 'type', 'category', 'title', 'activity_title', 'activity_date', 'location',
+        'project_id', 'project_mobility_id', 'type', 'category', 'title', 'activity_title', 'activity_date', 'location',
         'document_date', 'notes', 'metadata', 'file_path', 'file_disk', 'file_name', 'file_size',
         'signed_path', 'signed_disk', 'signed_name', 'signed_size', 'generated_at', 'signed_at',
     ];
@@ -57,6 +57,11 @@ class ProjectDocument extends Model
     public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
+    }
+
+    public function mobility(): BelongsTo
+    {
+        return $this->belongsTo(ProjectMobility::class, 'project_mobility_id');
     }
 
     public function hasSignedCopy(): bool

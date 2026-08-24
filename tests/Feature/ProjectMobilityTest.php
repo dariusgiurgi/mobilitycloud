@@ -21,6 +21,35 @@ class ProjectMobilityTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_mobility_workspace_data_and_files_are_scoped_to_the_selected_mobility(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $first = $project->mobilities()->create(['name' => 'Porto', 'start_date' => '2026-07-01', 'end_date' => '2026-07-05']);
+        $second = $project->mobilities()->create(['name' => 'Braga', 'start_date' => '2026-08-01', 'end_date' => '2026-08-05', 'sort_order' => 1]);
+        $first->documents()->create([
+            'project_id' => $project->id,
+            'type' => ProjectDocument::TYPE_UPLOAD,
+            'category' => 'mobility_material',
+            'title' => 'Porto worksheet',
+        ]);
+        $this->actingAs($user);
+
+        $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertSee('Porto')
+            ->assertSee('Braga')
+            ->set('mobilityReport', 'Porto implementation report')
+            ->call('saveMobilityReport')
+            ->call('selectMobility', $second->id)
+            ->assertSet('selectedMobilityId', $second->id)
+            ->assertSet('mobilityReport', '')
+            ->assertDontSee('Porto worksheet')
+            ->set('mobilityReport', 'Braga implementation report')
+            ->call('saveMobilityReport');
+
+        $this->assertSame('Porto implementation report', data_get($first->fresh()->workspace_data, 'report'));
+        $this->assertSame('Braga implementation report', data_get($second->fresh()->workspace_data, 'report'));
+    }
+
     public function test_mobilities_are_managed_only_from_the_mobility_module_and_limited_to_ten(): void
     {
         [$project, $user] = $this->projectAndUser();

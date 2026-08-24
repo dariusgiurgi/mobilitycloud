@@ -30,6 +30,8 @@ class ViewProjectMobility extends Page
 
     public string $activeMobilityTab = 'evidences';
 
+    public ?int $selectedMobilityId = null;
+
     public string $mobilityReport = '';
 
     public string $photoFolderUrl = '';
@@ -103,10 +105,11 @@ class ViewProjectMobility extends Page
         ProjectResource::ensureProjectAccountTenant($this->record, 'mobility');
         $this->authorizeProjectModuleAccess('mobility');
         $this->touchProjectCollaboration('mobility');
-        $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
-        $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+        $this->selectedMobilityId = $this->record->mobilities()->value('id');
+        $this->mobilityReport = (string) data_get($this->workspaceData(), 'report', '');
+        $this->photoFolderUrl = (string) data_get($this->workspaceData(), 'photo_folder_url', '');
         $this->photoFolderLinks = $this->storedPhotoFolderLinks();
-        $this->finalMobilityVideoUrl = (string) data_get($this->record->action_data ?? [], 'mobility.final_video_url', '');
+        $this->finalMobilityVideoUrl = (string) data_get($this->workspaceData(), 'final_video_url', '');
         $this->documentDate = now()->toDateString();
         $this->photoEvidenceDate = now()->toDateString();
         $this->disseminationUploadDate = now()->toDateString();
@@ -117,6 +120,51 @@ class ViewProjectMobility extends Page
     public function getTitle(): string
     {
         return $this->record->name.' - Mobility';
+    }
+
+    public function selectMobility(int $mobilityId): void
+    {
+        abort_unless($this->record->mobilities()->whereKey($mobilityId)->exists(), 404);
+
+        $this->selectedMobilityId = $mobilityId;
+        $this->openEvidenceDays = [];
+        $this->evidenceUploadDayId = null;
+        $this->disseminationUploadOrgKey = null;
+        $this->mobilityReport = (string) data_get($this->workspaceData(), 'report', '');
+        $this->photoFolderUrl = (string) data_get($this->workspaceData(), 'photo_folder_url', '');
+        $this->photoFolderLinks = $this->storedPhotoFolderLinks();
+        $this->finalMobilityVideoUrl = (string) data_get($this->workspaceData(), 'final_video_url', '');
+        $this->disseminationReports = $this->storedDisseminationReports();
+        $this->evidenceDays = $this->storedEvidenceDays();
+    }
+
+    public function getSelectedMobility(): ?ProjectMobility
+    {
+        return $this->selectedMobilityId
+            ? $this->record->mobilities()->find($this->selectedMobilityId)
+            : null;
+    }
+
+    public function getMobilityStatuses(): array
+    {
+        return $this->record->mobilities()->get()->map(function (ProjectMobility $mobility): array {
+            $documents = $mobility->documents()->where('type', ProjectDocument::TYPE_UPLOAD)->get();
+            $workspace = $mobility->workspace_data ?? [];
+            $organisations = collect($this->getDisseminationOrganisations());
+            $reports = collect(data_get($workspace, 'dissemination_reports', []));
+            $evidence = $documents->where('category', 'dissemination_evidence');
+            $disseminationReady = $organisations->isNotEmpty() && $organisations->every(fn (array $organisation): bool => filled(trim((string) $reports->get($organisation['key']))) && $evidence->contains(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_key') === $organisation['key']));
+
+            return [
+                'id' => $mobility->id,
+                'name' => $mobility->name,
+                'dates' => trim(collect([$mobility->start_date?->format('d M Y'), $mobility->end_date?->format('d M Y')])->filter()->join(' – ')),
+                'evidence' => count(data_get($workspace, 'evidence_days', [])) > 0,
+                'materials' => $documents->whereIn('category', ['mobility_plan', 'mobility_material', 'mobility_output', 'mobility_other'])->isNotEmpty(),
+                'dissemination' => $disseminationReady,
+                'report' => filled(trim((string) data_get($workspace, 'report'))),
+            ];
+        })->all();
     }
 
     protected function getHeaderActions(): array
@@ -191,6 +239,10 @@ class ViewProjectMobility extends Page
                     });
 
                     $this->record->refresh();
+                    $firstMobilityId = $this->record->mobilities()->value('id');
+                    if ($firstMobilityId && (! $this->selectedMobilityId || ! in_array($this->selectedMobilityId, $keptIds, true))) {
+                        $this->selectMobility((int) $firstMobilityId);
+                    }
                     Notification::make()->title('Mobilities saved')->success()->send();
                 })
                 ->visible(fn (): bool => $this->record->canManageProjectModule(auth()->user(), 'mobility')),
@@ -230,7 +282,7 @@ class ViewProjectMobility extends Page
 
     public function getMobilityDocuments()
     {
-        return $this->record->documents()
+        return $this->mobilityDocuments()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
             ->when(filled($this->categoryFilter), fn ($query) => $query->where('category', $this->categoryFilter))
@@ -251,7 +303,7 @@ class ViewProjectMobility extends Page
 
     public function getMobilitySummary(): array
     {
-        $documents = $this->record->documents()
+        $documents = $this->mobilityDocuments()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
             ->get();
@@ -290,19 +342,17 @@ class ViewProjectMobility extends Page
             'photoFolderUrl' => ['nullable', 'url', 'max:2000'],
         ]);
 
-        $data = $this->record->fresh()->action_data ?? [];
-        data_set($data, 'mobility.photo_folder_url', trim($this->photoFolderUrl));
-        data_set($data, 'mobility.photo_folder_links', filled(trim($this->photoFolderUrl)) ? [[
+        $data = $this->workspaceData();
+        data_set($data, 'photo_folder_url', trim($this->photoFolderUrl));
+        data_set($data, 'photo_folder_links', filled(trim($this->photoFolderUrl)) ? [[
             'id' => 'folder_legacy',
             'label' => 'Photo folder',
             'url' => trim($this->photoFolderUrl),
         ]] : []);
-        data_set($data, 'mobility.photo_folder_updated_at', now()->toIso8601String());
-        data_set($data, 'mobility.photo_folder_updated_by', auth()->id());
-
-        $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
-        $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+        data_set($data, 'photo_folder_updated_at', now()->toIso8601String());
+        data_set($data, 'photo_folder_updated_by', auth()->id());
+        $this->saveWorkspaceData($data);
+        $this->photoFolderUrl = (string) data_get($this->workspaceData(), 'photo_folder_url', '');
         $this->photoFolderLinks = $this->storedPhotoFolderLinks();
 
         Notification::make()->title('Photo folder link saved')->success()->send();
@@ -362,14 +412,12 @@ class ViewProjectMobility extends Page
             'finalMobilityVideoUrl' => ['nullable', 'url', 'max:2000'],
         ]);
 
-        $data = $this->record->fresh()->action_data ?? [];
-        data_set($data, 'mobility.final_video_url', trim($this->finalMobilityVideoUrl));
-        data_set($data, 'mobility.final_video_updated_at', now()->toIso8601String());
-        data_set($data, 'mobility.final_video_updated_by', auth()->id());
-
-        $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
-        $this->finalMobilityVideoUrl = (string) data_get($this->record->action_data ?? [], 'mobility.final_video_url', '');
+        $data = $this->workspaceData();
+        data_set($data, 'final_video_url', trim($this->finalMobilityVideoUrl));
+        data_set($data, 'final_video_updated_at', now()->toIso8601String());
+        data_set($data, 'final_video_updated_by', auth()->id());
+        $this->saveWorkspaceData($data);
+        $this->finalMobilityVideoUrl = (string) data_get($this->workspaceData(), 'final_video_url', '');
 
         Notification::make()->title('Final mobility video link saved')->success()->send();
     }
@@ -387,6 +435,7 @@ class ViewProjectMobility extends Page
 
         foreach ($this->photoUploads as $upload) {
             $document = $this->record->documents()->create([
+                'project_mobility_id' => $this->selectedMobility()->id,
                 'type' => ProjectDocument::TYPE_UPLOAD,
                 'category' => 'mobility_photo_video',
                 'title' => trim($this->photoEvidenceTitle),
@@ -435,13 +484,11 @@ class ViewProjectMobility extends Page
             'mobilityReport' => ['nullable', 'string', 'max:12000'],
         ]);
 
-        $data = $this->record->fresh()->action_data ?? [];
-        data_set($data, 'mobility.report', trim($this->mobilityReport));
-        data_set($data, 'mobility.report_updated_at', now()->toIso8601String());
-        data_set($data, 'mobility.report_updated_by', auth()->id());
-
-        $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
+        $data = $this->workspaceData();
+        data_set($data, 'report', trim($this->mobilityReport));
+        data_set($data, 'report_updated_at', now()->toIso8601String());
+        data_set($data, 'report_updated_by', auth()->id());
+        $this->saveWorkspaceData($data);
 
         Notification::make()->title('Mobility report saved')->success()->send();
     }
@@ -458,6 +505,7 @@ class ViewProjectMobility extends Page
         ]);
 
         $document = $this->record->documents()->create([
+            'project_mobility_id' => $this->selectedMobility()->id,
             'type' => ProjectDocument::TYPE_UPLOAD,
             'category' => $this->documentCategory,
             'title' => trim($this->documentTitle),
@@ -499,7 +547,7 @@ class ViewProjectMobility extends Page
     public function deleteMobilityDocument(int $documentId): void
     {
         $this->authorizeManagementModuleMutation('mobility', 'materials', 'Materials & outputs');
-        $document = $this->record->documents()
+        $document = $this->mobilityDocuments()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
             ->find($documentId);
@@ -514,7 +562,7 @@ class ViewProjectMobility extends Page
 
     public function getEvidenceDocumentsByDay(): array
     {
-        $documents = $this->record->documents()
+        $documents = $this->mobilityDocuments()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
             ->latest('id')
@@ -770,7 +818,7 @@ class ViewProjectMobility extends Page
 
     public function getDisseminationEvidenceByOrganisation(): array
     {
-        $documents = $this->record->documents()
+        $documents = $this->mobilityDocuments()
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->where('category', 'dissemination_evidence')
             ->latest('id')
@@ -817,12 +865,11 @@ class ViewProjectMobility extends Page
             'disseminationReports.'.$organisationKey => ['nullable', 'string', 'max:10000'],
         ]);
 
-        $data = $this->record->fresh()->action_data ?? [];
+        $data = $this->workspaceData();
         $reports = data_get($data, 'dissemination_reports', []);
         $reports[$organisationKey] = trim((string) ($this->disseminationReports[$organisationKey] ?? ''));
         data_set($data, 'dissemination_reports', $reports);
-        $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
+        $this->saveWorkspaceData($data);
         $this->disseminationReports = $this->storedDisseminationReports();
 
         Notification::make()->title('Dissemination report saved')->success()->send();
@@ -858,6 +905,7 @@ class ViewProjectMobility extends Page
 
         foreach ($this->disseminationUploads as $upload) {
             $document = $this->record->documents()->create([
+                'project_mobility_id' => $this->selectedMobility()->id,
                 'type' => ProjectDocument::TYPE_UPLOAD,
                 'category' => 'dissemination_evidence',
                 'title' => trim($this->disseminationUploadTitle),
@@ -941,16 +989,16 @@ class ViewProjectMobility extends Page
         $this->record = $this->record->fresh();
 
         if (! $ownLocks->has('mobility-report')) {
-            $this->mobilityReport = (string) data_get($this->record->action_data ?? [], 'mobility.report', '');
+            $this->mobilityReport = (string) data_get($this->workspaceData(), 'report', '');
         }
 
         if (! $ownLocks->has('external-photo-folders')) {
-            $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+            $this->photoFolderUrl = (string) data_get($this->workspaceData(), 'photo_folder_url', '');
             $this->photoFolderLinks = $this->storedPhotoFolderLinks();
         }
 
         if (! $ownLocks->has('final-video')) {
-            $this->finalMobilityVideoUrl = (string) data_get($this->record->action_data ?? [], 'mobility.final_video_url', '');
+            $this->finalMobilityVideoUrl = (string) data_get($this->workspaceData(), 'final_video_url', '');
         }
 
         $freshDisseminationReports = $this->storedDisseminationReports();
@@ -984,14 +1032,14 @@ class ViewProjectMobility extends Page
 
     private function storedDisseminationReports(): array
     {
-        return collect(data_get($this->record->action_data ?? [], 'dissemination_reports', []))
+        return collect(data_get($this->workspaceData(), 'dissemination_reports', []))
             ->map(fn ($value): string => (string) $value)
             ->all();
     }
 
     private function storedPhotoFolderLinks(): array
     {
-        $links = collect(data_get($this->record->action_data ?? [], 'mobility.photo_folder_links', []))
+        $links = collect(data_get($this->workspaceData(), 'photo_folder_links', []))
             ->map(fn (array $link): array => [
                 'id' => (string) ($link['id'] ?? 'folder_'.Str::lower(Str::random(8))),
                 'label' => (string) ($link['label'] ?? 'Photo folder'),
@@ -1024,15 +1072,13 @@ class ViewProjectMobility extends Page
             ->values()
             ->all();
 
-        $data = $this->record->fresh()->action_data ?? [];
-        data_set($data, 'mobility.photo_folder_links', $this->photoFolderLinks);
-        data_set($data, 'mobility.photo_folder_url', (string) data_get($this->photoFolderLinks, '0.url', ''));
-        data_set($data, 'mobility.photo_folder_updated_at', now()->toIso8601String());
-        data_set($data, 'mobility.photo_folder_updated_by', auth()->id());
-
-        $this->record->update(['action_data' => $data]);
-        $this->record = $this->record->fresh();
-        $this->photoFolderUrl = (string) data_get($this->record->action_data ?? [], 'mobility.photo_folder_url', '');
+        $data = $this->workspaceData();
+        data_set($data, 'photo_folder_links', $this->photoFolderLinks);
+        data_set($data, 'photo_folder_url', (string) data_get($this->photoFolderLinks, '0.url', ''));
+        data_set($data, 'photo_folder_updated_at', now()->toIso8601String());
+        data_set($data, 'photo_folder_updated_by', auth()->id());
+        $this->saveWorkspaceData($data);
+        $this->photoFolderUrl = (string) data_get($this->workspaceData(), 'photo_folder_url', '');
         $this->photoFolderLinks = $this->storedPhotoFolderLinks();
     }
 
@@ -1049,7 +1095,7 @@ class ViewProjectMobility extends Page
 
     private function storedEvidenceDays(): array
     {
-        return collect(data_get($this->record->action_data ?? [], 'mobility.evidence_days', []))
+        return collect(data_get($this->workspaceData(), 'evidence_days', []))
             ->mapWithKeys(function (array $day, string|int $key): array {
                 $id = (string) ($day['id'] ?? $key);
 
@@ -1074,11 +1120,10 @@ class ViewProjectMobility extends Page
 
     private function saveEvidenceDaysToRecord(bool $refresh = true, ?array $onlyDayIds = null): void
     {
-        $freshRecord = $this->record->fresh();
-        $data = $freshRecord->action_data ?? [];
+        $data = $this->workspaceData();
         $evidenceDays = $onlyDayIds === null
             ? collect($this->evidenceDays)
-            : collect(data_get($data, 'mobility.evidence_days', []))
+            : collect(data_get($data, 'evidence_days', []))
                 ->mapWithKeys(function (array $day, string|int $key): array {
                     $id = (string) ($day['id'] ?? $key);
 
@@ -1100,12 +1145,10 @@ class ViewProjectMobility extends Page
             }
         }
 
-        data_set($data, 'mobility.evidence_days', $evidenceDays->values()->all());
-        data_set($data, 'mobility.evidence_days_updated_at', now()->toIso8601String());
-        data_set($data, 'mobility.evidence_days_updated_by', auth()->id());
-
-        $freshRecord->update(['action_data' => $data]);
-        $this->record = $freshRecord->fresh();
+        data_set($data, 'evidence_days', $evidenceDays->values()->all());
+        data_set($data, 'evidence_days_updated_at', now()->toIso8601String());
+        data_set($data, 'evidence_days_updated_by', auth()->id());
+        $this->saveWorkspaceData($data);
 
         if ($refresh) {
             $this->evidenceDays = $this->storedEvidenceDays();
@@ -1167,6 +1210,7 @@ class ViewProjectMobility extends Page
 
         foreach ($uploads as $upload) {
             $document = $this->record->documents()->create([
+                'project_mobility_id' => $this->selectedMobility()->id,
                 'type' => ProjectDocument::TYPE_UPLOAD,
                 'category' => $category,
                 'title' => $title,
@@ -1203,5 +1247,29 @@ class ViewProjectMobility extends Page
         }
 
         return count($uploads);
+    }
+
+    private function selectedMobility(): ProjectMobility
+    {
+        $mobility = $this->getSelectedMobility();
+
+        abort_unless($mobility, 404);
+
+        return $mobility;
+    }
+
+    private function mobilityDocuments()
+    {
+        return $this->record->documents()->where('project_mobility_id', $this->selectedMobilityId ?: 0);
+    }
+
+    private function workspaceData(): array
+    {
+        return $this->getSelectedMobility()?->workspace_data ?? [];
+    }
+
+    private function saveWorkspaceData(array $workspaceData): void
+    {
+        $this->selectedMobility()->update(['workspace_data' => $workspaceData]);
     }
 }
