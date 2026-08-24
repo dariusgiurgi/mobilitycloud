@@ -27,7 +27,7 @@ class ProjectSettingsTest extends TestCase
             ->assertSee('Approval not recorded yet')
             ->assertSee('Operational finance settings')
             ->assertSee('Project currencies')
-            ->assertSee('Advanced controls')
+            ->assertSee('Other settings')
             ->assertSee('More actions')
             ->assertDontSee('Application template')
             ->assertDontSee('Timeline and mobilities')

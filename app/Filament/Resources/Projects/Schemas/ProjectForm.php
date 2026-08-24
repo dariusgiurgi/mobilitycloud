@@ -179,13 +179,11 @@ class ProjectForm
                         ->columnSpanFull(),
                 ]),
 
-            Section::make('Advanced controls')
+            Section::make('Other settings')
                 ->description('Usually these can be left as they are.')
                 ->visible(fn (string $operation): bool => $operation !== 'create')
                 ->extraAttributes(['class' => 'mc-project-settings-section'])
                 ->columns(2)
-                ->collapsible()
-                ->collapsed()
                 ->schema([
                     TextInput::make('expense_prefix')->label('Expense prefix')->default('EXP')->live(onBlur: true)->maxLength(20)->regex('/^[A-Za-z0-9_-]+$/')->dehydrateStateUsing(fn (?string $state): string => Str::upper(trim($state ?: 'EXP')))->helperText('Letters, numbers, hyphens and underscores only.'),
                     Select::make('expense_pad_length')->label('Expense number padding')->options([2 => '2 digits', 3 => '3 digits', 4 => '4 digits', 5 => '5 digits', 6 => '6 digits'])->default(3)->live()->native(false),
