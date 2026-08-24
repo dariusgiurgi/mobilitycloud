@@ -23,6 +23,7 @@
         $checklistIssues = $checklist['attention'] + $checklist['missing'];
         $exportsLocked = $record->exportsLockedUntilPayment();
         $documentLocks = $this->projectLocksForModule('documents');
+        $projectTemplates = $this->projectDocumentTemplates();
     @endphp
 
     <x-filament::section>
@@ -279,6 +280,29 @@
 
     @if($activeDocumentTab === 'files')
     <x-filament::section heading="Files" description="Uploaded project files and generated official records" style="margin-top:1rem;">
+        @if($record->canBeManagedBy(auth()->user()))
+            <div style="padding:.85rem;border:1px solid rgba(99,102,241,.18);border-radius:.85rem;background:linear-gradient(120deg,rgba(99,102,241,.07),rgba(14,165,233,.035));margin-bottom:1rem;">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;flex-wrap:wrap;margin-bottom:.65rem;">
+                    <div>
+                        <div style="color:#6366f1;font-size:.62rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;">Project templates</div>
+                        <h3 class="text-gray-950 dark:text-white" style="font-size:.84rem;font-weight:780;margin:.15rem 0 0;">Create a blank document for this project</h3>
+                        <p class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;line-height:1.42;margin:.16rem 0 0;">Project details are included. Participant names, guardian names and signature names are never prefilled.</p>
+                    </div>
+                    <span class="text-gray-500 dark:text-gray-400" style="font-size:.61rem;font-weight:700;max-width:185px;line-height:1.35;">Review and complete each template before it is used or signed.</span>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.45rem;">
+                    @foreach($projectTemplates as $key => $template)
+                        <button type="button" wire:click="generateProjectTemplate('{{ $key }}')" wire:loading.attr="disabled" wire:target="generateProjectTemplate('{{ $key }}')" style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.6rem;align-items:center;padding:.6rem .65rem;border:1px solid rgba(148,163,184,.22);border-radius:.65rem;background:rgba(255,255,255,.78);text-align:left;cursor:pointer;">
+                            <span>
+                                <span class="text-gray-950 dark:text-white" style="display:block;font-size:.71rem;font-weight:750;line-height:1.3;">{{ $template['label'] }}</span>
+                                <span class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.6rem;line-height:1.34;margin-top:.12rem;">{{ $template['description'] }}</span>
+                            </span>
+                            <span style="color:#4f46e5;font-size:.62rem;font-weight:780;white-space:nowrap;">Generate PDF →</span>
+                        </button>
+                    @endforeach
+                </div>
+            </div>
+        @endif
         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
             @if($record->canBeManagedBy(auth()->user()))
                 <x-filament::button wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray" size="sm">

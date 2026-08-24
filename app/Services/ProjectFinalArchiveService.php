@@ -196,6 +196,10 @@ class ProjectFinalArchiveService
             return '06-generated-records/expense-reports';
         }
 
+        if (filled(data_get($document->metadata, 'template_key'))) {
+            return '06-generated-records/project-templates';
+        }
+
         if (array_key_exists((string) $document->category, ProjectDocument::MOBILITY_CATEGORIES)) {
             return '07-mobility/'.$this->safeName($document->categoryLabel());
         }
@@ -237,7 +241,8 @@ class ProjectFinalArchiveService
 
     private function shouldIncludeDocument(ProjectDocument $document, array $included): bool
     {
-        if (in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)) {
+        if (in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)
+            || filled(data_get($document->metadata, 'template_key'))) {
             return $included['generated_records'];
         }
 

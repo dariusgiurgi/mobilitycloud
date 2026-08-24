@@ -39,7 +39,10 @@ class ViewProjectFinalisation extends Page
     {
         $documents = $this->record->documents();
         $generated = (clone $documents)
-            ->whereIn('type', [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT])
+            ->where(function ($query): void {
+                $query->whereIn('type', [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT])
+                    ->orWhereNotNull('metadata->template_key');
+            })
             ->count();
         $mobility = (clone $documents)
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))

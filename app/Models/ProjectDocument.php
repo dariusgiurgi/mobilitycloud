@@ -78,6 +78,10 @@ class ProjectDocument extends Model
 
     public function categoryLabel(): string
     {
+        if (data_get($this->metadata, 'generated_template')) {
+            return 'Generated template';
+        }
+
         return self::CATEGORIES[$this->category] ?? 'Other';
     }
 

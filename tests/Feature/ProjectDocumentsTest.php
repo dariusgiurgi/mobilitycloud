@@ -9,11 +9,14 @@ use App\Models\ProjectDocument;
 use App\Models\User;
 use App\Services\ExpenseReportSnapshot;
 use App\Services\ProjectDocumentChecklist;
+use App\Services\ProjectDocumentTemplateService;
+use App\Services\ProjectFinalArchiveService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
+use ZipArchive;
 
 class ProjectDocumentsTest extends TestCase
 {
@@ -524,6 +527,52 @@ class ProjectDocumentsTest extends TestCase
         $this->assertSame(2, $summary['generated']);
         $this->assertSame(1, $summary['awaiting_signature']);
         $this->assertSame([$unsigned->id], $component->instance()->getDocuments()->pluck('id')->all());
+    }
+
+    public function test_owner_can_generate_a_blank_project_document_template(): void
+    {
+        Storage::fake('local');
+        [$project, $user] = $this->projectAndUser();
+
+        $this->assertSame([
+            'participant_agreement',
+            'parental_consent',
+            'gdpr_declaration',
+            'participation_certificate',
+            'mobility_report',
+        ], array_keys(app(ProjectDocumentTemplateService::class)->templates()));
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
+            ->assertSee('Project templates')
+            ->assertSee('Certificate of participation')
+            ->assertDontSee('Youthpass')
+            ->call('generateProjectTemplate', 'participant_agreement')
+            ->assertHasNoErrors();
+
+        $document = ProjectDocument::query()
+            ->where('project_id', $project->id)
+            ->where('metadata->template_key', 'participant_agreement')
+            ->sole();
+
+        $this->assertSame(ProjectDocument::TYPE_UPLOAD, $document->type);
+        $this->assertSame('Generated template', $document->categoryLabel());
+        $this->assertSame('Generic project template. Personal names and signatures are intentionally left blank.', $document->notes);
+        Storage::disk('local')->assertExists($document->file_path);
+        $this->assertStringStartsWith('%PDF-', Storage::disk('local')->get($document->file_path));
+
+        $this->actingAs($user)
+            ->get(route('project-documents.file', [$project, $document]))
+            ->assertOk()
+            ->assertDownload($document->file_name);
+
+        $archive = app(ProjectFinalArchiveService::class)->create($project);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($archive) === true);
+        $this->assertNotFalse($zip->locateName('youth-exchange/06-generated-records/project-templates/'.$document->id.'-participant-agreement/original-'.$document->file_name));
+        $zip->close();
+        unlink($archive);
     }
 
     public function test_primary_signed_upload_action_hides_after_document_is_signed(): void

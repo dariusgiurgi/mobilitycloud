@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\ProjectDocument;
 use App\Services\ExpenseReportSnapshot;
 use App\Services\ProjectDocumentChecklist;
+use App\Services\ProjectDocumentTemplateService;
 use App\Services\ProjectReadinessCheck;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
@@ -105,10 +106,12 @@ class ViewProjectDocuments extends Page
     public function getDocuments()
     {
         return $this->documentsPageQuery()
-            ->when($this->documentFilter === 'generated', fn ($query) => $query->whereIn('type', [
-                ProjectDocument::TYPE_ATTENDANCE,
-                ProjectDocument::TYPE_EXPENSE_REPORT,
-            ]))
+            ->when($this->documentFilter === 'generated', fn ($query) => $query->where(function ($query): void {
+                $query->whereIn('type', [
+                    ProjectDocument::TYPE_ATTENDANCE,
+                    ProjectDocument::TYPE_EXPENSE_REPORT,
+                ])->orWhereNotNull('metadata->template_key');
+            }))
             ->when($this->documentFilter === 'uploaded', fn ($query) => $query->where('type', ProjectDocument::TYPE_UPLOAD))
             ->when($this->documentFilter === 'signed', fn ($query) => $query->whereNotNull('signed_path'))
             ->when($this->documentFilter === 'unsigned', fn ($query) => $query
@@ -147,10 +150,10 @@ class ViewProjectDocuments extends Page
         $nextItem = collect($checklist['items'])
             ->first(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true));
         $documents = $this->documentsPageQuery()->get();
-        $generated = $documents->whereIn('type', [
+        $generated = $documents->filter(fn (ProjectDocument $document): bool => in_array($document->type, [
             ProjectDocument::TYPE_ATTENDANCE,
             ProjectDocument::TYPE_EXPENSE_REPORT,
-        ]);
+        ], true) || filled(data_get($document->metadata, 'template_key')));
         $awaitingSignature = $generated->filter(fn (ProjectDocument $document): bool => ! $document->hasSignedCopy())->count();
 
         return [
@@ -185,6 +188,30 @@ class ViewProjectDocuments extends Page
     public function getProjectReadiness(): array
     {
         return app(ProjectReadinessCheck::class)->build($this->record);
+    }
+
+    public function projectDocumentTemplates(): array
+    {
+        return app(ProjectDocumentTemplateService::class)->templates();
+    }
+
+    public function generateProjectTemplate(string $key, ProjectDocumentTemplateService $templates): void
+    {
+        $this->authorizeManagementModuleMutation('documents', 'project-template:'.$key, 'Project document template');
+
+        if ($this->record->exportsLockedUntilPayment()) {
+            $this->notifyPaymentLockedExport();
+
+            return;
+        }
+
+        $document = $templates->generate($this->record, $key);
+
+        Notification::make()
+            ->title($document->title.' generated')
+            ->body('The blank project template was saved under Files and is ready to download.')
+            ->success()
+            ->send();
     }
 
     public function setDocumentTab(string $tab): void
