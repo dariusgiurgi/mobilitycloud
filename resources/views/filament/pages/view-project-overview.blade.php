@@ -317,6 +317,8 @@
         </section>
     </div>
 
+    {{-- The stage-priorities list above is the single source of actionable readiness items. --}}
+    {{--
     @php
         $readinessColor = match ($readiness['tone']) {
             'success' => '#10b981',
@@ -399,6 +401,7 @@
             </div>
         @endif
     </section>
+    --}}
 
     <div class="mc-overview-grid" style="margin-top:1rem;">
         <a href="{{ $urls['application'] }}" class="mc-overview-card">
@@ -517,7 +520,7 @@
 
     <x-filament::section style="margin-top:1rem;">
         <x-slot name="heading">Recent activity</x-slot>
-        <x-slot name="description">The latest recorded changes across this project.</x-slot>
+        <x-slot name="description">The latest 7 recorded changes. Download the complete history from Project settings.</x-slot>
 
         @forelse($activity as $entry)
             <div class="mc-activity-row">

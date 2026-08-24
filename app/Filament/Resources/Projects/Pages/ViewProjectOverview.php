@@ -253,7 +253,7 @@ class ViewProjectOverview extends Page
         return $this->record->activityLogs()
             ->with('user')
             ->latest()
-            ->limit(12)
+            ->limit(7)
             ->get();
     }
 

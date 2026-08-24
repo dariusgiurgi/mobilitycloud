@@ -50,8 +50,8 @@ class ProjectOverviewTest extends TestCase
             ->assertSee('KA152-YOU - Youth Exchanges')
             ->assertSee('Project details')
             ->assertSee('Project stage')
-            ->assertSee('Project readiness check')
-            ->assertSee('Critical items need attention')
+            ->assertSee('What needs attention now')
+            ->assertDontSee('Project readiness check')
             ->assertSee('Application answers');
 
         $this->assertStringContainsString('/estimate', $component->instance()->getModuleUrls()['budget']);

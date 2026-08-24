@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Expense;
 use App\Support\AuthorizesProjectManagement;
+use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -42,6 +43,10 @@ class EditProject extends EditRecord
     {
         return [
             ActionGroup::make([
+                Action::make('downloadActivityLog')
+                    ->label('Download activity log (CSV)')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn (): string => route('projects.activity.export', $this->record)),
                 DeleteAction::make()
                     ->label('Archive project')
                     ->icon('heroicon-o-archive-box')
