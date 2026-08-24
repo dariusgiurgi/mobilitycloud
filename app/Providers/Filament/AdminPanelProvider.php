@@ -6,6 +6,7 @@ use App\Filament\Auth\Pages\PublicRegister;
 use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\DocumentTemplates;
+use App\Filament\Pages\FeedbackForms;
 use App\Filament\Pages\GlobalSearch;
 use App\Filament\Pages\IndividualSupportCalculator;
 use App\Filament\Pages\MyTasks;
@@ -130,6 +131,7 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
                 AccountSettings::class,
                 DocumentTemplates::class,
+                FeedbackForms::class,
                 GlobalSearch::class,
                 IndividualSupportCalculator::class,
                 MyTasks::class,

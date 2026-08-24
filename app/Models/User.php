@@ -108,6 +108,11 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return $this->hasMany(CalendarEvent::class);
     }
 
+    public function feedbackForms(): HasMany
+    {
+        return $this->hasMany(FeedbackForm::class, 'owner_id');
+    }
+
     public function supportNotes(): HasMany
     {
         return $this->hasMany(PlatformSupportNote::class);

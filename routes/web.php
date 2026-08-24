@@ -5,10 +5,12 @@ use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\MarketingPageController;
+use App\Http\Controllers\MobilityFeedbackController;
+use App\Http\Controllers\MobilityFeedbackExportController;
 use App\Http\Controllers\ParticipantRegistrationController;
 use App\Http\Controllers\PlatformProjectPaymentProofController;
-use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectActivityExportController;
+use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Middleware\RedirectSuspendedAccount;
@@ -96,6 +98,8 @@ Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, Pr
 });
 Route::get('/participant-registration/{token}', [ParticipantRegistrationController::class, 'show'])->name('public.participant-registration.show');
 Route::post('/participant-registration/{token}', [ParticipantRegistrationController::class, 'store'])->name('public.participant-registration.store');
+Route::get('/mobility-feedback/{token}', [MobilityFeedbackController::class, 'show'])->name('public.mobility-feedback.show');
+Route::post('/mobility-feedback/{token}', [MobilityFeedbackController::class, 'store'])->name('public.mobility-feedback.store');
 
 Route::get('/account-suspended', function () {
     return view('account-suspended');
@@ -111,6 +115,7 @@ Route::match(['GET', 'POST'], '/account-suspended/logout', function (Request $re
 })->name('account.suspended.logout');
 
 Route::middleware('auth')->group(function (): void {
+    Route::get('/feedback-campaigns/{campaign}/export', [MobilityFeedbackExportController::class, 'download'])->name('feedback-campaigns.export');
     Route::get('/email/verify', function (Request $request) {
         $user = $request->user();
 

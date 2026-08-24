@@ -47,6 +47,11 @@ class ProjectMobility extends Model
             ->withTimestamps();
     }
 
+    public function feedbackCampaigns(): HasMany
+    {
+        return $this->hasMany(MobilityFeedbackCampaign::class);
+    }
+
     public function hasActiveParticipantRegistrationLink(): bool
     {
         return filled($this->participant_registration_token)
