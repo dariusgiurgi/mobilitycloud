@@ -82,7 +82,7 @@ class ProjectMobilityTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
-            ->assertSee('Mobility workspace')
+            ->assertSee('Choose a mobility')
             ->assertSee('Evidences')
             ->assertSee('Materials')
             ->assertSee('Outputs')
@@ -133,7 +133,7 @@ class ProjectMobilityTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
-            ->assertSee('Mobility workspace')
+            ->assertSee('Choose a mobility')
             ->set('mobilityReport', 'Facilitator report about delivered mobility activities.')
             ->call('saveMobilityReport')
             ->call('setMobilityTab', 'materials')

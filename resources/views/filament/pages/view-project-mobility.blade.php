@@ -54,15 +54,6 @@
         @endif
     </x-filament::section>
 
-    <x-filament::section>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
-            <div style="min-width:240px;flex:1;">
-                <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:750;margin:0;">Mobility workspace</h2>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:.18rem 0 0;line-height:1.45;">Start from day-by-day evidence, then organise materials, dissemination and the final mobility narrative.</p>
-            </div>
-        </div>
-    </x-filament::section>
-
     @include('filament.pages.partials.project-collaboration-strip', ['module' => 'mobility'])
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.65rem;margin-top:.8rem;">

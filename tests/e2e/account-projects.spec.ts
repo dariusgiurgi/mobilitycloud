@@ -574,7 +574,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
       await writeFile(mobilityDocumentPath, MINIMAL_SIGNED_PDF);
 
       await page.goto(`/app/projects/${project.id}/mobility`);
-      await expect(page.getByRole('heading', { name: /Mobility workspace/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /Choose a mobility/i })).toBeVisible();
       await page
         .getByLabel(/Mobility implementation report/i)
         .fill('QA Bot confirmed the mobility implementation report and uploaded a worksheet for the final archive.');
