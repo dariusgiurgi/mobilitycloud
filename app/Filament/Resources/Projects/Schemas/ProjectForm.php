@@ -21,7 +21,9 @@ class ProjectForm
 {
     public static function configure(Schema $schema): Schema
     {
-        return $schema->components([
+        return $schema
+            ->columns(1)
+            ->components([
             Section::make('How would you like to start?')
                 ->description('Pick a starting point. You can switch it before creating the project.')
                 ->visible(fn (string $operation): bool => $operation === 'create')
@@ -61,7 +63,7 @@ class ProjectForm
                     : 'The basic information used across the workspace and generated documents.')
                 ->visible(fn (callable $get, string $operation): bool => $operation !== 'create' || filled($get('project_entry_mode')))
                 ->extraAttributes(['class' => 'mc-project-settings-section mc-project-details-section'])
-                ->columns(2)
+                ->columns(fn (string $operation): int => $operation === 'create' ? 1 : 2)
                 ->schema([
                     TextInput::make('name')
                         ->label('Project name')
@@ -92,7 +94,7 @@ class ProjectForm
                 ->description('These details create an approved implementation project. They are locked once saved.')
                 ->visible(fn (callable $get, string $operation): bool => $operation === 'create' && $get('project_entry_mode') === 'approved')
                 ->extraAttributes(['class' => 'mc-project-settings-section mc-project-approval-section'])
-                ->columns(2)
+                ->columns(1)
                 ->schema([
                     TextInput::make('approved_grant_declaration')
                         ->label('Approved grant amount')
@@ -118,7 +120,7 @@ class ProjectForm
 
             Section::make('Involved organisations')
                 ->description('Add the coordinator and partners when you need them for participant grouping and attendance sheets.')
-                ->visible(fn (callable $get, string $operation): bool => $operation !== 'create' || filled($get('project_entry_mode')))
+                ->visible(fn (string $operation): bool => $operation !== 'create')
                 ->extraAttributes(['class' => 'mc-project-settings-section'])
                 ->schema([
                     Repeater::make('partner_orgs')
@@ -204,7 +206,7 @@ class ProjectForm
                 ? $get('project_entry_mode') === 'approved'
                 : $record?->isManagementStage() === true)
             ->extraAttributes(['class' => 'mc-project-settings-section mc-project-timeline-section'])
-            ->columns(2)
+            ->columns(fn (string $operation): int => $operation === 'create' ? 1 : 2)
             ->schema([
                 DatePicker::make('start_date')->label('Project start')->live()->required(fn (string $operation): bool => $operation === 'create'),
                 DatePicker::make('end_date')->label('Project end')->live()->afterOrEqual('start_date')->required(fn (string $operation): bool => $operation === 'create'),

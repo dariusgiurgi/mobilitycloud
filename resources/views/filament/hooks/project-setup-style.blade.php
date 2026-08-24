@@ -1,5 +1,6 @@
 <style>
     .mc-project-start-section .fi-section { border:0; border-radius:0; background:transparent; box-shadow:none; }
+    .fi-resource-create-record-page .fi-page-main,.fi-resource-edit-record-page .fi-page-main { max-width:64rem; margin-inline:auto; }
     .mc-project-start-section .fi-section-header { align-items:center; text-align:center; }
     .mc-project-start-section .fi-section-content-ctn { padding-top:.25rem; }
     .mc-project-entry-grid { display:flex; justify-content:center; align-items:stretch; gap:1rem; }
