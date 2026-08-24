@@ -35,11 +35,11 @@
 
     <x-filament::section heading="Choose a mobility" description="Everything below belongs only to the selected mobility. The same submenus are kept for every trip.">
         @if($canManage)
-            <div style="display:flex;justify-content:flex-end;margin-bottom:.7rem;">
+            <x-slot name="afterHeader">
                 <x-filament::button wire:click="mountAction('manageMobilities')" icon="heroicon-m-map-pin">
                     Manage mobilities
                 </x-filament::button>
-            </div>
+            </x-slot>
         @endif
         @if($mobilities->isEmpty())
             <p class="text-gray-500 dark:text-gray-400" style="font-size:.8rem;margin:0;">Add the first mobility to begin organising its evidence, materials, dissemination and report.</p>
