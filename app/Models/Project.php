@@ -124,19 +124,28 @@ class Project extends Model
     public static function projectRoleOptions(): array
     {
         return [
-            self::PROJECT_ROLE_EDITOR => 'Editor',
-            self::PROJECT_ROLE_MOBILITY => 'Mobility access',
-            self::PROJECT_ROLE_VIEWER => 'Viewer',
+            self::PROJECT_ROLE_EDITOR => 'Project editor',
+            self::PROJECT_ROLE_MOBILITY => 'Mobility coordinator',
+            self::PROJECT_ROLE_VIEWER => 'View only',
+        ];
+    }
+
+    public static function projectRoleDescriptions(): array
+    {
+        return [
+            self::PROJECT_ROLE_EDITOR => 'Can work across the project, including writing, budget, participants, mobility and documents.',
+            self::PROJECT_ROLE_MOBILITY => 'Can manage only Participants and Mobility. Budget, documents and settings stay private.',
+            self::PROJECT_ROLE_VIEWER => 'Can view the project but cannot make changes.',
         ];
     }
 
     public static function projectRoleLabel(?string $role): string
     {
         if ($role === self::PROJECT_ROLE_MANAGER) {
-            return 'Editor';
+            return 'Project editor';
         }
 
-        return self::projectRoleOptions()[$role] ?? 'Editor';
+        return self::projectRoleOptions()[$role] ?? 'Project editor';
     }
 
     public function projectRoleFor(?User $user): ?string

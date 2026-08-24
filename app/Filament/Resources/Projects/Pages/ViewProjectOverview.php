@@ -17,6 +17,7 @@ use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -91,7 +92,7 @@ class ViewProjectOverview extends Page
                 ->icon('heroicon-o-lock-closed')
                 ->color('gray')
                 ->modalHeading('Project collaborators')
-                ->modalDescription('The project owner keeps financial responsibility. Invite people directly to this project and choose what they can do.')
+                ->modalDescription('Choose one simple role for each person. The project owner remains responsible for sharing access and financial decisions.')
                 ->fillForm(fn (): array => [
                     'collaborators' => $this->record->members()
                         ->orderBy('name')
@@ -112,36 +113,38 @@ class ViewProjectOverview extends Page
                         ->schema([
                             Hidden::make('user_id'),
                             TextInput::make('person')
-                                ->label('Person')
+                                ->label('Collaborator')
                                 ->disabled()
                                 ->dehydrated(false)
-                                ->columnSpan(2),
-                            Select::make('role')
-                                ->label('Role')
+                                ->columnSpanFull(),
+                            Radio::make('role')
+                                ->label('What can this person do?')
                                 ->options(Project::projectRoleOptions())
+                                ->descriptions(Project::projectRoleDescriptions())
+                                ->columns(3)
                                 ->default('editor')
                                 ->required()
-                                ->native(false)
-                                ->columnSpan(1),
+                                ->columnSpanFull(),
                         ])
-                        ->columns(3)
+                        ->columns(1)
                         ->defaultItems(0)
                         ->addable(false)
                         ->reorderable(false)
-                        ->itemLabel(fn (array $state): ?string => $state['person'] ?? 'Collaborator')
-                        ->helperText('Use Invite by email to add people. Here you can only change existing project roles or remove project access.'),
+                        ->itemLabel(fn (array $state): string => trim(($state['person'] ?? 'Collaborator').' · '.Project::projectRoleLabel($state['role'] ?? null)))
+                        ->helperText('Change access here or remove a person. Invitations are sent from the section below.'),
                     TextInput::make('invite_email')
                         ->label('Invite by email')
                         ->email()
                         ->maxLength(255)
                         ->placeholder('collaborator@example.org')
-                        ->helperText('Everyone receives an invitation first. Access is granted only after they accept it.'),
-                    Select::make('invite_role')
-                        ->label('Invitation role')
+                        ->helperText('They receive an invitation first. Access starts only after they accept it.'),
+                    Radio::make('invite_role')
+                        ->label('Choose their role')
                         ->options(Project::projectRoleOptions())
+                        ->descriptions(Project::projectRoleDescriptions())
+                        ->columns(3)
                         ->default('editor')
-                        ->required()
-                        ->native(false),
+                        ->required(),
                 ])
                 ->action(function (array $data): void {
                     abort_unless($this->record->canManageAccessBy(auth()->user()), 403);

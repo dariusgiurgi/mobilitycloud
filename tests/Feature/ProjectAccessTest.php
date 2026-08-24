@@ -78,6 +78,19 @@ class ProjectAccessTest extends TestCase
         $this->assertFalse($project->fresh()->canBeCollaboratedOnBy($viewer));
     }
 
+    public function test_project_access_uses_three_plain_language_roles(): void
+    {
+        $this->assertSame([
+            Project::PROJECT_ROLE_EDITOR => 'Project editor',
+            Project::PROJECT_ROLE_MOBILITY => 'Mobility coordinator',
+            Project::PROJECT_ROLE_VIEWER => 'View only',
+        ], Project::projectRoleOptions());
+        $this->assertStringContainsString(
+            'Participants and Mobility',
+            Project::projectRoleDescriptions()[Project::PROJECT_ROLE_MOBILITY],
+        );
+    }
+
     public function test_project_only_collaborator_can_enter_tenant_and_only_see_assigned_projects(): void
     {
         $owner = User::factory()->create();
@@ -289,7 +302,7 @@ class ProjectAccessTest extends TestCase
 
         $notification = $existing->notifications()->sole();
         $this->assertSame('Project invitation received', $notification->data['title']);
-        $this->assertStringContainsString('Darius Owner invited you to Visible Invitation Project as Viewer', $notification->data['body']);
+        $this->assertStringContainsString('Darius Owner invited you to Visible Invitation Project as View only', $notification->data['body']);
         $this->assertSame($invitation->id, data_get($notification->data, 'viewData.invitation_id'));
         $this->assertNotEmpty($notification->data['actions']);
 
