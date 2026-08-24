@@ -4,10 +4,18 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProjectMobility extends Model
 {
+    public const PARTICIPATION_STATUSES = [
+        'planned' => 'Planned',
+        'confirmed' => 'Confirmed',
+        'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
+    ];
+
     protected $fillable = [
         'project_id', 'name', 'start_date', 'end_date', 'destination_country', 'host_organisation', 'workspace_data', 'sort_order',
     ];
@@ -26,6 +34,13 @@ class ProjectMobility extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(ProjectDocument::class);
+    }
+
+    public function participants(): BelongsToMany
+    {
+        return $this->belongsToMany(Participant::class, 'mobility_participant')
+            ->withPivot(['role', 'status'])
+            ->withTimestamps();
     }
 
     protected static function booted(): void

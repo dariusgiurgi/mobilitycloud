@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Participant extends Model
@@ -40,6 +41,13 @@ class Participant extends Model
     public function attachments(): HasMany
     {
         return $this->hasMany(ParticipantAttachment::class);
+    }
+
+    public function mobilities(): BelongsToMany
+    {
+        return $this->belongsToMany(ProjectMobility::class, 'mobility_participant')
+            ->withPivot(['role', 'status'])
+            ->withTimestamps();
     }
 
     protected static function booted(): void

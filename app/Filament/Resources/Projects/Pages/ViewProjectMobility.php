@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Models\Participant;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
 use App\Support\AuthorizesProjectManagement;
@@ -10,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
@@ -159,6 +161,7 @@ class ViewProjectMobility extends Page
                 'id' => $mobility->id,
                 'name' => $mobility->name,
                 'dates' => trim(collect([$mobility->start_date?->format('d M Y'), $mobility->end_date?->format('d M Y')])->filter()->join(' – ')),
+                'participants' => $mobility->participants()->count(),
                 'evidence' => count(data_get($workspace, 'evidence_days', [])) > 0,
                 'materials' => $documents->whereIn('category', ['mobility_plan', 'mobility_material', 'mobility_output', 'mobility_other'])->isNotEmpty(),
                 'dissemination' => $disseminationReady,
@@ -167,9 +170,91 @@ class ViewProjectMobility extends Page
         })->all();
     }
 
+    public function getSelectedMobilityParticipants()
+    {
+        return $this->getSelectedMobility()?->participants()
+            ->orderBy('complete_name')
+            ->get() ?? collect();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('manageMobilityParticipants')
+                ->label('Manage participants')
+                ->icon('heroicon-o-user-group')
+                ->extraAttributes(['style' => 'display:none'])
+                ->modalHeading(fn (): string => 'Participants — '.($this->getSelectedMobility()?->name ?? 'Mobility'))
+                ->modalDescription('Choose the people attending this mobility. A participant can be assigned to more than one mobility with a different role or status for each trip.')
+                ->modalSubmitActionLabel('Save participants')
+                ->fillForm(function (): array {
+                    $mobility = $this->getSelectedMobility();
+
+                    return [
+                        'participants' => $mobility?->participants()
+                            ->orderBy('complete_name')
+                            ->get()
+                            ->map(fn (Participant $participant): array => [
+                                'participant_id' => $participant->id,
+                                'role' => $participant->pivot->role ?: 'participant',
+                                'status' => $participant->pivot->status ?: 'planned',
+                            ])
+                            ->all() ?? [],
+                    ];
+                })
+                ->form([
+                    Repeater::make('participants')
+                        ->hiddenLabel()
+                        ->schema([
+                            Select::make('participant_id')
+                                ->label('Participant')
+                                ->options(fn (): array => $this->record->participants()
+                                    ->orderBy('complete_name')
+                                    ->get()
+                                    ->mapWithKeys(fn (Participant $participant): array => [$participant->id => $participant->fullName()])
+                                    ->all())
+                                ->searchable()
+                                ->required(),
+                            Select::make('role')
+                                ->label('Role for this mobility')
+                                ->options(Participant::ROLES)
+                                ->default('participant')
+                                ->required()
+                                ->native(false),
+                            Select::make('status')
+                                ->label('Attendance status')
+                                ->options(ProjectMobility::PARTICIPATION_STATUSES)
+                                ->default('planned')
+                                ->required()
+                                ->native(false),
+                        ])
+                        ->columns(3)
+                        ->addActionLabel('Assign participant')
+                        ->defaultItems(0)
+                        ->itemLabel(fn (array $state): string => $this->record->participants()->find($state['participant_id'] ?? null)?->fullName() ?? 'Participant'),
+                ])
+                ->action(function (array $data): void {
+                    $mobility = $this->getSelectedMobility();
+                    abort_unless($mobility, 404);
+                    $this->authorizeManagementModuleMutation('mobility', 'mobility-participants:'.$mobility->id, 'Mobility participants');
+
+                    $rows = collect($data['participants'] ?? [])
+                        ->filter(fn (array $row): bool => filled($row['participant_id'] ?? null))
+                        ->keyBy(fn (array $row): int => (int) $row['participant_id']);
+                    $participantIds = $rows->keys()->map(fn ($id): int => (int) $id);
+                    $validCount = $this->record->participants()->whereIn('id', $participantIds)->count();
+                    abort_unless($validCount === $participantIds->count(), 404);
+
+                    $mobility->participants()->sync($rows->mapWithKeys(fn (array $row, int $participantId): array => [
+                        $participantId => [
+                            'role' => array_key_exists($row['role'] ?? null, Participant::ROLES) ? $row['role'] : 'participant',
+                            'status' => array_key_exists($row['status'] ?? null, ProjectMobility::PARTICIPATION_STATUSES) ? $row['status'] : 'planned',
+                        ],
+                    ])->all());
+
+                    Notification::make()->title('Mobility participants saved')->success()->send();
+                })
+                ->visible(fn (): bool => $this->selectedMobilityId !== null && $this->record->canManageProjectModule(auth()->user(), 'mobility')),
             Action::make('manageMobilities')
                 ->label('Manage mobilities')
                 ->icon('heroicon-o-map-pin')
