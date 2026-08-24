@@ -74,21 +74,24 @@ class ProjectParticipantsPageTest extends TestCase
         Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
             ->call('openCreate')
             ->set('data.complete_name', 'Daria Marin')
-            ->set('data.mobility_participations', [
-                ['mobility_id' => $porto->id, 'role' => 'participant', 'status' => 'confirmed'],
-                ['mobility_id' => $braga->id, 'role' => 'facilitator', 'status' => 'planned'],
-            ])
             ->call('save')
+            ->assertHasNoErrors();
+
+        $participant = Participant::query()->where('project_id', $project->id)->where('complete_name', 'Daria Marin')->sole();
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->call('openParticipantMobilityModal', $participant->id)
+            ->set('selectedParticipantMobilityIds', [$porto->id, $braga->id])
+            ->call('saveParticipantMobilities')
             ->assertHasNoErrors()
             ->assertSee('Porto')
             ->assertSee('Braga');
 
-        $participant = Participant::query()->where('project_id', $project->id)->where('complete_name', 'Daria Marin')->sole();
         $assignments = $participant->mobilities()->get()->keyBy('id');
 
         $this->assertCount(2, $assignments);
-        $this->assertSame('confirmed', $assignments[$porto->id]->pivot->status);
-        $this->assertSame('facilitator', $assignments[$braga->id]->pivot->role);
+        $this->assertSame('planned', $assignments[$porto->id]->pivot->status);
+        $this->assertSame('participant', $assignments[$braga->id]->pivot->role);
     }
 
     public function test_mobility_access_member_can_add_a_participant_from_the_register(): void
@@ -116,10 +119,11 @@ class ProjectParticipantsPageTest extends TestCase
         $this->actingAs($user);
 
         $component = Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
-            ->assertSee('Participant self-registration')
             ->assertSee('Create form link')
+            ->call('openRegistrationLinksModal')
+            ->assertSee('Participant form links')
             ->call('createParticipantRegistrationLink')
-            ->assertSee('Close form link')
+            ->assertSee('General participant form')
             ->assertSee('Copy');
 
         $project->refresh();
@@ -132,7 +136,7 @@ class ProjectParticipantsPageTest extends TestCase
 
         $component
             ->call('closeParticipantRegistrationLink')
-            ->assertSee('Create form link');
+            ->assertSee('Create link');
 
         $this->assertFalse($project->fresh()->hasActiveParticipantRegistrationLink());
     }
