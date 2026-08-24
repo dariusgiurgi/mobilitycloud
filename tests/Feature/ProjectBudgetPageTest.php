@@ -99,6 +99,39 @@ class ProjectBudgetPageTest extends TestCase
         $this->assertSame('100.00', $expense->fresh()->amount_eur);
     }
 
+    public function test_new_projects_start_with_three_core_budget_categories_and_can_add_optional_presets(): void
+    {
+        $project = Project::create([
+            'owner_id' => User::factory()->create()->id,
+            'access_mode' => 'restricted',
+            'name' => 'New budget project',
+            'status' => 'active',
+        ]);
+        $user = $project->ownerAccount;
+
+        $this->assertSame([
+            'Travel',
+            'Individual Support',
+            'Organisational Support',
+        ], $project->budgetLines()->orderBy('sort_order')->pluck('title')->all());
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectBoard::class, ['record' => $project->id])
+            ->call('openBasketCreate')
+            ->assertSee('Useful Erasmus+ categories')
+            ->call('applyBasketPreset', 'inclusion')
+            ->assertSet('basketTitle', 'Inclusion Support')
+            ->assertSet('basketEmoji', '🤝')
+            ->call('saveBasket');
+
+        $this->assertDatabaseHas('budget_lines', [
+            'project_id' => $project->id,
+            'title' => 'Inclusion Support',
+            'emoji' => '🤝',
+        ]);
+    }
+
     public function test_expense_uploads_are_named_after_the_expense_number(): void
     {
         Storage::fake('local');

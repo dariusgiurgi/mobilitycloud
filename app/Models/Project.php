@@ -41,8 +41,6 @@ class Project extends Model
         ['title' => 'Travel',                 'emoji' => '✈️', 'color' => '#3b82f6', 'sort_order' => 0],
         ['title' => 'Individual Support',     'emoji' => '🙋', 'color' => '#22c55e', 'sort_order' => 1],
         ['title' => 'Organisational Support', 'emoji' => '🏢', 'color' => '#8b5cf6', 'sort_order' => 2],
-        ['title' => 'Inclusion Support',      'emoji' => '🤝', 'color' => '#ec4899', 'sort_order' => 3],
-        ['title' => 'Exceptional Support',    'emoji' => '⚡', 'color' => '#f59e0b', 'sort_order' => 4],
     ];
 
     protected $fillable = [

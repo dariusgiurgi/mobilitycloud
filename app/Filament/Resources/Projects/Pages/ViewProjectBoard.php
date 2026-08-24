@@ -57,6 +57,11 @@ class ViewProjectBoard extends Page
 
     public string $transferReason = '';
 
+    private const OPTIONAL_BASKET_PRESETS = [
+        'inclusion' => ['title' => 'Inclusion Support', 'emoji' => '🤝', 'color' => '#ec4899'],
+        'exceptional' => ['title' => 'Exceptional Support', 'emoji' => '⚡', 'color' => '#f59e0b'],
+    ];
+
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
@@ -171,6 +176,19 @@ class ViewProjectBoard extends Page
         $this->basketEmoji = '📁';
         $this->basketColor = '#6366f1';
         $this->showBasketModal = true;
+    }
+
+    public function applyBasketPreset(string $preset): void
+    {
+        $values = self::OPTIONAL_BASKET_PRESETS[$preset] ?? null;
+
+        if (! $values) {
+            return;
+        }
+
+        $this->basketTitle = $values['title'];
+        $this->basketEmoji = $values['emoji'];
+        $this->basketColor = $values['color'];
     }
 
     public function openBasketEdit(int $basketId): void

@@ -341,7 +341,7 @@
     <button type="button" wire:click="openBasketCreate"
             class="text-gray-500 dark:text-gray-400"
             style="width:100%;padding:14px;border:2px dashed rgba(100,116,139,.3);border-radius:12px;background:transparent;cursor:pointer;font-size:13px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:.5rem;">
-        + Add new basket
+        + Add budget category
     </button>
     @endif
 
@@ -350,7 +350,18 @@
     <div class="mc-modal-backdrop"
          wire:click.self="$set('showBasketModal', false)">
         <div class="mc-modal mc-modal-panel"><div class="mc-modal-body">
-            <h3 class="mc-modal-title mc-modal-heading" style="margin-bottom:1rem;">{{ $editingBasketId ? 'Edit basket' : 'Add basket' }}</h3>
+            <h3 class="mc-modal-title mc-modal-heading" style="margin-bottom:1rem;">{{ $editingBasketId ? 'Edit budget category' : 'Add budget category' }}</h3>
+
+            @if (! $editingBasketId)
+                <div style="margin:-.2rem 0 1rem;">
+                    <p class="mc-modal-label" style="font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:7px;">Useful Erasmus+ categories</p>
+                    <div style="display:flex;gap:.45rem;flex-wrap:wrap;">
+                        <button type="button" wire:click="applyBasketPreset('inclusion')" class="mc-modal-cancel" style="padding:6px 9px;border-radius:7px;border:1px solid rgba(236,72,153,.28);background:rgba(236,72,153,.07);cursor:pointer;font-size:12px;">🤝 Inclusion Support</button>
+                        <button type="button" wire:click="applyBasketPreset('exceptional')" class="mc-modal-cancel" style="padding:6px 9px;border-radius:7px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);cursor:pointer;font-size:12px;">⚡ Exceptional Support</button>
+                    </div>
+                    <p class="mc-modal-label" style="font-size:12px;line-height:1.45;margin-top:8px;">Or create a custom category for this project.</p>
+                </div>
+            @endif
 
             <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;margin-bottom:4px;" class="mc-modal-label">Title</label>
             <input type="text" wire:model="basketTitle"
