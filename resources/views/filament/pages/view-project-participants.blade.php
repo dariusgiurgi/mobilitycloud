@@ -12,6 +12,17 @@
                 ['title' => 'Attendance sheets', 'body' => 'Generate signature-ready attendance lists grouped by organisation.'],
             ],
         ])
+    @elseif ($record->operationalModulesLockedUntilPayment())
+        <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:ring-amber-500/30"
+             style="padding:1.25rem 1.4rem;margin-bottom:1.25rem;display:flex;gap:1rem;align-items:flex-start;">
+            <div style="width:42px;height:42px;border-radius:14px;background:#fff7ed;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">🔒</div>
+            <div>
+                <h2 class="text-gray-950 dark:text-white" style="font-size:18px;font-weight:750;margin:0 0 .35rem;">Participants unlock after payment confirmation</h2>
+                <p class="text-gray-600 dark:text-gray-300" style="font-size:14px;line-height:1.55;margin:0;max-width:760px;">
+                    This project is approved, but the fiscal invoice is still pending. Budget and Documents remain available, while participant records, mobility evidence and final exports unlock after the invoice is marked as paid.
+                </p>
+            </div>
+        </div>
     @else
     @php
         $participants = $this->getParticipants();

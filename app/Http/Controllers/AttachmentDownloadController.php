@@ -13,7 +13,14 @@ class AttachmentDownloadController extends Controller
         $attachment->loadMissing('participant.project');
         $project = $attachment->participant?->project;
 
-        abort_unless($project?->canBeAccessedBy(auth()->user()), 403);
+        abort_unless(auth()->check() && $project && $project->canAccessProjectModule(auth()->user(), 'participants'), 403);
+
+        if ($project->operationalModulesLockedUntilPayment()) {
+            return response()->view('errors.project-payment-locked', [
+                'project' => $project,
+            ], 402);
+        }
+
         abort_unless($attachment->exists(), 404);
 
         return Storage::disk($attachment->disk)->download(
@@ -27,12 +34,12 @@ class AttachmentDownloadController extends Controller
         $expense->loadMissing('budgetLine.project');
         $project = $expense->budgetLine?->project;
 
-        abort_unless($project?->canAccessProjectModule(auth()->user(), 'board'), 403);
+        abort_unless(auth()->check() && $project && $project->canAccessProjectModule(auth()->user(), 'budget'), 403);
         abort_unless($expense->attachmentExists(), 404);
 
         return Storage::disk($expense->attachment_disk)->download(
             $expense->attachment_path,
-            $expense->supportingFileName($project)
+            $expense->attachment_name ?: basename($expense->attachment_path)
         );
     }
 }

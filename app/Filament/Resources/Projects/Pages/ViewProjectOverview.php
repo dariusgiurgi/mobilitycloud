@@ -25,11 +25,13 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Str;
+use Livewire\WithFileUploads;
 
 class ViewProjectOverview extends Page
 {
     use AuthorizesProjectManagement;
     use InteractsWithRecord;
+    use WithFileUploads;
 
     protected static string $resource = ProjectResource::class;
 
@@ -62,6 +64,10 @@ class ViewProjectOverview extends Page
     public bool $showApprovalModal = false;
 
     public $approvedGrantAmount = null;
+
+    public ?string $approvedProjectCode = null;
+
+    public $approvedGrantProof = null;
 
     public function mount(int|string $record): void
     {
@@ -585,6 +591,8 @@ class ViewProjectOverview extends Page
             $this->approvedGrantAmount = $this->record->approvedGrantAmount() > 0
                 ? (string) $this->record->approvedGrantAmount()
                 : null;
+            $this->approvedProjectCode = (string) ($this->record->grant_ref ?? '');
+            $this->approvedGrantProof = null;
             $this->pendingTransitionTarget = $targetEnum->value;
             $this->showApprovalModal = true;
 
@@ -657,6 +665,8 @@ class ViewProjectOverview extends Page
             $this->approvedGrantAmount = $this->record->approvedGrantAmount() > 0
                 ? (string) $this->record->approvedGrantAmount()
                 : null;
+            $this->approvedProjectCode = (string) ($this->record->grant_ref ?? '');
+            $this->approvedGrantProof = null;
             $this->pendingTransitionTarget = $targetEnum->value;
             $this->showApprovalModal = true;
 
@@ -682,8 +692,17 @@ class ViewProjectOverview extends Page
     {
         $this->authorizeManagementModuleMutation('overview', 'project-status', 'Project status');
 
+        $proofRequired = blank($this->record->approved_grant_proof_path);
+
         $this->validate([
             'approvedGrantAmount' => ['required', 'numeric', 'min:1'],
+            'approvedProjectCode' => ['required', 'string', 'max:255'],
+            'approvedGrantProof' => [
+                $proofRequired ? 'required' : 'nullable',
+                'file',
+                'max:10240',
+                'mimes:pdf,jpg,jpeg,png,webp',
+            ],
         ]);
 
         $current = $this->record->statusEnum();
@@ -696,6 +715,23 @@ class ViewProjectOverview extends Page
             return;
         }
 
+        $proofData = [
+            'grant_ref' => trim((string) $this->approvedProjectCode),
+        ];
+
+        if ($this->approvedGrantProof) {
+            $proofPath = $this->approvedGrantProof->store('project-approval-proofs/'.$this->record->id, 'local');
+
+            $proofData = array_merge($proofData, [
+                'approved_grant_proof_path' => $proofPath,
+                'approved_grant_proof_disk' => 'local',
+                'approved_grant_proof_original_name' => $this->approvedGrantProof->getClientOriginalName(),
+                'approved_grant_proof_uploaded_at' => now(),
+            ]);
+        }
+
+        $this->record->forceFill($proofData)->save();
+        $this->record->refresh();
         $this->record->declareApprovedGrant($this->approvedGrantAmount, auth()->user());
         $this->applyEstimateToBudget(seedApprovedGrant: false);
 
@@ -703,12 +739,14 @@ class ViewProjectOverview extends Page
         $this->showApprovalModal = false;
         $this->pendingTransitionTarget = null;
         $this->approvedGrantAmount = null;
+        $this->approvedProjectCode = null;
+        $this->approvedGrantProof = null;
 
         Notification::make()
             ->title('Project marked as approved')
             ->body($this->record->owner()?->isUnlimitedAccount()
                 ? 'The approved grant was locked. Unlimited accounts do not generate project administration fees.'
-                : 'The approved grant was locked and the platform activation fee was calculated.')
+                : 'The approved grant was declared. All implementation modules are now available, and a 1% fiscal invoice will be issued for payment after the first grant instalment.')
             ->success()
             ->send();
     }
@@ -718,7 +756,9 @@ class ViewProjectOverview extends Page
         $this->showApprovalModal = false;
         $this->pendingTransitionTarget = null;
         $this->approvedGrantAmount = null;
-        $this->resetErrorBag('approvedGrantAmount');
+        $this->approvedProjectCode = null;
+        $this->approvedGrantProof = null;
+        $this->resetErrorBag();
     }
 
     protected function applyEstimateToBudget(bool $seedApprovedGrant = true): void

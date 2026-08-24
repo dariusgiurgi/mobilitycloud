@@ -42,6 +42,12 @@ class WriteApplication extends Page
     /** @var array<int, array<string, array<int, array<string, string>>>> */
     public array $tables = [];
 
+    /** @var array<int, array<int, array<string, mixed>>> Effective (built-in + custom) table schemas per question. */
+    public array $tableDefinitions = [];
+
+    /** @var array<int> */
+    public array $selectedSectionIds = [];
+
     /** @var array<int, array<string, string|int|bool>> */
     public array $activityFlows = [];
 
@@ -70,6 +76,8 @@ class WriteApplication extends Page
     public string $versionLabel = '';
 
     public ?string $lastSavedAt = null;
+
+    public int $sectionOrderRevision = 0;
 
     // ─── Library picker state ───
     public bool $showLibrary = false;
@@ -148,6 +156,18 @@ class WriteApplication extends Page
         return $this->sectionsQuery()->get();
     }
 
+    protected function isHeadingSection(ProjectApplicationSection $section): bool
+    {
+        $key = (string) $section->question_key;
+
+        return str_starts_with($key, 'custom-heading-') || str_starts_with($key, 'template-heading-');
+    }
+
+    public function getQuestionSections(): Collection
+    {
+        return $this->getSections()->reject(fn (ProjectApplicationSection $section) => $this->isHeadingSection($section))->values();
+    }
+
     public function getVisibleSections()
     {
         $sections = $this->getSections()->filter(function (ProjectApplicationSection $section) {
@@ -189,7 +209,7 @@ class WriteApplication extends Page
         $this->writingMode = $mode;
 
         if ($mode === 'focus') {
-            $this->focusSectionId ??= $this->getSections()->first()?->id;
+            $this->focusSectionId ??= $this->getQuestionSections()->first()?->id;
         }
     }
 
@@ -205,7 +225,7 @@ class WriteApplication extends Page
 
     public function moveFocus(int $direction): void
     {
-        $sections = $this->getSections()->values();
+        $sections = $this->getQuestionSections();
         if ($sections->isEmpty()) {
             return;
         }
@@ -245,7 +265,7 @@ class WriteApplication extends Page
         $this->authorizeApplicationStructureEditing();
         $updated = 0;
 
-        foreach ($this->getSections() as $section) {
+        foreach ($this->getQuestionSections() as $section) {
             $answer = trim(strip_tags($this->content[$section->id] ?? (string) $section->content));
             if ($answer === '') {
                 continue;
@@ -339,7 +359,7 @@ class WriteApplication extends Page
 
     public function getReviewActionSummary(): array
     {
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $issueSectionIds = collect($this->getConsistencyReview()['issues'])
             ->pluck('section_id')
             ->filter()
@@ -440,17 +460,47 @@ class WriteApplication extends Page
         return $this->templateAlignment($this->selectedTemplate);
     }
 
+    protected function templateHeadingKey(string $templateKey, string $category, int $occurrence): string
+    {
+        return 'template-heading-'.substr(sha1(ApplicationTemplates::normaliseKey($templateKey).'|'.$category.'|'.$occurrence), 0, 16);
+    }
+
+    protected function templateHeadingKeys(Collection $sections, string $templateKey): Collection
+    {
+        $keys = collect();
+        $currentCategory = null;
+        $occurrences = [];
+
+        foreach ($sections as $section) {
+            $category = trim((string) ($section['category'] ?? ''));
+            if ($category !== '' && $category !== $currentCategory) {
+                $occurrences[$category] = ($occurrences[$category] ?? 0) + 1;
+                $keys->push($this->templateHeadingKey($templateKey, $category, $occurrences[$category]));
+            }
+
+            $currentCategory = $category;
+        }
+
+        return $keys;
+    }
+
     public function getTemplateSwitchPreview(): array
     {
         $template = ApplicationTemplates::get($this->selectedTemplate);
         $officialSections = collect($template['sections'] ?? []);
         $officialKeys = $officialSections->pluck('key')->filter()->values();
+        $headingKeys = $this->templateHeadingKeys($officialSections, $this->selectedTemplate);
+        $officialKeys = $officialKeys->merge($headingKeys)->unique()->values();
         $existing = $this->getSections();
         $existingByKey = $existing->whereNotNull('question_key')->keyBy('question_key');
         $existingByTitle = $existing->keyBy(fn (ProjectApplicationSection $section) => mb_strtolower(trim($section->title)));
         $usedSectionIds = collect();
         $added = [];
         $matched = [];
+
+        $usedSectionIds = $usedSectionIds->merge(
+            $existing->filter(fn (ProjectApplicationSection $section) => $headingKeys->contains($section->question_key))->pluck('id')
+        );
 
         foreach ($officialSections as $official) {
             $match = $existingByKey->get($official['key'])
@@ -688,7 +738,7 @@ class WriteApplication extends Page
         $template = ApplicationTemplates::get($templateKey ?: $this->selectedTemplate);
         $officialSections = collect($template['sections'] ?? []);
         $officialKeys = $officialSections->pluck('key')->filter()->values();
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $sectionsByKey = $sections->whereNotNull('question_key')->keyBy('question_key');
 
         $matched = 0;
@@ -741,7 +791,7 @@ class WriteApplication extends Page
 
     public function getApplicationSummary(): array
     {
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $completed = 0;
         $overLimit = 0;
         $words = 0;
@@ -788,7 +838,7 @@ class WriteApplication extends Page
 
     public function getConsistencyReview(): array
     {
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $issues = [];
         $alignment = $this->templateAlignment($this->record->ka_action ?: $this->selectedTemplate);
 
@@ -915,7 +965,7 @@ class WriteApplication extends Page
 
     public function getQualityReview(): array
     {
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $text = $this->normalisedApplicationText($sections);
         $summary = $this->getApplicationSummary();
         $criteria = collect($this->qualityCriteria())->map(function (array $criterion) use ($text, $summary) {
@@ -1149,7 +1199,7 @@ class WriteApplication extends Page
 
     public function getOfficialCompletenessReview(): array
     {
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $issues = [];
 
         foreach ($sections as $section) {
@@ -1158,13 +1208,17 @@ class WriteApplication extends Page
             }
 
             foreach ($this->getQuestionTables($section) as $tableDefinition) {
+                if (($tableDefinition['source'] ?? null) !== 'official') {
+                    continue;
+                }
+
                 $rows = $this->normaliseSectionTables($this->tables[$section->id] ?? $section->application_tables ?? []);
                 if (empty($rows[$tableDefinition['key']] ?? [])) {
                     $issues[] = $this->reviewIssue(
                         'warning',
                         'Official table',
                         'The “'.$tableDefinition['label'].'” table is empty.',
-                        'Fill this table or use “Populate from project” if the answer requires structured official data.',
+                        'Fill this table when the answer requires structured official data.',
                         $section->id
                     );
                 }
@@ -1224,7 +1278,7 @@ class WriteApplication extends Page
 
     public function getSubmissionChecklist(): array
     {
-        $sections = $this->getSections();
+        $sections = $this->getQuestionSections();
         $alignment = $this->templateAlignment($this->record->ka_action ?: $this->selectedTemplate);
         $summary = $this->getApplicationSummary();
         $officialReview = $this->getOfficialCompletenessReview();
@@ -1429,14 +1483,19 @@ class WriteApplication extends Page
         $this->reviewStatuses = [];
         $this->internalNotes = [];
         $this->tables = [];
+        $this->tableDefinitions = [];
 
         foreach ($this->sectionsQuery()->get() as $s) {
             $this->content[$s->id] = (string) $s->content;
             $this->titles[$s->id] = (string) $s->title;
             $this->reviewStatuses[$s->id] = (string) ($s->review_status ?: 'draft');
             $this->internalNotes[$s->id] = (string) $s->internal_notes;
-            $this->tables[$s->id] = $s->application_tables ?: [];
+            $this->tableDefinitions[$s->id] = ApplicationTableDefinitions::editableForSection($s);
+            $this->tables[$s->id] = $s->application_tables ?: ApplicationTableDefinitions::starterRows($this->tableDefinitions[$s->id]);
         }
+
+        $validIds = array_map('intval', array_keys($this->content));
+        $this->selectedSectionIds = array_values(array_intersect(array_map('intval', $this->selectedSectionIds), $validIds));
 
         $this->activityFlows = $this->normaliseActivityFlows((array) (($this->record->action_data ?? [])['application_flows'] ?? []));
     }
@@ -1457,7 +1516,7 @@ class WriteApplication extends Page
         foreach (array_keys($this->content) as $sectionId) {
             $sectionId = (int) $sectionId;
             if (! in_array($sectionId, $freshIds, true) && ! $locksOwnedByMe->contains('section:'.$sectionId)) {
-                unset($this->content[$sectionId], $this->titles[$sectionId], $this->reviewStatuses[$sectionId], $this->internalNotes[$sectionId], $this->tables[$sectionId]);
+                unset($this->content[$sectionId], $this->titles[$sectionId], $this->reviewStatuses[$sectionId], $this->internalNotes[$sectionId], $this->tables[$sectionId], $this->tableDefinitions[$sectionId]);
             }
         }
 
@@ -1470,7 +1529,8 @@ class WriteApplication extends Page
             $this->titles[$section->id] = (string) $section->title;
             $this->reviewStatuses[$section->id] = (string) ($section->review_status ?: 'draft');
             $this->internalNotes[$section->id] = (string) $section->internal_notes;
-            $this->tables[$section->id] = $section->application_tables ?: [];
+            $this->tableDefinitions[$section->id] = ApplicationTableDefinitions::editableForSection($section);
+            $this->tables[$section->id] = $section->application_tables ?: ApplicationTableDefinitions::starterRows($this->tableDefinitions[$section->id]);
         }
 
         if (! $locksOwnedByMe->contains('activity-flows')) {
@@ -1509,6 +1569,12 @@ class WriteApplication extends Page
         $this->persistTables($sectionId);
     }
 
+    public function updatedTableDefinitions($value, $key): void
+    {
+        $sectionId = (int) Str::before((string) $key, '.');
+        $this->persistTableDefinitions($sectionId);
+    }
+
     protected function persistField(int $id, string $field, string $value): void
     {
         $this->authorizeApplicationSectionEditing($id);
@@ -1534,6 +1600,19 @@ class WriteApplication extends Page
         $this->lastSavedAt = now()->format('H:i:s');
     }
 
+    protected function persistTableDefinitions(int $id): void
+    {
+        $this->authorizeApplicationSectionEditing($id);
+        $sec = $this->sectionsQuery()->find($id);
+        if (! $sec) {
+            return;
+        }
+
+        $sec->table_definitions = $this->normaliseTableDefinitions($this->tableDefinitions[$id] ?? []);
+        $sec->save();
+        $this->lastSavedAt = now()->format('H:i:s');
+    }
+
     protected function normaliseSectionTables(array $tables): array
     {
         return collect($tables)
@@ -1548,14 +1627,59 @@ class WriteApplication extends Page
             ->all();
     }
 
+    protected function normaliseTableDefinitions(array $definitions): array
+    {
+        return collect($definitions)
+            ->map(function ($definition) {
+                $key = trim((string) ($definition['key'] ?? ''));
+                if ($key === '') {
+                    return null;
+                }
+
+                $columns = collect((array) ($definition['columns'] ?? []))
+                    ->map(function ($column) {
+                        $field = trim((string) ($column['field'] ?? ''));
+                        $label = trim((string) ($column['label'] ?? ''));
+                        $labelTouched = (bool) ($column['label_touched'] ?? false);
+
+                        return $field === '' ? null : [
+                            'field' => $field,
+                            'label' => $label !== '' || $labelTouched ? $label : 'Column',
+                            'label_touched' => $labelTouched,
+                        ];
+                    })
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                return [
+                    'key' => $key,
+                    'label' => trim((string) ($definition['label'] ?? '')) ?: 'Untitled table',
+                    'description' => trim((string) ($definition['description'] ?? '')),
+                    'columns' => $columns,
+                    'is_custom' => (bool) ($definition['is_custom'] ?? false),
+                    'hidden' => (bool) ($definition['hidden'] ?? false),
+                    'source' => in_array($definition['source'] ?? null, ['official', 'recommended', 'custom'], true)
+                        ? $definition['source']
+                        : ((bool) ($definition['is_custom'] ?? false) ? 'custom' : 'recommended'),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
     public function getQuestionTables(ProjectApplicationSection $section): array
     {
-        return ApplicationTableDefinitions::forSection($section);
+        return collect($this->tableDefinitions[$section->id] ?? ApplicationTableDefinitions::editableForSection($section))
+            ->reject(fn (array $table) => (bool) ($table['hidden'] ?? false))
+            ->values()
+            ->all();
     }
 
     public function getSectionsWithTables(): array
     {
-        return $this->getSections()
+        return $this->getQuestionSections()
             ->map(fn (ProjectApplicationSection $section) => [
                 'section' => $section,
                 'tables' => $this->getQuestionTables($section),
@@ -1583,6 +1707,135 @@ class WriteApplication extends Page
         $this->persistTables($sectionId);
     }
 
+    public function addCustomTable(int $sectionId): void
+    {
+        $this->authorizeApplicationSectionEditing($sectionId);
+        $section = $this->sectionsQuery()->find($sectionId);
+        if (! $section) {
+            return;
+        }
+
+        $key = 'custom_'.Str::lower(Str::random(12));
+        $this->tableDefinitions[$sectionId] ??= ApplicationTableDefinitions::editableForSection($section);
+        $this->tableDefinitions[$sectionId][] = [
+            'key' => $key,
+            'label' => 'New table',
+            'description' => '',
+            'is_custom' => true,
+            'hidden' => false,
+            'source' => 'custom',
+            'columns' => [
+                ['field' => 'column_1', 'label' => '', 'label_touched' => true],
+                ['field' => 'column_2', 'label' => '', 'label_touched' => true],
+                ['field' => 'column_3', 'label' => '', 'label_touched' => true],
+            ],
+        ];
+        $this->persistTableDefinitions($sectionId);
+        $this->addTableRow($sectionId, $key);
+    }
+
+    public function addTableColumn(int $sectionId, string $tableKey): void
+    {
+        $this->authorizeApplicationSectionEditing($sectionId);
+        $tableIndex = $this->tableDefinitionIndex($sectionId, $tableKey);
+        if ($tableIndex === null) {
+            return;
+        }
+
+        $field = 'column_'.Str::lower(Str::random(8));
+        $this->tableDefinitions[$sectionId][$tableIndex]['columns'][] = [
+            'field' => $field,
+            'label' => '',
+            'label_touched' => true,
+        ];
+
+        foreach ($this->tables[$sectionId][$tableKey] ?? [] as $rowIndex => $row) {
+            $this->tables[$sectionId][$tableKey][$rowIndex][$field] = '';
+        }
+
+        $this->persistTableDefinitions($sectionId);
+        $this->persistTables($sectionId);
+    }
+
+    public function startTableColumnLabelEditing(int $sectionId, string $tableKey, string $field): void
+    {
+        $this->authorizeApplicationSectionEditing($sectionId);
+        $this->startWritingSectionEditing($sectionId);
+
+        $tableIndex = $this->tableDefinitionIndex($sectionId, $tableKey);
+        if ($tableIndex === null) {
+            return;
+        }
+
+        foreach ($this->tableDefinitions[$sectionId][$tableIndex]['columns'] ?? [] as $columnIndex => $column) {
+            if (($column['field'] ?? null) === $field && ! ($column['label_touched'] ?? false)) {
+                $this->tableDefinitions[$sectionId][$tableIndex]['columns'][$columnIndex]['label'] = '';
+                $this->tableDefinitions[$sectionId][$tableIndex]['columns'][$columnIndex]['label_touched'] = true;
+                $this->persistTableDefinitions($sectionId);
+
+                return;
+            }
+        }
+    }
+
+    public function removeTableColumn(int $sectionId, string $tableKey, string $field): void
+    {
+        $this->authorizeApplicationSectionEditing($sectionId);
+        $tableIndex = $this->tableDefinitionIndex($sectionId, $tableKey);
+        if ($tableIndex === null) {
+            return;
+        }
+
+        $columns = $this->tableDefinitions[$sectionId][$tableIndex]['columns'] ?? [];
+        if (count($columns) <= 1) {
+            Notification::make()->title('A table needs at least one column')->warning()->send();
+
+            return;
+        }
+
+        $this->tableDefinitions[$sectionId][$tableIndex]['columns'] = collect($columns)
+            ->reject(fn (array $column) => ($column['field'] ?? null) === $field)
+            ->values()
+            ->all();
+
+        foreach ($this->tables[$sectionId][$tableKey] ?? [] as $rowIndex => $row) {
+            unset($this->tables[$sectionId][$tableKey][$rowIndex][$field]);
+        }
+
+        $this->persistTableDefinitions($sectionId);
+        $this->persistTables($sectionId);
+    }
+
+    public function removeQuestionTable(int $sectionId, string $tableKey): void
+    {
+        $this->authorizeApplicationSectionEditing($sectionId);
+        $tableIndex = $this->tableDefinitionIndex($sectionId, $tableKey);
+        if ($tableIndex === null) {
+            return;
+        }
+
+        if (($this->tableDefinitions[$sectionId][$tableIndex]['is_custom'] ?? false) === true) {
+            array_splice($this->tableDefinitions[$sectionId], $tableIndex, 1);
+        } else {
+            $this->tableDefinitions[$sectionId][$tableIndex]['hidden'] = true;
+        }
+
+        unset($this->tables[$sectionId][$tableKey]);
+        $this->persistTableDefinitions($sectionId);
+        $this->persistTables($sectionId);
+    }
+
+    protected function tableDefinitionIndex(int $sectionId, string $tableKey): ?int
+    {
+        foreach ($this->tableDefinitions[$sectionId] ?? [] as $index => $definition) {
+            if (($definition['key'] ?? null) === $tableKey) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
     public function removeTableRow(int $sectionId, string $tableKey, int $rowIndex): void
     {
         if (! isset($this->tables[$sectionId][$tableKey][$rowIndex])) {
@@ -1591,52 +1844,6 @@ class WriteApplication extends Page
 
         array_splice($this->tables[$sectionId][$tableKey], $rowIndex, 1);
         $this->persistTables($sectionId);
-    }
-
-    public function autofillTable(int $sectionId, string $tableKey): void
-    {
-        $this->authorizeApplicationSectionEditing($sectionId);
-
-        $section = $this->sectionsQuery()->find($sectionId);
-        if (! $section || ! collect($this->getQuestionTables($section))->firstWhere('key', $tableKey)) {
-            return;
-        }
-
-        $rows = $this->autofillRowsForTable($tableKey);
-        if (empty($rows)) {
-            Notification::make()
-                ->title('No project data found')
-                ->body('Add participants, budget lines, expenses or project dates first, then refresh this table.')
-                ->warning()
-                ->send();
-
-            return;
-        }
-
-        $this->tables[$sectionId][$tableKey] = $rows;
-        $this->persistTables($sectionId);
-
-        Notification::make()
-            ->title('Table populated')
-            ->body(count($rows).' rows were generated from current project data. You can edit them manually before export.')
-            ->success()
-            ->send();
-    }
-
-    public function getTableAutofillSummary(string $tableKey): ?string
-    {
-        return match ($tableKey) {
-            'project_topics' => 'Suggests topics from filled narrative and Erasmus+ signals.',
-            'participant_groups' => 'Uses participants grouped by country/organisation.',
-            'additional_funding' => 'Uses Inclusion/Exceptional budget lines and expenses.',
-            'fewer_opportunities_support' => 'Uses participants marked as fewer opportunities.',
-            'recognition_tools' => 'Uses common Erasmus+ recognition tools and project follow-up.',
-            'activity_plan' => 'Uses project dates, partners and participant counts.',
-            'work_packages' => 'Uses budget baskets and open tasks as work-package signals.',
-            'evaluation_matrix' => 'Uses objectives/evaluation sections and project tasks.',
-            'dissemination_plan' => 'Uses partner list, project dates and dissemination tasks.',
-            default => null,
-        };
     }
 
     protected function autofillRowsForTable(string $tableKey): array
@@ -2257,37 +2464,6 @@ class WriteApplication extends Page
         }
     }
 
-    public function insertAnswerScaffold(int $sectionId): void
-    {
-        $this->authorizeApplicationSectionEditing($sectionId);
-        $section = $this->sectionsQuery()->find($sectionId);
-        if (! $section) {
-            return;
-        }
-
-        $hints = $this->getQuestionHints($section);
-        $scaffold = collect([
-            'Context / direct answer:',
-            'Evidence and concrete examples:',
-            'Responsibilities, timing and method:',
-            'Expected result / proof:',
-        ])->map(fn (string $line) => $line."\n- ")->implode("\n\n");
-
-        if (! empty($hints)) {
-            $scaffold .= "\n\nEvaluator checklist:\n";
-            foreach ($hints['expects'] as $hint) {
-                $scaffold .= '- '.$hint."\n";
-            }
-        }
-
-        $existing = trim($this->content[$sectionId] ?? (string) $section->content);
-        $new = $existing === '' ? $scaffold : rtrim($existing)."\n\n".$scaffold;
-        $this->content[$sectionId] = $new;
-        $section->content = $new;
-        $section->save();
-        $this->lastSavedAt = now()->format('H:i:s');
-    }
-
     // ─── Library picker ───
     public function openLibrary(int $sectionId): void
     {
@@ -2370,7 +2546,7 @@ class WriteApplication extends Page
 
     public function focusNextEmpty(): void
     {
-        $section = $this->getSections()
+        $section = $this->getQuestionSections()
             ->first(fn (ProjectApplicationSection $section) => trim(strip_tags($this->content[$section->id] ?? (string) $section->content)) === '');
 
         if ($section) {
@@ -2416,24 +2592,78 @@ class WriteApplication extends Page
         $existingByKey = $existing->whereNotNull('question_key')->keyBy('question_key');
         $existingByTitle = $existing->keyBy(fn ($section) => mb_strtolower(trim($section->title)));
         $officialKeys = collect($sections)->pluck('key')->filter()->values();
+        $headingKeys = collect();
         $added = 0;
         $updated = 0;
         $usedSectionIds = collect();
+        $templateTables = function (array $section): array {
+            return ApplicationTableDefinitions::editableForSection(new ProjectApplicationSection([
+                'question_key' => $section['key'] ?? null,
+                'title' => $section['title'] ?? '',
+                'category' => $section['category'] ?? null,
+            ]));
+        };
 
-        foreach ($sections as $sortOrder => $sec) {
+        $nextSortOrder = 0;
+        $currentCategory = null;
+        $categoryOccurrences = [];
+
+        foreach ($sections as $sec) {
+            $category = trim((string) ($sec['category'] ?? ''));
+
+            if ($category !== '' && $category !== $currentCategory) {
+                $categoryOccurrences[$category] = ($categoryOccurrences[$category] ?? 0) + 1;
+                $headingKey = $this->templateHeadingKey($this->selectedTemplate, $category, $categoryOccurrences[$category]);
+                $heading = $existingByKey->get($headingKey);
+
+                if ($heading) {
+                    $heading->update([
+                        'category' => null,
+                        'char_limit' => null,
+                        'sort_order' => $nextSortOrder,
+                    ]);
+                } else {
+                    $heading = ProjectApplicationSection::create([
+                        'project_id' => $this->record->id,
+                        'question_key' => $headingKey,
+                        'title' => $category,
+                        'category' => null,
+                        'char_limit' => null,
+                        'content' => '',
+                        'sort_order' => $nextSortOrder,
+                    ]);
+                }
+
+                $headingKeys->push($headingKey);
+                $usedSectionIds->push($heading->id);
+                $nextSortOrder++;
+            }
+
+            $currentCategory = $category;
             $match = $existingByKey->get($sec['key'])
                 ?? $existingByTitle->get(mb_strtolower(trim($sec['title'])));
+            $defaultTables = $templateTables($sec);
 
             if ($match) {
-                $match->update([
+                $updates = [
                     'question_key' => $sec['key'],
                     'title' => $sec['title'],
                     'category' => $sec['category'] ?? null,
                     'char_limit' => $sec['char_limit'] ?? null,
-                    'sort_order' => $sortOrder,
-                ]);
+                    'sort_order' => $nextSortOrder,
+                ];
+
+                if (empty($match->table_definitions) && ! empty($defaultTables)) {
+                    $updates['table_definitions'] = $defaultTables;
+                    if (empty($match->application_tables)) {
+                        $updates['application_tables'] = ApplicationTableDefinitions::starterRows($defaultTables);
+                    }
+                }
+
+                $match->update($updates);
                 $usedSectionIds->push($match->id);
                 $updated++;
+                $nextSortOrder++;
 
                 continue;
             }
@@ -2445,11 +2675,16 @@ class WriteApplication extends Page
                 'category' => $sec['category'] ?? null,
                 'char_limit' => $sec['char_limit'] ?? null,
                 'content' => '',
-                'sort_order' => $sortOrder,
+                'sort_order' => $nextSortOrder,
+                'table_definitions' => $defaultTables ?: null,
+                'application_tables' => $defaultTables ? ApplicationTableDefinitions::starterRows($defaultTables) : null,
             ]);
             $usedSectionIds->push($created->id);
             $added++;
+            $nextSortOrder++;
         }
+
+        $officialKeys = $officialKeys->merge($headingKeys)->unique()->values();
 
         $removed = $existing
             ->filter(fn (ProjectApplicationSection $section) => $section->question_key
@@ -2460,7 +2695,7 @@ class WriteApplication extends Page
             ->delete()
             ->count();
 
-        $customSortOrder = count($sections);
+        $customSortOrder = $nextSortOrder;
         $this->sectionsQuery()
             ->get()
             ->filter(fn (ProjectApplicationSection $section) => ! $usedSectionIds->contains($section->id))
@@ -2564,7 +2799,7 @@ class WriteApplication extends Page
             'label' => $label,
             'template_key' => $this->record->ka_action,
             'snapshot' => $this->sectionsQuery()->get()->map(fn ($section) => $section->only([
-                'question_key', 'title', 'content', 'application_tables', 'review_status', 'internal_notes',
+                'question_key', 'title', 'content', 'application_tables', 'table_definitions', 'review_status', 'internal_notes',
                 'char_limit', 'category', 'sort_order',
             ]))->values()->all(),
         ]);
@@ -2607,7 +2842,7 @@ class WriteApplication extends Page
 
         $oldSections = collect($version->snapshot ?? [])->map(fn ($section) => (array) $section);
         $currentSections = $this->sectionsQuery()->get()->map(fn (ProjectApplicationSection $section) => $section->only([
-            'question_key', 'title', 'content', 'application_tables', 'review_status', 'internal_notes',
+            'question_key', 'title', 'content', 'application_tables', 'table_definitions', 'review_status', 'internal_notes',
             'char_limit', 'category', 'sort_order',
         ]));
 
@@ -2691,6 +2926,7 @@ class WriteApplication extends Page
             'title' => 'Question title',
             'content' => 'Answer',
             'application_tables' => 'Standard tables',
+            'table_definitions' => 'Table layout',
             'review_status' => 'Review status',
             'internal_notes' => 'Internal notes',
             'char_limit' => 'Character limit',
@@ -2756,6 +2992,22 @@ class WriteApplication extends Page
         $this->loadState();
     }
 
+    public function addManualHeading(): void
+    {
+        $this->authorizeApplicationStructureEditing();
+        $maxSort = ProjectApplicationSection::where('project_id', $this->record->id)->max('sort_order') ?? -1;
+
+        ProjectApplicationSection::create([
+            'project_id' => $this->record->id,
+            'question_key' => 'custom-heading-'.str()->uuid(),
+            'title' => 'New section heading',
+            'content' => '',
+            'sort_order' => $maxSort + 1,
+        ]);
+
+        $this->loadState();
+    }
+
     public function deleteSection(int $id): void
     {
         $this->authorizeApplicationSectionEditing($id);
@@ -2764,51 +3016,107 @@ class WriteApplication extends Page
         $this->loadState();
     }
 
-    /**
-     * Move a section up or down by swapping sort_order with its neighbour.
-     * $direction: -1 = up, +1 = down.
-     */
-    public function moveSection(int $id, int $direction): void
+    public function toggleAllSectionSelection(): void
     {
         $this->authorizeApplicationStructureEditing();
+        $sectionIds = $this->getSections()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $selected = collect($this->selectedSectionIds)->map(fn ($id) => (int) $id)->unique();
+
+        if (count($sectionIds) > 0 && collect($sectionIds)->every(fn (int $id) => $selected->contains($id))) {
+            $this->selectedSectionIds = [];
+
+            return;
+        }
+
+        $this->selectedSectionIds = $sectionIds;
+    }
+
+    public function deleteSelectedSections(): void
+    {
+        $this->authorizeApplicationStructureEditing();
+        $ids = collect($this->selectedSectionIds)->map(fn ($id) => (int) $id)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $this->createSnapshot('Automatic backup before deleting selected questions');
+        $deleted = ProjectApplicationSection::where('project_id', $this->record->id)->whereIn('id', $ids)->delete();
+        $this->selectedSectionIds = [];
+        $this->loadState();
+
+        Notification::make()->title('Selected items deleted')->body($deleted.' selected question(s) or heading(s) were removed. A version backup was created.')->success()->send();
+    }
+
+    public function moveSectionRelative(int $sectionId, int $targetSectionId, string $position = 'before'): void
+    {
+        $this->authorizeApplicationStructureEditing();
+        if (! in_array($position, ['before', 'after'], true)) {
+            return;
+        }
+
         $sections = $this->sectionsQuery()->get()->values();
+        $sectionIds = $sections->pluck('id')->map(fn ($id) => (int) $id)->all();
 
-        $index = $sections->search(fn ($s) => $s->id === $id);
-        if ($index === false) {
+        if ($sectionId === $targetSectionId || ! in_array($sectionId, $sectionIds, true) || ! in_array($targetSectionId, $sectionIds, true)) {
             return;
         }
 
-        $swapIndex = $index + $direction;
-        if ($swapIndex < 0 || $swapIndex >= $sections->count()) {
+        $orderedIds = array_values(array_filter($sectionIds, fn (int $id) => $id !== $sectionId));
+        $targetIndex = array_search($targetSectionId, $orderedIds, true);
+        if ($targetIndex === false) {
             return;
         }
 
-        $current = $sections[$index];
-        $neighbour = $sections[$swapIndex];
+        if ($position === 'after') {
+            $targetIndex++;
+        }
 
-        // Swap their sort_order values.
-        $currentOrder = $current->sort_order;
-        $current->sort_order = $neighbour->sort_order;
-        $neighbour->sort_order = $currentOrder;
+        array_splice($orderedIds, $targetIndex, 0, [$sectionId]);
 
-        // If orders were equal/null, normalise the whole list to be safe.
-        if ($current->sort_order === $neighbour->sort_order) {
-            foreach ($sections as $i => $s) {
-                $s->sort_order = $i;
-                $s->save();
+        foreach ($orderedIds as $index => $id) {
+            $sections->firstWhere('id', $id)?->update(['sort_order' => $index]);
+        }
+
+        $this->sectionOrderRevision++;
+        $this->lastSavedAt = now()->format('H:i:s');
+        $this->loadState();
+    }
+
+    public function reorderSections(array $orderedIds): void
+    {
+        $this->authorizeApplicationStructureEditing();
+
+        $sections = $this->sectionsQuery()->get()->values();
+        $allIds = $sections->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $visibleOrder = collect($orderedIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => in_array($id, $allIds, true))
+            ->unique()
+            ->values()
+            ->all();
+
+        if (count($visibleOrder) < 2) {
+            return;
+        }
+
+        // The DOM may contain only the filtered questions. Reorder those items
+        // inside their existing slots while leaving hidden items untouched.
+        $visibleLookup = array_fill_keys($visibleOrder, true);
+        $nextVisible = 0;
+        $finalOrder = array_map(function (int $id) use ($visibleLookup, $visibleOrder, &$nextVisible): int {
+            if (! isset($visibleLookup[$id])) {
+                return $id;
             }
-            // re-apply the swap after normalising
-            $sections = $this->sectionsQuery()->get()->values();
-            $current = $sections[$index];
-            $neighbour = $sections[$swapIndex];
-            $tmp = $current->sort_order;
-            $current->sort_order = $neighbour->sort_order;
-            $neighbour->sort_order = $tmp;
+
+            return $visibleOrder[$nextVisible++];
+        }, $allIds);
+
+        foreach ($finalOrder as $index => $id) {
+            $sections->firstWhere('id', $id)?->update(['sort_order' => $index]);
         }
 
-        $current->save();
-        $neighbour->save();
-
+        $this->sectionOrderRevision++;
+        $this->lastSavedAt = now()->format('H:i:s');
         $this->loadState();
     }
 }

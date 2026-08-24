@@ -63,6 +63,10 @@ class AccountAccess
             return false;
         }
 
+        if (DemoWorkspace::isVisitor($user)) {
+            return true;
+        }
+
         if ($user->is_suspended || $user->subscription_status === 'suspended') {
             return true;
         }

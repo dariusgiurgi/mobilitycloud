@@ -14,9 +14,9 @@ use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResourc
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Http\Middleware\AuthenticateFilamentUser;
-use App\Http\Middleware\RedirectPlatformLoginToUnifiedLogin;
 use App\Models\PlatformAnnouncement;
 use Filament\Actions\Action;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -42,6 +42,10 @@ class PlatformPanelProvider extends PanelProvider
             ->path('platform')
             ->login()
             ->passwordReset()
+            ->profile()
+            ->multiFactorAuthentication([
+                AppAuthentication::make(),
+            ], isRequired: true)
             ->brandName('MobilityCloud Platform')
             ->colors([
                 'primary' => Color::Indigo,
@@ -106,7 +110,6 @@ class PlatformPanelProvider extends PanelProvider
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
-                RedirectPlatformLoginToUnifiedLogin::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,

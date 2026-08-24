@@ -15,6 +15,9 @@ class ProjectDocumentController extends Controller
     {
         $this->authorizeDocument($project, $document);
         abort_unless($document->type === ProjectDocument::TYPE_ATTENDANCE, 404);
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $participants = $project->participants()
             ->orderBy('complete_name')
@@ -39,6 +42,9 @@ class ProjectDocumentController extends Controller
     {
         $this->authorizeDocument($project, $document);
         abort_unless($document->hasSignedCopy(), 404);
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         return Storage::disk($document->signed_disk ?: 'local')->download(
             $document->signed_path,
@@ -50,6 +56,9 @@ class ProjectDocumentController extends Controller
     {
         $this->authorizeDocument($project, $document);
         abort_unless($document->type === ProjectDocument::TYPE_EXPENSE_REPORT, 404);
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $filename = 'expense-report-'.Str::slug($project->acronym ?: $project->name)
             .'-'.$document->document_date?->format('Y-m-d').'.pdf';
@@ -76,6 +85,9 @@ class ProjectDocumentController extends Controller
                 'Content-Type' => $mimeType,
             ]);
         }
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         return $storage->download(
             $document->file_path,
@@ -92,6 +104,9 @@ class ProjectDocumentController extends Controller
         );
         abort_unless($project->canAccessProjectModule(auth()->user(), 'documents'), 403);
         abort_unless($expense->hasCompleteConventionData(), 422);
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $expense->load('budgetLine');
         $project->load('ownerAccount');
@@ -121,6 +136,9 @@ class ProjectDocumentController extends Controller
     {
         $this->authorizeConventionExpense($project, $expense);
         abort_unless($expense->hasCompleteConventionData() && $expense->hasCompletePaymentData(), 422);
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $project->load('ownerAccount');
         $data = $this->conventionData($project, $expense);
@@ -148,6 +166,9 @@ class ProjectDocumentController extends Controller
         abort_unless(in_array($kind, ['agreement', 'payment'], true), 404);
         $this->authorizeConventionExpense($project, $expense);
         abort_unless($expense->hasConventionSignedCopy($kind), 404);
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
         $copy = $expense->conventionSignedCopy($kind);
 
         return Storage::disk($copy['disk'])->download(
@@ -195,6 +216,17 @@ class ProjectDocumentController extends Controller
         ], $expense->convention_data ?? []);
     }
 
+    private function ensureFinalExportsAvailable(Project $project)
+    {
+        if (! $project->exportsLockedUntilPayment()) {
+            return null;
+        }
+
+        return response()->view('errors.project-payment-locked', [
+            'project' => $project,
+        ], 402);
+    }
+
     private function authorizeDocument(Project $project, ProjectDocument $document): void
     {
         abort_unless($document->project_id === $project->id, 404);
@@ -208,3 +240,4 @@ class ProjectDocumentController extends Controller
         abort_unless($canAccessDocuments || $canAccessMobilityDocument, 403);
     }
 }
+

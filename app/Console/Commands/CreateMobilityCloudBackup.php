@@ -51,11 +51,14 @@ class CreateMobilityCloudBackup extends Command
                 $this->deleteOldBackups($backupPath, $retentionDays);
             }
 
+            $this->writeHealthStatus('ok', $manifest);
+
             $this->info('Backup created.');
             $this->line($dbFile);
 
             return self::SUCCESS;
         } catch (Throwable $exception) {
+            $this->writeHealthStatus('failed', $manifest, $exception);
             $this->error('Backup failed: '.$exception->getMessage());
 
             return self::FAILURE;
@@ -165,5 +168,53 @@ class CreateMobilityCloudBackup extends Command
                 File::delete($file->getPathname());
             }
         }
+    }
+
+    private function writeHealthStatus(string $status, array $manifest, ?Throwable $exception = null): void
+    {
+        $statusPath = (string) config('mobilitycloud.backups.status_path');
+
+        if ($statusPath === '') {
+            return;
+        }
+
+        $files = collect($manifest['files'] ?? [])
+            ->map(fn (array $file): array => [
+                'type' => (string) ($file['type'] ?? 'file'),
+                'name' => basename((string) ($file['path'] ?? '')),
+                'size_bytes' => (int) ($file['size_bytes'] ?? 0),
+            ])
+            ->values()
+            ->all();
+
+        $payload = [
+            'status' => $status,
+            'created_at' => (string) ($manifest['created_at'] ?? now()->toISOString()),
+            'recorded_at' => now()->toISOString(),
+            'files' => $files,
+            'total_size_bytes' => collect($files)->sum('size_bytes'),
+            'error' => $exception ? $this->safeError($exception->getMessage()) : null,
+        ];
+
+        try {
+            File::ensureDirectoryExists(dirname($statusPath), 0750, true);
+            File::put($statusPath, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+            chmod($statusPath, 0644);
+        } catch (Throwable $statusException) {
+            if ($status === 'ok') {
+                throw $statusException;
+            }
+        }
+    }
+
+    private function safeError(string $message): string
+    {
+        $firstLine = trim((string) (preg_split('/\R/', $message)[0] ?? $message));
+
+        return mb_substr(
+            preg_replace('/(?i)(password|secret|token)\s*(?:=|:|=>)\s*[^\s,}]+/', '$1=[redacted]', $firstLine) ?? $firstLine,
+            0,
+            500,
+        );
     }
 }

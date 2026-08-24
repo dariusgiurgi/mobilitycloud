@@ -152,14 +152,14 @@ class PlatformProjectPaymentResource extends Resource
                         && in_array($record->invoice_status, [Project::INVOICE_PENDING, Project::INVOICE_OVERDUE], true))
                     ->fillForm(fn (Project $record): array => [
                         'invoice_number' => $record->invoice_number,
-                        'invoice_due_at' => $record->invoice_due_at ?: now()->addDays(14),
+                        'invoice_due_at' => $record->invoice_due_at,
                     ])
                     ->form([
                         TextInput::make('invoice_number')
                             ->label('Invoice number')
                             ->maxLength(255),
                         DateTimePicker::make('invoice_due_at')
-                            ->label('Payment due date')
+                            ->label('Payment due date after first instalment')
                             ->required()
                             ->seconds(false),
                     ])
@@ -168,7 +168,7 @@ class PlatformProjectPaymentResource extends Resource
                             'approved_grant_amount' => $record->approvedGrantAmount(),
                             'invoice_status' => Project::INVOICE_SENT,
                             'invoice_number' => $data['invoice_number'] ?? null,
-                            'invoice_due_at' => $data['invoice_due_at'] ?? now()->addDays(14),
+                            'invoice_due_at' => $data['invoice_due_at'],
                         ], 'project.invoice_sent');
                     }),
                 Action::make('markPaid')
@@ -179,7 +179,7 @@ class PlatformProjectPaymentResource extends Resource
                         && in_array($record->invoice_status, [Project::INVOICE_SENT, Project::INVOICE_OVERDUE], true))
                     ->requiresConfirmation()
                     ->modalHeading(fn (Project $record): string => 'Mark '.$record->name.' as paid?')
-                    ->modalDescription('This confirms the manual fiscal invoice payment and immediately unlocks implementation modules for the project.')
+                    ->modalDescription('This confirms the manual fiscal invoice payment. Implementation modules were already unlocked when the approved grant was declared.')
                     ->action(function (Project $record): void {
                         self::updateInvoice($record, [
                             'approved_grant_amount' => $record->approvedGrantAmount(),

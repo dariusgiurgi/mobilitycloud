@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\Pages\PublicRegister;
 use App\Filament\Pages\AccountSettings;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\DocumentTemplates;
@@ -20,6 +21,7 @@ use App\Http\Middleware\AuthenticateFilamentUser;
 use App\Models\PlatformAnnouncement;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -46,7 +48,13 @@ class AdminPanelProvider extends PanelProvider
             ->path('app')
             ->login()
             ->passwordReset()
-            ->registration()
+            // This panel accepts the initial credentials of platform admins.
+            // Once they have enrolled in TOTP, Filament challenges them here too
+            // before they are redirected to the platform panel.
+            ->multiFactorAuthentication([
+                AppAuthentication::make(),
+            ])
+            ->registration(PublicRegister::class)
             ->emailVerification(isRequired: false)
             ->brandName('MobilityCloud')
             ->brandLogo(asset('brand/mobilitycloud-logo-horizontal.png'))

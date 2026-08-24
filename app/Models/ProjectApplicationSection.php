@@ -8,12 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ProjectApplicationSection extends Model
 {
     protected $fillable = [
-        'project_id', 'question_key', 'title', 'content', 'application_tables', 'review_status',
+        'project_id', 'question_key', 'title', 'content', 'application_tables', 'table_definitions', 'review_status',
         'internal_notes', 'char_limit', 'category', 'sort_order',
     ];
 
     protected $casts = [
         'application_tables' => 'array',
+        'table_definitions' => 'array',
     ];
 
     public function project(): BelongsTo

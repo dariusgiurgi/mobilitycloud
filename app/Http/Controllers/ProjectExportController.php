@@ -9,13 +9,16 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProjectExportController extends Controller
 {
     public function finalArchive(Project $project, ProjectFinalArchiveService $archives)
     {
         $this->authorizeProjectModule($project, 'documents');
+
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $path = $archives->create($project);
 
@@ -24,9 +27,13 @@ class ProjectExportController extends Controller
             ->deleteFileAfterSend(true);
     }
 
-    public function participantsCsv(Project $project): StreamedResponse
+    public function participantsCsv(Project $project)
     {
         $this->authorizeProjectModule($project, 'participants');
+
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $participants = $project->participants()
             ->with('attachments')
@@ -87,6 +94,10 @@ class ProjectExportController extends Controller
     public function report(Project $project)
     {
         $this->authorizeProjectModule($project, 'board');
+
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $project->load(['budgetLines' => fn ($q) => $q->orderBy('sort_order'), 'budgetLines.expenses', 'ownerAccount']);
 
@@ -153,6 +164,10 @@ class ProjectExportController extends Controller
     {
         $this->authorizeProjectModule($project, 'write');
 
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
+
         $sections = ProjectApplicationSection::where('project_id', $project->id)
             ->orderBy('sort_order')->orderBy('id')->get();
 
@@ -167,6 +182,10 @@ class ProjectExportController extends Controller
     public function exportApplicationWord(Project $project)
     {
         $this->authorizeProjectModule($project, 'write');
+
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $project->loadMissing('ownerAccount');
 
@@ -188,6 +207,10 @@ class ProjectExportController extends Controller
     public function exportApplicationPack(Project $project)
     {
         $this->authorizeProjectModule($project, 'write');
+
+        if ($response = $this->ensureFinalExportsAvailable($project)) {
+            return $response;
+        }
 
         $project->loadMissing(['ownerAccount', 'participants', 'budgetLines.expenses', 'tasks.assignee']);
 
@@ -226,5 +249,16 @@ class ProjectExportController extends Controller
             Auth::check() && $project->canAccessProjectModule(Auth::user(), $module),
             403
         );
+    }
+
+    private function ensureFinalExportsAvailable(Project $project)
+    {
+        if (! $project->exportsLockedUntilPayment()) {
+            return null;
+        }
+
+        return response()->view('errors.project-payment-locked', [
+            'project' => $project,
+        ], 402);
     }
 }

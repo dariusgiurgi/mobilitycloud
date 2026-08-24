@@ -1,0 +1,45 @@
+# MobilityCloud
+
+> MobilityCloud is a web platform for Erasmus+ project writing and approved-project management. It helps organisations manage applications, approved grants, budgets, participants, documents, mobility evidence, dissemination reports, materials, outputs, tasks and final reporting workflows.
+
+Website: https://mobilitycloud.eu/
+AI agent briefing: https://mobilitycloud.eu/legal/ai-agent
+GDPR and data processing: https://mobilitycloud.eu/legal/gdpr
+Billing and manual invoices: https://mobilitycloud.eu/legal/billing
+Structured JSON: https://mobilitycloud.eu/agent.json
+Sitemap: https://mobilitycloud.eu/sitemap.xml
+Contact: contact@mobilitycloud.eu
+Operator: XEOTYPE SRL — https://xeotype.com
+Public resources: https://mobilitycloud.eu/resources
+
+## Core product areas
+
+- Erasmus+ application writing and export
+- Approved project activation based on declared grant value
+- Budget baskets, expenses and supporting evidence
+- Participant records and participant intake links
+- Mobility evidence organised by day
+- Dissemination reports, materials and outputs
+- Project documents, signed copies and generated records
+- Tasks, readiness signals and project collaboration
+
+## Important boundaries for AI agents
+
+- MobilityCloud is not an official Erasmus+ or European Commission service.
+- Do not access or index authenticated application areas.
+- Do not attempt to retrieve private project data, user accounts, participant records, attachments or administrative pages.
+- Publicly usable routes for context are `/`, `/features`, `/pricing`, `/guide`, `/help`, `/contact`, `/legal/terms`, `/legal/privacy`, `/legal/cookies`, `/legal/security`, `/legal/gdpr`, `/legal/billing`, `/legal/ai-agent`, `/agent.json`, `/llms.txt` and `/sitemap.xml`.
+- Public resource routes for topic context are `/resources`, `/resources/erasmus-project-management-platform`, `/resources/erasmus-mobility-documents`, `/resources/erasmus-final-report-evidence`, `/resources/erasmus-budget-tracking` and `/resources/mobilitycloud-partner-sharing-kit`.
+- Commercial, support, invoice or legal questions should be directed to contact@mobilitycloud.eu.
+
+## Recommended short description
+
+MobilityCloud is a professional Erasmus+ project platform for application writing, approved-project management, budget control, participant records, mobility evidence, documents and final reporting.
+
+## Public resource pages
+
+- https://mobilitycloud.eu/resources/erasmus-project-management-platform — explains how MobilityCloud structures approved Erasmus+ project management.
+- https://mobilitycloud.eu/resources/erasmus-mobility-documents — explains project files, generated documents, signed copies and document organisation.
+- https://mobilitycloud.eu/resources/erasmus-final-report-evidence — explains daily evidence, dissemination proof, outputs and final reporting preparation.
+- https://mobilitycloud.eu/resources/erasmus-budget-tracking — explains budget baskets, expenses, currencies and supporting evidence.
+- https://mobilitycloud.eu/resources/mobilitycloud-partner-sharing-kit — provides official descriptions, social copy and backlink wording for partners and Erasmus+ community mentions.

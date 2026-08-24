@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Projects\Schemas;
 use App\Models\Project;
 use App\Support\ApplicationTemplates;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -34,9 +35,10 @@ class ProjectForm
                             ->live(onBlur: true)
                             ->maxLength(255),
                         TextInput::make('grant_ref')
-                            ->label('Grant reference')
+                            ->label('Project code / grant reference')
                             ->live(onBlur: true)
                             ->maxLength(255)
+                            ->required(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
                             ->placeholder('Assigned after approval'),
                         Textarea::make('description')
                             ->rows(3)
@@ -66,6 +68,17 @@ class ProjectForm
                             ->helperText(fn (): string => auth()->user()?->isUnlimitedAccount()
                                 ? 'This amount becomes locked after creation. Unlimited accounts do not generate administration fees.'
                                 : 'This amount becomes locked after creation and is used to calculate the platform activation fee.')
+                            ->dehydrated(true),
+                        FileUpload::make('approved_grant_proof_upload')
+                            ->label('Approved budget proof')
+                            ->disk('local')
+                            ->directory('project-approval-proofs/pending')
+                            ->visibility('private')
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])
+                            ->maxSize(10240)
+                            ->required(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
+                            ->visible(fn (callable $get, string $operation): bool => $operation === 'create' && (bool) $get('create_as_approved'))
+                            ->helperText('Upload the approved budget/grant proof. PDF or image, maximum 10 MB.')
                             ->dehydrated(true),
                         Select::make('ka_action')
                             ->label('Application template')
@@ -156,7 +169,7 @@ class ProjectForm
                             ->dehydrated(false)
                             ->helperText(fn (): string => auth()->user()?->isUnlimitedAccount()
                                 ? 'Not charged for unlimited accounts.'
-                                : 'Calculated as 1% of the approved grant, minimum €100.'),
+                                : 'Calculated as 1% of the approved grant.'),
                         Select::make('invoice_status')
                             ->label('Invoice status')
                             ->options(Project::invoiceStatusOptions())
@@ -170,6 +183,11 @@ class ProjectForm
                             ->placeholder(auth()->user()?->isUnlimitedAccount()
                                 ? 'Not required for unlimited accounts.'
                                 : 'Added by support after fiscal invoice is issued.'),
+                        TextInput::make('approved_grant_proof_original_name')
+                            ->label('Approved proof')
+                            ->disabled()
+                            ->dehydrated(false)
+                            ->placeholder('Not uploaded yet'),
                     ]),
 
                 Section::make('Operational finance settings')

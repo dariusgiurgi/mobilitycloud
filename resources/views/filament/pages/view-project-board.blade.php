@@ -11,6 +11,7 @@
         $expenseCount = $record->budgetLines->sum(fn ($line) => $line->expenses->count());
         $documentedCount = $record->budgetLines->sum(fn ($line) => $line->expenses->whereNotNull('attachment_path')->count());
         $canManage = $record->canBeManagedBy(auth()->user());
+        $exportsLocked = $record->exportsLockedUntilPayment();
         $boardLocks = $this->projectLocksForModule('board');
         $emojiList = ['📁','✈️','🙋','🏢','🤝','⚡','🎓','❤️','💼','📚','🍽️','🚗','🏨','🎫','💻','📞','🎨','🔧','💡','🎯'];
     @endphp
@@ -101,7 +102,11 @@
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;margin-top:.2rem;">{{ $expenseCount }} expenses · {{ $documentedCount }} with supporting files @if(!$canManage) · Read-only access @endif</p>
             </div>
             <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
-                <x-filament::button tag="a" :href="route('projects.export', $record)" target="_blank" color="gray" icon="heroicon-o-arrow-down-tray" size="sm">Export PDF</x-filament::button>
+                @if($exportsLocked)
+                    <x-filament::button color="gray" icon="heroicon-o-lock-closed" size="sm" disabled title="Export becomes available after payment is confirmed.">Export locked</x-filament::button>
+                @else
+                    <x-filament::button tag="a" :href="route('projects.export', $record)" target="_blank" color="gray" icon="heroicon-o-arrow-down-tray" size="sm">Export PDF</x-filament::button>
+                @endif
                 @if($canManage)
                     <x-filament::button wire:click="openTransfer" color="gray" icon="heroicon-o-arrows-right-left" size="sm">Transfer budget</x-filament::button>
                 @endif

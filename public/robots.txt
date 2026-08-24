@@ -1,2 +1,18 @@
 User-agent: *
-Disallow:
+Allow: /
+Allow: /legal/ai-agent
+Allow: /agent.json
+Allow: /llms.txt
+Allow: /sitemap.xml
+
+Disallow: /app/
+Disallow: /admin/
+Disallow: /livewire/
+Disallow: /attachments/
+Disallow: /projects/
+Disallow: /calc/
+Disallow: /storage/
+Disallow: /login
+Disallow: /register
+
+Sitemap: https://mobilitycloud.eu/sitemap.xml

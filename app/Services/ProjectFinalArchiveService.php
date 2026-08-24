@@ -44,34 +44,53 @@ class ProjectFinalArchiveService
 
         $fileIndex = [];
         $projectDir = $this->safeName($project->name);
+        $included = $this->selectedCategories($project);
+        $documents = $project->documents
+            ->filter(fn (ProjectDocument $document): bool => $this->shouldIncludeDocument($document, $included))
+            ->values();
 
         $payload = [
             'exported_at' => now()->toIso8601String(),
             'format_version' => 1,
-            'project' => $project->attributesToArray(),
+            'project' => [
+                'id' => $project->id,
+                'name' => $project->name,
+                'acronym' => $project->acronym,
+                'grant_ref' => $project->grant_ref,
+                'ka_action' => $project->ka_action,
+                'status' => $project->status,
+                'start_date' => $project->start_date?->toDateString(),
+                'end_date' => $project->end_date?->toDateString(),
+                'approved_grant_amount' => $project->approved_grant_amount,
+                'approved_grant_currency' => $project->approved_grant_currency,
+            ],
+            'included_sections' => $included,
             'owner' => $project->owner()?->only(['id', 'name', 'email', 'billing_name', 'billing_vat', 'billing_country', 'billing_address']),
             'members' => $project->members->map(fn ($user): array => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
             ])->values()->all(),
-            'application_sections' => $project->applicationSections->toArray(),
-            'budget_lines' => $project->budgetLines->map(fn ($line): array => [
+            'application_sections' => $included['application'] ? $project->applicationSections->toArray() : [],
+            'budget_lines' => $included['budget'] ? $project->budgetLines->map(fn ($line): array => [
                 ...$line->attributesToArray(),
                 'expenses' => $line->expenses->map->attributesToArray()->all(),
-            ])->values()->all(),
-            'budget_transfers' => BudgetTransfer::query()->where('project_id', $project->id)->orderBy('created_at')->orderBy('id')->get()->toArray(),
-            'participants' => $project->participants->map(fn ($participant): array => [
+            ])->values()->all() : [],
+            'budget_transfers' => $included['budget']
+                ? BudgetTransfer::query()->where('project_id', $project->id)->orderBy('created_at')->orderBy('id')->get()->toArray()
+                : [],
+            'participants' => $included['participants'] ? $project->participants->map(fn ($participant): array => [
                 ...$participant->attributesToArray(),
                 'attachments' => $participant->attachments->sortBy('type')->values()->map->attributesToArray()->all(),
-            ])->values()->all(),
-            'documents' => $project->documents->map->attributesToArray()->all(),
-            'tasks' => $project->tasks->map->attributesToArray()->all(),
-            'activity_log' => $project->activityLogs->map->attributesToArray()->all(),
+            ])->values()->all() : [],
+            'documents' => $documents->map->attributesToArray()->all(),
+            'tasks' => $included['project_data'] ? $project->tasks->map->attributesToArray()->all() : [],
+            'activity_log' => $included['project_data'] ? $project->activityLogs->map->attributesToArray()->all() : [],
         ];
 
-        foreach ($project->participants as $participant) {
-            foreach ($participant->attachments->sortBy('type') as $attachment) {
+        if ($included['participants']) {
+            foreach ($project->participants as $participant) {
+                foreach ($participant->attachments->sortBy('type') as $attachment) {
                 $this->addStoredFile(
                     $zip,
                     $fileIndex,
@@ -83,11 +102,14 @@ class ProjectFinalArchiveService
                     $projectDir.'/03-participants/'.$this->safeName($participant->fullName()).'/'.$attachment->id.'-'.$this->safeFilename($attachment->original_name),
                     $attachment->original_name,
                 );
+                }
             }
         }
 
-        foreach ($project->budgetLines as $line) {
-            foreach ($line->expenses as $expense) {
+        if ($included['budget'] || $included['agreements']) {
+            foreach ($project->budgetLines as $line) {
+                foreach ($line->expenses as $expense) {
+                    if ($included['budget']) {
                 $this->addStoredFile(
                     $zip,
                     $fileIndex,
@@ -99,8 +121,13 @@ class ProjectFinalArchiveService
                     $projectDir.'/04-budget-expenses/'.$this->safeName($line->title).'/'.$expense->id.'-'.$this->safeFilename($expense->supportingFileName($project)),
                     $expense->supportingFileName($project),
                 );
+                    }
 
-                foreach (['agreement', 'payment'] as $kind) {
+                    if (! $included['agreements']) {
+                        continue;
+                    }
+
+                    foreach (['agreement', 'payment'] as $kind) {
                     $copy = $expense->conventionSignedCopy($kind);
                     $this->addStoredFile(
                         $zip,
@@ -113,11 +140,12 @@ class ProjectFinalArchiveService
                         $projectDir.'/05-civil-conventions/'.$expense->id.'-'.$kind.'-'.$this->safeFilename($copy['name']),
                         $copy['name'],
                     );
+                    }
                 }
             }
         }
 
-        foreach ($project->documents as $document) {
+        foreach ($documents as $document) {
             $folder = $this->documentFolder($document);
             $base = $projectDir.'/'.$folder.'/'.$document->id.'-'.$this->safeName($document->title);
 
@@ -151,7 +179,7 @@ class ProjectFinalArchiveService
             $payload,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
         ));
-        $zip->addFromString($projectDir.'/README.txt', "MobilityCloud final project archive\n\nFolders are ordered by project lifecycle: project data, application, participants, budget, civil conventions, mobility, dissemination and other project documents.\nThe project-data.json file contains the structured records and file index.\n");
+        $zip->addFromString($projectDir.'/README.txt', "MobilityCloud final project archive\n\nThis archive includes only the categories selected in Finalisation. The project-data.json file contains the structured records and file index.\n");
 
         $zip->close();
 
@@ -177,6 +205,51 @@ class ProjectFinalArchiveService
         }
 
         return '09-project-documents/'.$this->safeName($document->categoryLabel());
+    }
+
+    /**
+     * A final archive can be tailored without changing or deleting project data.
+     * Existing projects keep the complete archive behaviour until an owner saves a choice.
+     */
+    private function selectedCategories(Project $project): array
+    {
+        $defaults = array_fill_keys([
+            'project_data',
+            'application',
+            'participants',
+            'budget',
+            'agreements',
+            'generated_records',
+            'project_files',
+            'mobility',
+            'dissemination',
+        ], true);
+
+        $saved = data_get($project->action_data, 'finalisation.include');
+        if (! is_array($saved) || $saved === []) {
+            return $defaults;
+        }
+
+        return collect($defaults)
+            ->map(fn (bool $default, string $key): bool => (bool) ($saved[$key] ?? false))
+            ->all();
+    }
+
+    private function shouldIncludeDocument(ProjectDocument $document, array $included): bool
+    {
+        if (in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)) {
+            return $included['generated_records'];
+        }
+
+        if (array_key_exists((string) $document->category, ProjectDocument::MOBILITY_CATEGORIES)) {
+            return $included['mobility'];
+        }
+
+        if ($document->category === 'dissemination_evidence') {
+            return $included['dissemination'];
+        }
+
+        return $included['project_files'];
     }
 
     private function addStoredFile(

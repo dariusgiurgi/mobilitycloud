@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectBoard;
 use App\Filament\Resources\Projects\Pages\ViewProjectDocuments;
 use App\Filament\Resources\Projects\Pages\ViewProjectEstimate;
+use App\Filament\Resources\Projects\Pages\ViewProjectFinalisation;
 use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Filament\Resources\Projects\Pages\ViewProjectParticipants;
@@ -83,6 +84,7 @@ class ProjectResource extends Resource
             'mobility' => ViewProjectMobility::route('/{record}/mobility'),
             'participants' => ViewProjectParticipants::route('/{record}/participants'),
             'documents' => ViewProjectDocuments::route('/{record}/documents'),
+            'finalisation' => ViewProjectFinalisation::route('/{record}/finalisation'),
             'edit' => EditProject::route('/{record}/edit'),
         ];
     }
@@ -132,6 +134,12 @@ class ProjectResource extends Resource
                 ->url(static::projectUrl($record, 'documents'))
                 ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'documents'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectDocuments),
+
+            NavigationItem::make('Finalisation')
+                ->icon(Heroicon::OutlinedArchiveBox)
+                ->url(static::projectUrl($record, 'finalisation'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'finalisation'))
+                ->isActiveWhen(fn () => $page instanceof ViewProjectFinalisation),
 
             NavigationItem::make('Settings')
                 ->icon(Heroicon::OutlinedCog6Tooth)

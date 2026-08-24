@@ -82,7 +82,7 @@ class ProjectPaymentNotificationService
 
         return match ($status) {
             Project::INVOICE_SENT => $project->name.' · fiscal invoice marked as sent for '.$fee.($due ? ' · due '.$due : '.'),
-            Project::INVOICE_PAID => $project->name.' · payment confirmed for '.$fee.'. Implementation access is unlocked.',
+            Project::INVOICE_PAID => $project->name.' · payment confirmed for '.$fee.'. The implementation workspace remains available.',
             Project::INVOICE_OVERDUE => $project->name.' · payment is overdue for '.$fee.($due ? ' · due '.$due : '.'),
             default => $project->name.' · payment status updated.',
         };

@@ -21,6 +21,7 @@
         $checklist = $this->getDocumentChecklist();
         $documentCount = $this->getDocumentsPageCount();
         $checklistIssues = $checklist['attention'] + $checklist['missing'];
+        $exportsLocked = $record->exportsLockedUntilPayment();
         $documentLocks = $this->projectLocksForModule('documents');
     @endphp
 
@@ -30,6 +31,9 @@
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:700;margin:0;">Project document centre</h2>
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.8125rem;margin:.2rem 0 0;">Private files, generated records and civil convention documentation.</p>
             </div>
+            @if($exportsLocked)
+                <x-filament::badge color="warning" icon="heroicon-m-lock-closed">Downloads and final exports unlock after payment</x-filament::badge>
+            @endif
         </div>
     </x-filament::section>
 
@@ -323,6 +327,7 @@
                     'record' => $record,
                     'document' => $document,
                     'documentLock' => $documentLocks->get('document:'.$document->id),
+                    'exportsLocked' => $exportsLocked,
                     'deleteMethod' => 'deleteDocument',
                     'deleteConfirm' => 'Delete this document and its stored files?',
                 ])

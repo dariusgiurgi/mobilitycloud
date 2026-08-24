@@ -65,9 +65,9 @@
 
             @forelse($tasks as $task)
                 <div class="mc-my-task" wire:key="my-task-{{ $task->id }}">
-                    <button type="button" wire:click="toggleTask({{ $task->id }})" class="mc-my-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="{{ $task->isCompleted() ? 'Reopen' : 'Complete' }} {{ $task->title }}">
+                    <span class="mc-my-check {{ $task->isCompleted() ? 'is-done' : '' }}" aria-label="Read-only task status: {{ $task->isCompleted() ? 'Completed' : 'Open' }} {{ $task->title }}" style="cursor:default;">
                         @if($task->isCompleted())<x-filament::icon icon="heroicon-m-check" style="width:.8rem;height:.8rem;" />@endif
-                    </button>
+                    </span>
 
                     <div style="min-width:0;flex:1;">
                         <div style="display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;">

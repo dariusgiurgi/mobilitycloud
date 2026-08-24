@@ -3,11 +3,13 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Models\CalendarEvent;
 use App\Models\Project;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
 use Carbon\CarbonImmutable;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -38,6 +40,18 @@ class ProjectCalendar extends Page
     #[Url]
     public string $type = 'all';
 
+    public bool $showEventModal = false;
+
+    public ?int $editingEventId = null;
+
+    public string $eventTitle = '';
+
+    public string $eventDate = '';
+
+    public string $eventProjectId = '';
+
+    public string $eventNotes = '';
+
     public function mount(): void
     {
         $this->month = $this->validMonth($this->month)->format('Y-m');
@@ -45,7 +59,99 @@ class ProjectCalendar extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Project dates, mobility periods and task deadlines in one shared timeline.';
+        return 'Project dates, mobility periods, task deadlines and your own planning dates in one timeline.';
+    }
+
+    public function openCreateEvent(): void
+    {
+        abort_if(PlatformAccess::isReadOnly(), 403);
+        $this->resetEventForm();
+        $this->eventDate = $this->currentMonth->isCurrentMonth()
+            ? today()->toDateString()
+            : $this->currentMonth->toDateString();
+        $this->showEventModal = true;
+    }
+
+    public function openEditEvent(int $eventId): void
+    {
+        abort_if(PlatformAccess::isReadOnly(), 403);
+        $event = $this->eventQuery()->findOrFail($eventId);
+
+        $this->editingEventId = $event->id;
+        $this->eventTitle = $event->title;
+        $this->eventDate = $event->event_date->toDateString();
+        $this->eventProjectId = $event->project_id ? (string) $event->project_id : '';
+        $this->eventNotes = $event->notes ?: '';
+        $this->showEventModal = true;
+    }
+
+    public function closeEventModal(): void
+    {
+        $this->showEventModal = false;
+        $this->resetEventForm();
+        $this->resetValidation();
+    }
+
+    public function saveEvent(): void
+    {
+        abort_if(PlatformAccess::isReadOnly(), 403);
+        $data = $this->validate([
+            'eventTitle' => ['required', 'string', 'max:160'],
+            'eventDate' => ['required', 'date'],
+            'eventProjectId' => ['nullable', 'integer'],
+            'eventNotes' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $projectId = filled($data['eventProjectId']) ? (int) $data['eventProjectId'] : null;
+        if ($projectId && ! Project::query()->visibleToAccount(auth()->user())->whereKey($projectId)->exists()) {
+            abort(403);
+        }
+
+        $payload = [
+            'project_id' => $projectId,
+            'title' => trim($data['eventTitle']),
+            'event_date' => $data['eventDate'],
+            'notes' => filled($data['eventNotes']) ? trim($data['eventNotes']) : null,
+        ];
+
+        $isEditing = (bool) $this->editingEventId;
+        if ($isEditing) {
+            $event = $this->eventQuery()->findOrFail($this->editingEventId);
+            $event->update($payload);
+        } else {
+            $event = CalendarEvent::create($payload + ['user_id' => auth()->id()]);
+        }
+
+        $this->month = CarbonImmutable::parse($data['eventDate'])->format('Y-m');
+        $this->closeEventModal();
+
+        Notification::make()
+            ->title($isEditing ? 'Custom date updated' : 'Custom date added')
+            ->body($event->title.' is now in your calendar.')
+            ->success()
+            ->send();
+    }
+
+    public function deleteEvent(): void
+    {
+        abort_if(PlatformAccess::isReadOnly(), 403);
+        abort_unless($this->editingEventId, 404);
+
+        $this->eventQuery()->findOrFail($this->editingEventId)->delete();
+        $this->closeEventModal();
+
+        Notification::make()
+            ->title('Custom date deleted')
+            ->success()
+            ->send();
+    }
+
+    public function getEventProjectOptionsProperty(): Collection
+    {
+        return Project::query()
+            ->visibleToAccount(auth()->user())
+            ->orderBy('name')
+            ->pluck('name', 'id');
     }
 
     public function previousMonth(): void
@@ -122,12 +228,31 @@ class ProjectCalendar extends Page
                         'project' => $project->name,
                         'kind' => $task->status === 'completed' ? 'completed' : ($date->isBefore(today()) ? 'overdue' : 'task'),
                         'url' => ProjectResource::projectUrl($project).'#project-tasks',
+                        'custom' => false,
                     ]);
                 }
             }
         }
 
-        return $events;
+        if (in_array($this->type, ['all', 'custom'], true)) {
+            $this->customEvents($start, $end)->each(function (CalendarEvent $event) use ($events): void {
+                $events->push([
+                    'date' => $event->event_date->toDateString(),
+                    'title' => $event->title,
+                    'project' => $event->project?->name ?: 'My custom date',
+                    'kind' => 'custom',
+                    'url' => null,
+                    'custom' => true,
+                    'id' => $event->id,
+                    'notes' => $event->notes,
+                ]);
+            });
+        }
+
+        return $events->sortBy([
+            ['date', 'asc'],
+            ['title', 'asc'],
+        ])->values();
     }
 
     private function addDateEvent(Collection $events, Project $project, $date, string $title, string $kind, string $page, CarbonImmutable $start, CarbonImmutable $end): void
@@ -145,7 +270,32 @@ class ProjectCalendar extends Page
             'project' => $project->name,
             'kind' => $kind,
             'url' => ProjectResource::projectUrl($project, $page),
+            'custom' => false,
         ]);
+    }
+
+    private function customEvents(CarbonImmutable $start, CarbonImmutable $end): Collection
+    {
+        return $this->eventQuery()
+            ->with('project')
+            ->whereBetween('event_date', [$start->toDateString(), $end->toDateString()])
+            ->orderBy('event_date')
+            ->orderBy('title')
+            ->get();
+    }
+
+    private function eventQuery()
+    {
+        return CalendarEvent::query()->where('user_id', auth()->id());
+    }
+
+    private function resetEventForm(): void
+    {
+        $this->editingEventId = null;
+        $this->eventTitle = '';
+        $this->eventDate = '';
+        $this->eventProjectId = '';
+        $this->eventNotes = '';
     }
 
     private function validMonth(string $month): CarbonImmutable

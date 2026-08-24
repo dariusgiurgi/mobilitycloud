@@ -6,6 +6,52 @@
     $contactEmail = $emails['contact'];
     $effectiveDate = '28 Jul 2026';
     $xeotypeUrl = 'https://xeotype.com';
+    $siteUrl = rtrim(config('app.url', 'https://mobilitycloud.eu'), '/');
+    $pageUrl = url()->current();
+    $description = $title . ' for MobilityCloud, the Erasmus+ mobility project management platform powered by Xeotype.';
+    $socialImage = asset('brand/mobilitycloud-logo-powered-xeotype.png');
+    $structuredData = [
+        '@context' => 'https://schema.org',
+        '@graph' => [
+            [
+                '@type' => 'Organization',
+                '@id' => $siteUrl . '/#organization',
+                'name' => 'MobilityCloud',
+                'url' => $siteUrl . '/',
+                'email' => $contactEmail,
+                'legalName' => $companyName,
+                'parentOrganization' => [
+                    '@type' => 'Organization',
+                    'name' => 'XEOTYPE SRL',
+                    'url' => $xeotypeUrl,
+                ],
+            ],
+            [
+                '@type' => 'WebPage',
+                '@id' => $pageUrl . '#webpage',
+                'url' => $pageUrl,
+                'name' => $title . ' · MobilityCloud',
+                'description' => $description,
+                'isPartOf' => [
+                    '@id' => $siteUrl . '/#website',
+                ],
+                'publisher' => [
+                    '@id' => $siteUrl . '/#organization',
+                ],
+                'inLanguage' => 'en',
+            ],
+            [
+                '@type' => 'WebSite',
+                '@id' => $siteUrl . '/#website',
+                'url' => $siteUrl . '/',
+                'name' => 'MobilityCloud',
+                'publisher' => [
+                    '@id' => $siteUrl . '/#organization',
+                ],
+                'inLanguage' => 'en',
+            ],
+        ],
+    ];
 @endphp
 
 <!doctype html>
@@ -14,9 +60,24 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title }} · MobilityCloud</title>
-    <meta name="description" content="{{ $title }} for MobilityCloud, the Erasmus+ mobility project management platform powered by Xeotype.">
-    <link rel="canonical" href="{{ url()->current() }}">
+    <meta name="description" content="{{ $description }}">
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <link rel="canonical" href="{{ $pageUrl }}">
+    <meta property="og:site_name" content="MobilityCloud">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{ $title }} · MobilityCloud">
+    <meta property="og:description" content="{{ $description }}">
+    <meta property="og:url" content="{{ $pageUrl }}">
+    <meta property="og:image" content="{{ $socialImage }}">
+    <meta property="og:image:width" content="1100">
+    <meta property="og:image:height" content="187">
+    <meta property="og:image:alt" content="MobilityCloud powered by Xeotype">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ $title }} · MobilityCloud">
+    <meta name="twitter:description" content="{{ $description }}">
+    <meta name="twitter:image" content="{{ $socialImage }}">
     <link rel="icon" type="image/png" href="{{ asset('brand/favicon-64.png') }}">
+    <script type="application/ld+json">{!! json_encode($structuredData, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}</script>
     <style>
         :root {
             color-scheme: light;
@@ -216,6 +277,8 @@
             <a href="{{ route('legal.privacy') }}" @class(['active' => $type === 'privacy'])>Privacy</a>
             <a href="{{ route('legal.cookies') }}" @class(['active' => $type === 'cookies'])>Cookies</a>
             <a href="{{ route('legal.security') }}" @class(['active' => $type === 'security'])>Security</a>
+            <a href="{{ route('legal.gdpr') }}" @class(['active' => $type === 'gdpr'])>GDPR</a>
+            <a href="{{ route('legal.billing') }}" @class(['active' => $type === 'billing'])>Billing</a>
             <a href="{{ route('marketing.contact') }}">Contact</a>
         </nav>
     </div>
@@ -263,10 +326,11 @@
                     @elseif ($type === 'cookies')
                         <a href="#what">What cookies are</a>
                         <a href="#essential">Essential cookies</a>
-                        <a href="#preferences">Preferences</a>
-                        <a href="#third-party">Third-party cookies</a>
+                        <a href="#optional">Optional categories</a>
+                        <a href="#consent">Consent and settings</a>
+                        <a href="#providers">Third-party providers</a>
                         <a href="#control">How to control cookies</a>
-                    @else
+                    @elseif ($type === 'security')
                         <a href="#commitment">Security commitment</a>
                         <a href="#access">Access control</a>
                         <a href="#files">Files and data</a>
@@ -274,6 +338,28 @@
                         <a href="#user">User responsibilities</a>
                         <a href="#incidents">Incidents</a>
                         <a href="#reporting">Report an issue</a>
+                    @elseif ($type === 'gdpr')
+                        <a href="#scope">Scope</a>
+                        <a href="#roles">Controller and processor roles</a>
+                        <a href="#instructions">Processing instructions</a>
+                        <a href="#data">Data categories</a>
+                        <a href="#subprocessors">Subprocessors</a>
+                        <a href="#security">Security measures</a>
+                        <a href="#rights">Rights requests</a>
+                        <a href="#transfers">Transfers</a>
+                        <a href="#retention">Retention and deletion</a>
+                        <a href="#breaches">Breach assistance</a>
+                        <a href="#responsibilities">User responsibilities</a>
+                    @else
+                        <a href="#model">Pricing model</a>
+                        <a href="#declaration">Approved grant declaration</a>
+                        <a href="#invoices">Manual fiscal invoices</a>
+                        <a href="#payment">Payment and access</a>
+                        <a href="#unlimited">Unlimited access</a>
+                        <a href="#billing-data">Billing data</a>
+                        <a href="#corrections">Corrections and disputes</a>
+                        <a href="#taxes">Taxes and records</a>
+                        <a href="#changes">Changes</a>
                     @endif
                 </aside>
 
@@ -315,11 +401,11 @@
                         <section id="billing" class="legal-section">
                             <h2>4. Fees, invoices and payment terms</h2>
                             <p>The current MobilityCloud model allows use of writing and planning tools before approval. When a project is marked as approved and the approved grant amount is declared, implementation modules unlock immediately so the team can start work without waiting for online payment.</p>
-                            <p>Where an administration fee applies, it is currently calculated as 1% of the approved grant amount, with a minimum fee of €100 per approved project, unless another written agreement or unlimited access arrangement applies.</p>
+                            <p>Where an administration fee applies, it is currently calculated as 1% of the approved grant amount per approved project, unless another written agreement or unlimited access arrangement applies.</p>
                             <ul>
                                 <li>Invoices are issued manually as fiscal invoices by {{ $companyName }}.</li>
-                                <li>Payment is due by the due date shown on the fiscal invoice or payment notice.</li>
-                                <li>Access may remain active until the due date even if the invoice has not yet been paid.</li>
+                                <li>The invoice can be paid after the project owner receives the first grant instalment. The due date is shown on the fiscal invoice or payment notice.</li>
+                                <li>Implementation access is available immediately after the approved grant is declared and remains available while the invoice is being handled.</li>
                                 <li>If payment becomes overdue, MobilityCloud may suspend or restrict implementation access until payment is confirmed.</li>
                                 <li>Unlimited accounts or manually approved partner accounts may be exempt from project administration fees.</li>
                                 <li>Prices, fee models and included features may change for future projects, but already-issued invoices remain governed by their invoice terms.</li>
@@ -446,23 +532,39 @@
                             <p>Essential cookies do not require optional consent because the service cannot function securely without them.</p>
                         </section>
 
-                        <section id="preferences" class="legal-section">
-                            <h2>3. Preference storage</h2>
-                            <p>The platform may store interface preferences such as theme, layout state, dismissed notices, filters or user experience settings. These preferences are used to make the platform easier to use and are not used for behavioural advertising.</p>
+                        <section id="optional" class="legal-section">
+                            <h2>3. Optional cookie categories</h2>
+                            <p>MobilityCloud separates optional cookies and similar technologies into clear categories so users can decide what is acceptable for them:</p>
+                            <ul>
+                                <li><strong>Preferences:</strong> interface choices such as dismissed notices, layout choices, language preferences or public-site settings.</li>
+                                <li><strong>Analytics:</strong> privacy-conscious traffic measurement, page-performance insight, public-page usage and conversion measurement used to improve MobilityCloud.</li>
+                                <li><strong>Marketing:</strong> future campaign measurement, embedded media, partner campaign attribution or remarketing technologies, only if such tools are intentionally activated.</li>
+                            </ul>
+                            <p>Optional categories should not be loaded before consent is given for the relevant category. Refusing optional cookies should not prevent access to the public website or essential platform functions.</p>
                         </section>
 
-                        <section id="third-party" class="legal-section">
-                            <h2>4. Analytics, marketing and third-party cookies</h2>
-                            <p>At launch, MobilityCloud should not enable optional analytics, advertising or marketing cookies unless a consent mechanism and a clear provider list are configured.</p>
-                            <p>If optional analytics, product analytics, chat widgets, embedded media, payment widgets or marketing tools are introduced later, this Cookie Policy should be updated before those tools are activated.</p>
+                        <section id="consent" class="legal-section">
+                            <h2>4. Consent and settings</h2>
+                            <p>The public MobilityCloud website may show a cookie banner that allows users to accept all optional cookies, reject optional cookies or customise their choices by category.</p>
+                            <p>The selected choice is stored in the browser as <strong>mc_cookie_consent</strong> for up to 180 days, unless the user clears cookies earlier. This consent record stores the selected categories, a version number and the update time. It is used only to remember the user’s cookie choice.</p>
+                            <p>Users can reopen the cookie panel through the Cookie settings link where available. Essential cookies remain active because they are needed for security, login, form protection and core platform operation.</p>
+                        </section>
+
+                        <section id="providers" class="legal-section">
+                            <h2>5. Analytics, marketing and third-party providers</h2>
+                            <p>At launch, MobilityCloud should not enable optional analytics, advertising or marketing cookies unless the consent mechanism, provider purpose, category and retention information are configured.</p>
+                            <p>MobilityCloud may use <strong>Google Analytics 4</strong> for public website analytics after the user accepts the Analytics category. Google Analytics is intended to help understand public-page traffic, popular resources, source channels and conversion paths such as visits to pricing, contact or account creation pages.</p>
+                            <p>Google Analytics should be configured with analytics consent denied by default, advertising storage denied, ad personalisation disabled and Google signals disabled unless a separate legal and product decision is made later. The Google tag may be present on public pages to apply the consent state correctly, but analytics storage and measurement remain denied until the user accepts Analytics cookies. If the user rejects Analytics cookies, analytics storage remains denied and existing Google Analytics cookies are removed where technically possible.</p>
+                            <p>If optional product analytics, chat widgets, embedded media, payment widgets, advertising pixels or marketing tools are introduced later, this Cookie Policy should be updated before those tools are activated. Where required, those tools should load only after the relevant cookie category has been accepted.</p>
                         </section>
 
                         <section id="control" class="legal-section">
-                            <h2>5. How users can control cookies</h2>
+                            <h2>6. How users can control cookies</h2>
                             <p>Users can control cookies through browser settings. Blocking essential cookies may prevent login, file uploads, exports, password reset, email verification or other platform features from working correctly.</p>
+                            <p><a href="#" data-cookie-settings>Open Cookie settings</a> to review or change the optional categories stored by this browser.</p>
                             <p>For questions about cookies, contact <a href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>.</p>
                         </section>
-                    @else
+                    @elseif ($type === 'security')
                         <section id="commitment" class="legal-section">
                             <h2>1. Security commitment</h2>
                             <p>MobilityCloud is designed to protect project data, participant records, uploaded evidence, billing information and account access through a practical security model suitable for a hosted project management platform.</p>
@@ -520,6 +622,156 @@
                             <p>Please report suspected vulnerabilities, unauthorised access, exposed data, phishing, malware or account compromise to <a href="mailto:{{ $supportEmail }}">{{ $supportEmail }}</a>. Include the affected URL, account email, project name where relevant, screenshots if safe, and steps to reproduce.</p>
                             <p>Do not access, modify, delete, download or disclose data that does not belong to you while investigating a potential vulnerability.</p>
                         </section>
+                    @elseif ($type === 'gdpr')
+                        <section id="scope" class="legal-section">
+                            <h2>1. Scope of this Data Processing Summary</h2>
+                            <p>This page explains the intended GDPR and data-processing position for MobilityCloud. It is designed to help users, partners, participants and automated agents understand the main roles, data flows and responsibilities around the platform.</p>
+                            <div class="callout">
+                                This public summary does not replace a signed data processing agreement where one is legally required. Project owners, public institutions, NGOs or partner organisations may request a project-specific data processing review by contacting <a href="mailto:{{ $companyEmail }}">{{ $companyEmail }}</a>.
+                            </div>
+                        </section>
+
+                        <section id="roles" class="legal-section">
+                            <h2>2. Controller and processor roles</h2>
+                            <p>{{ $companyName }} operates MobilityCloud and generally acts as controller for account administration, billing, security, product operations, platform support, audit logs and legal compliance.</p>
+                            <p>For project content, participant records, uploaded evidence, dissemination materials, partner data and documents entered by a user, the project owner is usually the organisation deciding why and how that data is processed. In those cases, {{ $companyName }} may act as a platform provider and processor, processing the data according to the project owner’s instructions and the functional choices made inside MobilityCloud.</p>
+                            <p>Some situations may involve independent controller responsibilities, joint responsibilities or processor relationships depending on the customer type, contract, grant agreement, participant context and applicable law. Users remain responsible for obtaining their own advice where necessary.</p>
+                        </section>
+
+                        <section id="instructions" class="legal-section">
+                            <h2>3. Processing instructions</h2>
+                            <p>MobilityCloud processes project and participant content only to provide the platform, including authentication, project access, collaboration, participant intake links, document handling, mobility evidence, budgets, exports, final archive preparation, support, backup, security and administrative functionality.</p>
+                            <ul>
+                                <li>Project owners decide what project data is entered, which collaborators are invited and which participant fields are collected.</li>
+                                <li>Collaborators should only access projects and modules for which they have a legitimate project role.</li>
+                                <li>MobilityCloud may process logs, metadata and support context to keep the service secure and reliable.</li>
+                                <li>MobilityCloud may refuse instructions that appear unlawful, unsafe, technically impossible or incompatible with platform security.</li>
+                            </ul>
+                        </section>
+
+                        <section id="data" class="legal-section">
+                            <h2>4. Data categories and data subjects</h2>
+                            <p>Depending on how a project is configured, MobilityCloud may process:</p>
+                            <ul>
+                                <li>user and collaborator data, including names, emails, roles, verification status, session activity and administrative notes;</li>
+                                <li>billing data, including legal entity details, tax identifiers, invoice status, approved grant values and payment state;</li>
+                                <li>project data, including application text, language settings, budgets, tasks, activities, documents, generated files and final reporting materials;</li>
+                                <li>participant data, including complete name, organisation, email, phone, mobility details, optional identification files, notes and participant intake submissions;</li>
+                                <li>evidence data, including photos, links, videos, materials, outputs, dissemination records, receipts and supporting files;</li>
+                                <li>technical data, including IP addresses, audit trails, device/browser metadata, error logs and security events.</li>
+                            </ul>
+                            <p>Data subjects may include account users, project owners, collaborators, participants, facilitators, partner organisation representatives, suppliers, trainers, volunteers, support contacts and invoice contacts.</p>
+                        </section>
+
+                        <section id="subprocessors" class="legal-section">
+                            <h2>5. Subprocessors and service providers</h2>
+                            <p>MobilityCloud may use carefully selected providers for hosting, server infrastructure, email delivery, storage, backups, security monitoring, error logging, support communication and professional services. These providers are used only to the extent necessary to operate, secure, support and improve the platform.</p>
+                            <p>A current subprocessor list or provider summary can be requested from <a href="mailto:{{ $companyEmail }}">{{ $companyEmail }}</a>. Where legally required, MobilityCloud will take reasonable steps to ensure appropriate contractual protections with subprocessors.</p>
+                            <p>MobilityCloud does not sell project data, participant data or account data.</p>
+                        </section>
+
+                        <section id="security" class="legal-section">
+                            <h2>6. Security measures</h2>
+                            <p>MobilityCloud applies technical and organisational measures appropriate for a hosted project platform, including individual accounts, email verification, role-based project access, controlled file delivery, HTTPS, server firewalling, backup practices, administrative separation, audit logs, password hashing and operational monitoring.</p>
+                            <p>Users must also maintain security on their side: strong passwords, secure devices, careful sharing of participant intake links, removal of old collaborators and avoidance of unnecessary sensitive uploads.</p>
+                        </section>
+
+                        <section id="rights" class="legal-section">
+                            <h2>7. Assistance with data subject rights</h2>
+                            <p>Where MobilityCloud acts as processor for project data, it will reasonably assist the relevant project owner with access, rectification, deletion, restriction, portability, objection or consent-withdrawal requests, taking account of the nature of the processing and the information available to MobilityCloud.</p>
+                            <p>Requests about account, billing or platform-administration data can be sent directly to <a href="mailto:{{ $companyEmail }}">{{ $companyEmail }}</a>. Requests about participant or project content may need to be handled by the project owner as the primary organisation responsible for that data.</p>
+                        </section>
+
+                        <section id="transfers" class="legal-section">
+                            <h2>8. International transfers</h2>
+                            <p>MobilityCloud aims to use European infrastructure where practicable. If a provider processes personal data outside the European Economic Area, appropriate safeguards should be used where required by GDPR or other applicable law, such as contractual protections, transfer mechanisms, risk assessment and supplementary measures where necessary.</p>
+                        </section>
+
+                        <section id="retention" class="legal-section">
+                            <h2>9. Retention, return and deletion</h2>
+                            <ul>
+                                <li>Project data is retained while the project is active or until deletion is requested and permitted.</li>
+                                <li>Billing and invoice records may be retained for statutory tax and accounting periods.</li>
+                                <li>Security, audit and system logs may be retained for abuse prevention, troubleshooting, incident investigation and legal proof.</li>
+                                <li>Backups may contain deleted data for a limited period until normal backup rotation removes it.</li>
+                                <li>Where feasible, project owners can export or download relevant project files before deletion.</li>
+                            </ul>
+                        </section>
+
+                        <section id="breaches" class="legal-section">
+                            <h2>10. Personal data breach assistance</h2>
+                            <p>If MobilityCloud becomes aware of a suspected personal data breach affecting project data, it will assess the situation, take reasonable containment steps, preserve relevant information and notify affected project owners or users where legally required or operationally appropriate.</p>
+                            <p>Project owners are responsible for assessing their own notification obligations toward participants, partners, funders, National Agencies or supervisory authorities where they act as controller.</p>
+                        </section>
+
+                        <section id="responsibilities" class="legal-section">
+                            <h2>11. Project owner responsibilities</h2>
+                            <p>Project owners must ensure that their use of MobilityCloud is lawful. This includes providing privacy notices, choosing appropriate participant fields, avoiding unnecessary sensitive data, obtaining consent where required, respecting image rights and copyright, controlling collaborator access, and complying with Erasmus+, employment, child protection, accounting and data-protection obligations that apply to their organisation.</p>
+                        </section>
+                    @else
+                        <section id="model" class="legal-section">
+                            <h2>1. Pricing model</h2>
+                            <p>MobilityCloud currently uses a manual project-activation and invoice model. The platform can be used for writing and planning before approval. When a project is approved, the project owner declares the exact approved grant amount and the relevant implementation modules unlock immediately.</p>
+                            <p>Where a project administration fee applies, the standard launch model is 1% of the approved grant value per approved project, unless a different written agreement, unlimited access arrangement or manual owner decision applies.</p>
+                        </section>
+
+                        <section id="declaration" class="legal-section">
+                            <h2>2. Approved grant declaration</h2>
+                            <p>The approved grant value must be declared accurately when a project is marked as approved. This declaration is used to calculate the platform administration fee and to prepare manual invoice handling.</p>
+                            <ul>
+                                <li>The declared approved grant should match the amount approved by the funder or National Agency.</li>
+                                <li>Users should not estimate, inflate, reduce or manipulate the value to change the platform fee.</li>
+                                <li>After declaration, changes may require support or administrator intervention.</li>
+                                <li>MobilityCloud may request clarification if a value appears incorrect or inconsistent with project context.</li>
+                            </ul>
+                        </section>
+
+                        <section id="invoices" class="legal-section">
+                            <h2>3. Manual fiscal invoices</h2>
+                            <p>MobilityCloud does not currently process online card payments inside the platform. Fiscal invoices are handled manually by {{ $companyName }} using the billing details provided by the account owner.</p>
+                            <p>The platform may show the invoice state for internal administration, such as pending invoice, invoice sent, paid, overdue, waived or unlimited access. The official fiscal invoice remains the document issued externally by {{ $companyName }} or its accounting process.</p>
+                        </section>
+
+                        <section id="payment" class="legal-section">
+                            <h2>4. Payment, due dates and access</h2>
+                            <p>After the approved grant is declared, implementation modules unlock immediately so the team can start managing participants, documents, budget evidence, mobility evidence and final reporting preparation without waiting for the invoice payment to be completed.</p>
+                            <ul>
+                                <li>The invoice can be paid after the first grant instalment arrives; its payment deadline is the due date written on the invoice or payment notice.</li>
+                                <li>All implementation modules are available immediately after grant declaration while the invoice is being handled.</li>
+                                <li>If payment becomes overdue, MobilityCloud may restrict or suspend implementation access until payment is confirmed.</li>
+                                <li>When an administrator marks the payment as paid or approved, restricted access may be restored automatically.</li>
+                            </ul>
+                        </section>
+
+                        <section id="unlimited" class="legal-section">
+                            <h2>5. Unlimited, partner or manually approved access</h2>
+                            <p>Some accounts may be manually marked as unlimited, partner, internal, demo or otherwise exempt from project administration fees. These accounts may receive full access without per-project invoicing, depending on {{ $companyName }}’s internal decision or written agreement.</p>
+                            <p>Unlimited access is not a public entitlement unless expressly granted. {{ $companyName }} may review, change or revoke manual access settings where necessary for security, misuse prevention, commercial reasons or operational correction.</p>
+                        </section>
+
+                        <section id="billing-data" class="legal-section">
+                            <h2>6. Billing data requirements</h2>
+                            <p>Users who create projects must provide accurate billing information before project creation or before a project can be activated for approved management. Required billing details may include legal name, organisation name, fiscal code/VAT number, registration details, address, country and invoice contact email.</p>
+                            <p>Incorrect or incomplete billing information can delay invoice issuing, block project creation, prevent activation or require administrator correction.</p>
+                        </section>
+
+                        <section id="corrections" class="legal-section">
+                            <h2>7. Corrections, disputes and support</h2>
+                            <p>If the approved grant amount, billing data, invoice status or payment state is incorrect, the user should contact <a href="mailto:{{ $billingEmail }}">{{ $billingEmail }}</a> as soon as possible. MobilityCloud may ask for supporting information before changing values that affect billing or access.</p>
+                            <p>Invoice disputes should be raised before the due date when possible. Raising a dispute does not automatically cancel the invoice, but {{ $companyName }} will review reasonable correction requests.</p>
+                        </section>
+
+                        <section id="taxes" class="legal-section">
+                            <h2>8. Taxes, VAT and accounting records</h2>
+                            <p>Taxes, VAT treatment, invoice wording and accounting records are handled according to applicable law and the fiscal information available at the time of issuing. Users are responsible for ensuring that the billing information they provide is correct for their organisation or legal entity.</p>
+                            <p>MobilityCloud is not accounting software and does not provide tax advice. Users should keep their own fiscal records and consult their accountant where necessary.</p>
+                        </section>
+
+                        <section id="changes" class="legal-section">
+                            <h2>9. Changes to pricing and billing operations</h2>
+                            <p>{{ $companyName }} may change pricing, fee percentages, minimum fees, access rules, billing flows or included features for future projects. Already-issued invoices remain governed by their invoice terms and any written agreement in place at the time.</p>
+                            <p>Questions about commercial access, partnerships, manual invoice handling or special arrangements should be sent to <a href="mailto:{{ $billingEmail }}">{{ $billingEmail }}</a>.</p>
+                        </section>
                     @endif
 
                     <section class="legal-section">
@@ -546,8 +798,10 @@
 
         <p class="footer-note">
             © {{ now()->year }} MobilityCloud. Powered by <a href="{{ $xeotypeUrl }}" target="_blank" rel="noopener">Xeotype</a>.
+            <span aria-hidden="true"> · </span><a href="#" data-cookie-settings>Cookie settings</a>
         </p>
     </div>
 </main>
+@include('public.partials.cookie-consent')
 </body>
 </html>

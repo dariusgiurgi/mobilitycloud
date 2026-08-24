@@ -2,85 +2,65 @@
 
 namespace App\Filament\Resources\Projects\Pages;
 
-use App\Filament\Pages\AccountSettings;
 use App\Filament\Resources\Projects\ProjectResource;
-use App\Models\Project;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Arr;
 
 class CreateProject extends CreateRecord
 {
     protected static string $resource = ProjectResource::class;
 
-    public function mount(): void
-    {
-        $user = auth()->user();
+    protected bool $createAsApproved = false;
 
-        if ($user && ! $user->isUnlimitedAccount() && ! $user->hasBillingDetails()) {
-            Notification::make()
-                ->title('Billing details required')
-                ->body('Complete your billing profile first: legal billing name, country and billing address. These details are required before project creation so MobilityCloud can issue the manual fiscal invoice after approval.')
-                ->warning()
-                ->send();
+    protected mixed $approvedGrantDeclaration = null;
 
-            $this->redirect(AccountSettings::getUrl());
-
-            return;
-        }
-
-        parent::mount();
-    }
-
-    public function getTitle(): string
-    {
-        return 'Create a new project';
-    }
-
-    public function getSubheading(): ?string
-    {
-        return 'Start with the project identity and planning data. Application, budget, participants and documents will remain connected to this record.';
-    }
+    protected mixed $approvedGrantProofUpload = null;
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $data['owner_id'] = auth()->id();
-        $data['access_mode'] = 'restricted';
-        $data['status'] = ! empty($data['create_as_approved']) ? 'approved' : 'writing';
+        $this->createAsApproved = (bool) ($data['create_as_approved'] ?? false);
+        $this->approvedGrantDeclaration = $data['approved_grant_declaration'] ?? null;
+        $this->approvedGrantProofUpload = $data['approved_grant_proof_upload'] ?? null;
+
+        unset($data['create_as_approved'], $data['approved_grant_declaration'], $data['approved_grant_proof_upload']);
 
         return $data;
     }
 
-    protected function handleRecordCreation(array $data): Model
+    protected function afterCreate(): void
     {
-        $approvedGrantDeclaration = $data['approved_grant_declaration'] ?? null;
-        $createAsApproved = (bool) ($data['create_as_approved'] ?? false);
-
-        $data['owner_id'] = auth()->id();
-        $data['status'] = $createAsApproved ? 'approved' : 'writing';
-
-        unset($data['create_as_approved'], $data['approved_grant_declaration']);
-
-        $record = new Project($data);
-        $record->save();
-
-        if ($createAsApproved) {
-            $record->declareApprovedGrant($approvedGrantDeclaration, auth()->user());
-
-            Notification::make()
-                ->title('Approved project created')
-                ->body($record->owner()?->isUnlimitedAccount()
-                    ? 'The approved grant was locked. This unlimited account does not generate administration fees or fiscal invoice tasks.'
-                    : 'The approved grant was locked and the platform fee was calculated. A fiscal invoice can now be issued manually.')
-                ->success()
-                ->send();
+        if (! $this->createAsApproved) {
+            return;
         }
 
-        return $record;
+        $proofPath = $this->normaliseUploadedPath($this->approvedGrantProofUpload);
+
+        if ($proofPath) {
+            $this->record->forceFill([
+                'approved_grant_proof_path' => $proofPath,
+                'approved_grant_proof_disk' => 'local',
+                'approved_grant_proof_original_name' => basename($proofPath),
+                'approved_grant_proof_uploaded_at' => now(),
+            ])->save();
+
+            $this->record->refresh();
+        }
+
+        $this->record->declareApprovedGrant($this->approvedGrantDeclaration, auth()->user());
     }
 
-    protected function getRedirectUrl(): string
+    private function normaliseUploadedPath(mixed $state): ?string
     {
-        return ProjectResource::projectUrl($this->record);
+        if (is_string($state) && $state !== '') {
+            return $state;
+        }
+
+        if (is_array($state)) {
+            $first = Arr::first($state);
+
+            return is_string($first) && $first !== '' ? $first : null;
+        }
+
+        return null;
     }
 }

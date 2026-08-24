@@ -27,8 +27,48 @@ return [
 
     'backups' => [
         'path' => env('MOBILITYCLOUD_BACKUP_PATH', '/var/backups/mobilitycloud'),
+        'status_path' => env('MOBILITYCLOUD_BACKUP_STATUS_PATH', storage_path('app/private/backup-health.json')),
         'retention_days' => (int) env('MOBILITYCLOUD_BACKUP_RETENTION_DAYS', 14),
         'max_age_hours' => (int) env('MOBILITYCLOUD_BACKUP_MAX_AGE_HOURS', 30),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Public analytics
+    |--------------------------------------------------------------------------
+    |
+    | Google Analytics is loaded only on public pages and only after the user
+    | grants Analytics consent through the cookie banner. Keep this empty until
+    | the production GA4 Measurement ID is available.
+    |
+    */
+
+    'analytics' => [
+        'google_measurement_id' => env('GOOGLE_ANALYTICS_MEASUREMENT_ID'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Public registration protection
+    |--------------------------------------------------------------------------
+    |
+    | Public registration is deliberately fail-closed in production until a
+    | Turnstile site key and secret are configured. This prevents the signup
+    | form from being used to generate spam accounts or verification emails.
+    |
+    */
+
+    'registration' => [
+        'minimum_completion_seconds' => (int) env('MOBILITYCLOUD_REGISTRATION_MIN_SECONDS', 4),
+        'max_per_ip_per_hour' => (int) env('MOBILITYCLOUD_REGISTRATION_MAX_PER_IP_HOUR', 3),
+        'max_per_ip_per_day' => (int) env('MOBILITYCLOUD_REGISTRATION_MAX_PER_IP_DAY', 8),
+        'unverified_retention_hours' => (int) env('MOBILITYCLOUD_UNVERIFIED_RETENTION_HOURS', 48),
+        'turnstile' => [
+            'required' => (bool) env('TURNSTILE_REQUIRED', env('APP_ENV') === 'production'),
+            'site_key' => env('TURNSTILE_SITE_KEY'),
+            'secret_key' => env('TURNSTILE_SECRET_KEY'),
+            'expected_hostname' => env('TURNSTILE_EXPECTED_HOSTNAME', 'mobilitycloud.eu'),
+        ],
     ],
 
     /*

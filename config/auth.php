@@ -42,6 +42,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // Kept separate from customer sessions. This guard exists only for the
+        // public read-only product preview.
+        'demo' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

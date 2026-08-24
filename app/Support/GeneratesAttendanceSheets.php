@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\ProjectDocument;
+use Filament\Notifications\Notification;
 
 trait GeneratesAttendanceSheets
 {
@@ -16,7 +17,14 @@ trait GeneratesAttendanceSheets
 
     public function openAttendanceGenerator(): void
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('documents', 'documents', 'Documents');
+
+        if ($this->record->exportsLockedUntilPayment()) {
+            $this->notifyPaymentLockedExport();
+
+            return;
+        }
+
         $this->attendanceActivity = $this->attendanceActivity ?: $this->record->name;
         $this->attendanceDate = $this->attendanceDate
             ?: $this->record->mobility_start_date?->format('Y-m-d')
@@ -31,7 +39,14 @@ trait GeneratesAttendanceSheets
 
     public function generateAttendanceSheet()
     {
-        $this->authorizeManagementModuleMutation();
+        $this->authorizeManagementModuleMutation('documents', 'documents', 'Documents');
+
+        if ($this->record->exportsLockedUntilPayment()) {
+            $this->notifyPaymentLockedExport();
+
+            return null;
+        }
+
         $this->validate([
             'attendanceActivity' => 'required|string|max:255',
             'attendanceDate' => 'required|date',
@@ -45,12 +60,21 @@ trait GeneratesAttendanceSheets
             'activity_title' => $this->attendanceActivity,
             'activity_date' => $this->attendanceDate,
             'location' => $this->attendanceLocation ?: null,
-            'metadata' => ['grouping' => 'partner_organisation', 'sort' => 'complete_name'],
+            'metadata' => ['grouping' => 'partner_organisation', 'sort' => 'last_name_first_name'],
             'generated_at' => now(),
         ]);
 
         $this->showAttendanceModal = false;
 
         return redirect()->route('project-documents.attendance', [$this->record, $document]);
+    }
+
+    private function notifyPaymentLockedExport(): void
+    {
+        Notification::make()
+            ->title('Exports locked until payment is confirmed')
+            ->body('You can keep organising project files. Generated PDFs, signed-copy downloads and final archives unlock after the fiscal invoice is marked as paid.')
+            ->warning()
+            ->send();
     }
 }

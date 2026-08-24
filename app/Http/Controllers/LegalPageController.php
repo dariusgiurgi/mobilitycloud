@@ -26,6 +26,16 @@ class LegalPageController extends Controller
         return $this->page('Security', 'security');
     }
 
+    public function gdpr(): View
+    {
+        return $this->page('GDPR & Data Processing', 'gdpr');
+    }
+
+    public function billing(): View
+    {
+        return $this->page('Billing & Manual Invoices', 'billing');
+    }
+
     private function page(string $title, string $type): View
     {
         return view('legal.page', [

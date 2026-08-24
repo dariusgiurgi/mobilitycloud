@@ -94,6 +94,7 @@ class MyTasks extends Page
 
     public function toggleTask(int $taskId): void
     {
+        abort_if(PlatformAccess::isReadOnly(), 403);
         $task = static::taskQueryForCurrentUser()->findOrFail($taskId);
         abort_unless($task->canBeCompletedBy(auth()->user()), 403);
         $completed = ! $task->isCompleted();

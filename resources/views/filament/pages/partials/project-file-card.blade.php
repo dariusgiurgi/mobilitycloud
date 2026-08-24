@@ -4,6 +4,7 @@
     /** @var \App\Models\Project $record */
     /** @var \App\Models\ProjectDocument $document */
     $canManage = $canManage ?? $record->canBeManagedBy(auth()->user());
+    $exportsLocked = $exportsLocked ?? $record->exportsLockedUntilPayment();
     $showCategory = $showCategory ?? true;
     $showSignedWorkflow = $showSignedWorkflow ?? true;
     $deleteMethod = $deleteMethod ?? 'deleteDocument';
@@ -14,12 +15,12 @@
     $documentLockedByOther = $documentLock && (int) $documentLock->user_id !== (int) auth()->id();
     $documentBadge = $documentLock ? $this->projectLockBadge($documentLock) : null;
     $isGenerated = in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true);
-    $downloadUrl = $downloadUrl ?? (
+    $downloadUrl = $exportsLocked ? null : ($downloadUrl ?? (
         $isGenerated
             ? route($document->type === ProjectDocument::TYPE_ATTENDANCE ? 'project-documents.attendance' : 'project-documents.expense-report', [$record, $document])
             : ($document->hasFile() ? route('project-documents.file', [$record, $document]) : null)
-    );
-    $signedDownloadUrl = $signedDownloadUrl ?? ($isGenerated && $document->hasSignedCopy() ? route('project-documents.signed', [$record, $document]) : null);
+    ));
+    $signedDownloadUrl = $exportsLocked ? null : ($signedDownloadUrl ?? ($isGenerated && $document->hasSignedCopy() ? route('project-documents.signed', [$record, $document]) : null));
     $previewUrl = $document->hasFile() && $document->isImageFile()
         ? route('project-documents.file', [$record, $document, 'preview' => 1])
         : null;
@@ -231,6 +232,10 @@
                style="position:absolute;right:.55rem;top:.55rem;width:2rem;height:2rem;border-radius:.65rem;background:rgba(15,23,42,.74);color:white;display:flex;align-items:center;justify-content:center;text-decoration:none;box-shadow:0 10px 22px rgba(15,23,42,.2);">
                 <x-filament::icon icon="heroicon-m-arrow-down-tray" class="h-4 w-4" />
             </a>
+        @elseif($exportsLocked)
+            <span title="Download unlocks after payment" style="position:absolute;right:.55rem;top:.55rem;width:2rem;height:2rem;border-radius:.65rem;background:rgba(15,23,42,.74);color:white;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 22px rgba(15,23,42,.2);">
+                <x-filament::icon icon="heroicon-m-lock-closed" class="h-4 w-4" />
+            </span>
         @endif
     </div>
 

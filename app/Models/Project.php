@@ -18,8 +18,6 @@ class Project extends Model
 
     public const ACTIVATION_FEE_RATE = 0.01;
 
-    public const ACTIVATION_FEE_MINIMUM = 100.0;
-
     public const INVOICE_NOT_REQUIRED = 'not_required';
 
     public const INVOICE_PENDING = 'pending';
@@ -50,6 +48,7 @@ class Project extends Model
     protected $fillable = [
         'owner_id', 'access_mode', 'name', 'acronym', 'grant_ref', 'ka_action', 'description', 'status',
         'total_budget', 'approved_budget', 'approved_grant_amount', 'approved_grant_currency', 'approved_declared_at', 'approved_declared_by',
+        'approved_grant_proof_path', 'approved_grant_proof_disk', 'approved_grant_proof_original_name', 'approved_grant_proof_uploaded_at',
         'activation_fee_amount', 'activation_fee_currency', 'invoice_status', 'invoice_number', 'invoice_sent_at', 'invoice_due_at',
         'payment_confirmed_at', 'payment_confirmed_by', 'first_tranche_pct', 'withholding_tax_rate', 'currencies',
         'is_activated', 'activated_at', 'activation_tier', 'activation_snapshot', 'activation_payment_id',
@@ -63,6 +62,7 @@ class Project extends Model
         'approved_budget' => 'decimal:2',
         'approved_grant_amount' => 'decimal:2',
         'approved_declared_at' => 'datetime',
+        'approved_grant_proof_uploaded_at' => 'datetime',
         'activation_fee_amount' => 'decimal:2',
         'invoice_sent_at' => 'datetime',
         'invoice_due_at' => 'datetime',
@@ -276,8 +276,7 @@ class Project extends Model
 
         if ($this->hasMobilityAccessRoleFor($user)) {
             return in_array($module, ['participants', 'mobility'], true)
-                && $this->isManagementStage()
-                && $this->implementationModulesAvailable();
+                && $this->isManagementStage();
         }
 
         if ($module === 'edit') {
@@ -289,10 +288,14 @@ class Project extends Model
 
     public function canManageProjectModule(?User $user, string $module): bool
     {
+        if (in_array($module, ['participants', 'mobility'], true) && $this->operationalModulesLockedUntilPayment()) {
+            return false;
+        }
+
         if ($this->hasMobilityAccessRoleFor($user)) {
             return in_array($module, ['participants', 'mobility'], true)
                 && $this->isManagementStage()
-                && $this->implementationModulesAvailable()
+                && $this->operationalModulesAvailable()
                 && ! AccountAccess::isReadOnly($this->owner());
         }
 
@@ -440,7 +443,7 @@ class Project extends Model
             return 0.0;
         }
 
-        return round(max(self::ACTIVATION_FEE_MINIMUM, $amount * self::ACTIVATION_FEE_RATE), 2);
+        return round($amount * self::ACTIVATION_FEE_RATE, 2);
     }
 
     public function administrationFeeForApprovedGrant(float|int|string|null $approvedGrantAmount): float
@@ -468,8 +471,7 @@ class Project extends Model
             return false;
         }
 
-        if ($this->statusEnum() === ProjectStatus::PaymentOverdue
-            || $this->invoice_status === self::INVOICE_OVERDUE) {
+        if ($this->status === 'payment_overdue' || $this->invoice_status === self::INVOICE_OVERDUE) {
             return true;
         }
 
@@ -480,15 +482,46 @@ class Project extends Model
 
     public function implementationModulesAvailable(): bool
     {
+        return $this->isManagementStage();
+    }
+
+    public function activationPaymentConfirmed(): bool
+    {
         if ($this->owner()?->isUnlimitedAccount()) {
-            return $this->isManagementStage();
+            return true;
         }
 
         return $this->isManagementStage()
-            && ! $this->hasPaymentOverdue();
+            && (
+                $this->payment_confirmed_at !== null
+                || in_array($this->invoice_status, [self::INVOICE_PAID, self::INVOICE_NOT_REQUIRED], true)
+            );
     }
 
-    public function declareApprovedGrant(float|int|string $amount, ?User $declaredBy = null, int $paymentTermDays = 14): void
+    public function operationalModulesAvailable(): bool
+    {
+        // The implementation workspace is deliberately available as soon as
+        // the approved grant is declared. Billing follows the first grant
+        // instalment and must never interrupt a team setting up its project.
+        return $this->isManagementStage();
+    }
+
+    public function operationalModulesLockedUntilPayment(): bool
+    {
+        return false;
+    }
+
+    public function finalExportsAvailable(): bool
+    {
+        return true;
+    }
+
+    public function exportsLockedUntilPayment(): bool
+    {
+        return false;
+    }
+
+    public function declareApprovedGrant(float|int|string $amount, ?User $declaredBy = null): void
     {
         $amount = round(max(0, (float) $amount), 2);
 
@@ -511,9 +544,11 @@ class Project extends Model
             'invoice_status' => $unlimitedOwner ? self::INVOICE_NOT_REQUIRED : self::INVOICE_PENDING,
             'invoice_number' => $unlimitedOwner ? null : $this->invoice_number,
             'invoice_sent_at' => $unlimitedOwner ? null : $this->invoice_sent_at,
-            'invoice_due_at' => $unlimitedOwner ? null : now()->addDays($paymentTermDays),
-            'payment_confirmed_at' => null,
-            'payment_confirmed_by' => null,
+            // The due date is set only when the fiscal invoice is issued,
+            // after the customer has received the first grant instalment.
+            'invoice_due_at' => null,
+            'payment_confirmed_at' => $unlimitedOwner ? now() : null,
+            'payment_confirmed_by' => $unlimitedOwner ? $declaredBy?->id : null,
         ])->save();
     }
 

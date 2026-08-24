@@ -28,11 +28,69 @@ Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, Pr
     Route::get('/pricing', [MarketingPageController::class, 'pricing'])->name('marketing.pricing');
     Route::get('/guide', [MarketingPageController::class, 'guide'])->name('marketing.guide');
     Route::get('/help', [MarketingPageController::class, 'help'])->name('marketing.help');
+    Route::get('/resources', [MarketingPageController::class, 'resources'])->name('marketing.resources');
+    Route::get('/resources/{slug}', [MarketingPageController::class, 'resource'])->name('marketing.resource');
     Route::get('/contact', [MarketingPageController::class, 'contact'])->name('marketing.contact');
-    Route::get('/terms', [LegalPageController::class, 'terms'])->name('legal.terms');
-    Route::get('/privacy', [LegalPageController::class, 'privacy'])->name('legal.privacy');
-    Route::get('/cookies', [LegalPageController::class, 'cookies'])->name('legal.cookies');
-    Route::get('/security', [LegalPageController::class, 'security'])->name('legal.security');
+    Route::get('/legal/terms', [LegalPageController::class, 'terms'])->name('legal.terms');
+    Route::get('/legal/privacy', [LegalPageController::class, 'privacy'])->name('legal.privacy');
+    Route::get('/legal/cookies', [LegalPageController::class, 'cookies'])->name('legal.cookies');
+    Route::get('/legal/security', [LegalPageController::class, 'security'])->name('legal.security');
+    Route::get('/legal/gdpr', [LegalPageController::class, 'gdpr'])->name('legal.gdpr');
+    Route::get('/legal/billing', [LegalPageController::class, 'billing'])->name('legal.billing');
+    Route::redirect('/terms', '/legal/terms', 301);
+    Route::redirect('/privacy', '/legal/privacy', 301);
+    Route::redirect('/cookies', '/legal/cookies', 301);
+    Route::redirect('/security', '/legal/security', 301);
+    Route::redirect('/gdpr', '/legal/gdpr', 301);
+    Route::redirect('/billing', '/legal/billing', 301);
+    Route::redirect('/ai-agent', '/legal/ai-agent', 301);
+    Route::get('/legal/ai-agent', fn () => view('ai-agent'))->name('legal.ai-agent');
+    Route::get('/agent.json', function () {
+        $url = rtrim(config('app.url', 'https://mobilitycloud.eu'), '/');
+
+        return response()->json([
+            'name' => 'MobilityCloud',
+            'url' => $url,
+            'type' => 'Erasmus+ project writing and management platform',
+            'description' => 'MobilityCloud helps organisations write Erasmus+ applications and manage approved mobility projects through budgets, participants, documents, mobility evidence, dissemination reports, tasks and final reporting workflows.',
+            'primary_language' => 'en',
+            'contact' => 'contact@mobilitycloud.eu',
+            'operator' => [
+                'name' => 'XEOTYPE SRL',
+                'website' => 'https://xeotype.com',
+            ],
+            'public_pages' => [
+                $url.'/',
+                $url.'/features',
+                $url.'/pricing',
+                $url.'/demo',
+                $url.'/guide',
+                $url.'/help',
+                $url.'/resources',
+                $url.'/resources/erasmus-project-management-platform',
+                $url.'/resources/erasmus-mobility-documents',
+                $url.'/resources/erasmus-final-report-evidence',
+                $url.'/resources/erasmus-budget-tracking',
+                $url.'/resources/mobilitycloud-partner-sharing-kit',
+                $url.'/contact',
+                $url.'/legal/ai-agent',
+                $url.'/legal/gdpr',
+                $url.'/legal/billing',
+                $url.'/llms.txt',
+                $url.'/sitemap.xml',
+            ],
+            'key_capabilities' => [
+                'Erasmus+ application writing',
+                'Approved project activation based on declared grant value',
+                'Budget baskets and expense evidence',
+                'Participant records and participant intake links',
+                'Mobility evidence organised by day',
+                'Dissemination reports, materials and outputs',
+                'Project documents and generated records',
+                'Tasks, readiness signals and project collaboration',
+            ],
+        ]);
+    })->name('agent.json');
 });
 Route::get('/participant-registration/{token}', [ParticipantRegistrationController::class, 'show'])->name('public.participant-registration.show');
 Route::post('/participant-registration/{token}', [ParticipantRegistrationController::class, 'store'])->name('public.participant-registration.store');

@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\ProjectModuleLock;
 use App\Models\ProjectPresence;
+use App\Support\DemoWorkspace;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -75,15 +76,30 @@ trait AuthorizesProjectManagement
         }
     }
 
+    public function projectHasCollaborators(): bool
+    {
+        if (! isset($this->record)) {
+            return false;
+        }
+
+        return $this->record->members()->exists();
+    }
+
     protected function touchProjectCollaboration(string $module): void
     {
         $user = auth()->user();
 
-        if (! $user || ! isset($this->record) || ! $this->record->canAccessProjectModule($user, $module)) {
+        if (DemoWorkspace::isVisitor($user) || ! $user || ! isset($this->record) || ! $this->record->canAccessProjectModule($user, $module)) {
             return;
         }
 
         $this->pruneStaleProjectCollaboration();
+
+        if (! $this->projectHasCollaborators()) {
+            $this->clearProjectCollaborationForSoloProject();
+
+            return;
+        }
 
         ProjectPresence::query()->updateOrCreate(
             ['project_id' => $this->record->getKey(), 'user_id' => $user->id],
@@ -107,12 +123,43 @@ trait AuthorizesProjectManagement
         }
     }
 
+    public function releaseIdleProjectCollaboration(string $module): void
+    {
+        $user = auth()->user();
+
+        if (! $user || ! isset($this->record)) {
+            return;
+        }
+
+        ProjectPresence::query()
+            ->where('project_id', $this->record->getKey())
+            ->where('user_id', $user->id)
+            ->where('module', $module)
+            ->delete();
+
+        ProjectModuleLock::query()
+            ->where('project_id', $this->record->getKey())
+            ->where('user_id', $user->id)
+            ->where('module', $module)
+            ->delete();
+
+        if (method_exists($this, 'syncProjectCollaborationState')) {
+            $this->syncProjectCollaborationState($module);
+        }
+    }
+
     public function startProjectEditing(string $module, string $lockKey, ?string $lockLabel = null): void
     {
         abort_unless(
             isset($this->record) && $this->record->canManageProjectModule(auth()->user(), $module),
             403
         );
+
+        if (! $this->projectHasCollaborators()) {
+            $this->clearProjectCollaborationForSoloProject();
+
+            return;
+        }
 
         $this->touchProjectCollaboration($module);
         $this->claimProjectEditingLock($module, $lockKey, $lockLabel);
@@ -143,6 +190,16 @@ trait AuthorizesProjectManagement
 
     public function projectPresenceState(string $module, ?string $lockKey = null): array
     {
+        if (! $this->projectHasCollaborators()) {
+            return [
+                'presences' => collect(),
+                'lock' => null,
+                'locked_by_other' => false,
+                'locked_by_me' => false,
+                'module_label' => $this->projectModuleLabel($module),
+            ];
+        }
+
         $presences = $this->activeProjectPresences($module);
         $lock = $this->activeProjectEditingLock($module, $lockKey);
 
@@ -157,7 +214,7 @@ trait AuthorizesProjectManagement
 
     public function projectLocksForModule(string $module): Collection
     {
-        if (! isset($this->record)) {
+        if (! isset($this->record) || ! $this->projectHasCollaborators()) {
             return collect();
         }
 
@@ -229,7 +286,7 @@ trait AuthorizesProjectManagement
 
     protected function activeProjectPresences(?string $module = null): Collection
     {
-        if (! isset($this->record)) {
+        if (! isset($this->record) || ! $this->projectHasCollaborators()) {
             return collect();
         }
 
@@ -245,6 +302,10 @@ trait AuthorizesProjectManagement
 
     protected function authorizeProjectEditingLock(string $module, ?string $lockKey = null, ?string $lockLabel = null): void
     {
+        if (! $this->projectHasCollaborators()) {
+            return;
+        }
+
         if ($this->claimProjectEditingLock($module, $lockKey, $lockLabel)) {
             return;
         }
@@ -272,7 +333,7 @@ trait AuthorizesProjectManagement
         $user = auth()->user();
         $lockKey ??= '__module__';
 
-        if (! $user || ! isset($this->record)) {
+        if (! $user || ! isset($this->record) || ! $this->projectHasCollaborators()) {
             return false;
         }
 
@@ -300,7 +361,7 @@ trait AuthorizesProjectManagement
 
     protected function projectEditingLockConflict(string $module, ?string $lockKey = null): ?ProjectModuleLock
     {
-        if (! isset($this->record) || ! auth()->check()) {
+        if (! isset($this->record) || ! auth()->check() || ! $this->projectHasCollaborators()) {
             return null;
         }
 
@@ -318,7 +379,7 @@ trait AuthorizesProjectManagement
 
     protected function activeProjectEditingLock(string $module, ?string $lockKey = null): ?ProjectModuleLock
     {
-        if (! isset($this->record)) {
+        if (! isset($this->record) || ! $this->projectHasCollaborators()) {
             return null;
         }
 
@@ -341,6 +402,21 @@ trait AuthorizesProjectManagement
 
         ProjectModuleLock::query()
             ->where('expires_at', '<=', now())
+            ->delete();
+    }
+
+    protected function clearProjectCollaborationForSoloProject(): void
+    {
+        if (! isset($this->record)) {
+            return;
+        }
+
+        ProjectPresence::query()
+            ->where('project_id', $this->record->getKey())
+            ->delete();
+
+        ProjectModuleLock::query()
+            ->where('project_id', $this->record->getKey())
             ->delete();
     }
 

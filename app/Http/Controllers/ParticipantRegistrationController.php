@@ -19,7 +19,8 @@ class ParticipantRegistrationController extends Controller
         return view('public.participant-registration', [
             'project' => $project,
             'organisations' => $this->organisations($project),
-            'closed' => ! $project?->hasActiveParticipantRegistrationLink(),
+            'closed' => ! $project?->hasActiveParticipantRegistrationLink()
+                || $project->operationalModulesLockedUntilPayment(),
         ]);
     }
 
@@ -27,7 +28,11 @@ class ParticipantRegistrationController extends Controller
     {
         $project = $this->projectForToken($token);
 
-        abort_unless($project?->hasActiveParticipantRegistrationLink(), 404);
+        abort_unless(
+            $project?->hasActiveParticipantRegistrationLink()
+            && ! $project->operationalModulesLockedUntilPayment(),
+            404
+        );
 
         $organisations = $this->organisations($project);
         abort_if($organisations === [], 422, 'The project does not have organisations configured yet.');

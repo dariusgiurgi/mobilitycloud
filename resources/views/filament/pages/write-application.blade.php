@@ -2,6 +2,7 @@
     <x-ui-polish />
     @php
         $sections = $this->getSections();
+        $questionSections = $sections->reject(fn ($section) => str_starts_with((string) $section->question_key, 'custom-heading-') || str_starts_with((string) $section->question_key, 'template-heading-'))->values();
         $visibleSections = $this->getVisibleSections();
         $summary = $this->getApplicationSummary();
         $review = $this->getConsistencyReview();
@@ -18,6 +19,10 @@
         $writingNotRequired = ! $record->isWritingStage() && $sections->isEmpty();
         $showWritingSidebar = $record->isWritingStage() && $writingMode !== 'focus' && ! $writingNotRequired;
         $writingLocks = $this->projectLocksForModule('write');
+        $exportsLocked = $record->exportsLockedUntilPayment();
+        $focusedSectionId = $focusSectionId ?: $questionSections->first()?->id;
+        $focusedQuestionIndex = $focusedSectionId ? $questionSections->search(fn ($section) => (int) $section->id === (int) $focusedSectionId) : false;
+        $focusedQuestionNumber = $focusedQuestionIndex === false ? null : $focusedQuestionIndex + 1;
     @endphp
 
     <style>
@@ -33,15 +38,15 @@
         .mc-wa-mode-switch { display:inline-flex;gap:.2rem;padding:.22rem;border:1px solid rgba(148,163,184,.24);border-radius:.7rem;background:rgba(148,163,184,.06); }
         .mc-wa-mode-btn { border:none;border-radius:.52rem;background:transparent;color:#64748b;font-size:.7rem;font-weight:750;padding:.38rem .62rem;cursor:pointer; }
         .mc-wa-mode-btn-active { background:#6366f1;color:white;box-shadow:0 6px 18px rgba(99,102,241,.22); }
-        .mc-wa-layout { display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:.85rem;align-items:stretch;margin-top:1rem;height:clamp(560px,calc(100vh - 12.5rem),980px);overflow:hidden; }
+        .mc-wa-layout { display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:.85rem;align-items:start;margin-top:1rem;height:auto;overflow:visible; }
         .mc-wa-layout-focus { grid-template-columns:minmax(0,920px);justify-content:center; }
-        .mc-wa-main-scroll { min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 .25rem .25rem 0;scroll-behavior:smooth; }
+        .mc-wa-main-scroll { min-width:0;min-height:0;overflow:visible;padding:0 .25rem .25rem 0; }
         .mc-wa-main-scroll::-webkit-scrollbar,.mc-wa-sidebar::-webkit-scrollbar { width:5px; }
         .mc-wa-main-scroll::-webkit-scrollbar-thumb,.mc-wa-sidebar::-webkit-scrollbar-thumb { border-radius:999px;background:rgba(148,163,184,.38); }
         .mc-wa-main-scroll::-webkit-scrollbar-track,.mc-wa-sidebar::-webkit-scrollbar-track { background:transparent; }
         .mc-wa-editor-controls { position:sticky;top:0;z-index:8;margin-bottom:1rem;padding:.55rem;border:1px solid rgba(148,163,184,.18);border-radius:.85rem;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);box-shadow:0 12px 26px rgba(15,23,42,.05); }
         .dark .mc-wa-editor-controls { background:rgba(17,24,39,.92);border-color:rgba(255,255,255,.1); }
-        .mc-wa-sidebar { display:grid;align-content:start;gap:.48rem;min-height:0;max-height:100%;overflow-y:auto;overscroll-behavior:contain;padding-right:.12rem; }
+        .mc-wa-sidebar { display:grid;align-content:start;gap:.48rem;min-height:0;max-height:none;overflow:visible;padding-right:.12rem; }
         .mc-wa-sidecard { padding:.68rem .72rem;border:1px solid rgba(148,163,184,.22);border-radius:.78rem;background:#fff; }
         .mc-wa-sidebar .mc-wa-sidecard { padding:.56rem .62rem;border-radius:.68rem; }
         .mc-wa-sidebar p { line-height:1.35; }
@@ -55,8 +60,13 @@
         .mc-wa-outline-details summary:after { content:'⌄';color:#94a3b8;font-size:.78rem;transition:transform .15s ease; }
         .mc-wa-outline-details[open] summary:after { transform:rotate(180deg); }
         .mc-wa-outline-details .mc-wa-outline-list { padding:0 .45rem .55rem; }
-        .mc-wa-section { scroll-margin-top:1rem; }
+        .mc-wa-section { position:relative;scroll-margin-top:1rem; }
         .mc-wa-card-actions { display:flex;align-items:center;gap:.1rem; }
+        .mc-wa-drag-handle { margin-top:.15rem;cursor:grab; }
+        .mc-wa-section.fi-sortable-ghost { height:5px!important;min-height:5px!important;margin:.65rem 0 1.25rem!important;padding:0!important;overflow:hidden!important;opacity:1!important;border:0!important;border-radius:999px!important;background:#6366f1!important;box-shadow:0 0 0 5px rgba(99,102,241,.16),0 8px 20px rgba(79,70,229,.2)!important; }
+        .mc-wa-section.fi-sortable-ghost > * { visibility:hidden!important; }
+        .mc-wa-section.mc-wa-sortable-chosen { outline:2px solid rgba(99,102,241,.34);outline-offset:2px;box-shadow:0 14px 30px rgba(79,70,229,.12); }
+        .mc-wa-heading-card { padding-top:.9rem!important;padding-bottom:.9rem!important;background:rgba(99,102,241,.025)!important; }
         .mc-wa-progress { height:7px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden; }
         .mc-wa-guidance { margin:.15rem 0 .75rem;padding:.65rem .75rem;border-left:3px solid #818cf8;border-radius:.35rem;background:rgba(99,102,241,.07);font-size:.72rem;line-height:1.55;color:#64748b; }
         .mc-wa-hints { margin:.15rem 0 .8rem;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(148,163,184,.035);font-size:.7rem;color:#64748b; }
@@ -85,8 +95,8 @@
         .mc-wa-readable-answer { min-height:7rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;padding:1rem;background:rgba(148,163,184,.035);font-size:.86rem;line-height:1.75;white-space:pre-wrap; }
         .mc-wa-focus-topbar { display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;padding:.75rem .9rem;border:1px solid rgba(99,102,241,.2);border-radius:.85rem;background:rgba(99,102,241,.055); }
         .mc-wa-filter { width:auto;padding:7px 10px;border:1px solid rgba(100,116,139,.25);border-radius:7px;background:transparent;font-size:12px;color:inherit; }
-        .mc-wa-review { display:grid;grid-template-columns:150px minmax(0,1fr);gap:.65rem;margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(148,163,184,.18); }
-        .mc-wa-review-actions { grid-column:1 / -1;display:flex;gap:.35rem;flex-wrap:wrap;align-items:center; }
+        .mc-wa-review { display:grid;gap:.5rem;margin-top:.65rem;padding-top:.65rem;border-top:1px solid rgba(148,163,184,.18); }
+        .mc-wa-review-actions { display:flex;gap:.35rem;flex-wrap:wrap;align-items:center; }
         .mc-wa-review-chip { border:1px solid rgba(148,163,184,.24);border-radius:999px;background:transparent;color:#64748b;font-size:.65rem;font-weight:750;padding:.24rem .55rem;cursor:pointer; }
         .mc-wa-review-chip:hover { border-color:#818cf8;color:#4f46e5;background:rgba(99,102,241,.06); }
         .mc-wa-review-chip-active { border-color:transparent;background:#6366f1;color:white; }
@@ -107,7 +117,6 @@
         .mc-template-stat { border:1px solid rgba(148,163,184,.18);border-radius:.65rem;padding:.7rem;background:rgba(148,163,184,.05); }
         .mc-template-switch-preview { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.55rem;margin-bottom:1rem; }
         .mc-template-switch-preview .mc-template-stat { padding:.6rem; }
-        .mc-template-question-list { max-height:250px;overflow:auto;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;padding:.7rem; }
         .mc-template-audit-grid { display:grid;grid-template-columns:180px minmax(0,1fr);gap:.85rem;align-items:start;margin-bottom:1rem; }
         .mc-template-audit-score { border:1px solid rgba(99,102,241,.18);border-radius:.75rem;padding:.85rem;background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(14,165,233,.06)); }
         .mc-template-audit-list { display:grid;gap:.45rem;max-height:230px;overflow:auto;padding-right:.2rem; }
@@ -188,32 +197,38 @@
                     Template manager
                 </x-filament::button>
             @endif
-            <x-filament::button tag="a" :href="route('projects.export-application', $record)" target="_blank" icon="heroicon-o-arrow-down-tray" size="sm">
-                Export PDF
-            </x-filament::button>
-            <x-filament::dropdown placement="bottom-end" width="xs">
-                <x-slot name="trigger">
-                    <x-filament::button color="gray" icon="heroicon-o-ellipsis-horizontal" size="sm">
-                        More
-                    </x-filament::button>
-                </x-slot>
+            @if($exportsLocked)
+                <x-filament::button color="gray" icon="heroicon-o-lock-closed" size="sm" disabled>
+                    Exports locked
+                </x-filament::button>
+            @else
+                <x-filament::button tag="a" :href="route('projects.export-application', $record)" target="_blank" icon="heroicon-o-arrow-down-tray" size="sm">
+                    Export PDF
+                </x-filament::button>
+                <x-filament::dropdown placement="bottom-end" width="xs">
+                    <x-slot name="trigger">
+                        <x-filament::button color="gray" icon="heroicon-o-ellipsis-horizontal" size="sm">
+                            More
+                        </x-filament::button>
+                    </x-slot>
 
-                <x-filament::dropdown.list>
-                    @if($canManage)
-                        <x-filament::dropdown.list.item wire:click="$set('showVersions', true)" icon="heroicon-o-clock">
-                            Versions
-                        </x-filament::dropdown.list.item>
-                        @if($this->supportsActivityBuilder())
-                            <x-filament::dropdown.list.item wire:click="openActivityBuilder" icon="heroicon-o-table-cells">
-                                Activities & flows
+                    <x-filament::dropdown.list>
+                        @if($canManage)
+                            <x-filament::dropdown.list.item wire:click="$set('showVersions', true)" icon="heroicon-o-clock">
+                                Versions
                             </x-filament::dropdown.list.item>
+                            @if($this->supportsActivityBuilder())
+                                <x-filament::dropdown.list.item wire:click="openActivityBuilder" icon="heroicon-o-table-cells">
+                                    Activities & flows
+                                </x-filament::dropdown.list.item>
+                            @endif
                         @endif
-                    @endif
-                    <x-filament::dropdown.list.item tag="a" :href="route('projects.export-application-word', $record)" target="_blank" icon="heroicon-o-document-text">
-                        Export Word
-                    </x-filament::dropdown.list.item>
-                </x-filament::dropdown.list>
-            </x-filament::dropdown>
+                        <x-filament::dropdown.list.item tag="a" :href="route('projects.export-application-word', $record)" target="_blank" icon="heroicon-o-document-text">
+                            Export Word
+                        </x-filament::dropdown.list.item>
+                    </x-filament::dropdown.list>
+                </x-filament::dropdown>
+            @endif
         </div>
     </x-filament::section>
 
@@ -224,7 +239,7 @@
         <div class="mc-wa-focus-topbar">
             <div>
                 <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:750;">Focus mode</p>
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.12rem;">One question at a time. Sidebar and review noise are hidden while you write.</p>
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;margin-top:.12rem;">@if($focusedQuestionNumber) Question {{ $focusedQuestionNumber }} / {{ $questionSections->count() }} · @endif One question at a time. Sidebar and review noise are hidden while you write.</p>
             </div>
             <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
                 <x-filament::button wire:click="moveFocus(-1)" color="gray" size="sm">Previous</x-filament::button>
@@ -262,6 +277,17 @@
             </select>
             <span class="text-gray-400" style="font-size:.7rem;">{{ $visibleSections->count() }} shown</span>
         </div>
+        @if($canManage && $writingMode !== 'review')
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin:.55rem 0 .75rem;padding:.55rem .7rem;border:1px solid rgba(148,163,184,.18);border-radius:.65rem;background:rgba(148,163,184,.035);">
+                <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;">
+                    <button type="button" wire:click="toggleAllSectionSelection" class="mc-wa-review-chip">{{ count($selectedSectionIds) === $sections->count() && $sections->count() ? 'Clear selection' : 'Select all' }}</button>
+                    @if(count($selectedSectionIds))
+                        <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;">{{ count($selectedSectionIds) }} selected</span>
+                        <button type="button" wire:click="deleteSelectedSections" wire:confirm="Delete the selected questions? An automatic version backup will be created first." class="mc-wa-review-chip" style="color:#b91c1c;">Delete selected</button>
+                    @endif
+                </div>
+            </div>
+        @endif
     @endif
 
     @if($sections->isEmpty())
@@ -280,13 +306,27 @@
             @endif
         </x-mobi-empty-state>
     @else
-        @php $currentCat = null; @endphp
+        <div
+            wire:key="application-order-{{ $sectionOrderRevision }}"
+            x-sortable
+            data-sortable-animation-duration="90"
+            x-init="$nextTick(() => {
+                const sortable = $el.sortable
+                if (! sortable) return
+                sortable.option('animation', 90)
+                sortable.option('easing', 'cubic-bezier(.2, 0, 0, 1)')
+                sortable.option('swapThreshold', .62)
+                sortable.option('invertSwap', true)
+                sortable.option('invertedSwapThreshold', .28)
+                sortable.option('scrollSensitivity', 140)
+                sortable.option('scrollSpeed', 5)
+                sortable.option('forceAutoScrollFallback', true)
+                sortable.option('bubbleScroll', true)
+                sortable.option('chosenClass', 'mc-wa-sortable-chosen')
+            })"
+            x-on:end.stop="$wire.reorderSections($event.target.sortable.toArray())"
+        >
         @forelse($visibleSections as $sec)
-            @if($sec->category && $sec->category !== $currentCat)
-                @php $currentCat = $sec->category; @endphp
-                <p class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:1.5rem 0 .5rem;">{{ $currentCat }}</p>
-            @endif
-
             @php
                 $text  = $this->content[$sec->id] ?? (string) $sec->content;
                 $count = mb_strlen(strip_tags($text));
@@ -299,6 +339,10 @@
                 $sectionLockedByOther = $sectionLock && (int) $sectionLock->user_id !== (int) auth()->id();
                 $sectionLockBadge = $sectionLock ? $this->projectLockBadge($sectionLock) : null;
                 $sectionCanManage = $canManage && ! $sectionLockedByOther;
+                $isImportedHeading = str_starts_with((string) $sec->question_key, 'template-heading-');
+                $isManualHeading = str_starts_with((string) $sec->question_key, 'custom-heading-') || $isImportedHeading;
+                $questionIndex = $questionSections->search(fn ($section) => (int) $section->id === (int) $sec->id);
+                $questionNumber = $questionIndex === false ? null : $questionIndex + 1;
             @endphp
 
             @php
@@ -307,7 +351,7 @@
                 $questionTables = $this->getQuestionTables($sec);
             @endphp
 
-            <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" class="mc-wa-section mc-lock-frame fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
+            <div id="application-section-{{ $sec->id }}" wire:key="section-{{ $sec->id }}" x-sortable-item="{{ $sec->id }}" class="mc-wa-section mc-lock-frame fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 {{ $isManualHeading ? 'mc-wa-heading-card' : '' }}"
                  @if($sectionLock && (int) $sectionLock->user_id === (int) auth()->id()) wire:click.outside="stopProjectEditing('write', '{{ $sectionLockKey }}')" @endif
                  style="{{ $this->projectLockFrameStyle($sectionLock, 'transparent', 'padding:1.1rem 1.25rem;margin-bottom:1rem;') }}">
                 @if($sectionLockBadge)
@@ -317,11 +361,27 @@
                     ])
                 @endif
                 <div style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.6rem;">
+                    @if($sectionCanManage && $writingMode !== 'review')
+                        <button type="button" x-sortable-handle title="{{ $isManualHeading ? 'Drag to reorder this heading' : 'Drag to reorder this question' }}" aria-label="{{ $isManualHeading ? 'Drag to reorder this heading' : 'Drag to reorder this question' }}"
+                                class="mc-iconbtn mc-wa-drag-handle"
+                                onmouseover="this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';"
+                                onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="5" r="1"></circle><circle cx="15" cy="5" r="1"></circle><circle cx="9" cy="12" r="1"></circle><circle cx="15" cy="12" r="1"></circle><circle cx="9" cy="19" r="1"></circle><circle cx="15" cy="19" r="1"></circle></svg>
+                        </button>
+                    @endif
                     <div style="min-width:0;flex:1;">
+                        @if($canManage && $writingMode !== 'review')
+                            <label style="display:flex;align-items:center;gap:.35rem;margin-bottom:.45rem;font-size:.65rem;color:#64748b;cursor:pointer;">
+                                <input type="checkbox" wire:model.live="selectedSectionIds" value="{{ $sec->id }}" /> {{ $isManualHeading ? 'Select heading' : 'Select for bulk actions' }}
+                            </label>
+                        @endif
                         <textarea rows="{{ mb_strlen($titles[$sec->id] ?? (string) $sec->title) > 170 ? 4 : (mb_strlen($titles[$sec->id] ?? (string) $sec->title) > 95 ? 3 : 2) }}" wire:key="title-{{ $sec->id }}" class="mc-title text-gray-950 dark:text-white"
-                                  wire:focus="startWritingSectionEditing({{ $sec->id }})"
+                                  @if($sectionCanManage) wire:focus="startWritingSectionEditing({{ $sec->id }})" @endif
                                   wire:model.blur="titles.{{ $sec->id }}" @readonly(!$sectionCanManage)></textarea>
-                        @if(count($questionTables))
+                        @if($isManualHeading)
+                            <p class="text-gray-400" style="font-size:.61rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;margin-top:.18rem;">{{ $isImportedHeading ? 'Imported section heading' : 'Manual section heading' }}</p>
+                        @endif
+                        @if(! $isManualHeading && count($questionTables))
                             <div style="display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.32rem;">
                                 @foreach($questionTables as $tableBadge)
                                     <x-filament::badge size="sm" color="info">{{ $tableBadge['label'] }}</x-filament::badge>
@@ -332,36 +392,13 @@
 
                     @if($sectionCanManage && $writingMode !== 'review')
                     <div class="mc-wa-card-actions">
-                    {{-- Move up --}}
-                    <button type="button" wire:click="moveSection({{ $sec->id }}, -1)" title="Move up"
-                            class="mc-iconbtn" @if($loop->first) disabled @endif
-                            onmouseover="if(!this.disabled){this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';}"
-                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
-                    </button>
-
-                    {{-- Move down --}}
-                    <button type="button" wire:click="moveSection({{ $sec->id }}, 1)" title="Move down"
-                            class="mc-iconbtn" @if($loop->last) disabled @endif
-                            onmouseover="if(!this.disabled){this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';}"
-                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
-                    </button>
-
+                    @if(! $isManualHeading)
                     {{-- Insert from library --}}
                     <button type="button" wire:click="openLibrary({{ $sec->id }})" title="Insert from library"
                             class="mc-iconbtn"
                             onmouseover="this.style.background='rgba(99,102,241,.1)';this.style.color='#6366f1';"
                             onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
-                    </button>
-
-                    {{-- Insert scaffold --}}
-                    <button type="button" wire:click="insertAnswerScaffold({{ $sec->id }})" title="Insert answer scaffold"
-                            class="mc-iconbtn"
-                            onmouseover="this.style.background='rgba(16,185,129,.1)';this.style.color='#059669';"
-                            onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
                     </button>
 
                     {{-- Focus --}}
@@ -371,6 +408,7 @@
                             onmouseout="this.style.background='transparent';this.style.color='#9ca3af';">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M16 3h3a2 2 0 0 1 2 2v3"></path><path d="M8 21H5a2 2 0 0 1-2-2v-3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path></svg>
                     </button>
+                    @endif
 
                     {{-- Delete --}}
                     <button type="button" wire:click="deleteSection({{ $sec->id }})" wire:confirm="Delete this section?"
@@ -383,6 +421,7 @@
                     @endif
                 </div>
 
+                @if(! $isManualHeading)
                 @if($guidance)
                     <div class="mc-wa-guidance"><strong style="color:#6366f1;">Writing guidance:</strong> {{ $guidance }}</div>
                 @endif
@@ -419,38 +458,58 @@
                     </details>
                 @endif
 
+                @if($sectionCanManage && $writingMode !== 'review')
+                    <div style="display:flex;justify-content:flex-end;margin:-.1rem 0 .6rem;">
+                        <button type="button" wire:click="addCustomTable({{ $sec->id }})" class="mc-wa-review-chip">+ Add custom table</button>
+                    </div>
+                @endif
+
                 @foreach($questionTables as $tableDef)
                     @php
                         $tableRows = $tables[$sec->id][$tableDef['key']] ?? [];
-                        $autofillSummary = $this->getTableAutofillSummary($tableDef['key']);
+                        $tableDefinitionIndex = collect($tableDefinitions[$sec->id] ?? [])->search(fn ($definition) => ($definition['key'] ?? null) === $tableDef['key']);
                     @endphp
-                    <div class="mc-wa-table-block">
+                    <div class="mc-wa-table-block" wire:key="table-{{ $sec->id }}-{{ $tableDef['key'] }}">
                         <div class="mc-wa-table-head">
                             <div>
-                                <p class="text-gray-950 dark:text-white" style="font-size:.74rem;font-weight:800;">{{ $tableDef['label'] }}</p>
+                                @if($sectionCanManage && $writingMode !== 'review')
+                                    <input wire:key="table-title-{{ $sec->id }}-{{ $tableDef['key'] }}" wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.blur="tableDefinitions.{{ $sec->id }}.{{ $tableDefinitionIndex }}.label" aria-label="Table title" style="width:100%;max-width:360px;border:1px solid rgba(148,163,184,.24);border-radius:.42rem;background:transparent;color:inherit;font-size:.74rem;font-weight:800;padding:.3rem .45rem;" />
+                                @else
+                                    <p class="text-gray-950 dark:text-white" style="font-size:.74rem;font-weight:800;">{{ $tableDef['label'] }}</p>
+                                @endif
+                                @if(($tableDef['source'] ?? null) === 'official')
+                                    <p style="font-size:.61rem;font-weight:800;color:#2563eb;margin-top:.22rem;">Official form table · editable working layout</p>
+                                @elseif(($tableDef['source'] ?? null) === 'recommended')
+                                    <p style="font-size:.61rem;font-weight:800;color:#6366f1;margin-top:.22rem;">Recommended table for this question · fully editable</p>
+                                @endif
                                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;margin-top:.12rem;line-height:1.4;">{{ $tableDef['description'] }}</p>
                             </div>
                             @if($sectionCanManage && $writingMode !== 'review')
                                 <div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-                                    @if($autofillSummary)
-                                        <button type="button" wire:click="autofillTable({{ $sec->id }}, '{{ $tableDef['key'] }}')" wire:confirm="Refresh this table from current project data? Existing rows in this table will be replaced." class="mc-wa-review-chip" style="white-space:nowrap;">Populate from project</button>
-                                    @endif
+                                    <button type="button" wire:click="addTableColumn({{ $sec->id }}, '{{ $tableDef['key'] }}')" class="mc-wa-review-chip" style="white-space:nowrap;">+ Column</button>
                                     <button type="button" wire:click="addTableRow({{ $sec->id }}, '{{ $tableDef['key'] }}')" class="mc-wa-review-chip" style="white-space:nowrap;">+ Add row</button>
+                                    <button type="button" wire:click="removeQuestionTable({{ $sec->id }}, '{{ $tableDef['key'] }}')" wire:confirm="Remove this table and its data from this question?" class="mc-wa-review-chip" style="white-space:nowrap;color:#b91c1c;">Remove table</button>
                                 </div>
                             @endif
                         </div>
-                        @if($autofillSummary)
-                            <div style="padding:.45rem .8rem;border-bottom:1px solid rgba(14,165,233,.1);font-size:.64rem;color:#64748b;background:rgba(14,165,233,.035);">
-                                Auto-fill: {{ $autofillSummary }} You can edit the generated rows before export.
-                            </div>
-                        @endif
                         @if(count($tableRows))
                             <div class="mc-wa-table-wrap">
                                 <table class="mc-wa-table">
                                     <thead>
                                         <tr>
                                             @foreach($tableDef['columns'] as $column)
-                                                <th>{{ $column['label'] }}</th>
+                                                <th>
+                                                    @if($sectionCanManage && $writingMode !== 'review')
+                                                        <div style="display:flex;gap:.25rem;align-items:center;min-width:110px;">
+                                                            <input wire:key="table-header-{{ $sec->id }}-{{ $tableDef['key'] }}-{{ $column['field'] }}" wire:focus="startTableColumnLabelEditing({{ $sec->id }}, '{{ $tableDef['key'] }}', '{{ $column['field'] }}')" wire:model.blur="tableDefinitions.{{ $sec->id }}.{{ $tableDefinitionIndex }}.columns.{{ $loop->index }}.label" aria-label="Column title" placeholder="Enter value" style="width:100%;border:1px solid rgba(148,163,184,.25);border-radius:.35rem;background:transparent;color:inherit;font-size:.59rem;padding:.28rem .34rem;" />
+                                                            @if(count($tableDef['columns']) > 1)
+                                                                <button type="button" wire:click="removeTableColumn({{ $sec->id }}, '{{ $tableDef['key'] }}', '{{ $column['field'] }}')" wire:confirm="Remove this column and all values in it?" title="Remove column" class="mc-iconbtn" style="width:20px;height:20px;line-height:1;">×</button>
+                                                            @endif
+                                                        </div>
+                                                    @else
+                                                        {{ $column['label'] }}
+                                                    @endif
+                                                </th>
                                             @endforeach
                                             @if($sectionCanManage && $writingMode !== 'review')
                                                 <th style="width:44px;"></th>
@@ -459,13 +518,13 @@
                                     </thead>
                                     <tbody>
                                         @foreach($tableRows as $rowIndex => $row)
-                                            <tr>
+                                            <tr wire:key="table-row-{{ $sec->id }}-{{ $tableDef['key'] }}-{{ $rowIndex }}">
                                                 @foreach($tableDef['columns'] as $column)
                                                     <td>
                                                         @if($writingMode === 'review')
                                                             <span>{{ $row[$column['field']] ?? '—' }}</span>
                                                         @else
-                                                            <input wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.live.debounce.800ms="tables.{{ $sec->id }}.{{ $tableDef['key'] }}.{{ $rowIndex }}.{{ $column['field'] }}" placeholder="{{ $column['label'] }}" @readonly(!$sectionCanManage)>
+                                                            <input wire:key="table-cell-{{ $sec->id }}-{{ $tableDef['key'] }}-{{ $rowIndex }}-{{ $column['field'] }}" @if($sectionCanManage) wire:focus="startWritingSectionEditing({{ $sec->id }})" @endif wire:model.live.debounce.800ms="tables.{{ $sec->id }}.{{ $tableDef['key'] }}.{{ $rowIndex }}.{{ $column['field'] }}" placeholder="Enter value" @readonly(!$sectionCanManage)>
                                                         @endif
                                                     </td>
                                                 @endforeach
@@ -480,7 +539,7 @@
                                 </table>
                             </div>
                         @else
-                            <div class="mc-wa-table-empty">No rows yet. Add rows if this official question requires structured details.</div>
+                            <div class="mc-wa-table-empty">No rows yet. Add a row whenever this table helps you structure the answer.</div>
                         @endif
                     </div>
                 @endforeach
@@ -491,25 +550,20 @@
                     </div>
                 @else
                     <textarea rows="{{ $writingMode === 'focus' ? 14 : 6 }}" wire:key="content-{{ $sec->id }}"
-                              wire:focus="startWritingSectionEditing({{ $sec->id }})"
+                              @if($sectionCanManage) wire:focus="startWritingSectionEditing({{ $sec->id }})" @endif
                               wire:model.live.debounce.800ms="content.{{ $sec->id }}"
                               placeholder="Write your answer here…" @readonly(!$sectionCanManage)></textarea>
                 @endif
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;font-size:11px;">
-                    <span class="text-gray-400">{{ $words }} words</span>
+                    <span class="text-gray-400">@if($questionNumber) Question {{ $questionNumber }} / {{ $questionSections->count() }} · @endif{{ $words }} words</span>
                     <span style="color:{{ $over ? '#dc2626' : '#9ca3af' }};font-weight:{{ $over ? '600' : '400' }};">
                         {{ $count }}@if($limit) / {{ $limit }}@endif characters
                     </span>
                 </div>
 
                 <div class="mc-wa-review">
-                    <select class="mc-wa-filter" wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.live="reviewStatuses.{{ $sec->id }}" @disabled(!$sectionCanManage)>
-                        <option value="draft">Draft</option>
-                        <option value="review">Needs review</option>
-                        <option value="ready">Ready</option>
-                    </select>
-                    <input class="mc-wa-note" wire:focus="startWritingSectionEditing({{ $sec->id }})" wire:model.blur="internalNotes.{{ $sec->id }}" placeholder="Internal reviewer note (not included in export)…" @readonly(!$sectionCanManage)>
+                    <input class="mc-wa-note" @if($sectionCanManage) wire:focus="startWritingSectionEditing({{ $sec->id }})" @endif wire:model.blur="internalNotes.{{ $sec->id }}" placeholder="Internal reviewer note (not included in export)…" @readonly(!$sectionCanManage)>
                     @if($sectionCanManage)
                         <div class="mc-wa-review-actions">
                             <button type="button" wire:click="setReviewStatus({{ $sec->id }}, 'draft')" class="mc-wa-review-chip {{ ($reviewStatuses[$sec->id] ?? $sec->review_status) === 'draft' ? 'mc-wa-review-chip-active' : '' }}">Draft</button>
@@ -518,19 +572,28 @@
                         </div>
                     @endif
                 </div>
+                @endif
             </div>
         @empty
             <div class="fi-section rounded-xl bg-white shadow-sm ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10 text-gray-500 dark:text-gray-400" style="padding:2rem;text-align:center;font-size:.8rem;">
                 No questions match this filter.
             </div>
         @endforelse
+        </div>
 
         @if($canManage && $writingMode !== 'review' && $writingMode !== 'focus')
-            <button type="button" wire:click="addSection"
-                    class="text-gray-500 dark:text-gray-400"
-                    style="width:100%;padding:12px;border:2px dashed rgba(100,116,139,.3);border-radius:12px;background:transparent;cursor:pointer;font-size:13px;font-weight:500;">
-                + Add section
-            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:.55rem;">
+                <button type="button" wire:click="addSection"
+                        class="text-gray-500 dark:text-gray-400"
+                        style="padding:12px;border:2px dashed rgba(100,116,139,.3);border-radius:12px;background:transparent;cursor:pointer;font-size:13px;font-weight:500;">
+                    + Add custom question
+                </button>
+                <button type="button" wire:click="addManualHeading"
+                        class="text-gray-500 dark:text-gray-400"
+                        style="padding:12px;border:2px dashed rgba(99,102,241,.35);border-radius:12px;background:rgba(99,102,241,.035);cursor:pointer;font-size:13px;font-weight:500;">
+                    + Add section heading
+                </button>
+            </div>
         @endif
     @endif
 
@@ -816,8 +879,6 @@
             $alignment = $this->getTemplateAlignment();
             $switchPreview = $this->getTemplateSwitchPreview();
             $sourceNotice = $this->getTemplateSourceNotice();
-            $templateAudit = $this->getSelectedTemplateAudit();
-            $templateAuditSummary = $this->getTemplateAuditSummary();
             $catalog = $this->getTemplateCatalog();
         @endphp
         <div class="mc-modal-backdrop mc-modal-top" wire:click.self="closeTemplateDetails">
@@ -833,12 +894,6 @@
                 <div class="mc-template-manager" style="margin-top:1rem;">
                     <div>
                         <p class="text-gray-400" style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;">Template catalog</p>
-                        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.38rem;margin-bottom:.65rem;">
-                            <div class="mc-template-stat" style="padding:.52rem;"><p class="text-gray-400" style="font-size:.55rem;text-transform:uppercase;">Templates</p><p style="font-size:.9rem;font-weight:800;">{{ $templateAuditSummary['templates'] }}</p></div>
-                            <div class="mc-template-stat" style="padding:.52rem;"><p class="text-gray-400" style="font-size:.55rem;text-transform:uppercase;">Clean</p><p style="font-size:.9rem;font-weight:800;color:#059669;">{{ $templateAuditSummary['excellent'] }}</p></div>
-                            <div class="mc-template-stat" style="padding:.52rem;"><p class="text-gray-400" style="font-size:.55rem;text-transform:uppercase;">Review</p><p style="font-size:.9rem;font-weight:800;color:{{ $templateAuditSummary['needs_review'] ? '#d97706' : 'inherit' }};">{{ $templateAuditSummary['needs_review'] }}</p></div>
-                            <div class="mc-template-stat" style="padding:.52rem;"><p class="text-gray-400" style="font-size:.55rem;text-transform:uppercase;">Tables</p><p style="font-size:.9rem;font-weight:800;">{{ $templateAuditSummary['tables'] }}</p></div>
-                        </div>
                         <div class="mc-template-family-tabs">
                             @foreach($this->getTemplateFamilies() as $familyKey => $familyLabel)
                                 <button type="button" wire:click="$set('templateCatalogFamily', '{{ $familyKey }}')" class="mc-template-family-tab {{ $templateCatalogFamily === $familyKey ? 'mc-template-family-tab-active' : '' }}">
@@ -862,10 +917,6 @@
                                             <x-filament::badge size="sm" color="gray">{{ strtoupper($templateCard['sector']) }}</x-filament::badge>
                                         @endif
                                         <x-filament::badge size="sm" color="gray">{{ $templateCard['sections_count'] }} questions</x-filament::badge>
-                                        <x-filament::badge size="sm" color="{{ $templateCard['audit_score'] >= 90 ? 'success' : ($templateCard['audit_score'] >= 78 ? 'warning' : 'danger') }}">Audit {{ $templateCard['audit_score'] }}</x-filament::badge>
-                                        @if($templateCard['audit_table_count'])
-                                            <x-filament::badge size="sm" color="info">{{ $templateCard['audit_table_count'] }} tables</x-filament::badge>
-                                        @endif
                                         <x-filament::badge size="sm" color="{{ ($templateCard['officially_verified'] ?? false) ? 'success' : 'warning' }}">{{ ($templateCard['officially_verified'] ?? false) ? 'Verified' : 'Draft' }}</x-filament::badge>
                                         <x-filament::badge size="sm" color="{{ $isProjectTemplate ? 'success' : 'gray' }}">{{ $isProjectTemplate ? 'Current project' : $templateCard['form_id'] }}</x-filament::badge>
                                     </div>
@@ -899,49 +950,6 @@
                             @if($sourceNotice)
                                 <div style="padding:.75rem;border-radius:.55rem;background:{{ $sourceNotice['tone'] === 'success' ? 'rgba(34,197,94,.08)' : 'rgba(245,158,11,.09)' }};color:{{ $sourceNotice['tone'] === 'success' ? '#15803d' : '#b45309' }};font-size:.74rem;line-height:1.5;margin-bottom:1rem;">
                                     <strong>{{ $sourceNotice['title'] }}:</strong> {{ $sourceNotice['body'] }}
-                                </div>
-                            @endif
-
-                            <div class="mc-template-stat-grid">
-                                <div class="mc-template-stat"><p class="text-gray-400" style="font-size:.62rem;text-transform:uppercase;">Coverage</p><p style="font-size:1.15rem;font-weight:750;">{{ $alignment['coverage'] }}%</p></div>
-                                <div class="mc-template-stat"><p class="text-gray-400" style="font-size:.62rem;text-transform:uppercase;">Matched</p><p style="font-size:1.15rem;font-weight:750;">{{ $alignment['matched'] }} / {{ $alignment['official_count'] }}</p></div>
-                                <div class="mc-template-stat"><p class="text-gray-400" style="font-size:.62rem;text-transform:uppercase;">Missing</p><p style="font-size:1.15rem;font-weight:750;color:{{ $alignment['missing_count'] ? '#d97706' : 'inherit' }};">{{ $alignment['missing_count'] }}</p></div>
-                                <div class="mc-template-stat"><p class="text-gray-400" style="font-size:.62rem;text-transform:uppercase;">Custom</p><p style="font-size:1.15rem;font-weight:750;">{{ $alignment['custom_count'] }}</p></div>
-                            </div>
-
-                            <p class="text-gray-400" style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.45rem;">Template audit</p>
-                            <div class="mc-template-audit-grid">
-                                <div class="mc-template-audit-score">
-                                    <p class="text-gray-400" style="font-size:.6rem;text-transform:uppercase;font-weight:750;">Audit score</p>
-                                    <p style="font-size:2rem;font-weight:850;line-height:1;color:{{ $templateAudit['score'] >= 90 ? '#059669' : ($templateAudit['score'] >= 78 ? '#d97706' : '#dc2626') }};">{{ $templateAudit['score'] }}</p>
-                                    <p class="text-gray-500 dark:text-gray-400" style="font-size:.7rem;margin-top:.35rem;">{{ $templateAudit['status'] }} · {{ $templateAudit['counts']['sections'] }} questions · {{ $templateAudit['counts']['categories'] }} categories</p>
-                                    <p class="text-gray-400" style="font-size:.64rem;margin-top:.35rem;">{{ $templateAudit['counts']['with_guidance'] }} with guidance · {{ $templateAudit['counts']['with_char_limits'] }} with character limits</p>
-                                </div>
-                                <div>
-                                    <div style="display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.55rem;">
-                                        <x-filament::badge color="{{ count($templateAudit['issues']) ? 'warning' : 'success' }}">{{ count($templateAudit['issues']) }} audit issues</x-filament::badge>
-                                        <x-filament::badge color="{{ count($templateAudit['tables']) ? 'info' : 'gray' }}">{{ count($templateAudit['tables']) }} detected standard tables</x-filament::badge>
-                                    </div>
-                                    <div class="mc-template-audit-list">
-                                        @forelse($templateAudit['issues'] as $auditIssue)
-                                            <div class="mc-template-audit-item">
-                                                <div style="display:flex;align-items:center;gap:.45rem;margin-bottom:.2rem;">
-                                                    <span class="mc-review-pill mc-review-{{ $auditIssue['severity'] }}">{{ $auditIssue['severity'] }}</span>
-                                                    <strong>{{ $auditIssue['title'] }}</strong>
-                                                </div>
-                                                <span class="text-gray-500 dark:text-gray-400">{{ $auditIssue['description'] }}</span>
-                                            </div>
-                                        @empty
-                                            <div class="mc-template-audit-item" style="color:#15803d;background:rgba(34,197,94,.08);">No structural audit issues detected.</div>
-                                        @endforelse
-                                    </div>
-                                </div>
-                            </div>
-
-                            @if(count($templateAudit['tables']))
-                                <div style="padding:.75rem;border-radius:.55rem;background:rgba(14,165,233,.07);color:#0369a1;font-size:.72rem;line-height:1.5;margin-bottom:1rem;">
-                                    <strong>Detected tables:</strong>
-                                    {{ collect($templateAudit['tables'])->pluck('label')->unique()->implode(', ') }}.
                                 </div>
                             @endif
 
@@ -986,26 +994,6 @@
                                     The current draft structure is aligned with this template. You can still sync if the template catalog was updated later.
                                 </div>
                             @endif
-
-                            @if($alignment['missing_count'])
-                                <p class="text-gray-400" style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.45rem;">Missing official questions</p>
-                                <div class="mc-template-question-list" style="margin-bottom:1rem;">
-                                    <ol style="margin:0 0 0 1.1rem;font-size:.72rem;line-height:1.55;">
-                                        @foreach($alignment['missing'] as $question)
-                                            <li style="margin-bottom:.25rem;"><span class="text-gray-400">{{ $question['category'] }}</span> · {{ $question['title'] }}</li>
-                                        @endforeach
-                                    </ol>
-                                </div>
-                            @endif
-
-                            <p class="text-gray-400" style="font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.45rem;">Official question structure</p>
-                            <div class="mc-template-question-list">
-                                <ol style="margin:0 0 0 1.1rem;font-size:.72rem;line-height:1.55;">
-                                    @foreach($templateInfo['sections'] ?? [] as $question)
-                                        <li style="margin-bottom:.25rem;"><span class="text-gray-400">{{ $question['category'] }}</span> · {{ $question['title'] }}</li>
-                                    @endforeach
-                                </ol>
-                            </div>
 
                         </div>
 

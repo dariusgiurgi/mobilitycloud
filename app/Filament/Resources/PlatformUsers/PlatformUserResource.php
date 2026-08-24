@@ -14,6 +14,8 @@ use App\Support\PlatformAudit;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
@@ -34,6 +36,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -659,6 +662,55 @@ class PlatformUserResource extends Resource
                             Notification::make()
                                 ->title('Account permanently deleted')
                                 ->body($deletedEmail.' was removed from the platform.')
+                                ->success()
+                                ->send();
+                        }),
+                ]),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('deleteSelectedPermanently')
+                        ->label('Delete selected permanently')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->visible(fn (): bool => auth()->user()?->canManagePlatformAdmins() ?? false)
+                        ->requiresConfirmation()
+                        ->modalHeading('Permanently delete selected accounts?')
+                        ->modalDescription('This is irreversible. The action will delete only accounts that your owner permissions allow. Your own account and the last platform owner are always protected.')
+                        ->modalSubmitActionLabel('Delete selected permanently')
+                        ->action(function (Collection $records): void {
+                            $deleted = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $record) {
+                                if (! $record instanceof User || ! static::canPermanentlyDeleteAccount($record)) {
+                                    $skipped++;
+
+                                    continue;
+                                }
+
+                                $deletedEmail = $record->email;
+                                $deletedId = $record->id;
+                                $ownedProjectCount = $record->ownedProjects()->count();
+                                $sharedProjectCount = $record->projects()->count();
+
+                                DB::transaction(function () use ($record, $deletedEmail, $deletedId, $ownedProjectCount, $sharedProjectCount): void {
+                                    PlatformAudit::log('account.deleted_permanently', 'Permanently deleted account '.$deletedEmail, $record, [
+                                        'deleted_user_id' => $deletedId,
+                                        'owned_projects' => $ownedProjectCount,
+                                        'shared_project_access' => $sharedProjectCount,
+                                        'bulk_action' => true,
+                                    ]);
+
+                                    $record->forceDelete();
+                                });
+
+                                $deleted++;
+                            }
+
+                            Notification::make()
+                                ->title($deleted === 1 ? '1 account permanently deleted' : $deleted.' accounts permanently deleted')
+                                ->body($skipped > 0 ? $skipped.' selected account(s) were protected or not allowed.' : null)
                                 ->success()
                                 ->send();
                         }),

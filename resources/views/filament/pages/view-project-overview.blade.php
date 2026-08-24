@@ -21,6 +21,11 @@
             'settings' => $urls['settings'],
             'tasks' => '#project-tasks',
         ];
+        $stageActions = collect($readiness['items'])
+            ->filter(fn ($item) => in_array($item['status'], ['missing', 'attention'], true))
+            ->reject(fn ($item) => ($item['target'] ?? null) === 'tasks')
+            ->take(4)
+            ->values();
         $partners = $this->record->partners;
         $approved = (float) $this->record->approved_budget;
         $requested = (float) $this->record->total_budget;
@@ -29,6 +34,7 @@
         $kaLabel = $kaInfo ? ($kaInfo['label'].' · Call '.$kaInfo['call_year']) : null;
         $isManagementStage = $this->record->isManagementStage();
         $implementationAvailable = $this->record->implementationModulesAvailable();
+        $operationalAvailable = $this->record->operationalModulesAvailable();
         $budgetModuleLabel = $implementationAvailable ? 'Budget' : 'Grant estimate';
         $canManage = $this->record->canBeManagedBy(auth()->user());
         $ownerLabel = $this->record->ownerLabelFor(auth()->user());
@@ -62,6 +68,12 @@
         .mc-task-check.is-done { border-color:#10b981;background:#10b981; }
         .mc-task-field { width:100%;padding:.58rem .7rem;border:1px solid rgba(100,116,139,.3);border-radius:.55rem;background:transparent;font-size:.82rem; }
         .mc-task-form-grid { display:grid;grid-template-columns:1fr 1fr;gap:.85rem; }
+        .mc-stage-actions { display:grid;gap:.5rem;margin-top:.75rem; }
+        .mc-stage-action { display:flex;align-items:flex-start;gap:.6rem;padding:.68rem .72rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;background:rgba(248,250,252,.78);text-decoration:none; }
+        .mc-stage-action:hover { border-color:rgba(99,102,241,.42);background:rgba(99,102,241,.05); }
+        .mc-stage-dot { width:20px;height:20px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;flex:none;font-size:.65rem;font-weight:850; }
+        .mc-stage-clear { margin-top:.75rem;padding:.75rem .8rem;border-radius:.75rem;background:rgba(16,185,129,.1);color:#047857;font-size:.73rem;font-weight:700;line-height:1.4; }
+        .mc-manual-tasks-head { display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-top:.85rem;padding-top:.85rem;border-top:1px solid rgba(148,163,184,.18); }
         .mc-readiness-panel { margin-top:1rem;padding:1rem;border:1px solid rgba(99,102,241,.18);border-radius:.95rem;background:linear-gradient(135deg,rgba(99,102,241,.09),rgba(14,165,233,.045)); }
         .mc-readiness-head { display:grid;grid-template-columns:150px minmax(0,1fr) auto;gap:1rem;align-items:center; }
         .mc-readiness-score { width:118px;height:118px;border-radius:999px;display:grid;place-items:center;background:conic-gradient(var(--mc-readiness-color) calc(var(--mc-readiness-score) * 1%),rgba(148,163,184,.2) 0);position:relative; }
@@ -76,6 +88,8 @@
         .dark .mc-focus-card.is-primary { background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(14,165,233,.08)); }
         .dark .mc-overview-card:hover { box-shadow:0 10px 28px rgba(0,0,0,.22); }
         .dark .mc-overview-muted { color:#94a3b8; }
+        .dark .mc-stage-action { background:rgba(17,24,39,.68);border-color:rgba(255,255,255,.1); }
+        .dark .mc-stage-action:hover { border-color:rgba(99,102,241,.45);background:rgba(99,102,241,.1); }
         .dark .mc-readiness-score::after { background:rgb(17,24,39); }
         .dark .mc-readiness-score span { color:#f9fafb; }
         .dark .mc-readiness-group,.dark .mc-readiness-issue { background:rgba(17,24,39,.68);border-color:rgba(255,255,255,.1); }
@@ -139,9 +153,9 @@
                         <x-filament::icon :icon="$this->record->hasPaymentOverdue() ? 'heroicon-o-exclamation-triangle' : 'heroicon-o-document-currency-euro'" style="width:1.25rem;height:1.25rem;" />
                     </span>
                     <div>
-                        <p style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:{{ $this->record->hasPaymentOverdue() ? '#dc2626' : '#d97706' }};">Project activation</p>
+                        <p style="font-size:.67rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:{{ $this->record->hasPaymentOverdue() ? '#dc2626' : '#d97706' }};">Project invoice</p>
                         <h2 class="text-gray-950 dark:text-white" style="font-size:1rem;font-weight:650;margin-top:.15rem;">
-                            {{ $this->record->hasPaymentOverdue() ? 'Access paused until payment is confirmed' : 'Fiscal invoice pending' }}
+                            {{ $this->record->hasPaymentOverdue() ? 'Invoice payment is overdue' : 'Fiscal invoice pending' }}
                         </h2>
                         <p class="mc-overview-muted" style="font-size:.78rem;line-height:1.5;margin-top:.25rem;">
                             Approved grant: <strong>{{ $eur($this->record->approvedGrantAmount()) }}</strong>.
@@ -149,11 +163,7 @@
                             @if ($this->record->invoice_due_at)
                                 · Payment due by {{ $this->record->invoice_due_at->format('d M Y') }}.
                             @endif
-                            @if ($this->record->hasPaymentOverdue())
-                                Implementation modules are unavailable for this project until support confirms payment.
-                            @else
-                                You can continue implementation while the fiscal invoice is handled manually.
-                            @endif
+                            All implementation modules unlocked when this grant was declared. The invoice can be paid after the first grant instalment arrives.
                         </p>
                     </div>
                 </div>
@@ -196,9 +206,42 @@
         <section id="project-tasks" class="mc-focus-card">
             <div class="mc-focus-head">
                 <div>
-                    <p style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">Project tasks</p>
+                    <p style="font-size:.67rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#6366f1;">Stage priorities</p>
                     <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:750;margin-top:.15rem;">What needs attention now</h2>
-                    <p class="mc-overview-muted" style="font-size:.73rem;line-height:1.45;margin-top:.18rem;">Assigned actions, deadlines and project follow-ups in one visible place.</p>
+                    <p class="mc-overview-muted" style="font-size:.73rem;line-height:1.45;margin-top:.18rem;">Generated from the current project stage and readiness checks.</p>
+                </div>
+                @if($canManage)
+                    <x-filament::button wire:click="openTaskCreate" size="sm" icon="heroicon-o-plus">Add task</x-filament::button>
+                @endif
+            </div>
+
+            @if($stageActions->isNotEmpty())
+                <div class="mc-stage-actions">
+                    @foreach($stageActions as $item)
+                        @php
+                            $isCritical = ($item['severity'] ?? null) === 'critical';
+                            $dotBg = $isCritical ? 'rgba(239,68,68,.12)' : 'rgba(245,158,11,.14)';
+                            $dotColor = $isCritical ? '#dc2626' : '#b45309';
+                        @endphp
+                        <a class="mc-stage-action" href="{{ $readinessTargets[$item['target']] ?? '#' }}">
+                            <span class="mc-stage-dot" style="background:{{ $dotBg }};color:{{ $dotColor }};">{{ $isCritical ? '!' : '•' }}</span>
+                            <span style="min-width:0;">
+                                <span class="text-gray-950 dark:text-white" style="display:block;font-size:.75rem;font-weight:800;line-height:1.3;">{{ $item['label'] }}</span>
+                                <span class="mc-overview-muted" style="display:block;font-size:.68rem;line-height:1.4;margin-top:.12rem;">{{ $item['detail'] }}</span>
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            @else
+                <div class="mc-stage-clear">
+                    No stage-blocking actions detected for the current project stage.
+                </div>
+            @endif
+
+            <div class="mc-manual-tasks-head">
+                <div>
+                    <h3 class="text-gray-950 dark:text-white" style="font-size:.86rem;font-weight:750;">Manual follow-up tasks</h3>
+                    <p class="mc-overview-muted" style="font-size:.68rem;line-height:1.4;margin-top:.12rem;">Team reminders and custom actions. These are separate from automatic stage priorities.</p>
                 </div>
                 <div style="display:flex;align-items:center;gap:.5rem;">
                     <select wire:model.live="taskFilter" class="mc-task-field text-gray-950 dark:text-white" style="width:auto;padding:.4rem 1.8rem .4rem .55rem;font-size:.72rem;">
@@ -206,9 +249,6 @@
                         <option value="completed">Completed</option>
                         <option value="all">All</option>
                     </select>
-                    @if($canManage)
-                        <x-filament::button wire:click="openTaskCreate" size="sm" icon="heroicon-o-plus">Add task</x-filament::button>
-                    @endif
                 </div>
             </div>
 
@@ -412,9 +452,9 @@
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Participants</h3>
             <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $participants['total'] }}</p>
             <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">
-                {{ $implementationAvailable ? ($participants['total'] > 0 ? $participants['complete'].' records have all required files' : 'No participants added yet') : ($this->record->hasPaymentOverdue() ? 'Paused until payment is confirmed' : 'Available after project approval') }}
+                {{ $operationalAvailable ? ($participants['total'] > 0 ? $participants['complete'].' records have all required files' : 'No participants added yet') : ($implementationAvailable ? 'Locked until payment is confirmed' : 'Available after project approval') }}
             </p>
-            <span style="font-size:.72rem;font-weight:600;color:{{ $implementationAvailable ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $implementationAvailable ? 'Open participants →' : ($this->record->hasPaymentOverdue() ? 'Paused for payment' : 'Preview module →') }}</span>
+            <span style="font-size:.72rem;font-weight:600;color:{{ $operationalAvailable ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $operationalAvailable ? 'Open participants →' : ($implementationAvailable ? 'Locked until payment' : 'Preview module →') }}</span>
         </a>
 
         <a href="{{ $urls['documents'] }}" class="mc-overview-card">
@@ -429,9 +469,9 @@
             <h3 class="text-gray-950 dark:text-white" style="font-size:.88rem;font-weight:650;margin-top:.85rem;">Documents</h3>
             <p class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:650;margin-top:.2rem;">{{ $documents['files'] }} files</p>
             <p class="mc-overview-muted" style="font-size:.72rem;margin-top:.15rem;">
-                {{ $implementationAvailable ? ($documents['checklist_applies'] ? $documents['complete'].' checklist items complete' : 'Project files and generated records') : ($this->record->hasPaymentOverdue() ? 'Paused until payment is confirmed' : 'Available after project approval') }}
+                {{ $implementationAvailable ? ($documents['checklist_applies'] ? $documents['complete'].' checklist items complete' : 'Project files and generated records') : 'Available after project approval' }}
             </p>
-            <span style="font-size:.72rem;font-weight:600;color:{{ $implementationAvailable ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $implementationAvailable ? 'Open documents →' : ($this->record->hasPaymentOverdue() ? 'Paused for payment' : 'Preview module →') }}</span>
+            <span style="font-size:.72rem;font-weight:600;color:{{ $implementationAvailable ? '#6366f1' : '#94a3b8' }};margin-top:auto;padding-top:.7rem;">{{ $implementationAvailable ? 'Open documents →' : 'Preview module →' }}</span>
         </a>
     </div>
 
@@ -570,7 +610,7 @@
                         <div>
                             <h3 class="mc-modal-heading">Declare approved grant</h3>
                             <p class="mc-modal-description">
-                                Enter the exact approved grant amount. After confirmation, this amount is locked and can only be changed by support.
+                                Enter the exact approved grant amount, project code and approval proof. After confirmation, the amount is locked and can only be changed by support.
                             </p>
                         </div>
                         <button type="button" class="mc-iconbtn" wire:click="closeApprovalModal">✕</button>
@@ -580,21 +620,33 @@
                     <input id="approved-grant-amount" type="number" min="1" step="0.01" wire:model.live="approvedGrantAmount" class="mc-task-field text-gray-950 dark:text-white" placeholder="e.g. 25000">
                     @error('approvedGrantAmount')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
 
+                    <label for="approved-project-code" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin:1rem 0 .35rem;">Project code / grant reference</label>
+                    <input id="approved-project-code" type="text" wire:model.live="approvedProjectCode" class="mc-task-field text-gray-950 dark:text-white" placeholder="e.g. 2026-1-RO01-KA152-YOU-000000000">
+                    @error('approvedProjectCode')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+
+                    <label for="approved-grant-proof" class="mc-overview-muted" style="display:block;font-size:.68rem;font-weight:650;text-transform:uppercase;margin:1rem 0 .35rem;">Approved budget proof</label>
+                    <input id="approved-grant-proof" type="file" wire:model="approvedGrantProof" accept=".pdf,.jpg,.jpeg,.png,.webp" class="mc-task-field text-gray-950 dark:text-white" style="padding:.55rem;">
+                    @error('approvedGrantProof')<p style="color:#dc2626;font-size:.7rem;margin-top:.3rem;">{{ $message }}</p>@enderror
+                    <p wire:loading wire:target="approvedGrantProof" class="mc-overview-muted" style="font-size:.68rem;margin-top:.3rem;">Uploading proof…</p>
+                    @if($this->record->approved_grant_proof_original_name)
+                        <p class="mc-overview-muted" style="font-size:.68rem;margin-top:.3rem;">Current proof: {{ $this->record->approved_grant_proof_original_name }}</p>
+                    @endif
+
                     <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem;margin-top:1rem;">
                         <div class="mc-readiness-group">
                             <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Platform fee</p>
                             <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $eur($previewFee) }}</p>
-                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ $isUnlimitedOwner ? 'Included in unlimited account access' : '1% of grant, minimum €100' }}</p>
+                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ $isUnlimitedOwner ? 'Included in unlimited account access' : '1% of approved grant' }}</p>
                         </div>
                         <div class="mc-readiness-group">
                             <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">{{ $isUnlimitedOwner ? 'Invoice' : 'Payment term' }}</p>
-                            <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $isUnlimitedOwner ? 'Not required' : '14 days' }}</p>
+                            <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $isUnlimitedOwner ? 'Not required' : 'After first instalment' }}</p>
                             <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ $isUnlimitedOwner ? 'No administration invoice will be generated' : 'Fiscal invoice issued manually' }}</p>
                         </div>
                     </div>
 
                     <div style="margin-top:.9rem;padding:.7rem .8rem;border-radius:.7rem;background:rgba(245,158,11,.1);color:#92400e;font-size:.72rem;line-height:1.45;">
-                        By confirming, you state that this is the exact approved amount. If it is wrong later, contact support; normal project settings will not allow changing it.
+                        By confirming, you state that this is the exact approved amount used for invoicing. Expenses may exceed it through own contribution, but the approved grant itself remains locked.
                     </div>
 
                     <div class="mc-modal-actions">
