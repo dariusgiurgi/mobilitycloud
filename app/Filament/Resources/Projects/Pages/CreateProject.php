@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Projects\Pages;
 
+use App\Filament\Pages\AccountSettings;
 use App\Filament\Resources\Projects\ProjectResource;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Arr;
@@ -15,6 +16,17 @@ class CreateProject extends CreateRecord
     protected mixed $approvedGrantDeclaration = null;
 
     protected mixed $approvedGrantProofUpload = null;
+
+    public function mount(): void
+    {
+        if (! ProjectResource::canCreate()) {
+            $this->redirect(AccountSettings::getUrl());
+
+            return;
+        }
+
+        parent::mount();
+    }
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {

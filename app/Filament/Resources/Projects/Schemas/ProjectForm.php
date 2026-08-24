@@ -200,9 +200,11 @@ class ProjectForm
                     ->addActionLabel('Add another mobility')
                     ->defaultItems(0)
                     ->minItems(fn (string $operation): ?int => $operation === 'create' ? 1 : null)
+                    ->maxItems(10)
                     ->orderColumn('sort_order')
                     ->itemLabel(fn (array $state): string => $state['name'] ?: 'New mobility')
                     ->collapsible()
+                    ->helperText('You can add up to 10 mobilities to one project. Add only the trips you will manage separately.')
                     ->columnSpanFull(),
             ]);
     }

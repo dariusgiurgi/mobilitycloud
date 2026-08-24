@@ -61,6 +61,24 @@ class ProjectSettingsTest extends TestCase
             ]);
     }
 
+    public function test_project_can_have_up_to_ten_mobilities(): void
+    {
+        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
+        $project->update(['status' => 'approved']);
+        $this->actingAs($user);
+
+        $mobilities = collect(range(1, 11))->map(fn (int $number): array => [
+            'name' => 'Mobility '.$number,
+            'start_date' => '2026-07-01',
+            'end_date' => '2026-07-05',
+        ])->all();
+
+        Livewire::test(EditProject::class, ['record' => $project->id])
+            ->fillForm(['mobilities' => $mobilities])
+            ->call('save')
+            ->assertHasFormErrors(['mobilities' => 'max']);
+    }
+
     public function test_expense_prefix_is_saved_in_a_consistent_format(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
