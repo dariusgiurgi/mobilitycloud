@@ -24,6 +24,7 @@ class ProjectReadinessCheck
             'participants.attachments',
             'documents',
             'budgetLines.expenses',
+            'mobilities',
             'tasks',
         ]);
 
@@ -71,6 +72,9 @@ class ProjectReadinessCheck
 
     protected function planningItems(Project $project): array
     {
+        $mobilities = $project->mobilities;
+        $mobilitiesWithDates = $mobilities->filter(fn ($mobility): bool => $mobility->start_date && $mobility->end_date);
+
         return [
             $this->item(
                 'Project dates',
@@ -84,12 +88,14 @@ class ProjectReadinessCheck
             ),
             $this->item(
                 'Mobility dates',
-                $project->mobility_start_date && $project->mobility_end_date ? 'complete' : 'attention',
-                $project->mobility_start_date && $project->mobility_end_date
-                    ? $project->mobility_start_date->format('d M Y').' - '.$project->mobility_end_date->format('d M Y')
-                    : 'Add mobility dates when the activity period is known.',
+                $mobilities->isNotEmpty() && $mobilitiesWithDates->count() === $mobilities->count() ? 'complete' : 'attention',
+                $mobilities->isEmpty()
+                    ? 'Add the first mobility when the activity period is known.'
+                    : ($mobilitiesWithDates->count() === $mobilities->count()
+                        ? $mobilities->count().' mobilit'.($mobilities->count() === 1 ? 'y is' : 'ies are').' scheduled'
+                        : ($mobilities->count() - $mobilitiesWithDates->count()).' mobility period(s) still need dates.'),
                 'Planning',
-                'settings',
+                'mobility',
                 'warning',
             ),
             $this->item(

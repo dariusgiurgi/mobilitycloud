@@ -513,6 +513,7 @@ class ViewProjectOverview extends Page
         return [
             'application' => ProjectResource::projectUrl($this->record, 'write'),
             'budget' => ProjectResource::projectUrl($this->record, $this->record->implementationModulesAvailable() ? 'board' : 'estimate'),
+            'mobility' => ProjectResource::projectUrl($this->record, 'mobility'),
             'participants' => ProjectResource::projectUrl($this->record, 'participants'),
             'documents' => ProjectResource::projectUrl($this->record, 'documents'),
             'settings' => ProjectResource::projectUrl($this->record, 'edit'),
@@ -548,14 +549,7 @@ class ViewProjectOverview extends Page
                 'url' => $urls['application'],
                 'icon' => 'heroicon-o-arrow-path',
             ],
-            ProjectStatus::Approved, ProjectStatus::Active => [
-                'eyebrow' => 'Recommended next step',
-                'title' => 'Review the approved budget',
-                'description' => 'Use the management modules for budget, participants, mobility evidence and documents.',
-                'label' => 'Open budget',
-                'url' => $urls['budget'],
-                'icon' => 'heroicon-o-banknotes',
-            ],
+            ProjectStatus::Approved, ProjectStatus::Active => $this->getManagementNextStep($urls),
             ProjectStatus::Completed => [
                 'eyebrow' => 'Recommended next step',
                 'title' => 'Complete the final project file',
@@ -565,6 +559,66 @@ class ViewProjectOverview extends Page
                 'icon' => 'heroicon-o-archive-box',
             ],
         };
+    }
+
+    /**
+     * Keep the overview's primary call to action aligned with the same
+     * readiness checks displayed immediately below it.
+     */
+    protected function getManagementNextStep(array $urls): array
+    {
+        $priority = [
+            'Project dates' => 10,
+            'Grant amount' => 20,
+            'Budget baskets' => 30,
+            'Overspending' => 40,
+            'Mobility dates' => 50,
+            'Participant register' => 60,
+            'Participant documents' => 70,
+            'Participant contact data' => 80,
+            'Project file checklist' => 90,
+            'Signed generated records' => 100,
+            'Expense evidence' => 110,
+            'Open tasks' => 120,
+        ];
+
+        $issue = collect($this->getProjectReadiness()['items'])
+            ->filter(fn (array $item): bool => in_array($item['status'], ['missing', 'attention'], true))
+            ->sortBy(fn (array $item): array => [
+                $item['severity'] === 'critical' ? 0 : 1,
+                $priority[$item['label']] ?? 999,
+            ])
+            ->first();
+
+        if (! $issue) {
+            return [
+                'eyebrow' => 'Project is on track',
+                'title' => 'Continue managing the project',
+                'description' => 'The key setup checks are complete. Keep mobility evidence, expenses and documents up to date as work progresses.',
+                'label' => 'Open mobility',
+                'url' => $urls['mobility'],
+                'icon' => 'heroicon-o-map',
+            ];
+        }
+
+        $actions = [
+            'settings' => ['Complete project settings', 'Open settings', 'heroicon-o-cog-6-tooth'],
+            'budget' => ['Review the project budget', 'Open budget', 'heroicon-o-banknotes'],
+            'mobility' => ['Set up mobilities', 'Open mobility', 'heroicon-o-map-pin'],
+            'participants' => ['Complete participant information', 'Open participants', 'heroicon-o-user-group'],
+            'documents' => ['Complete the project file', 'Open documents', 'heroicon-o-document-duplicate'],
+            'tasks' => ['Resolve overdue tasks', 'View tasks', 'heroicon-o-check-circle'],
+        ];
+        [$title, $label, $icon] = $actions[$issue['target']] ?? ['Review project readiness', 'Open overview', 'heroicon-o-clipboard-document-check'];
+
+        return [
+            'eyebrow' => $issue['severity'] === 'critical' ? 'Important next step' : 'Recommended next step',
+            'title' => $title,
+            'description' => $issue['detail'],
+            'label' => $label,
+            'url' => $urls[$issue['target']] ?? '#project-tasks',
+            'icon' => $icon,
+        ];
     }
 
     public function requestTransitionTo(string $target): void

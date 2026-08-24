@@ -16,6 +16,7 @@
         $readinessTargets = [
             'application' => $urls['application'],
             'budget' => $urls['budget'],
+            'mobility' => $urls['mobility'],
             'participants' => $urls['participants'],
             'documents' => $urls['documents'],
             'settings' => $urls['settings'],

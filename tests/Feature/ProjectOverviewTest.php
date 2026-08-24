@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Models\ProjectMobility;
 use App\Models\User;
 use App\Services\ProjectReadinessCheck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,6 +57,32 @@ class ProjectOverviewTest extends TestCase
 
         $this->assertStringContainsString('/estimate', $component->instance()->getModuleUrls()['budget']);
         $this->assertArrayHasKey('groups', $component->instance()->getProjectReadiness());
+    }
+
+    public function test_management_next_step_prioritises_the_most_important_readiness_issue(): void
+    {
+        [$project, $user] = $this->workspaceProjectAndUser('member');
+        $project->update([
+            'status' => 'approved',
+            'start_date' => today(),
+            'end_date' => today()->addMonth(),
+            'approved_budget' => 1000,
+            'approved_grant_amount' => 1000,
+        ]);
+        $project->budgetLines()->first()->update(['allocated_budget' => 1000]);
+        ProjectMobility::create([
+            'project_id' => $project->id,
+            'name' => 'Mobility 1',
+            'start_date' => today()->addWeek(),
+            'end_date' => today()->addWeeks(2),
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertSee('Complete the project file')
+            ->assertSee('Open documents')
+            ->assertDontSee('Review the approved budget');
     }
 
     public function test_manager_can_use_an_allowed_lifecycle_transition(): void
