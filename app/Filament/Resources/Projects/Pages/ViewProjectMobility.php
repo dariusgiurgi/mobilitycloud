@@ -3,10 +3,8 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
-use App\Models\MobilityFeedbackCampaign;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
-use App\Services\MobilityFeedbackAnalytics;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
@@ -34,10 +32,6 @@ class ViewProjectMobility extends Page
     public string $activeMobilityTab = 'evidences';
 
     public ?int $selectedMobilityId = null;
-
-    public bool $showFeedbackResultsModal = false;
-
-    public ?int $viewingFeedbackCampaignId = null;
 
     public string $mobilityReport = '';
 
@@ -150,70 +144,6 @@ class ViewProjectMobility extends Page
         return $this->selectedMobilityId
             ? $this->record->mobilities()->find($this->selectedMobilityId)
             : null;
-    }
-
-    public function getSelectedMobilityFeedbackCampaigns()
-    {
-        $mobility = $this->getSelectedMobility();
-
-        if (! $mobility) {
-            return collect();
-        }
-
-        return $mobility->feedbackCampaigns()
-            ->withCount('responses')
-            ->latest('id')
-            ->get()
-            ->filter(fn (MobilityFeedbackCampaign $campaign): bool => $campaign->canBeAccessedBy(auth()->user()))
-            ->values();
-    }
-
-    public function openFeedbackResults(int $campaignId): void
-    {
-        $campaign = MobilityFeedbackCampaign::query()
-            ->with(['mobility.project', 'responses' => fn ($query) => $query->latest('submitted_at')])
-            ->findOrFail($campaignId);
-
-        abort_unless(
-            $campaign->project_mobility_id === $this->selectedMobilityId
-                && $campaign->canBeAccessedBy(auth()->user()),
-            403
-        );
-
-        $this->viewingFeedbackCampaignId = $campaign->id;
-        $this->showFeedbackResultsModal = true;
-    }
-
-    public function closeFeedbackResults(): void
-    {
-        $this->showFeedbackResultsModal = false;
-        $this->viewingFeedbackCampaignId = null;
-    }
-
-    public function getViewingFeedbackCampaign(): ?MobilityFeedbackCampaign
-    {
-        if (! $this->viewingFeedbackCampaignId) {
-            return null;
-        }
-
-        $campaign = MobilityFeedbackCampaign::query()
-            ->with(['mobility.project', 'responses' => fn ($query) => $query->latest('submitted_at')])
-            ->find($this->viewingFeedbackCampaignId);
-
-        return $campaign
-            && $campaign->project_mobility_id === $this->selectedMobilityId
-            && $campaign->canBeAccessedBy(auth()->user())
-            ? $campaign
-            : null;
-    }
-
-    public function getViewingFeedbackAnalytics(): array
-    {
-        $campaign = $this->getViewingFeedbackCampaign();
-
-        return $campaign
-            ? app(MobilityFeedbackAnalytics::class)->forCampaign($campaign)
-            : ['response_count' => 0, 'question_count' => 0, 'overall_rating' => null, 'questions' => []];
     }
 
     public function getMobilityStatuses(): array

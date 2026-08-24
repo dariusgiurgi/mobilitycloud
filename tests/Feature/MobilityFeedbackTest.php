@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\FeedbackForms;
+use App\Filament\Resources\Projects\Pages\ViewProjectFeedback;
 use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Models\FeedbackForm;
 use App\Models\MobilityFeedbackCampaign;
@@ -107,9 +108,9 @@ class MobilityFeedbackTest extends TestCase
             ->assertDownload('anonymous-feedback-porto-final-feedback.pdf');
     }
 
-    public function test_owner_can_build_a_global_form_and_share_a_snapshot_with_a_mobility(): void
+    public function test_owner_can_build_a_global_form_and_share_a_snapshot_from_the_project_feedback_module(): void
     {
-        [$user, , $mobility] = $this->projectMobility();
+        [$user, $project, $mobility] = $this->projectMobility();
         $this->actingAs($user);
 
         Livewire::test(FeedbackForms::class)
@@ -121,7 +122,7 @@ class MobilityFeedbackTest extends TestCase
         $form = FeedbackForm::query()->sole();
         $this->assertCount(5, $form->questions);
 
-        Livewire::test(FeedbackForms::class)
+        Livewire::test(ViewProjectFeedback::class, ['record' => $project->id])
             ->call('openShareForm', $form->id)
             ->set('shareMobilityId', (string) $mobility->id)
             ->set('shareCampaignTitle', 'Porto evaluation')
@@ -190,7 +191,7 @@ class MobilityFeedbackTest extends TestCase
         $this->assertEqualsCanonicalizing(['Very welcoming team.', 'More free time would help.'], $report['questions'][2]['answers']);
     }
 
-    public function test_feedback_results_are_available_from_the_related_mobility_workspace(): void
+    public function test_feedback_results_are_available_from_the_project_feedback_module(): void
     {
         [$user, $project, $mobility] = $this->projectMobility();
         $campaign = $this->campaign($user, $mobility);
@@ -202,12 +203,23 @@ class MobilityFeedbackTest extends TestCase
 
         $this->actingAs($user);
 
-        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
-            ->assertSee('Participant feedback')
+        Livewire::test(ViewProjectFeedback::class, ['record' => $project->id])
+            ->assertSee('Feedback links in this project')
             ->assertSee('Porto final feedback')
-            ->call('openFeedbackResults', $campaign->id)
-            ->assertSet('showFeedbackResultsModal', true)
+            ->call('openResults', $campaign->id)
+            ->assertSet('showResultsModal', true)
             ->assertSee('Excellent group experience.');
+    }
+
+    public function test_mobility_workspace_does_not_show_feedback_controls(): void
+    {
+        [$user, $project, $mobility] = $this->projectMobility();
+        $this->campaign($user, $mobility);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertDontSee('Participant feedback')
+            ->assertDontSee('View results');
     }
 
     public function test_final_archive_includes_a_feedback_pdf_for_each_mobility_campaign(): void

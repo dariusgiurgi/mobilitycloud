@@ -64,7 +64,7 @@ class FeedbackForms extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Build reusable surveys once, then share an anonymous link for any mobility.';
+        return 'Build reusable surveys once. Create links and review results from the Feedback module inside each project.';
     }
 
     public function getFormsProperty(): Collection

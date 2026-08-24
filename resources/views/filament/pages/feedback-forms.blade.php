@@ -2,18 +2,16 @@
     <x-ui-polish />
     @php
         $forms = $this->forms;
-        $campaigns = $this->campaigns;
-        $mobilities = $this->availableMobilities;
         $viewingCampaign = $this->getViewingCampaignProperty();
         $campaignResults = $this->getCampaignResultsProperty();
     @endphp
     <style>
-        .mc-feedback-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(310px,.95fr);gap:1rem;align-items:start}.mc-feedback-list{display:grid;gap:.55rem}.mc-feedback-card{border:1px solid rgba(148,163,184,.22);border-radius:.85rem;padding:.8rem;background:rgba(255,255,255,.65)}.mc-feedback-actions{display:flex;gap:.38rem;flex-wrap:wrap;align-items:center}.mc-feedback-chip{display:inline-flex;align-items:center;padding:.18rem .42rem;border-radius:99px;background:#eef2ff;color:#4338ca;font-size:.61rem;font-weight:750}.mc-feedback-sub{color:#64748b;font-size:.68rem;line-height:1.45}.mc-feedback-question{padding:.7rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(248,250,252,.74);margin-top:.5rem}.mc-feedback-fields{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}.mc-feedback-field label{display:block;color:#64748b;font-size:.6rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.22rem}.mc-feedback-field input,.mc-feedback-field textarea,.mc-feedback-field select{width:100%;border:1px solid rgba(100,116,139,.28);border-radius:.5rem;padding:.47rem .55rem;background:transparent;font-size:.73rem}.mc-feedback-field textarea{min-height:70px;resize:vertical}.mc-feedback-modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.45)}.mc-feedback-modal-panel{width:min(960px,100%);max-height:calc(100vh - 2rem);overflow:auto;border-radius:1rem;background:white;box-shadow:0 25px 70px rgba(15,23,42,.28);padding:1rem}.mc-feedback-empty{padding:1.4rem;text-align:center;color:#64748b;font-size:.75rem;border:1px dashed rgba(100,116,139,.3);border-radius:.8rem}@media(max-width:900px){.mc-feedback-grid{grid-template-columns:1fr}}@media(max-width:600px){.mc-feedback-fields{grid-template-columns:1fr}}
+        .mc-feedback-grid{max-width:940px}.mc-feedback-list{display:grid;gap:.55rem}.mc-feedback-card{border:1px solid rgba(148,163,184,.22);border-radius:.85rem;padding:.8rem;background:rgba(255,255,255,.65)}.mc-feedback-actions{display:flex;gap:.38rem;flex-wrap:wrap;align-items:center}.mc-feedback-chip{display:inline-flex;align-items:center;padding:.18rem .42rem;border-radius:99px;background:#eef2ff;color:#4338ca;font-size:.61rem;font-weight:750}.mc-feedback-sub{color:#64748b;font-size:.68rem;line-height:1.45}.mc-feedback-question{padding:.7rem;border:1px solid rgba(148,163,184,.2);border-radius:.7rem;background:rgba(248,250,252,.74);margin-top:.5rem}.mc-feedback-fields{display:grid;grid-template-columns:1fr 1fr;gap:.55rem}.mc-feedback-field label{display:block;color:#64748b;font-size:.6rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.22rem}.mc-feedback-field input,.mc-feedback-field textarea,.mc-feedback-field select{width:100%;border:1px solid rgba(100,116,139,.28);border-radius:.5rem;padding:.47rem .55rem;background:transparent;font-size:.73rem}.mc-feedback-field textarea{min-height:70px;resize:vertical}.mc-feedback-modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.45)}.mc-feedback-modal-panel{width:min(960px,100%);max-height:calc(100vh - 2rem);overflow:auto;border-radius:1rem;background:white;box-shadow:0 25px 70px rgba(15,23,42,.28);padding:1rem}.mc-feedback-empty{padding:1.4rem;text-align:center;color:#64748b;font-size:.75rem;border:1px dashed rgba(100,116,139,.3);border-radius:.8rem}@media(max-width:600px){.mc-feedback-fields{grid-template-columns:1fr}}
     </style>
 
     <div class="mc-feedback-grid">
         <div class="mc-feedback-list">
-            <x-filament::section heading="Your feedback library" description="Create a form once. Its content is copied when you share it, so historical responses always keep their original questions.">
+            <x-filament::section heading="Your feedback library" description="Create reusable forms here. Use the Feedback module inside a project to create links, see results and export reports.">
                 <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem;">
                     <div class="mc-feedback-sub">No personal details are requested or stored by the anonymous response flow.</div>
                     <div class="mc-feedback-actions">
@@ -33,7 +31,6 @@
                         <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:center;flex-wrap:wrap;margin-top:.62rem;">
                             <span class="mc-feedback-sub">Used in {{ $form->campaigns_count }} {{ \Illuminate\Support\Str::plural('mobility', $form->campaigns_count) }}</span>
                             <div class="mc-feedback-actions">
-                                <x-filament::button wire:click="openShareForm({{ $form->id }})" size="sm" icon="heroicon-o-paper-airplane">Share with mobility</x-filament::button>
                                 <x-filament::button wire:click="editForm({{ $form->id }})" color="gray" size="sm">Edit</x-filament::button>
                                 <x-filament::button wire:click="duplicateForm({{ $form->id }})" color="gray" size="sm">Copy</x-filament::button>
                                 <x-filament::button wire:click="archiveForm({{ $form->id }})" wire:confirm="Archive this form? Existing feedback links and results remain available." color="gray" size="sm">Archive</x-filament::button>
@@ -46,35 +43,6 @@
             </x-filament::section>
         </div>
 
-        <x-filament::section heading="Shared feedback links" description="Each link belongs to one mobility. Responses are anonymous and never linked to participant records.">
-            @forelse($campaigns as $campaign)
-                @php($link = route('public.mobility-feedback.show', $campaign->public_token))
-                <div class="mc-feedback-card" wire:key="feedback-campaign-{{ $campaign->id }}" style="margin-bottom:.55rem;">
-                    <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:flex-start;">
-                        <div>
-                            <div style="font-size:.78rem;font-weight:780;">{{ $campaign->title }}</div>
-                            <div class="mc-feedback-sub" style="margin-top:.12rem;">{{ $campaign->mobility?->project?->name }} · {{ $campaign->mobility?->name }}</div>
-                        </div>
-                        <span class="mc-feedback-chip" style="background:{{ $campaign->hasActiveLink() ? '#ecfdf5' : '#f1f5f9' }};color:{{ $campaign->hasActiveLink() ? '#047857' : '#64748b' }};">{{ $campaign->hasActiveLink() ? 'Open' : 'Closed' }}</span>
-                    </div>
-                    <div class="mc-feedback-sub" style="margin-top:.42rem;">{{ $campaign->responses_count }} anonymous {{ \Illuminate\Support\Str::plural('response', $campaign->responses_count) }}</div>
-                    <div class="mc-feedback-actions" style="margin-top:.58rem;">
-                        <button type="button" x-data="{ copied:false }" x-on:click="navigator.clipboard && window.isSecureContext ? navigator.clipboard.writeText('{{ $link }}') : null; copied=true; setTimeout(() => copied=false, 1500)" style="padding:.34rem .48rem;border:1px solid rgba(100,116,139,.26);border-radius:.42rem;background:transparent;font-size:.65rem;font-weight:700;cursor:pointer;"><span x-text="copied ? 'Copied' : 'Copy link'">Copy link</span></button>
-                        <a href="{{ $link }}" target="_blank" style="padding:.34rem .48rem;border:1px solid rgba(100,116,139,.26);border-radius:.42rem;color:inherit;font-size:.65rem;font-weight:700;text-decoration:none;">Open</a>
-                        <x-filament::button wire:click="openResults({{ $campaign->id }})" color="gray" size="sm">Results</x-filament::button>
-                        @if($campaign->canBeManagedBy(auth()->user()))
-                            @if($campaign->hasActiveLink())
-                                <x-filament::button wire:click="closeCampaign({{ $campaign->id }})" wire:confirm="Close this feedback link? It can be reopened later." color="gray" size="sm">Close</x-filament::button>
-                            @else
-                                <x-filament::button wire:click="reopenCampaign({{ $campaign->id }})" size="sm">Reopen</x-filament::button>
-                            @endif
-                        @endif
-                    </div>
-                </div>
-            @empty
-                <div class="mc-feedback-empty">No feedback link has been shared yet.</div>
-            @endforelse
-        </x-filament::section>
     </div>
 
     @if($showFormEditor)
@@ -109,10 +77,6 @@
                 <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;"><x-filament::button wire:click="closeModal('editor')" color="gray">Cancel</x-filament::button><x-filament::button wire:click="saveForm" wire:loading.attr="disabled" wire:target="saveForm">Save form</x-filament::button></div>
             </div>
         </div>
-    @endif
-
-    @if($showShareModal)
-        <div class="mc-feedback-modal" role="dialog" aria-modal="true"><div class="mc-feedback-modal-panel" style="width:min(580px,100%);"><div style="display:flex;justify-content:space-between;gap:.8rem;align-items:flex-start;margin-bottom:.85rem;"><div><h2 style="font-size:1rem;font-weight:800;margin:0;">Share anonymous feedback</h2><p class="mc-feedback-sub" style="margin:.2rem 0 0;">The selected form will be copied for this mobility. Later form edits will not change it.</p></div><button wire:click="closeModal('share')" type="button" style="border:0;background:transparent;font-size:1.2rem;cursor:pointer;">×</button></div><div class="mc-feedback-fields"><div class="mc-feedback-field"><label>Mobility</label><select wire:model="shareMobilityId"><option value="">Choose a mobility</option>@foreach($mobilities as $mobility)<option value="{{ $mobility->id }}">{{ $mobility->project?->name }} · {{ $mobility->name }}</option>@endforeach</select>@error('shareMobilityId')<div style="color:#dc2626;font-size:.63rem;">{{ $message }}</div>@enderror</div><div class="mc-feedback-field"><label>Link title</label><input wire:model="shareCampaignTitle">@error('shareCampaignTitle')<div style="color:#dc2626;font-size:.63rem;">{{ $message }}</div>@enderror</div></div><div style="padding:.65rem;border:1px solid rgba(34,197,94,.23);border-radius:.65rem;background:#f0fdf4;color:#166534;font-size:.69rem;line-height:1.45;margin-top:.8rem;">This creates one public link. The platform does not collect names, emails, participant IDs, IP addresses or user accounts with responses.</div><div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem;"><x-filament::button wire:click="closeModal('share')" color="gray">Cancel</x-filament::button><x-filament::button wire:click="createCampaign" wire:loading.attr="disabled" wire:target="createCampaign">Create link</x-filament::button></div></div></div>
     @endif
 
     @if($showResultsModal && $viewingCampaign)

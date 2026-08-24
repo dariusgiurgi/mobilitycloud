@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Filament\Resources\Projects\Pages\ViewProjectBoard;
 use App\Filament\Resources\Projects\Pages\ViewProjectDocuments;
 use App\Filament\Resources\Projects\Pages\ViewProjectEstimate;
+use App\Filament\Resources\Projects\Pages\ViewProjectFeedback;
 use App\Filament\Resources\Projects\Pages\ViewProjectFinalisation;
 use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
@@ -83,6 +84,7 @@ class ProjectResource extends Resource
             'board' => ViewProjectBoard::route('/{record}/board'),
             'mobility' => ViewProjectMobility::route('/{record}/mobility'),
             'participants' => ViewProjectParticipants::route('/{record}/participants'),
+            'feedback' => ViewProjectFeedback::route('/{record}/feedback'),
             'documents' => ViewProjectDocuments::route('/{record}/documents'),
             'finalisation' => ViewProjectFinalisation::route('/{record}/finalisation'),
             'edit' => EditProject::route('/{record}/edit'),
@@ -128,6 +130,12 @@ class ProjectResource extends Resource
                 ->url(static::projectUrl($record, 'participants'))
                 ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'participants'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
+
+            NavigationItem::make('Feedback')
+                ->icon(Heroicon::OutlinedChatBubbleLeftRight)
+                ->url(static::projectUrl($record, 'feedback'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'feedback'))
+                ->isActiveWhen(fn () => $page instanceof ViewProjectFeedback),
 
             NavigationItem::make('Documents')
                 ->icon(Heroicon::OutlinedDocumentDuplicate)

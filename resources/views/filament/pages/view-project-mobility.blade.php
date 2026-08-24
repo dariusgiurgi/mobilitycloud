@@ -1,8 +1,5 @@
 <x-filament-panels::page>
     <x-ui-polish />
-    <style>
-        .mc-project-feedback-modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.45)}.mc-project-feedback-modal-panel{width:min(960px,100%);max-height:calc(100vh - 2rem);overflow:auto;border-radius:1rem;background:white;box-shadow:0 25px 70px rgba(15,23,42,.28);padding:1rem}
-    </style>
     @if (! $record->implementationModulesAvailable())
         @include('filament.pages.partials.project-module-locked', [
             'record' => $record,
@@ -34,10 +31,6 @@
         $mobilities = $record->mobilities()->get();
         $selectedMobility = $this->getSelectedMobility();
         $mobilityStatuses = collect($this->getMobilityStatuses())->keyBy('id');
-        $feedbackCampaigns = $this->getSelectedMobilityFeedbackCampaigns();
-        $feedbackResponseCount = $feedbackCampaigns->sum('responses_count');
-        $viewingFeedbackCampaign = $this->getViewingFeedbackCampaign();
-        $viewingFeedbackAnalytics = $this->getViewingFeedbackAnalytics();
     @endphp
 
     <x-filament::section heading="Choose a mobility" description="Everything below belongs only to the selected mobility. The same submenus are kept for every trip.">
@@ -102,9 +95,6 @@
                 Mobility
             </x-filament::tabs.item>
         </x-filament::tabs>
-        @if($feedbackCampaigns->isNotEmpty())
-            <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;font-weight:700;">Feedback: {{ $feedbackResponseCount }} {{ \Illuminate\Support\Str::plural('response', $feedbackResponseCount) }}</span>
-        @endif
     </div>
 
     @if($activeMobilityTab === 'reports')
@@ -641,49 +631,5 @@
     @endif
     @endif
 
-    @if($selectedMobility)
-    <x-filament::section heading="Participant feedback" description="Anonymous evaluations linked to this mobility. Results are grouped by question, never by participant." style="margin-top:1rem;">
-        <x-slot name="afterHeader">
-            <x-filament::button tag="a" :href="\App\Filament\Pages\FeedbackForms::getUrl()" color="gray" size="sm" icon="heroicon-m-chat-bubble-left-right">
-                Manage feedback forms
-            </x-filament::button>
-        </x-slot>
-
-        @forelse($feedbackCampaigns as $campaign)
-            <div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.68rem 0;{{ ! $loop->last ? 'border-bottom:1px solid rgba(148,163,184,.18);' : '' }}">
-                <div>
-                    <div class="text-gray-950 dark:text-white" style="font-size:.76rem;font-weight:800;">{{ $campaign->title }}</div>
-                    <div class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;margin-top:.14rem;">{{ $campaign->responses_count }} anonymous {{ \Illuminate\Support\Str::plural('response', $campaign->responses_count) }} · {{ $campaign->hasActiveLink() ? 'Link open' : 'Link closed' }}</div>
-                </div>
-                <x-filament::button wire:click="openFeedbackResults({{ $campaign->id }})" color="gray" size="sm" icon="heroicon-m-chart-bar">
-                    View results
-                </x-filament::button>
-            </div>
-        @empty
-            <div class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;line-height:1.5;">No anonymous feedback form is linked to this mobility yet. Create a reusable form once, then share it for this trip.</div>
-        @endforelse
-    </x-filament::section>
-    @endif
-
-    @if($showFeedbackResultsModal && $viewingFeedbackCampaign)
-        <div class="mc-project-feedback-modal" role="dialog" aria-modal="true">
-            <div class="mc-project-feedback-modal-panel">
-                <div style="display:flex;justify-content:space-between;gap:.8rem;align-items:flex-start;margin-bottom:.85rem;">
-                    <div>
-                        <h2 class="text-gray-950" style="font-size:1rem;font-weight:800;margin:0;">{{ $viewingFeedbackCampaign->title }}</h2>
-                        <p class="text-gray-500" style="font-size:.7rem;margin:.2rem 0 0;">{{ $record->name }} · {{ $viewingFeedbackCampaign->mobility?->name }}</p>
-                    </div>
-                    <button wire:click="closeFeedbackResults" type="button" aria-label="Close feedback results" style="border:0;background:transparent;font-size:1.2rem;cursor:pointer;">×</button>
-                </div>
-                <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem;">
-                    <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
-                        <a href="{{ route('feedback-campaigns.export-pdf', $viewingFeedbackCampaign) }}" style="padding:.4rem .55rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.68rem;font-weight:700;">Export PDF</a>
-                        <a href="{{ route('feedback-campaigns.export', $viewingFeedbackCampaign) }}" style="padding:.4rem .55rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.68rem;font-weight:700;">Export CSV</a>
-                    </div>
-                </div>
-                @include('filament.pages.partials.mobility-feedback-analytics', ['analytics' => $viewingFeedbackAnalytics])
-            </div>
-        </div>
-    @endif
     @endif
 </x-filament-panels::page>
