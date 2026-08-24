@@ -70,7 +70,7 @@ class ProjectParticipantsPageTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
-            ->call('openImport')
+            ->call('openCsvModal')
             ->assertSee('Download blank template')
             ->assertDontSee('Nothing was imported');
     }

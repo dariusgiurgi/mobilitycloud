@@ -289,13 +289,19 @@ class ViewProjectParticipants extends Page
             ->send();
     }
 
-    public function openImport(): void
+    public function openCsvModal(): void
     {
-        $this->authorizeManagementModuleMutation('participants', 'import', 'Participant import');
+        $this->authorizeProjectModuleAccess('participants');
         $this->resetValidation('importFile');
         $this->importFile = null;
         $this->importErrors = [];
         $this->showImportModal = true;
+    }
+
+    public function openImport(): void
+    {
+        $this->authorizeManagementModuleMutation('participants', 'import', 'Participant import');
+        $this->openCsvModal();
     }
 
     public function importParticipants(ParticipantCsvImporter $importer): void

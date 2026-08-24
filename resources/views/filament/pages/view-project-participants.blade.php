@@ -72,15 +72,9 @@
                 <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;margin-top:.2rem;">{{ $stats['organisations'] }} organisations · {{ $stats['fo'] }} participants with fewer opportunities @if(!$canManage) · Read-only access @endif</p>
             </div>
             <div class="mc-part-actions">
-                <x-filament::button tag="a" :href="route('projects.export-participants', $record)" color="gray" icon="heroicon-o-arrow-down-tray" size="sm">Export CSV</x-filament::button>
+                <x-filament::button wire:click="openCsvModal" color="gray" icon="heroicon-o-arrow-down-tray" size="sm">Import / export CSV</x-filament::button>
                 @if($canManage)
-                    <x-filament::button wire:click="openImport" color="gray" icon="heroicon-o-arrow-up-tray" size="sm">Import CSV</x-filament::button>
-            <span style="display:inline-flex;align-items:center;gap:.35rem;">
-                <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list" size="sm">Attendance list</x-filament::button>
-                <x-help-tip id="participant-attendance-list" title="Attendance list">
-                    Generates one landscape PDF grouped by partner organisation. Every organisation starts on a new page; signed copies are stored later in the Documents section.
-                </x-help-tip>
-            </span>
+                    <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list" size="sm">Attendance list</x-filament::button>
                     <x-filament::button wire:click="openCreate" icon="heroicon-o-plus" size="sm">Add participant</x-filament::button>
                     <x-filament::button wire:click="openRegistrationLinksModal" color="gray" icon="heroicon-o-link" size="sm">{{ $registrationUrl ? 'Manage form links' : 'Create form link' }}</x-filament::button>
                 @endif
@@ -112,32 +106,44 @@
         <div class="mc-modal-backdrop"
              wire:click.self="$set('showImportModal', false)">
             <div class="mc-part-modal mc-modal-panel"><div class="mc-modal-body">
-                <h3 class="mc-modal-heading">Import participants</h3>
+                <h3 class="mc-modal-heading">Import or export participants</h3>
                 <p class="mc-modal-description">
-                    Start with the blank template or upload a CSV exported by MobilityCloud. Complete name is required. Dates may use YYYY-MM-DD, DD.MM.YYYY or DD/MM/YYYY; Excel date serials are also accepted. The import is limited to 1,000 rows and is cancelled entirely if a row is invalid.
+                    Download the current register or use the blank template to prepare a new import.
                 </p>
-                <a href="{{ route('projects.participant-import-template', $record) }}" style="display:inline-flex;align-items:center;gap:.35rem;color:#4f46e5;font-size:13px;font-weight:650;margin:.05rem 0 .8rem;text-decoration:none;">↓ Download blank template</a>
-                <input type="file" wire:model="importFile" accept=".csv,text/csv" class="text-gray-700 dark:text-gray-200" style="width:100%;font-size:13px;" aria-label="Participants CSV file">
-                @error('importFile') <span class="mc-part-err" style="margin-top:.5rem;">{{ $message }}</span> @enderror
-                @if(count($importErrors))
-                    <div role="alert" style="margin-top:.8rem;padding:.7rem .8rem;border:1px solid rgba(239,68,68,.25);border-radius:.65rem;background:rgba(254,242,242,.75);">
-                        <strong style="display:block;color:#b91c1c;font-size:12px;">Nothing was imported. Fix these rows and upload the file again:</strong>
-                        <ul style="margin:.4rem 0 0;padding-left:1.1rem;color:#991b1b;font-size:12px;line-height:1.5;">
-                            @foreach($importErrors as $error)
-                                <li>{{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    </div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.7rem 0 1rem;">
+                    <a href="{{ route('projects.export-participants', $record) }}" style="display:inline-flex;align-items:center;gap:.35rem;padding:8px 11px;border:1px solid rgba(100,116,139,.3);border-radius:8px;color:#334155;font-size:13px;font-weight:650;text-decoration:none;">↓ Export current register</a>
+                    @if($canManage)
+                        <a href="{{ route('projects.participant-import-template', $record) }}" style="display:inline-flex;align-items:center;gap:.35rem;padding:8px 11px;border:1px solid rgba(99,102,241,.25);border-radius:8px;color:#4f46e5;font-size:13px;font-weight:650;text-decoration:none;">↓ Download blank template</a>
+                    @endif
+                </div>
+                @if($canManage)
+                    <p class="mc-modal-description" style="margin-bottom:.55rem;">To import: upload a CSV exported by MobilityCloud or the blank template. Complete name is required. Dates accept YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY and Excel serials. Maximum 1,000 rows; if a row is invalid, nothing is imported.</p>
+                    <input type="file" wire:model="importFile" accept=".csv,text/csv" class="text-gray-700 dark:text-gray-200" style="width:100%;font-size:13px;" aria-label="Participants CSV file">
+                    @error('importFile') <span class="mc-part-err" style="margin-top:.5rem;">{{ $message }}</span> @enderror
+                    @if(count($importErrors))
+                        <div role="alert" style="margin-top:.8rem;padding:.7rem .8rem;border:1px solid rgba(239,68,68,.25);border-radius:.65rem;background:rgba(254,242,242,.75);">
+                            <strong style="display:block;color:#b91c1c;font-size:12px;">Nothing was imported. Fix these rows and upload the file again:</strong>
+                            <ul style="margin:.4rem 0 0;padding-left:1.1rem;color:#991b1b;font-size:12px;line-height:1.5;">
+                                @foreach($importErrors as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+                @else
+                    <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;line-height:1.45;margin:0;">You have read-only access, so importing participants is not available.</p>
                 @endif
 
                 <div class="mc-modal-actions">
                     <button type="button" wire:click="$set('showImportModal', false)"
                             style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
-                    <button type="button" wire:click="importParticipants" wire:loading.attr="disabled" wire:target="importParticipants,importFile"
-                            style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
-                        <span wire:loading.remove wire:target="importParticipants,importFile">Import</span>
-                        <span wire:loading wire:target="importParticipants,importFile">Importing...</span>
-                    </button>
+                    @if($canManage)
+                        <button type="button" wire:click="importParticipants" wire:loading.attr="disabled" wire:target="importParticipants,importFile"
+                                style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">
+                            <span wire:loading.remove wire:target="importParticipants,importFile">Import</span>
+                            <span wire:loading wire:target="importParticipants,importFile">Importing...</span>
+                        </button>
+                    @endif
                 </div>
             </div></div>
         </div>
@@ -336,8 +342,8 @@
                 <x-filament::button wire:click="openCreate" icon="heroicon-o-plus">
                     Add participant
                 </x-filament::button>
-                <x-filament::button wire:click="openImport" color="gray" icon="heroicon-o-arrow-up-tray">
-                    Import CSV
+                <x-filament::button wire:click="openCsvModal" color="gray" icon="heroicon-o-arrow-down-tray">
+                    Import / export CSV
                 </x-filament::button>
                 <x-filament::button wire:click="openAttendanceGenerator" color="gray" icon="heroicon-o-clipboard-document-list">
                     Generate attendance list
