@@ -15,45 +15,47 @@ class ProjectSettingsTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_settings_are_grouped_by_operational_impact(): void
+    public function test_settings_keep_approval_as_clear_read_only_information(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
         $this->actingAs($user);
 
         Livewire::test(EditProject::class, ['record' => $project->id])
-            ->assertSee('Project identity')
-            ->assertSee('Application setup')
-            ->assertSee('Application template')
-            ->assertSee('Timeline')
+            ->assertSee('Project details')
             ->assertSee('Involved organisations')
-            ->assertSee('Official approval and invoice')
+            ->assertSee('Approval and invoice')
+            ->assertSee('Approval not recorded yet')
             ->assertSee('Operational finance settings')
             ->assertSee('Project currencies')
             ->assertSee('Advanced controls')
             ->assertSee('More actions')
+            ->assertDontSee('Application template')
+            ->assertDontSee('Timeline and mobilities')
             ->assertDontSee('Funding and taxation')
             ->assertDontSee('Total budget (€)')
             ->assertDontSee('Approved budget (€)');
     }
 
-    public function test_settings_validate_dates_and_financial_percentages(): void
+    public function test_approved_project_settings_validate_dates_and_financial_percentages(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
+        $project->update(['status' => 'approved']);
         $this->actingAs($user);
 
         Livewire::test(EditProject::class, ['record' => $project->id])
             ->fillForm([
                 'start_date' => '2026-06-10',
                 'end_date' => '2026-06-01',
-                'mobility_start_date' => '2026-07-10',
-                'mobility_end_date' => '2026-07-01',
+                'mobilities' => [
+                    ['name' => 'First mobility', 'start_date' => '2026-07-10', 'end_date' => '2026-07-01'],
+                ],
                 'first_tranche_pct' => 110,
                 'withholding_tax_rate' => 101,
             ])
             ->call('save')
             ->assertHasFormErrors([
                 'end_date' => 'after_or_equal',
-                'mobility_end_date' => 'after_or_equal',
+                'mobilities.0.end_date' => 'after_or_equal',
                 'first_tranche_pct' => 'max',
                 'withholding_tax_rate' => 'max',
             ]);
@@ -70,33 +72,6 @@ class ProjectSettingsTest extends TestCase
             ->assertHasNoFormErrors();
 
         $this->assertSame('ERAS-26', $project->fresh()->expense_prefix);
-    }
-
-    public function test_application_template_is_saved_as_normalised_action_key(): void
-    {
-        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
-        $this->actingAs($user);
-
-        Livewire::test(EditProject::class, ['record' => $project->id])
-            ->assertFormSet(['ka_action' => 'ka152-you'])
-            ->fillForm(['ka_action' => 'ka153-you'])
-            ->call('save')
-            ->assertHasNoFormErrors();
-
-        $this->assertSame('ka153-you', $project->fresh()->ka_action);
-    }
-
-    public function test_application_template_can_be_cleared_for_manual_projects(): void
-    {
-        [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_EDITOR);
-        $this->actingAs($user);
-
-        Livewire::test(EditProject::class, ['record' => $project->id])
-            ->fillForm(['ka_action' => null])
-            ->call('save')
-            ->assertHasNoFormErrors();
-
-        $this->assertNull($project->fresh()->ka_action);
     }
 
     public function test_project_settings_manage_project_currencies_and_recalculate_project_expenses(): void

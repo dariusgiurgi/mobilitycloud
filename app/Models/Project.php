@@ -217,6 +217,11 @@ class Project extends Model
         return $this->hasMany(Participant::class);
     }
 
+    public function mobilities(): HasMany
+    {
+        return $this->hasMany(ProjectMobility::class)->orderBy('sort_order')->orderBy('id');
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(ProjectDocument::class);
@@ -277,6 +282,13 @@ class Project extends Model
         if ($this->hasMobilityAccessRoleFor($user)) {
             return in_array($module, ['participants', 'mobility'], true)
                 && $this->isManagementStage();
+        }
+
+        // Operational projects created after approval do not need the Writing
+        // workspace. Approved projects that already have an application
+        // template keep their read-only application history available.
+        if ($module === 'write' && $this->isManagementStage() && blank($this->ka_action)) {
+            return false;
         }
 
         if ($module === 'edit') {

@@ -8,6 +8,7 @@ use App\Filament\Resources\Projects\Pages\ListProjects;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -69,6 +70,42 @@ class ProjectListTest extends TestCase
 
         $this->assertSame($user->id, $project->owner_id);
         $this->assertTrue($project->isOwnedBy($user));
+    }
+
+    public function test_existing_approved_project_skips_writing_and_saves_multiple_mobilities(): void
+    {
+        $user = User::factory()->create([
+            'billing_name' => 'Test NGO',
+            'billing_country' => 'RO',
+            'billing_address' => 'Main Street 1',
+        ]);
+        $this->actingAs($user);
+
+        Livewire::test(CreateProject::class)
+            ->fillForm([
+                'project_entry_mode' => 'approved',
+                'name' => 'Existing approved project',
+                'grant_ref' => '2026-1-RO01-KA122-VET-0001',
+                'approved_grant_declaration' => 24000,
+                'approved_grant_proof_upload' => UploadedFile::fake()->create('approval.pdf', 100, 'application/pdf'),
+                'start_date' => '2026-09-01',
+                'end_date' => '2027-08-31',
+                'mobilities' => [
+                    ['name' => 'VET group — Porto', 'start_date' => '2026-11-10', 'end_date' => '2026-11-24'],
+                    ['name' => 'Staff — Valencia', 'start_date' => '2027-02-08', 'end_date' => '2027-02-15'],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $project = Project::query()->where('name', 'Existing approved project')->firstOrFail();
+
+        $this->assertSame('approved', $project->status);
+        $this->assertSame('24000.00', $project->approved_grant_amount);
+        $this->assertSame('pending', $project->invoice_status);
+        $this->assertCount(2, $project->mobilities);
+        $this->assertSame('2026-11-10', $project->mobility_start_date?->toDateString());
+        $this->assertFalse($project->canAccessProjectModule($user, 'write'));
     }
 
     public function test_standard_account_cannot_create_projects_with_placeholder_billing_details(): void

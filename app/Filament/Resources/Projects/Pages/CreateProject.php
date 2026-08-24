@@ -18,11 +18,11 @@ class CreateProject extends CreateRecord
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        $this->createAsApproved = (bool) ($data['create_as_approved'] ?? false);
+        $this->createAsApproved = ($data['project_entry_mode'] ?? 'application') === 'approved';
         $this->approvedGrantDeclaration = $data['approved_grant_declaration'] ?? null;
         $this->approvedGrantProofUpload = $data['approved_grant_proof_upload'] ?? null;
 
-        unset($data['create_as_approved'], $data['approved_grant_declaration'], $data['approved_grant_proof_upload']);
+        unset($data['project_entry_mode'], $data['approved_grant_declaration'], $data['approved_grant_proof_upload']);
 
         return $data;
     }
@@ -47,6 +47,20 @@ class CreateProject extends CreateRecord
         }
 
         $this->record->declareApprovedGrant($this->approvedGrantDeclaration, auth()->user());
+    }
+
+    protected function getRedirectUrl(): string
+    {
+        return $this->record->isWritingStage()
+            ? ProjectResource::getUrl('write', ['record' => $this->record])
+            : ProjectResource::getUrl('overview', ['record' => $this->record]);
+    }
+
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return $this->createAsApproved
+            ? 'Approved project created — implementation is ready'
+            : 'Project created — choose an application template to begin';
     }
 
     private function normaliseUploadedPath(mixed $state): ?string

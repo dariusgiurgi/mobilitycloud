@@ -206,6 +206,7 @@ class ProjectCalendar extends Page
             ->visibleToAccount(auth()->user())
             ->with([
                 'tasks' => fn ($query) => $query->whereBetween('due_date', [$start, $end]),
+                'mobilities',
             ])
             ->get();
         $events = collect();
@@ -216,8 +217,16 @@ class ProjectCalendar extends Page
                 $this->addDateEvent($events, $project, $project->end_date, 'Project ends', 'project', 'overview', $start, $end);
             }
             if (in_array($this->type, ['all', 'mobility'], true)) {
-                $this->addDateEvent($events, $project, $project->mobility_start_date, 'Mobility starts', 'mobility', 'participants', $start, $end);
-                $this->addDateEvent($events, $project, $project->mobility_end_date, 'Mobility ends', 'mobility', 'participants', $start, $end);
+                if ($project->mobilities->isNotEmpty()) {
+                    foreach ($project->mobilities as $mobility) {
+                        $name = $mobility->name ?: 'Mobility';
+                        $this->addDateEvent($events, $project, $mobility->start_date, $name.' starts', 'mobility', 'participants', $start, $end);
+                        $this->addDateEvent($events, $project, $mobility->end_date, $name.' ends', 'mobility', 'participants', $start, $end);
+                    }
+                } else {
+                    $this->addDateEvent($events, $project, $project->mobility_start_date, 'Mobility starts', 'mobility', 'participants', $start, $end);
+                    $this->addDateEvent($events, $project, $project->mobility_end_date, 'Mobility ends', 'mobility', 'participants', $start, $end);
+                }
             }
             if (in_array($this->type, ['all', 'tasks'], true)) {
                 foreach ($project->tasks as $task) {
