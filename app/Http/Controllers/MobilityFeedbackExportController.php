@@ -3,11 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\MobilityFeedbackCampaign;
+use App\Services\MobilityFeedbackReportService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MobilityFeedbackExportController extends Controller
 {
+    public function pdf(Request $request, MobilityFeedbackCampaign $campaign, MobilityFeedbackReportService $reports)
+    {
+        $campaign->loadMissing('mobility.project');
+        abort_unless($campaign->canBeAccessedBy($request->user()), 403);
+
+        return response($reports->output($campaign), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$reports->filename($campaign).'"',
+        ]);
+    }
+
     public function download(Request $request, MobilityFeedbackCampaign $campaign): StreamedResponse
     {
         $campaign->loadMissing('mobility.project', 'responses');

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Models\MobilityFeedbackCampaign;
 use App\Models\ProjectDocument;
 use App\Services\ProjectReadinessCheck;
 use App\Support\AuthorizesProjectManagement;
@@ -54,6 +55,9 @@ class ViewProjectFinalisation extends Page
             ->whereNotIn('type', [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT])
             ->whereNotIn('category', array_merge(array_keys(ProjectDocument::MOBILITY_CATEGORIES), ['dissemination_evidence']))
             ->count();
+        $feedback = MobilityFeedbackCampaign::query()
+            ->whereHas('mobility', fn ($query) => $query->where('project_id', $this->record->id))
+            ->count();
 
         return [
             'project_data' => ['label' => 'Project data & activity', 'detail' => 'Project summary, tasks and activity record.', 'count' => $this->record->tasks()->count()],
@@ -65,6 +69,7 @@ class ViewProjectFinalisation extends Page
             'project_files' => ['label' => 'Project files', 'detail' => 'Uploaded project documents, agreements and other records.', 'count' => $projectFiles],
             'mobility' => ['label' => 'Mobility evidence', 'detail' => 'Daily evidence, materials, outputs and mobility uploads.', 'count' => $mobility],
             'dissemination' => ['label' => 'Dissemination evidence', 'detail' => 'Organisation-level dissemination files and records.', 'count' => $dissemination],
+            'feedback' => ['label' => 'Participant feedback', 'detail' => 'Anonymous feedback result PDFs, grouped by mobility.', 'count' => $feedback],
         ];
     }
 

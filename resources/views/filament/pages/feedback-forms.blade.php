@@ -130,6 +130,7 @@
                     <input readonly value="{{ $feedbackLink }}" style="flex:1;min-width:220px;border:0;background:transparent;font-size:.7rem;outline:0;">
                     <button type="button" x-data="{ copied:false }" x-on:click="navigator.clipboard && window.isSecureContext ? navigator.clipboard.writeText('{{ $feedbackLink }}') : null; copied=true; setTimeout(() => copied=false, 1500)" style="padding:.36rem .5rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;background:white;cursor:pointer;font-size:.66rem;font-weight:700;"><span x-text="copied ? 'Copied' : 'Copy link'">Copy link</span></button>
                     <a href="{{ $feedbackLink }}" target="_blank" style="padding:.36rem .5rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;background:white;color:inherit;text-decoration:none;font-size:.66rem;font-weight:700;">Open</a>
+                    <a href="{{ route('feedback-campaigns.export-pdf', $viewingCampaign) }}" style="padding:.36rem .5rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.66rem;font-weight:700;">Export PDF</a>
                     <a href="{{ route('feedback-campaigns.export', $viewingCampaign) }}" style="padding:.36rem .5rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.66rem;font-weight:700;">Export CSV</a>
                 </div>
                 @include('filament.pages.partials.mobility-feedback-analytics', ['analytics' => $campaignResults])

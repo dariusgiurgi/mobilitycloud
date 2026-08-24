@@ -676,7 +676,10 @@
                     <button wire:click="closeFeedbackResults" type="button" aria-label="Close feedback results" style="border:0;background:transparent;font-size:1.2rem;cursor:pointer;">×</button>
                 </div>
                 <div style="display:flex;justify-content:flex-end;margin-bottom:.75rem;">
-                    <a href="{{ route('feedback-campaigns.export', $viewingFeedbackCampaign) }}" style="padding:.4rem .55rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.68rem;font-weight:700;">Export CSV</a>
+                    <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+                        <a href="{{ route('feedback-campaigns.export-pdf', $viewingFeedbackCampaign) }}" style="padding:.4rem .55rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.68rem;font-weight:700;">Export PDF</a>
+                        <a href="{{ route('feedback-campaigns.export', $viewingFeedbackCampaign) }}" style="padding:.4rem .55rem;border:1px solid rgba(100,116,139,.25);border-radius:.45rem;color:inherit;text-decoration:none;font-size:.68rem;font-weight:700;">Export CSV</a>
+                    </div>
                 </div>
                 @include('filament.pages.partials.mobility-feedback-analytics', ['analytics' => $viewingFeedbackAnalytics])
             </div>

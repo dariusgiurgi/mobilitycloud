@@ -12,7 +12,7 @@
         $recommendations = $this->finalisationRecommendations();
         $groups = [
             'Project essentials' => ['project_data', 'application', 'participants', 'budget', 'agreements'],
-            'Evidence & files' => ['generated_records', 'project_files', 'mobility', 'dissemination'],
+            'Evidence & files' => ['generated_records', 'project_files', 'mobility', 'dissemination', 'feedback'],
         ];
     @endphp
 

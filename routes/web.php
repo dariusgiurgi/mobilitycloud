@@ -116,6 +116,7 @@ Route::match(['GET', 'POST'], '/account-suspended/logout', function (Request $re
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/feedback-campaigns/{campaign}/export', [MobilityFeedbackExportController::class, 'download'])->name('feedback-campaigns.export');
+    Route::get('/feedback-campaigns/{campaign}/export-pdf', [MobilityFeedbackExportController::class, 'pdf'])->name('feedback-campaigns.export-pdf');
     Route::get('/email/verify', function (Request $request) {
         $user = $request->user();
 

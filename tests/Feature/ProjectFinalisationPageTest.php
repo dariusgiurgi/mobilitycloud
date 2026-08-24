@@ -32,6 +32,7 @@ class ProjectFinalisationPageTest extends TestCase
             ->assertSee('Download ZIP')
             ->assertSee('Project essentials')
             ->assertSee('Evidence & files')
+            ->assertSee('Participant feedback')
             ->assertSee('records included')
             ->call('toggleArchiveCategory', 'application')
             ->assertHasNoErrors();

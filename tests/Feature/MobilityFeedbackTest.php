@@ -10,10 +10,12 @@ use App\Models\MobilityFeedbackResponse;
 use App\Models\Project;
 use App\Models\User;
 use App\Services\MobilityFeedbackAnalytics;
+use App\Services\ProjectFinalArchiveService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
 use Tests\TestCase;
+use ZipArchive;
 
 class MobilityFeedbackTest extends TestCase
 {
@@ -82,6 +84,27 @@ class MobilityFeedbackTest extends TestCase
         $csv = $response->streamedContent();
         $this->assertStringContainsString('How satisfied were you?', $csv);
         $this->assertStringContainsString('Useful and inclusive.', $csv);
+    }
+
+    public function test_feedback_results_can_be_exported_as_a_pdf_without_participant_identity(): void
+    {
+        [$user, , $mobility] = $this->projectMobility();
+        $campaign = $this->campaign($user, $mobility);
+        MobilityFeedbackResponse::create([
+            'mobility_feedback_campaign_id' => $campaign->id,
+            'answers' => ['q_rating' => 4, 'q_comment' => 'Well structured and useful.'],
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get(route('feedback-campaigns.export-pdf', $campaign))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get(route('feedback-campaigns.export-pdf', $campaign))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertDownload('anonymous-feedback-porto-final-feedback.pdf');
     }
 
     public function test_owner_can_build_a_global_form_and_share_a_snapshot_with_a_mobility(): void
@@ -185,6 +208,47 @@ class MobilityFeedbackTest extends TestCase
             ->call('openFeedbackResults', $campaign->id)
             ->assertSet('showFeedbackResultsModal', true)
             ->assertSee('Excellent group experience.');
+    }
+
+    public function test_final_archive_includes_a_feedback_pdf_for_each_mobility_campaign(): void
+    {
+        [$user, $project, $mobility] = $this->projectMobility();
+        $campaign = $this->campaign($user, $mobility);
+        MobilityFeedbackResponse::create([
+            'mobility_feedback_campaign_id' => $campaign->id,
+            'answers' => ['q_rating' => 5, 'q_comment' => 'Great experience.'],
+            'submitted_at' => now(),
+        ]);
+
+        $archive = app(ProjectFinalArchiveService::class)->create($project);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($archive) === true);
+        $path = 'learning-together/10-participant-feedback/mobility-in-porto-'.$campaign->id.'/anonymous-feedback-porto-final-feedback.pdf';
+        $this->assertNotFalse($zip->locateName($path));
+        $this->assertStringStartsWith('%PDF-', $zip->getFromName($path));
+        $payload = json_decode($zip->getFromName('learning-together/00-project-data/project-data.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('Porto final feedback', $payload['feedback_campaigns'][0]['title']);
+        $zip->close();
+        unlink($archive);
+    }
+
+    public function test_final_archive_can_exclude_feedback_reports_when_the_category_is_unselected(): void
+    {
+        [$user, $project, $mobility] = $this->projectMobility();
+        $campaign = $this->campaign($user, $mobility);
+        $project->update(['action_data' => [
+            'finalisation' => ['include' => array_merge(array_fill_keys([
+                'project_data', 'application', 'participants', 'budget', 'agreements', 'generated_records', 'project_files', 'mobility', 'dissemination',
+            ], true), ['feedback' => false])],
+        ]]);
+
+        $archive = app(ProjectFinalArchiveService::class)->create($project);
+        $zip = new ZipArchive;
+        $this->assertTrue($zip->open($archive) === true);
+        $path = 'learning-together/10-participant-feedback/mobility-in-porto-'.$campaign->id.'/anonymous-feedback-porto-final-feedback.pdf';
+        $this->assertFalse($zip->locateName($path));
+        $zip->close();
+        unlink($archive);
     }
 
     private function projectMobility(): array

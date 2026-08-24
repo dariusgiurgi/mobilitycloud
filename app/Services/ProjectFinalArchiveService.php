@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\BudgetTransfer;
+use App\Models\MobilityFeedbackCampaign;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use Illuminate\Support\Facades\Storage;
@@ -48,6 +49,14 @@ class ProjectFinalArchiveService
         $documents = $project->documents
             ->filter(fn (ProjectDocument $document): bool => $this->shouldIncludeDocument($document, $included))
             ->values();
+        $feedbackCampaigns = $included['feedback']
+            ? MobilityFeedbackCampaign::query()
+                ->with(['mobility', 'responses' => fn ($query) => $query->latest('submitted_at')])
+                ->whereHas('mobility', fn ($query) => $query->where('project_id', $project->id))
+                ->orderBy('project_mobility_id')
+                ->orderBy('id')
+                ->get()
+            : collect();
 
         $payload = [
             'exported_at' => now()->toIso8601String(),
@@ -86,6 +95,12 @@ class ProjectFinalArchiveService
             'documents' => $documents->map->attributesToArray()->all(),
             'tasks' => $included['project_data'] ? $project->tasks->map->attributesToArray()->all() : [],
             'activity_log' => $included['project_data'] ? $project->activityLogs->map->attributesToArray()->all() : [],
+            'feedback_campaigns' => $feedbackCampaigns->map(fn (MobilityFeedbackCampaign $campaign): array => [
+                'title' => $campaign->title,
+                'mobility' => $campaign->mobility?->name,
+                'responses' => $campaign->responses->count(),
+                'link_status' => $campaign->hasActiveLink() ? 'open' : 'closed',
+            ])->values()->all(),
         ];
 
         if ($included['participants']) {
@@ -174,6 +189,29 @@ class ProjectFinalArchiveService
             );
         }
 
+        if ($included['feedback']) {
+            $reports = app(MobilityFeedbackReportService::class);
+
+            foreach ($feedbackCampaigns as $campaign) {
+                $filename = $reports->filename($campaign);
+                $archivePath = $projectDir.'/10-participant-feedback/'
+                    .$this->safeName($campaign->mobility?->name).'-'.$campaign->id.'/'
+                    .$filename;
+                $contents = $reports->output($campaign);
+
+                $zip->addFromString($archivePath, $contents);
+                $fileIndex[] = [
+                    'entity' => 'mobility_feedback_campaign',
+                    'record_id' => $campaign->id,
+                    'slot' => 'anonymous_feedback_pdf',
+                    'archive_path' => $archivePath,
+                    'original_name' => $filename,
+                    'size' => strlen($contents),
+                    'sha256' => hash('sha256', $contents),
+                ];
+            }
+        }
+
         $payload['file_index'] = $fileIndex;
         $zip->addFromString($projectDir.'/00-project-data/project-data.json', json_encode(
             $payload,
@@ -227,6 +265,7 @@ class ProjectFinalArchiveService
             'project_files',
             'mobility',
             'dissemination',
+            'feedback',
         ], true);
 
         $saved = data_get($project->action_data, 'finalisation.include');
