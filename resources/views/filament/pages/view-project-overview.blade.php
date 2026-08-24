@@ -504,10 +504,6 @@
                 <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:550;margin-top:.2rem;">{{ $this->record->start_date?->format('d M Y') ?? '—' }} → {{ $this->record->end_date?->format('d M Y') ?? '—' }}</p>
             </div>
             <div>
-                <p class="mc-overview-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;">Mobility period</p>
-                <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:550;margin-top:.2rem;">{{ $this->record->mobility_start_date?->format('d M Y') ?? '—' }} → {{ $this->record->mobility_end_date?->format('d M Y') ?? '—' }}</p>
-            </div>
-            <div>
                 <p class="mc-overview-muted" style="font-size:.68rem;text-transform:uppercase;letter-spacing:.04em;">Partner organisations</p>
                 @if (count($partners) > 0)
                     <p class="text-gray-950 dark:text-white" style="font-size:.8rem;font-weight:550;margin-top:.2rem;">{{ collect($partners)->pluck('name')->filter()->join(', ') }}</p>
