@@ -6,6 +6,7 @@ use App\Http\Controllers\AttachmentDownloadController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\MarketingPageController;
 use App\Http\Controllers\ParticipantRegistrationController;
+use App\Http\Controllers\PlatformProjectPaymentProofController;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectInvitationController;
@@ -257,6 +258,8 @@ Route::get('/project-invitations/{token}', [ProjectInvitationController::class, 
     ->name('project-invitations.accept');
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {
+    Route::get('/platform/project-payments/{project}/approval-proof', PlatformProjectPaymentProofController::class)
+        ->name('platform.project-payments.approval-proof');
     Route::get('/projects/{project}/export', [ProjectExportController::class, 'report'])->name('projects.export');
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
     Route::get('/projects/{project}/export-application-word', [ProjectExportController::class, 'exportApplicationWord'])->name('projects.export-application-word');

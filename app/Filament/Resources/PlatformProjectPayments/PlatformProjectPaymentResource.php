@@ -143,6 +143,13 @@ class PlatformProjectPaymentResource extends Resource
                     ->query(fn (Builder $query): Builder => static::applyMissingBillingScope($query)),
             ])
             ->recordActions([
+                Action::make('openApprovalProof')
+                    ->label('Open approval proof')
+                    ->icon('heroicon-o-document-magnifying-glass')
+                    ->color('gray')
+                    ->url(fn (Project $record): string => route('platform.project-payments.approval-proof', $record))
+                    ->openUrlInNewTab()
+                    ->visible(fn (Project $record): bool => filled($record->approved_grant_proof_path)),
                 Action::make('markSent')
                     ->label('Mark sent')
                     ->icon('heroicon-o-paper-airplane')

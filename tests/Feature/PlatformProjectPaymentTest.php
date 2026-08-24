@@ -10,12 +10,55 @@ use App\Models\Project;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class PlatformProjectPaymentTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_platform_admin_can_open_approval_proof_from_the_invoice_queue(): void
+    {
+        Storage::fake('local');
+
+        $admin = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]);
+        $client = User::factory()->create([
+            'billing_name' => 'Scoala de Jocuri',
+            'billing_vat' => 'RO123456',
+            'billing_country' => 'Romania',
+            'billing_address' => 'Baia Mare, Romania',
+        ]);
+        $path = 'project-approval-proofs/1/approval.pdf';
+        Storage::disk('local')->put($path, 'approved grant proof');
+
+        $project = Project::create([
+            'owner_id' => $client->id,
+            'name' => 'Proof Ready Project',
+            'status' => ProjectStatus::Approved->value,
+            'approved_grant_amount' => 10000,
+            'approved_declared_at' => now(),
+            'activation_fee_amount' => 100,
+            'invoice_status' => Project::INVOICE_PENDING,
+            'approved_grant_proof_path' => $path,
+            'approved_grant_proof_disk' => 'local',
+            'approved_grant_proof_original_name' => 'approval.pdf',
+            'approved_grant_proof_uploaded_at' => now(),
+        ]);
+
+        $this->actingAs($admin);
+        Filament::setCurrentPanel('platform');
+
+        Livewire::test(ListPlatformProjectPayments::class)
+            ->assertTableActionVisible('openApprovalProof', $project);
+
+        $this->get(route('platform.project-payments.approval-proof', $project))
+            ->assertOk();
+
+        $this->actingAs($client)
+            ->get(route('platform.project-payments.approval-proof', $project))
+            ->assertForbidden();
+    }
 
     public function test_platform_admin_can_manage_approved_project_payment_and_unlock_modules(): void
     {
