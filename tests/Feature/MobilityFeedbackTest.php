@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\FeedbackForms;
+use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Models\FeedbackForm;
 use App\Models\MobilityFeedbackCampaign;
 use App\Models\MobilityFeedbackResponse;
 use App\Models\Project;
 use App\Models\User;
+use App\Services\MobilityFeedbackAnalytics;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Livewire;
@@ -138,6 +140,51 @@ class MobilityFeedbackTest extends TestCase
         $form = FeedbackForm::query()->sole();
         $this->assertSame(['Yes', 'No'], $form->questions[0]['options']);
         $this->assertArrayNotHasKey('options_text', $form->questions[0]);
+    }
+
+    public function test_feedback_results_are_grouped_by_question_with_distributions_and_comments(): void
+    {
+        [$user, , $mobility] = $this->projectMobility();
+        $campaign = $this->campaign($user, $mobility);
+        $campaign->update(['form_snapshot' => [
+            'questions' => [
+                ['id' => 'q_rating', 'type' => 'rating', 'label' => 'How satisfied were you?', 'options' => []],
+                ['id' => 'q_choice', 'type' => 'single_choice', 'label' => 'Would you recommend it?', 'options' => ['Yes', 'No']],
+                ['id' => 'q_comment', 'type' => 'long_text', 'label' => 'What worked well?', 'options' => []],
+            ],
+        ]]);
+        MobilityFeedbackResponse::insert([
+            ['mobility_feedback_campaign_id' => $campaign->id, 'answers' => json_encode(['q_rating' => 5, 'q_choice' => 'Yes', 'q_comment' => 'Very welcoming team.']), 'submitted_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+            ['mobility_feedback_campaign_id' => $campaign->id, 'answers' => json_encode(['q_rating' => 3, 'q_choice' => 'No', 'q_comment' => 'More free time would help.']), 'submitted_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $report = app(MobilityFeedbackAnalytics::class)->forCampaign($campaign->fresh());
+
+        $this->assertSame(2, $report['response_count']);
+        $this->assertSame(4.0, $report['overall_rating']);
+        $this->assertCount(3, $report['questions']);
+        $this->assertEquals(50, $report['questions'][1]['options'][0]['percent']);
+        $this->assertEqualsCanonicalizing(['Very welcoming team.', 'More free time would help.'], $report['questions'][2]['answers']);
+    }
+
+    public function test_feedback_results_are_available_from_the_related_mobility_workspace(): void
+    {
+        [$user, $project, $mobility] = $this->projectMobility();
+        $campaign = $this->campaign($user, $mobility);
+        MobilityFeedbackResponse::create([
+            'mobility_feedback_campaign_id' => $campaign->id,
+            'answers' => ['q_rating' => 5, 'q_comment' => 'Excellent group experience.'],
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
+            ->assertSee('Participant feedback')
+            ->assertSee('Porto final feedback')
+            ->call('openFeedbackResults', $campaign->id)
+            ->assertSet('showFeedbackResultsModal', true)
+            ->assertSee('Excellent group experience.');
     }
 
     private function projectMobility(): array

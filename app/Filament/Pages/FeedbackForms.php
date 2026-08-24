@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\FeedbackForm;
 use App\Models\MobilityFeedbackCampaign;
 use App\Models\ProjectMobility;
+use App\Services\MobilityFeedbackAnalytics;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
 use BackedEnum;
@@ -115,44 +116,10 @@ class FeedbackForms extends Page
 
     public function getCampaignResultsProperty(): array
     {
-        $campaign = $this->viewingCampaign;
-        if (! $campaign) {
-            return ['ratings' => collect(), 'comments' => collect()];
-        }
-
-        $responses = $campaign->responses;
-        $ratings = collect($campaign->questions())
-            ->filter(fn (array $question): bool => ($question['type'] ?? '') === 'rating')
-            ->map(function (array $question) use ($responses): array {
-                $values = $responses
-                    ->map(fn ($response) => data_get($response->answers, $question['id'] ?? ''))
-                    ->filter(fn ($value): bool => is_numeric($value))
-                    ->map(fn ($value): int => (int) $value)
-                    ->values();
-
-                return [
-                    'label' => $question['label'] ?? 'Rating',
-                    'count' => $values->count(),
-                    'average' => $values->isNotEmpty() ? round($values->avg(), 1) : null,
-                ];
-            })
-            ->values();
-
-        $comments = collect($campaign->questions())
-            ->filter(fn (array $question): bool => in_array($question['type'] ?? '', ['short_text', 'long_text'], true))
-            ->flatMap(function (array $question) use ($responses): array {
-                return $responses
-                    ->map(fn ($response) => [
-                        'label' => $question['label'] ?? 'Comment',
-                        'answer' => trim((string) data_get($response->answers, $question['id'] ?? '')),
-                    ])
-                    ->filter(fn (array $answer): bool => $answer['answer'] !== '')
-                    ->all();
-            })
-            ->take(12)
-            ->values();
-
-        return compact('ratings', 'comments');
+        $campaign = $this->getViewingCampaignProperty();
+        return $campaign
+            ? app(MobilityFeedbackAnalytics::class)->forCampaign($campaign)
+            : ['response_count' => 0, 'question_count' => 0, 'overall_rating' => null, 'questions' => []];
     }
 
     public function openCreateForm(bool $starter = false): void
