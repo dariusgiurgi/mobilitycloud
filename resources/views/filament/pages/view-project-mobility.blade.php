@@ -35,6 +35,7 @@
         $selectedMobility = $this->getSelectedMobility();
         $mobilityStatuses = collect($this->getMobilityStatuses())->keyBy('id');
         $feedbackCampaigns = $this->getSelectedMobilityFeedbackCampaigns();
+        $feedbackResponseCount = $feedbackCampaigns->sum('responses_count');
         $viewingFeedbackCampaign = $this->getViewingFeedbackCampaign();
         $viewingFeedbackAnalytics = $this->getViewingFeedbackAnalytics();
     @endphp
@@ -86,28 +87,6 @@
         @endforeach
     </div>
 
-    <x-filament::section heading="Participant feedback" description="Anonymous evaluations linked to this mobility. Results are grouped by question, never by participant." style="margin-top:1rem;">
-        <x-slot name="afterHeader">
-            <x-filament::button tag="a" :href="\App\Filament\Pages\FeedbackForms::getUrl()" color="gray" size="sm" icon="heroicon-m-chat-bubble-left-right">
-                Manage feedback forms
-            </x-filament::button>
-        </x-slot>
-
-        @forelse($feedbackCampaigns as $campaign)
-            <div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.68rem 0;{{ ! $loop->last ? 'border-bottom:1px solid rgba(148,163,184,.18);' : '' }}">
-                <div>
-                    <div class="text-gray-950 dark:text-white" style="font-size:.76rem;font-weight:800;">{{ $campaign->title }}</div>
-                    <div class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;margin-top:.14rem;">{{ $campaign->responses_count }} anonymous {{ \Illuminate\Support\Str::plural('response', $campaign->responses_count) }} · {{ $campaign->hasActiveLink() ? 'Link open' : 'Link closed' }}</div>
-                </div>
-                <x-filament::button wire:click="openFeedbackResults({{ $campaign->id }})" color="gray" size="sm" icon="heroicon-m-chart-bar">
-                    View results
-                </x-filament::button>
-            </div>
-        @empty
-            <div class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;line-height:1.5;">No anonymous feedback form is linked to this mobility yet. Create a reusable form once, then share it for this trip.</div>
-        @endforelse
-    </x-filament::section>
-
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
         <x-filament::tabs label="Mobility sections">
             <x-filament::tabs.item wire:click="setMobilityTab('evidences')" :active="$activeMobilityTab === 'evidences'" icon="heroicon-m-camera" :badge="$summary['evidence_days'] ?: null">
@@ -123,6 +102,9 @@
                 Mobility
             </x-filament::tabs.item>
         </x-filament::tabs>
+        @if($feedbackCampaigns->isNotEmpty())
+            <span class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;font-weight:700;">Feedback: {{ $feedbackResponseCount }} {{ \Illuminate\Support\Str::plural('response', $feedbackResponseCount) }}</span>
+        @endif
     </div>
 
     @if($activeMobilityTab === 'reports')
@@ -658,6 +640,31 @@
         </div>
     @endif
     @endif
+
+    @if($selectedMobility)
+    <x-filament::section heading="Participant feedback" description="Anonymous evaluations linked to this mobility. Results are grouped by question, never by participant." style="margin-top:1rem;">
+        <x-slot name="afterHeader">
+            <x-filament::button tag="a" :href="\App\Filament\Pages\FeedbackForms::getUrl()" color="gray" size="sm" icon="heroicon-m-chat-bubble-left-right">
+                Manage feedback forms
+            </x-filament::button>
+        </x-slot>
+
+        @forelse($feedbackCampaigns as $campaign)
+            <div style="display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.68rem 0;{{ ! $loop->last ? 'border-bottom:1px solid rgba(148,163,184,.18);' : '' }}">
+                <div>
+                    <div class="text-gray-950 dark:text-white" style="font-size:.76rem;font-weight:800;">{{ $campaign->title }}</div>
+                    <div class="text-gray-500 dark:text-gray-400" style="font-size:.66rem;margin-top:.14rem;">{{ $campaign->responses_count }} anonymous {{ \Illuminate\Support\Str::plural('response', $campaign->responses_count) }} · {{ $campaign->hasActiveLink() ? 'Link open' : 'Link closed' }}</div>
+                </div>
+                <x-filament::button wire:click="openFeedbackResults({{ $campaign->id }})" color="gray" size="sm" icon="heroicon-m-chart-bar">
+                    View results
+                </x-filament::button>
+            </div>
+        @empty
+            <div class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;line-height:1.5;">No anonymous feedback form is linked to this mobility yet. Create a reusable form once, then share it for this trip.</div>
+        @endforelse
+    </x-filament::section>
+    @endif
+
     @if($showFeedbackResultsModal && $viewingFeedbackCampaign)
         <div class="mc-project-feedback-modal" role="dialog" aria-modal="true">
             <div class="mc-project-feedback-modal-panel">
