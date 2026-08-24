@@ -8,44 +8,56 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('feedback_forms', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
-            $table->string('name');
-            $table->text('description')->nullable();
-            $table->text('intro_text')->nullable();
-            $table->text('thank_you_text')->nullable();
-            $table->json('questions');
-            $table->boolean('is_archived')->default(false);
-            $table->timestamps();
+        // Each step is guarded so a deploy can safely resume after a database
+        // engine rejects part of a DDL statement before this migration is logged.
+        if (! Schema::hasTable('feedback_forms')) {
+            Schema::create('feedback_forms', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('owner_id')->constrained('users')->cascadeOnDelete();
+                $table->string('name');
+                $table->text('description')->nullable();
+                $table->text('intro_text')->nullable();
+                $table->text('thank_you_text')->nullable();
+                $table->json('questions');
+                $table->boolean('is_archived')->default(false);
+                $table->timestamps();
 
-            $table->index(['owner_id', 'is_archived']);
-        });
+                $table->index(['owner_id', 'is_archived']);
+            });
+        }
 
-        Schema::create('mobility_feedback_campaigns', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('project_mobility_id')->constrained('project_mobilities')->cascadeOnDelete();
-            $table->foreignId('feedback_form_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('title');
-            $table->string('public_token', 96)->unique();
-            $table->json('form_snapshot');
-            $table->timestamp('opened_at')->nullable();
-            $table->timestamp('closed_at')->nullable();
-            $table->timestamps();
+        if (! Schema::hasTable('mobility_feedback_campaigns')) {
+            Schema::create('mobility_feedback_campaigns', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('project_mobility_id')->constrained('project_mobilities')->cascadeOnDelete();
+                $table->foreignId('feedback_form_id')->nullable()->constrained()->nullOnDelete();
+                $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->string('title');
+                $table->string('public_token', 96)->unique();
+                $table->json('form_snapshot');
+                $table->timestamp('opened_at')->nullable();
+                $table->timestamp('closed_at')->nullable();
+                $table->timestamps();
 
-            $table->index(['project_mobility_id', 'opened_at']);
-        });
+                $table->index(['project_mobility_id', 'opened_at']);
+            });
+        }
 
-        Schema::create('mobility_feedback_responses', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('mobility_feedback_campaign_id')->constrained()->cascadeOnDelete();
-            $table->json('answers');
-            $table->timestamp('submitted_at');
-            $table->timestamps();
+        if (! Schema::hasTable('mobility_feedback_responses')) {
+            Schema::create('mobility_feedback_responses', function (Blueprint $table): void {
+                $table->id();
+                $table->foreignId('mobility_feedback_campaign_id');
+                $table->foreign('mobility_feedback_campaign_id', 'feedback_response_campaign_fk')
+                    ->references('id')
+                    ->on('mobility_feedback_campaigns')
+                    ->cascadeOnDelete();
+                $table->json('answers');
+                $table->timestamp('submitted_at');
+                $table->timestamps();
 
-            $table->index(['mobility_feedback_campaign_id', 'submitted_at']);
-        });
+                $table->index(['mobility_feedback_campaign_id', 'submitted_at']);
+            });
+        }
     }
 
     public function down(): void
