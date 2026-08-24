@@ -35,6 +35,7 @@
         $canManage = $record->canManageProjectModule(auth()->user(), 'participants');
         $participantLocks = $this->projectLocksForModule('participants');
         $registrationUrl = $this->getParticipantRegistrationUrl();
+        $projectMobilities = $this->getProjectMobilities();
         $editingParticipantLock = $editingId ? $participantLocks->get('participant:'.$editingId) : null;
         $editingParticipantLockedByOther = $editingParticipantLock && (int) $editingParticipantLock->user_id !== (int) auth()->id();
         $editingParticipantBadge = $editingParticipantLock ? $this->projectLockBadge($editingParticipantLock) : null;
@@ -101,7 +102,7 @@
                         <h3 class="text-gray-950 dark:text-white" style="font-size:.9rem;font-weight:750;margin:0;">Participant self-registration</h3>
                     </div>
                     <p class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;line-height:1.45;margin:.25rem 0 0;">
-                        Share one public form with all participants. Every submission is added directly to this participant register. No document uploads are requested from participants.
+                        The general form lets each person choose every mobility they will attend. Use a dedicated link below when one form should register people for one specific mobility only.
                     </p>
                 </div>
 
@@ -139,6 +140,27 @@
                     <x-filament::badge color="gray">Closed</x-filament::badge>
                 @endif
             </div>
+            @if($projectMobilities->isNotEmpty())
+                <div style="margin-top:.9rem;padding-top:.9rem;border-top:1px solid rgba(148,163,184,.16);">
+                    <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;font-weight:750;text-transform:uppercase;letter-spacing:.05em;margin:0 0 .55rem;">Mobility-specific links</p>
+                    <div style="display:flex;flex-direction:column;gap:.5rem;">
+                        @foreach($projectMobilities as $mobility)
+                            @php $mobilityRegistrationUrl = $this->getMobilityRegistrationUrl($mobility->id); @endphp
+                            <div style="display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;padding:.55rem .65rem;border:1px solid rgba(148,163,184,.17);border-radius:.65rem;">
+                                <strong class="text-gray-950 dark:text-white" style="font-size:.76rem;min-width:150px;">{{ $mobility->name }}</strong>
+                                @if($mobilityRegistrationUrl)
+                                    <input id="mobility-registration-link-{{ $mobility->id }}" type="text" readonly value="{{ $mobilityRegistrationUrl }}" class="mc-part-in" style="font-size:11px;flex:1;min-width:220px;padding:6px 8px;background:rgba(34,197,94,.04);" aria-label="{{ $mobility->name }} registration link">
+                                    <button type="button" style="padding:6px 9px;border:1px solid rgba(100,116,139,.25);border-radius:7px;background:transparent;cursor:pointer;font-size:11px;font-weight:650;" x-data="{ copied: false }" x-on:click="const input = document.getElementById('mobility-registration-link-{{ $mobility->id }}'); navigator.clipboard && window.isSecureContext ? navigator.clipboard.writeText(input.value) : (input.focus(), input.select(), document.execCommand('copy'), input.setSelectionRange(0, 0)); copied = true; setTimeout(() => copied = false, 1600);"><span x-text="copied ? 'Copied' : 'Copy'">Copy</span></button>
+                                    <x-filament::button wire:click="closeMobilityRegistrationLink({{ $mobility->id }})" wire:confirm="Close this mobility form link?" color="gray" size="sm">Close</x-filament::button>
+                                @else
+                                    <span class="text-gray-500 dark:text-gray-400" style="font-size:.72rem;flex:1;">Registers participants only for this mobility.</span>
+                                    <x-filament::button wire:click="createMobilityRegistrationLink({{ $mobility->id }})" color="gray" size="sm">Create link</x-filament::button>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     @endif
 
@@ -218,6 +240,18 @@
                 </select>
             </div>
 
+            @if($projectMobilities->isNotEmpty())
+                <div style="display:flex;flex-direction:column;gap:5px;">
+                    <label class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Mobility</label>
+                    <select wire:model.live="filterMobilityId" class="mc-part-in" style="width:auto;min-width:160px;background:transparent;">
+                        <option value="">All mobilities</option>
+                        @foreach($projectMobilities as $mobility)
+                            <option value="{{ $mobility->id }}">{{ $mobility->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
             @if(count($countriesInUse) > 0)
                 <div style="display:flex;flex-direction:column;gap:5px;">
                     <label class="text-gray-500 dark:text-gray-400" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Country</label>
@@ -291,7 +325,7 @@
                     <thead>
                         <tr class="text-gray-500 dark:text-gray-400" style="background:rgba(100,116,139,.06);font-size:10px;text-transform:uppercase;letter-spacing:.04em;">
                             <th style="padding:10px 12px;text-align:left;">Name</th>
-                            <th style="padding:10px 12px;text-align:left;">Role</th>
+                            <th style="padding:10px 12px;text-align:left;">Mobilities</th>
                             <th style="padding:10px 12px;text-align:left;">Organisation</th>
                             <th style="padding:10px 12px;text-align:left;">Country</th>
                             <th style="padding:10px 12px;text-align:center;">Age</th>
@@ -321,7 +355,17 @@
                                     ])
                                 @endif
                             </td>
-                            <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->roleLabel() }}</td>
+                            <td style="padding:9px 12px;min-width:180px;" class="text-gray-500 dark:text-gray-400">
+                                @if($p->mobilities->isEmpty())
+                                    <span class="text-gray-400">Not assigned</span>
+                                @else
+                                    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                                        @foreach($p->mobilities as $mobility)
+                                            <span title="{{ \App\Models\Participant::ROLES[$mobility->pivot->role] ?? 'Participant' }} · {{ \App\Models\ProjectMobility::PARTICIPATION_STATUSES[$mobility->pivot->status] ?? 'Planned' }}" style="font-size:10px;font-weight:650;padding:3px 6px;border-radius:999px;background:rgba(99,102,241,.1);color:#4f46e5;">{{ $mobility->name }} · {{ \App\Models\ProjectMobility::PARTICIPATION_STATUSES[$mobility->pivot->status] ?? 'Planned' }}</span>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->partner_organisation ?: '—' }}</td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->country ?: '—' }}</td>
                             <td style="padding:9px 12px;text-align:center;">
@@ -427,7 +471,7 @@
                     <input type="text" wire:model="data.nationality" class="mc-part-in" aria-label="Participant nationality">
                 </div>
                 <div>
-                    <label class="mc-part-lbl">Role</label>
+                    <label class="mc-part-lbl">Default role</label>
                     <select wire:model="data.role" class="mc-part-in" aria-label="Participant role">
                         @foreach($roles as $key => $label)
                             <option value="{{ $key }}">{{ $label }}</option>
@@ -435,6 +479,52 @@
                     </select>
                 </div>
             </div>
+
+            {{-- Mobility participation --}}
+            <p class="mc-part-sec">Mobility participation</p>
+            @if($projectMobilities->isEmpty())
+                <p class="text-gray-400" style="font-size:12px;margin-bottom:1rem;">Create the project mobilities in the Mobility module first. You can then choose where this person participates.</p>
+            @else
+                <p class="text-gray-500 dark:text-gray-400" style="font-size:12px;line-height:1.45;margin:-.2rem 0 .7rem;">Choose every mobility this person attends. Their role and attendance status can be different for each one.</p>
+                <div style="display:flex;flex-direction:column;gap:.55rem;">
+                    @forelse($data['mobility_participations'] as $index => $participation)
+                        <div wire:key="mobility-participation-{{ $index }}" style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(120px,.85fr) minmax(120px,.8fr) auto;gap:.55rem;align-items:end;padding:.65rem;border:1px solid rgba(99,102,241,.18);border-radius:.7rem;background:rgba(99,102,241,.025);">
+                            <div>
+                                <label class="mc-part-lbl">Mobility</label>
+                                <select wire:model="data.mobility_participations.{{ $index }}.mobility_id" class="mc-part-in" aria-label="Mobility">
+                                    <option value="">Choose mobility</option>
+                                    @foreach($projectMobilities as $mobility)
+                                        <option value="{{ $mobility->id }}">{{ $mobility->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('data.mobility_participations.'.$index.'.mobility_id') <span class="mc-part-err">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="mc-part-lbl">Role</label>
+                                <select wire:model="data.mobility_participations.{{ $index }}.role" class="mc-part-in" aria-label="Role for this mobility">
+                                    @foreach($roles as $key => $label)
+                                        <option value="{{ $key }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div>
+                                <label class="mc-part-lbl">Status</label>
+                                <select wire:model="data.mobility_participations.{{ $index }}.status" class="mc-part-in" aria-label="Participation status">
+                                    @foreach(\App\Models\ProjectMobility::PARTICIPATION_STATUSES as $key => $label)
+                                        <option value="{{ $key }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <button type="button" wire:click="removeMobilityParticipation({{ $index }})" title="Remove mobility" aria-label="Remove mobility" style="width:32px;height:32px;border:1px solid rgba(239,68,68,.22);border-radius:7px;background:transparent;color:#dc2626;cursor:pointer;">×</button>
+                        </div>
+                    @empty
+                        <p class="text-gray-400" style="font-size:12px;margin:0;">No mobility selected yet.</p>
+                    @endforelse
+                </div>
+                @if(count($data['mobility_participations']) < min(10, $projectMobilities->count()))
+                    <button type="button" wire:click="addMobilityParticipation" style="margin-top:.65rem;padding:7px 11px;border:1px dashed rgba(99,102,241,.4);border-radius:7px;background:transparent;color:#4f46e5;cursor:pointer;font-size:12px;font-weight:650;">+ Add mobility</button>
+                @endif
+            @endif
 
             {{-- Belonging --}}
             <p class="mc-part-sec">Belonging</p>

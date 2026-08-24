@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\ProjectResource;
-use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
@@ -38,6 +37,7 @@ class ProjectMobilityTest extends TestCase
         $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
             ->assertSee('Porto')
             ->assertSee('Braga')
+            ->assertDontSee('Participants for this mobility')
             ->set('mobilityReport', 'Porto implementation report')
             ->call('saveMobilityReport')
             ->call('selectMobility', $second->id)
@@ -74,40 +74,6 @@ class ProjectMobilityTest extends TestCase
             ->assertHasActionErrors(['mobilities' => 'max']);
 
         $this->assertCount(10, ProjectMobility::query()->where('project_id', $project->id)->get());
-    }
-
-    public function test_participants_can_be_assigned_to_multiple_mobilities_with_separate_roles_and_statuses(): void
-    {
-        [$project, $user] = $this->projectAndUser();
-        $first = $project->mobilities()->create(['name' => 'Porto', 'start_date' => '2026-07-01', 'end_date' => '2026-07-05']);
-        $second = $project->mobilities()->create(['name' => 'Braga', 'start_date' => '2026-08-01', 'end_date' => '2026-08-05', 'sort_order' => 1]);
-        $ana = Participant::create(['project_id' => $project->id, 'first_name' => 'Ana', 'last_name' => 'Popescu']);
-        $mihai = Participant::create(['project_id' => $project->id, 'first_name' => 'Mihai', 'last_name' => 'Ionescu']);
-        $this->actingAs($user);
-
-        Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
-            ->assertSee('Participants for this mobility')
-            ->callAction('manageMobilityParticipants', data: ['participants' => [
-                ['participant_id' => $ana->id, 'role' => 'participant', 'status' => 'confirmed'],
-                ['participant_id' => $mihai->id, 'role' => 'facilitator', 'status' => 'planned'],
-            ]])
-            ->assertHasNoActionErrors()
-            ->call('selectMobility', $second->id)
-            ->callAction('manageMobilityParticipants', data: ['participants' => [
-                ['participant_id' => $ana->id, 'role' => 'group_leader', 'status' => 'completed'],
-            ]])
-            ->assertHasNoActionErrors();
-
-        $firstParticipants = $first->fresh()->participants()->get()->keyBy('id');
-        $secondParticipants = $second->fresh()->participants()->get()->keyBy('id');
-
-        $this->assertCount(2, $firstParticipants);
-        $this->assertSame('participant', $firstParticipants[$ana->id]->pivot->role);
-        $this->assertSame('confirmed', $firstParticipants[$ana->id]->pivot->status);
-        $this->assertSame('facilitator', $firstParticipants[$mihai->id]->pivot->role);
-        $this->assertCount(1, $secondParticipants);
-        $this->assertSame('group_leader', $secondParticipants[$ana->id]->pivot->role);
-        $this->assertSame('completed', $secondParticipants[$ana->id]->pivot->status);
     }
 
     public function test_member_can_save_mobility_report_and_upload_activity_files(): void

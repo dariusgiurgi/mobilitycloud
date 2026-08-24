@@ -55,7 +55,6 @@
                                 <span style="font-size:.58rem;font-weight:750;padding:.14rem .35rem;border-radius:999px;background:{{ $status[$key] ? 'rgba(16,185,129,.13)' : 'rgba(148,163,184,.12)' }};color:{{ $status[$key] ? '#047857' : '#64748b' }};">{{ $label }}</span>
                             @endforeach
                         </span>
-                        <span class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.64rem;margin-top:.4rem;">{{ $status['participants'] }} participant{{ $status['participants'] === 1 ? '' : 's' }}</span>
                     </button>
                 @endforeach
             </div>
@@ -80,30 +79,6 @@
             </div>
         @endforeach
     </div>
-
-    @php $mobilityParticipants = $this->getSelectedMobilityParticipants(); @endphp
-    <x-filament::section heading="Participants for this mobility" description="Assign people from the project register. A person can attend several mobilities with a separate role and attendance status for each one." icon="heroicon-o-user-group" style="margin-top:1rem;">
-        @if($canManage)
-            <x-slot name="afterHeader">
-                <x-filament::button wire:click="mountAction('manageMobilityParticipants')" size="sm" icon="heroicon-m-user-plus">
-                    Manage participants
-                </x-filament::button>
-            </x-slot>
-        @endif
-
-        @if($mobilityParticipants->isEmpty())
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.78rem;margin:0;">No participants have been assigned to this mobility yet.</p>
-        @else
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.6rem;">
-                @foreach($mobilityParticipants as $participant)
-                    <div style="padding:.7rem .75rem;border:1px solid rgba(148,163,184,.2);border-radius:.75rem;">
-                        <strong class="text-gray-950 dark:text-white" style="display:block;font-size:.78rem;">{{ $participant->fullName() }}</strong>
-                        <span class="text-gray-500 dark:text-gray-400" style="display:block;font-size:.68rem;margin-top:.16rem;">{{ \App\Models\Participant::ROLES[$participant->pivot->role] ?? 'Participant' }} · {{ \App\Models\ProjectMobility::PARTICIPATION_STATUSES[$participant->pivot->status] ?? 'Planned' }}</span>
-                    </div>
-                @endforeach
-            </div>
-        @endif
-    </x-filament::section>
 
     <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:1rem;">
         <x-filament::tabs label="Mobility sections">

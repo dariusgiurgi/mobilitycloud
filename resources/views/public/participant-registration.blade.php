@@ -29,6 +29,12 @@
         .section { margin:26px 0 14px;font-size:.82rem;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#111827; }
         .check { display:flex;align-items:flex-start;gap:.6rem;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#fafafa; }
         .check input { width:auto;margin-top:.2rem;accent-color:var(--brand); }
+        .mobility-choice { display:flex;align-items:flex-start;gap:.7rem;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#fafafa;cursor:pointer; }
+        .mobility-choice + .mobility-choice { margin-top:.6rem; }
+        .mobility-choice input { width:auto;margin-top:.2rem;accent-color:var(--brand); }
+        .mobility-choice strong,.mobility-choice small { display:block; }
+        .mobility-choice small { color:var(--muted);margin-top:.16rem; }
+        .locked-mobility { padding:14px 16px;border:1px solid #c7d2fe;border-radius:15px;background:#eef2ff;color:#3730a3;font-size:.92rem;line-height:1.5; }
         .error { color:#dc2626;font-size:.78rem;margin-top:5px; }
         .actions { display:flex;align-items:center;justify-content:flex-end;gap:.8rem;margin-top:28px; }
         button { border:0;border-radius:14px;background:var(--brand);color:#fff;padding:13px 20px;font:inherit;font-weight:850;cursor:pointer;box-shadow:0 12px 30px rgba(79,70,229,.22); }
@@ -58,8 +64,32 @@
                 @elseif(count($organisations) === 0)
                     <div class="status closed">This form cannot be used yet because the project team has not configured the participating organisations.</div>
                 @else
-                    <form method="POST" action="{{ route('public.participant-registration.store', $project->participant_registration_token) }}">
+                    <form method="POST" action="{{ route('public.participant-registration.store', $registrationToken) }}">
                         @csrf
+
+                        @if($lockedMobility)
+                            <div class="section">Your mobility</div>
+                            <div class="locked-mobility">
+                                <strong>{{ $lockedMobility->name }}</strong><br>
+                                This form is dedicated to this mobility. Your registration will be added here automatically.
+                            </div>
+                        @elseif($mobilities->isNotEmpty())
+                            <div class="section">Mobilities *</div>
+                            <p class="subtitle" style="margin:0 0 .9rem;font-size:.9rem;">Select every mobility in which you will take part. You may choose more than one.</p>
+                            @foreach($mobilities as $mobility)
+                                <label class="mobility-choice" for="mobility-{{ $mobility->id }}">
+                                    <input id="mobility-{{ $mobility->id }}" type="checkbox" name="mobility_ids[]" value="{{ $mobility->id }}" @checked(in_array($mobility->id, old('mobility_ids', [])))>
+                                    <span>
+                                        <strong>{{ $mobility->name }}</strong>
+                                        @if($mobility->start_date || $mobility->end_date)
+                                            <small>{{ $mobility->start_date?->format('d M Y') ?: 'Date to be confirmed' }} – {{ $mobility->end_date?->format('d M Y') ?: 'Date to be confirmed' }}</small>
+                                        @endif
+                                    </span>
+                                </label>
+                            @endforeach
+                            @error('mobility_ids') <div class="error">{{ $message }}</div> @enderror
+                            @error('mobility_ids.*') <div class="error">{{ $message }}</div> @enderror
+                        @endif
 
                         <div class="section">Identity</div>
                         <div class="grid">

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Participant;
 use App\Models\Project;
+use App\Models\ProjectMobility;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -14,28 +15,36 @@ class ParticipantRegistrationController extends Controller
 {
     public function show(string $token): View
     {
-        $project = $this->projectForToken($token);
+        [$project, $lockedMobility] = $this->registrationContext($token);
 
         return view('public.participant-registration', [
             'project' => $project,
             'organisations' => $this->organisations($project),
-            'closed' => ! $project?->hasActiveParticipantRegistrationLink()
+            'mobilities' => $project?->mobilities()->orderBy('sort_order')->orderBy('id')->get() ?? collect(),
+            'lockedMobility' => $lockedMobility,
+            'registrationToken' => $token,
+            'closed' => ! $this->hasActiveRegistrationLink($project, $lockedMobility)
                 || $project->operationalModulesLockedUntilPayment(),
         ]);
     }
 
     public function store(Request $request, string $token): RedirectResponse
     {
-        $project = $this->projectForToken($token);
+        [$project, $lockedMobility] = $this->registrationContext($token);
 
         abort_unless(
-            $project?->hasActiveParticipantRegistrationLink()
+            $this->hasActiveRegistrationLink($project, $lockedMobility)
             && ! $project->operationalModulesLockedUntilPayment(),
             404
         );
 
         $organisations = $this->organisations($project);
         abort_if($organisations === [], 422, 'The project does not have organisations configured yet.');
+
+        $mobilityIds = $lockedMobility
+            ? [$lockedMobility->id]
+            : array_map('intval', (array) $request->input('mobility_ids', []));
+        $availableMobilityIds = $project->mobilities()->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
         $data = $request->validate([
             'complete_name' => ['required', 'string', 'max:255'],
@@ -53,6 +62,8 @@ class ParticipantRegistrationController extends Controller
             'fewer_opportunities' => ['nullable', 'boolean'],
             'guardian_name' => ['nullable', 'string', 'max:255'],
             'guardian_contact' => ['nullable', 'string', 'max:255'],
+            'mobility_ids' => [$lockedMobility ? 'nullable' : (count($availableMobilityIds) > 0 ? 'required' : 'nullable'), 'array'],
+            'mobility_ids.*' => ['integer', Rule::in($availableMobilityIds)],
         ], [], [
             'complete_name' => 'complete name',
             'partner_organisation' => 'organisation',
@@ -67,18 +78,49 @@ class ParticipantRegistrationController extends Controller
         $organisation = collect($organisations)->firstWhere('name', $data['partner_organisation']);
         $data['country'] = Arr::get($organisation, 'country') ?: null;
 
-        Participant::create($data);
+        $participant = Participant::create($data);
+
+        if ($mobilityIds !== []) {
+            abort_unless(collect($mobilityIds)->every(fn (int $mobilityId): bool => in_array($mobilityId, $availableMobilityIds, true)), 404);
+
+            $participant->mobilities()->sync(collect($mobilityIds)->unique()->mapWithKeys(fn (int $mobilityId): array => [
+                $mobilityId => ['role' => 'participant', 'status' => 'planned'],
+            ])->all());
+        }
 
         return redirect()
             ->route('public.participant-registration.show', $token)
             ->with('status', 'Thank you. Your participant form has been submitted.');
     }
 
-    private function projectForToken(string $token): ?Project
+    /** @return array{0: ?Project, 1: ?ProjectMobility} */
+    private function registrationContext(string $token): array
     {
-        return Project::query()
+        $project = Project::query()
             ->where('participant_registration_token', $token)
             ->first();
+
+        if ($project) {
+            return [$project, null];
+        }
+
+        $mobility = ProjectMobility::query()
+            ->with('project')
+            ->where('participant_registration_token', $token)
+            ->first();
+
+        return [$mobility?->project, $mobility];
+    }
+
+    private function hasActiveRegistrationLink(?Project $project, ?ProjectMobility $lockedMobility): bool
+    {
+        if (! $project) {
+            return false;
+        }
+
+        return $lockedMobility
+            ? $lockedMobility->hasActiveParticipantRegistrationLink()
+            : $project->hasActiveParticipantRegistrationLink();
     }
 
     /**

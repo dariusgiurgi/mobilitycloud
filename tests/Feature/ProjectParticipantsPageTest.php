@@ -64,6 +64,33 @@ class ProjectParticipantsPageTest extends TestCase
         ]);
     }
 
+    public function test_participant_mobilities_are_managed_from_the_participant_register(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $porto = $project->mobilities()->create(['name' => 'Porto', 'start_date' => '2026-07-01', 'end_date' => '2026-07-05']);
+        $braga = $project->mobilities()->create(['name' => 'Braga', 'start_date' => '2026-08-01', 'end_date' => '2026-08-05', 'sort_order' => 1]);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->call('openCreate')
+            ->set('data.complete_name', 'Daria Marin')
+            ->set('data.mobility_participations', [
+                ['mobility_id' => $porto->id, 'role' => 'participant', 'status' => 'confirmed'],
+                ['mobility_id' => $braga->id, 'role' => 'facilitator', 'status' => 'planned'],
+            ])
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertSee('Porto')
+            ->assertSee('Braga');
+
+        $participant = Participant::query()->where('project_id', $project->id)->where('complete_name', 'Daria Marin')->sole();
+        $assignments = $participant->mobilities()->get()->keyBy('id');
+
+        $this->assertCount(2, $assignments);
+        $this->assertSame('confirmed', $assignments[$porto->id]->pivot->status);
+        $this->assertSame('facilitator', $assignments[$braga->id]->pivot->role);
+    }
+
     public function test_mobility_access_member_can_add_a_participant_from_the_register(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_MOBILITY);

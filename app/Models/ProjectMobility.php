@@ -18,12 +18,15 @@ class ProjectMobility extends Model
 
     protected $fillable = [
         'project_id', 'name', 'start_date', 'end_date', 'destination_country', 'host_organisation', 'workspace_data', 'sort_order',
+        'participant_registration_token', 'participant_registration_opened_at', 'participant_registration_closed_at',
     ];
 
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
         'workspace_data' => 'array',
+        'participant_registration_opened_at' => 'datetime',
+        'participant_registration_closed_at' => 'datetime',
     ];
 
     public function project(): BelongsTo
@@ -41,6 +44,13 @@ class ProjectMobility extends Model
         return $this->belongsToMany(Participant::class, 'mobility_participant')
             ->withPivot(['role', 'status'])
             ->withTimestamps();
+    }
+
+    public function hasActiveParticipantRegistrationLink(): bool
+    {
+        return filled($this->participant_registration_token)
+            && $this->participant_registration_opened_at !== null
+            && $this->participant_registration_closed_at === null;
     }
 
     protected static function booted(): void

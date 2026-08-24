@@ -5,12 +5,14 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ParticipantAttachment;
+use App\Models\ProjectMobility;
 use App\Services\ParticipantCsvImporter;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\WithFileUploads;
@@ -42,6 +44,8 @@ class ViewProjectParticipants extends Page
     public string $filterCountry = '';
 
     public string $filterOrg = '';
+
+    public string $filterMobilityId = '';
 
     public bool $filterMinorsOnly = false;
 
@@ -77,7 +81,7 @@ class ViewProjectParticipants extends Page
     public function getParticipants()
     {
         $all = Participant::where('project_id', $this->record->id)
-            ->with('attachments')
+            ->with(['attachments', 'mobilities'])
             ->orderBy('complete_name')
             ->orderBy('last_name')
             ->get();
@@ -99,6 +103,9 @@ class ViewProjectParticipants extends Page
             if ($this->filterOrg !== '' && $p->partner_organisation !== $this->filterOrg) {
                 return false;
             }
+            if ($this->filterMobilityId !== '' && ! $p->mobilities->contains('id', (int) $this->filterMobilityId)) {
+                return false;
+            }
             if ($this->filterMinorsOnly && ! $p->isMinor()) {
                 return false;
             }
@@ -113,6 +120,11 @@ class ViewProjectParticipants extends Page
     public function getRoles(): array
     {
         return Participant::ROLES;
+    }
+
+    public function getProjectMobilities()
+    {
+        return $this->record->mobilities()->orderBy('sort_order')->orderBy('id')->get();
     }
 
     /** Statistici pe toti participantii proiectului (nu cei filtrati). */
@@ -150,7 +162,7 @@ class ViewProjectParticipants extends Page
     public function activeParticipantFilters(): int
     {
         return collect([
-            $this->filterSearch, $this->filterRole, $this->filterCountry, $this->filterOrg,
+            $this->filterSearch, $this->filterRole, $this->filterCountry, $this->filterOrg, $this->filterMobilityId,
         ])->filter(fn ($v) => $v !== '')->count()
         + ($this->filterMinorsOnly ? 1 : 0)
         + ($this->filterIncompleteOnly ? 1 : 0);
@@ -162,6 +174,7 @@ class ViewProjectParticipants extends Page
         $this->filterRole = '';
         $this->filterCountry = '';
         $this->filterOrg = '';
+        $this->filterMobilityId = '';
         $this->filterMinorsOnly = false;
         $this->filterIncompleteOnly = false;
     }
@@ -223,6 +236,50 @@ class ViewProjectParticipants extends Page
             ->send();
     }
 
+    public function getMobilityRegistrationUrl(int $mobilityId): ?string
+    {
+        $mobility = $this->record->mobilities()->find($mobilityId);
+
+        if (! $mobility?->hasActiveParticipantRegistrationLink()) {
+            return null;
+        }
+
+        return route('public.participant-registration.show', $mobility->participant_registration_token);
+    }
+
+    public function createMobilityRegistrationLink(int $mobilityId): void
+    {
+        $mobility = $this->record->mobilities()->find($mobilityId);
+        abort_unless($mobility, 404);
+        $this->authorizeManagementModuleMutation('participants', 'mobility-registration-link:'.$mobility->id, 'Mobility registration link');
+
+        $mobility->forceFill([
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+            'participant_registration_closed_at' => null,
+        ])->save();
+
+        Notification::make()
+            ->title('Mobility registration link created')
+            ->body('This link registers people only for '.$mobility->name.'.')
+            ->success()
+            ->send();
+    }
+
+    public function closeMobilityRegistrationLink(int $mobilityId): void
+    {
+        $mobility = $this->record->mobilities()->find($mobilityId);
+        abort_unless($mobility, 404);
+        $this->authorizeManagementModuleMutation('participants', 'mobility-registration-link:'.$mobility->id, 'Mobility registration link');
+
+        $mobility->forceFill(['participant_registration_closed_at' => now()])->save();
+
+        Notification::make()
+            ->title('Mobility registration link closed')
+            ->success()
+            ->send();
+    }
+
     public function openImport(): void
     {
         $this->authorizeManagementModuleMutation('participants', 'import', 'Participant import');
@@ -259,6 +316,7 @@ class ViewProjectParticipants extends Page
             'medical_conditions' => '', 'allergies' => '', 'dietary_restrictions' => '',
             'special_needs' => '', 'fewer_opportunities' => false,
             'guardian_name' => '', 'guardian_contact' => '',
+            'mobility_participations' => [],
         ];
     }
 
@@ -268,6 +326,21 @@ class ViewProjectParticipants extends Page
         $this->editingId = null;
         $this->data = $this->blankData();
         $this->showModal = true;
+    }
+
+    public function addMobilityParticipation(): void
+    {
+        $this->data['mobility_participations'][] = [
+            'mobility_id' => '',
+            'role' => 'participant',
+            'status' => 'planned',
+        ];
+    }
+
+    public function removeMobilityParticipation(int $index): void
+    {
+        unset($this->data['mobility_participations'][$index]);
+        $this->data['mobility_participations'] = array_values($this->data['mobility_participations']);
     }
 
     public function openEdit(int $id): void
@@ -295,6 +368,7 @@ class ViewProjectParticipants extends Page
             'dietary_restrictions' => $p->dietary_restrictions, 'special_needs' => $p->special_needs,
             'fewer_opportunities' => (bool) $p->fewer_opportunities,
             'guardian_name' => $p->guardian_name, 'guardian_contact' => $p->guardian_contact,
+            'mobility_participations' => $this->mobilityParticipationsFor($p),
         ];
         $this->showModal = true;
     }
@@ -336,6 +410,7 @@ class ViewProjectParticipants extends Page
                     'dietary_restrictions' => $participant->dietary_restrictions, 'special_needs' => $participant->special_needs,
                     'fewer_opportunities' => (bool) $participant->fewer_opportunities,
                     'guardian_name' => $participant->guardian_name, 'guardian_contact' => $participant->guardian_contact,
+                    'mobility_participations' => $this->mobilityParticipationsFor($participant),
                 ];
             }
         }
@@ -364,16 +439,25 @@ class ViewProjectParticipants extends Page
             'data.email' => 'nullable|email|max:255',
             'data.birth_date' => 'nullable|date',
             'data.partner_organisation' => $organisationRules,
+            'data.mobility_participations' => ['array', 'max:10'],
+            'data.mobility_participations.*.mobility_id' => ['required', 'integer', 'distinct', Rule::exists('project_mobilities', 'id')->where('project_id', $this->record->id)],
+            'data.mobility_participations.*.role' => ['required', Rule::in(array_keys(Participant::ROLES))],
+            'data.mobility_participations.*.status' => ['required', Rule::in(array_keys(ProjectMobility::PARTICIPATION_STATUSES))],
         ], [], [
             'data.complete_name' => 'complete name',
             'data.partner_organisation' => 'organisation',
         ]);
 
-        $payload = $this->data;
+        $participations = collect($this->data['mobility_participations'] ?? [])
+            ->filter(fn (array $row): bool => filled($row['mobility_id'] ?? null))
+            ->keyBy(fn (array $row): int => (int) $row['mobility_id']);
+        $payload = Arr::except($this->data, 'mobility_participations');
         $payload['complete_name'] = trim((string) $payload['complete_name']);
         [$payload['first_name'], $payload['last_name']] = Participant::splitCompleteName($payload['complete_name']);
         $payload['fewer_opportunities'] = (bool) ($payload['fewer_opportunities'] ?? false);
         $payload['birth_date'] = $payload['birth_date'] ?: null;
+
+        $p = null;
 
         if ($this->editingId) {
             $p = Participant::where('project_id', $this->record->id)->find($this->editingId);
@@ -382,7 +466,16 @@ class ViewProjectParticipants extends Page
             }
         } else {
             $payload['project_id'] = $this->record->id;
-            Participant::create($payload);
+            $p = Participant::create($payload);
+        }
+
+        if ($p) {
+            $p->mobilities()->sync($participations->mapWithKeys(fn (array $row, int $mobilityId): array => [
+                $mobilityId => [
+                    'role' => $row['role'],
+                    'status' => $row['status'],
+                ],
+            ])->all());
         }
 
         $this->closeModal();
@@ -498,6 +591,21 @@ class ViewProjectParticipants extends Page
     protected function participantLockKey(int $participantId): string
     {
         return 'participant:'.$participantId;
+    }
+
+    /** @return array<int, array{mobility_id: int, role: string, status: string}> */
+    protected function mobilityParticipationsFor(Participant $participant): array
+    {
+        return $participant->mobilities()
+            ->orderBy('sort_order')
+            ->orderBy('project_mobilities.id')
+            ->get()
+            ->map(fn (ProjectMobility $mobility): array => [
+                'mobility_id' => $mobility->id,
+                'role' => $mobility->pivot->role ?: 'participant',
+                'status' => $mobility->pivot->status ?: 'planned',
+            ])
+            ->all();
     }
 
     protected function participantLockLabel(Participant $participant): string

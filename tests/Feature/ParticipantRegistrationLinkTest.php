@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Project;
+use App\Models\Participant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -78,5 +79,65 @@ class ParticipantRegistrationLinkTest extends TestCase
         ])->assertNotFound();
 
         $this->assertDatabaseCount('participants', 0);
+    }
+
+    public function test_general_form_can_register_one_person_for_multiple_mobilities(): void
+    {
+        $project = Project::create([
+            'name' => 'Youth Exchange',
+            'status' => 'approved',
+            'partner_orgs' => [['name' => 'Scoala de Jocuri', 'country' => 'Romania']],
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+        ]);
+        $porto = $project->mobilities()->create(['name' => 'Porto']);
+        $braga = $project->mobilities()->create(['name' => 'Braga', 'sort_order' => 1]);
+
+        $this->get(route('public.participant-registration.show', $project->participant_registration_token))
+            ->assertOk()
+            ->assertSee('Select every mobility')
+            ->assertSee('Porto')
+            ->assertSee('Braga');
+
+        $this->post(route('public.participant-registration.store', $project->participant_registration_token), [
+            'complete_name' => 'Ana Popescu',
+            'partner_organisation' => 'Scoala de Jocuri',
+            'mobility_ids' => [$porto->id, $braga->id],
+        ])->assertRedirect();
+
+        $participant = Participant::query()->where('project_id', $project->id)->sole();
+        $this->assertDatabaseCount('mobility_participant', 2);
+        $this->assertTrue($participant->mobilities()->whereKey($porto->id)->exists());
+        $this->assertTrue($participant->mobilities()->whereKey($braga->id)->exists());
+    }
+
+    public function test_mobility_specific_form_locks_the_registration_to_that_mobility(): void
+    {
+        $project = Project::create([
+            'name' => 'Youth Exchange',
+            'status' => 'approved',
+            'partner_orgs' => [['name' => 'Scoala de Jocuri', 'country' => 'Romania']],
+        ]);
+        $porto = $project->mobilities()->create([
+            'name' => 'Porto',
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+        ]);
+        $braga = $project->mobilities()->create(['name' => 'Braga', 'sort_order' => 1]);
+
+        $this->get(route('public.participant-registration.show', $porto->participant_registration_token))
+            ->assertOk()
+            ->assertSee('This form is dedicated to this mobility')
+            ->assertSee('Porto');
+
+        $this->post(route('public.participant-registration.store', $porto->participant_registration_token), [
+            'complete_name' => 'Mara Ionescu',
+            'partner_organisation' => 'Scoala de Jocuri',
+            'mobility_ids' => [$braga->id],
+        ])->assertRedirect();
+
+        $participant = Participant::query()->where('project_id', $project->id)->sole();
+        $this->assertTrue($participant->mobilities()->whereKey($porto->id)->exists());
+        $this->assertFalse($participant->mobilities()->whereKey($braga->id)->exists());
     }
 }
