@@ -14,6 +14,16 @@ class ParticipantCsvImporter
 {
     private const MAX_ROWS = 1000;
 
+    private const MAX_REPORTED_ERRORS = 25;
+
+    public const HEADERS = [
+        'Complete name', 'Organisation', 'Role', 'Country',
+        'Birth date', 'Age', 'Nationality', 'Gender', 'Email', 'Phone',
+        'Address', 'Medical conditions', 'Allergies', 'Dietary restrictions',
+        'Special needs', 'Fewer opportunities', 'Guardian name', 'Guardian contact',
+        'GDPR consent date', 'Documents complete',
+    ];
+
     public function import(Project $project, string $path): int
     {
         $handle = fopen($path, 'rb');
@@ -70,6 +80,9 @@ class ParticipantCsvImporter
     private function readRows(Project $project, $handle, array $headers, string $delimiter): array
     {
         $rows = [];
+        $errors = [];
+        $errorCount = 0;
+        $processedRows = 0;
         $line = 1;
 
         while (($values = fgetcsv($handle, null, $delimiter)) !== false) {
@@ -77,15 +90,32 @@ class ParticipantCsvImporter
             if ($this->isBlankRow($values)) {
                 continue;
             }
-            if (count($rows) >= self::MAX_ROWS) {
+            if ($processedRows >= self::MAX_ROWS) {
                 throw ValidationException::withMessages([
                     'importFile' => 'The file may contain at most '.self::MAX_ROWS.' participants.',
                 ]);
             }
+            $processedRows++;
 
             $values = array_pad($values, count($headers), null);
             $row = array_combine($headers, array_slice($values, 0, count($headers)));
-            $rows[] = $this->validateRow($project, $row, $line);
+            try {
+                $rows[] = $this->validateRow($project, $row, $line);
+            } catch (ValidationException $exception) {
+                $errorCount++;
+
+                if (count($errors) < self::MAX_REPORTED_ERRORS) {
+                    $errors[] = $exception->errors()['importFile'][0] ?? 'Row '.$line.' could not be imported.';
+                }
+            }
+        }
+
+        if ($errorCount > 0) {
+            if ($errorCount > count($errors)) {
+                $errors[] = ($errorCount - count($errors)).' additional invalid row(s) were not shown.';
+            }
+
+            throw ValidationException::withMessages(['importFile' => $errors]);
         }
 
         if ($rows === []) {

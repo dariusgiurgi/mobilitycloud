@@ -64,6 +64,17 @@ class ProjectParticipantsPageTest extends TestCase
         ]);
     }
 
+    public function test_import_modal_offers_a_blank_template(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->call('openImport')
+            ->assertSee('Download blank template')
+            ->assertDontSee('Nothing was imported');
+    }
+
     public function test_participant_mobilities_are_managed_from_the_participant_register(): void
     {
         [$project, $user] = $this->projectAndUser();

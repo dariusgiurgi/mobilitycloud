@@ -54,6 +54,26 @@ class ParticipantExportTest extends TestCase
         $this->assertStringContainsString('Alex Zimmer', $content);
     }
 
+    public function test_project_owner_can_download_a_blank_participant_import_template(): void
+    {
+        $owner = User::factory()->create();
+        $project = Project::create([
+            'owner_id' => $owner->id,
+            'access_mode' => 'restricted',
+            'name' => 'Youth Exchange',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($owner)
+            ->get(route('projects.participant-import-template', $project));
+
+        $response->assertOk();
+        $response->assertDownload('participant-import-template.csv');
+        $content = $response->streamedContent();
+        $this->assertStringStartsWith("\xEF\xBB\xBF\"Complete name\";Organisation;Role", $content);
+        $this->assertSame(1, substr_count(trim($content), "\n") + 1);
+    }
+
     public function test_outsider_cannot_export_participants(): void
     {
         $owner = User::factory()->create();

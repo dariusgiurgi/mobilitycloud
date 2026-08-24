@@ -61,20 +61,23 @@ class ParticipantCsvImporterTest extends TestCase
         ]);
     }
 
-    public function test_invalid_row_cancels_the_entire_import(): void
+    public function test_invalid_rows_return_a_clear_report_and_cancel_the_entire_import(): void
     {
         $project = $this->project();
         $path = $this->csv(implode("\n", [
             'Complete name,Email',
             'Ana Adams,ana@example.test',
             'Zoe Zimmer,not-an-email',
+            ',mara@example.test',
         ]));
 
         try {
             app(ParticipantCsvImporter::class)->import($project, $path);
             $this->fail('Expected validation to fail.');
         } catch (ValidationException $exception) {
-            $this->assertStringContainsString('Row 3', $exception->errors()['importFile'][0]);
+            $errors = $exception->errors()['importFile'];
+            $this->assertStringContainsString('Row 3', $errors[0]);
+            $this->assertStringContainsString('Row 4', $errors[1]);
         }
 
         $this->assertDatabaseCount('participants', 0);

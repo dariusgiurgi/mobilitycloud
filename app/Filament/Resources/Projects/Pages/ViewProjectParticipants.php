@@ -13,6 +13,7 @@ use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\WithFileUploads;
 
 class ViewProjectParticipants extends Page
@@ -62,6 +63,8 @@ class ViewProjectParticipants extends Page
     public bool $showRegistrationLinksModal = false;
 
     public $importFile = null;
+
+    public array $importErrors = [];
 
     // Upload de documente
     public $uploadFile = null;          // fisierul temporar Livewire
@@ -291,6 +294,7 @@ class ViewProjectParticipants extends Page
         $this->authorizeManagementModuleMutation('participants', 'import', 'Participant import');
         $this->resetValidation('importFile');
         $this->importFile = null;
+        $this->importErrors = [];
         $this->showImportModal = true;
     }
 
@@ -301,9 +305,16 @@ class ViewProjectParticipants extends Page
             'importFile' => ['required', 'file', 'mimes:csv,txt', 'max:5120'],
         ]);
 
-        $count = $importer->import($this->record, $this->importFile->getRealPath());
+        try {
+            $count = $importer->import($this->record, $this->importFile->getRealPath());
+        } catch (ValidationException $exception) {
+            $this->importErrors = $exception->errors()['importFile'] ?? ['The CSV could not be imported.'];
+
+            return;
+        }
 
         $this->importFile = null;
+        $this->importErrors = [];
         $this->showImportModal = false;
 
         Notification::make()

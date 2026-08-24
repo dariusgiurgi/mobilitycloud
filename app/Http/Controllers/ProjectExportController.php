@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
+use App\Services\ParticipantCsvImporter;
 use App\Services\ProjectFinalArchiveService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -47,13 +48,7 @@ class ProjectExportController extends Controller
             $output = fopen('php://output', 'wb');
 
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, [
-                'Complete name', 'Organisation', 'Role', 'Country',
-                'Birth date', 'Age', 'Nationality', 'Gender', 'Email', 'Phone',
-                'Address', 'Medical conditions', 'Allergies', 'Dietary restrictions',
-                'Special needs', 'Fewer opportunities', 'Guardian name', 'Guardian contact',
-                'GDPR consent date', 'Documents complete',
-            ], ';');
+            fputcsv($output, ParticipantCsvImporter::HEADERS, ';');
 
             foreach ($participants as $participant) {
                 fputcsv($output, array_map($this->csvValue(...), [
@@ -82,6 +77,18 @@ class ProjectExportController extends Controller
 
             fclose($output);
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function participantImportTemplate(Project $project)
+    {
+        $this->authorizeProjectModule($project, 'participants');
+
+        return response()->streamDownload(function (): void {
+            $output = fopen('php://output', 'wb');
+            fwrite($output, "\xEF\xBB\xBF");
+            fputcsv($output, ParticipantCsvImporter::HEADERS, ';');
+            fclose($output);
+        }, 'participant-import-template.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     private function csvValue(mixed $value): string
