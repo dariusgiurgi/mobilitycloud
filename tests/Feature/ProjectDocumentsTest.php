@@ -538,16 +538,15 @@ class ProjectDocumentsTest extends TestCase
             'participant_agreement',
             'parental_consent',
             'gdpr_declaration',
-            'participation_certificate',
-            'mobility_report',
         ], array_keys(app(ProjectDocumentTemplateService::class)->templates()));
 
         $this->actingAs($user);
 
         Livewire::test(ViewProjectDocuments::class, ['record' => $project->id])
             ->assertSee('Project templates')
-            ->assertSee('Certificate of participation')
             ->assertDontSee('Youthpass')
+            ->assertDontSee('Certificate of participation')
+            ->assertDontSee('Mobility report')
             ->call('generateProjectTemplate', 'participant_agreement')
             ->assertHasNoErrors();
 

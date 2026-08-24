@@ -81,24 +81,6 @@
         <p><span class="check"></span>Where consent is the chosen legal basis, I give consent for the specific purposes stated above and understand that it may be withdrawn as easily as it was given.</p>
         <div class="label">Data subject name (complete by hand)</div><span class="line-wide"></span>
         <table class="signatures"><tr><td><div class="signature-line"></div><div class="muted">Data subject signature and date</div></td><td><div class="signature-line"></div><div class="muted">Controller representative signature and date</div></td></tr></table>
-    @elseif($templateKey === 'participation_certificate')
-        <p>This certifies that</p>
-        <div class="label">Participant full name</div><span class="line-wide"></span>
-        <p>participated in the project activity described above.</p>
-        <h2>Activity details to complete</h2>
-        <div class="label">Activity / mobility title</div><span class="line-wide"></span>
-        <div class="label">Place and dates</div><span class="line-wide"></span>
-        <div class="label">Main learning or contribution</div><div class="box"></div>
-        <table class="signatures"><tr><td><div class="signature-line"></div><div class="muted">Place and issue date</div></td><td><div class="signature-line"></div><div class="muted">Authorised organisation signature and stamp, if used</div></td></tr></table>
-    @elseif($templateKey === 'mobility_report')
-        <h2>Mobility details</h2>
-        <div class="label">Mobility title, location and period</div><span class="line-wide"></span>
-        <div class="label">Participating organisations</div><span class="line-wide"></span>
-        <h2>Activities delivered</h2><div class="box"></div>
-        <h2>Outcomes and participant feedback</h2><div class="box"></div>
-        <h2>Evidence, materials and dissemination</h2><div class="box"></div>
-        <h2>Issues, follow-up actions and recommendations</h2><div class="box"></div>
-        <table class="signatures"><tr><td><div class="signature-line"></div><div class="muted">Prepared by - name and role to complete</div></td><td><div class="signature-line"></div><div class="muted">Reviewed by - name and role to complete</div></td></tr></table>
     @endif
 </body>
 </html>

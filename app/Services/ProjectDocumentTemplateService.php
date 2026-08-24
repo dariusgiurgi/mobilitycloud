@@ -24,14 +24,6 @@ class ProjectDocumentTemplateService
             'label' => 'GDPR declaration',
             'description' => 'Blank data-information and consent form to complete with the organisation details.',
         ],
-        'participation_certificate' => [
-            'label' => 'Certificate of participation',
-            'description' => 'Project certificate with the participant and signature fields intentionally blank.',
-        ],
-        'mobility_report' => [
-            'label' => 'Mobility report',
-            'description' => 'Structured blank report for one mobility, its activities and outcomes.',
-        ],
     ];
 
     public function templates(): array
