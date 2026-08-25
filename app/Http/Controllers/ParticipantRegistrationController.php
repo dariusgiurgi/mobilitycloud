@@ -5,11 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Participant;
 use App\Models\Project;
 use App\Models\ProjectMobility;
+use App\Support\ProjectOrganisations;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ParticipantRegistrationController extends Controller
@@ -17,11 +19,23 @@ class ParticipantRegistrationController extends Controller
     public function show(string $token): View
     {
         [$project, $lockedMobility] = $this->registrationContext($token);
+        $mobilities = $project?->mobilities()->with('project')->orderBy('sort_order')->orderBy('id')->get() ?? collect();
+        $organisations = $project
+            ? ($lockedMobility
+                ? ProjectOrganisations::forMobility($lockedMobility)
+                : ProjectOrganisations::forProject($project))
+            : [];
 
         return view('public.participant-registration', [
             'project' => $project,
-            'organisations' => $this->organisations($project),
-            'mobilities' => $project?->mobilities()->orderBy('sort_order')->orderBy('id')->get() ?? collect(),
+            'organisations' => collect($organisations)->map(fn (array $organisation): array => [
+                ...$organisation,
+                'label' => $organisation['name'].($organisation['country'] ? ' · '.$organisation['country'] : ''),
+            ])->all(),
+            'mobilities' => $mobilities,
+            'mobilityEligibility' => $mobilities->mapWithKeys(fn (ProjectMobility $mobility): array => [
+                $mobility->id => ProjectOrganisations::namesForMobility($mobility),
+            ])->all(),
             'lockedMobility' => $lockedMobility,
             'registrationToken' => $token,
             'closed' => ! $this->hasActiveRegistrationLink($project, $lockedMobility)
@@ -40,18 +54,17 @@ class ParticipantRegistrationController extends Controller
                 404
             );
 
-            $organisations = $this->organisations($project);
+            $organisations = $lockedMobility
+                ? ProjectOrganisations::forMobility($lockedMobility)
+                : ProjectOrganisations::forProject($project);
             abort_if($organisations === [], 422, 'The project does not have organisations configured yet.');
 
-            $mobilityIds = $lockedMobility
-                ? [$lockedMobility->id]
-                : array_map('intval', (array) $request->input('mobility_ids', []));
             $availableMobilityIds = $project->mobilities()->pluck('id')->map(fn ($id): int => (int) $id)->all();
 
             $data = $request->validate([
                 'complete_name' => ['required', 'string', 'max:255'],
                 'partner_organisation' => ['required', 'string', 'max:255', Rule::in(array_column($organisations, 'name'))],
-                'birth_date' => ['nullable', 'date'],
+                'birth_date' => ['nullable', 'date', 'before_or_equal:today'],
                 'nationality' => ['nullable', 'string', 'max:255'],
                 'gender' => ['nullable', Rule::in(['female', 'male', 'other', 'undisclosed'])],
                 'email' => ['nullable', 'email', 'max:255'],
@@ -70,6 +83,23 @@ class ParticipantRegistrationController extends Controller
                 'complete_name' => 'complete name',
                 'partner_organisation' => 'organisation',
             ]);
+
+            $mobilityIds = $lockedMobility
+                ? [$lockedMobility->id]
+                : collect($data['mobility_ids'] ?? [])->map(fn ($id): int => (int) $id)->unique()->values()->all();
+            $selectedMobilities = $lockedMobility
+                ? collect([$lockedMobility])
+                : $project->mobilities()->with('project')->whereKey($mobilityIds)->get();
+            $ineligibleMobilities = $selectedMobilities
+                ->reject(fn (ProjectMobility $mobility): bool => ProjectOrganisations::mobilityAllows($mobility, $data['partner_organisation']))
+                ->pluck('name')
+                ->values();
+
+            if ($ineligibleMobilities->isNotEmpty()) {
+                throw ValidationException::withMessages([
+                    $lockedMobility ? 'partner_organisation' : 'mobility_ids' => 'The selected organisation does not participate in: '.$ineligibleMobilities->join(', ').'. Choose only mobilities available for this organisation.',
+                ]);
+            }
 
             $data['complete_name'] = trim((string) $data['complete_name']);
             [$data['first_name'], $data['last_name']] = Participant::splitCompleteName($data['complete_name']);
@@ -123,25 +153,5 @@ class ParticipantRegistrationController extends Controller
         return $lockedMobility
             ? $lockedMobility->hasActiveParticipantRegistrationLink()
             : $project->hasActiveParticipantRegistrationLink();
-    }
-
-    /**
-     * @return array<int, array{name: string, label: string, country: ?string}>
-     */
-    private function organisations(?Project $project): array
-    {
-        if (! $project) {
-            return [];
-        }
-
-        return collect($project->partners)
-            ->filter(fn (array $partner): bool => filled($partner['name'] ?? null))
-            ->map(fn (array $partner): array => [
-                'name' => trim((string) $partner['name']),
-                'label' => trim((string) $partner['name']).(! empty($partner['country']) ? ' · '.$partner['country'] : ''),
-                'country' => filled($partner['country'] ?? null) ? trim((string) $partner['country']) : null,
-            ])
-            ->values()
-            ->all();
     }
 }

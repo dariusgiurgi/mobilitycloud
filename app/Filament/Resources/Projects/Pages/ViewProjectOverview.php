@@ -213,7 +213,7 @@ class ViewProjectOverview extends Page
     {
         $participants = Participant::query()
             ->where('project_id', $this->record->id)
-            ->with('attachments')
+            ->with(['attachments', 'mobilities', 'project'])
             ->get();
         $complete = $participants->filter->hasCompleteDocs()->count();
 

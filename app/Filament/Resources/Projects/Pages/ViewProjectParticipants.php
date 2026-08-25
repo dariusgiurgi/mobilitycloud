@@ -5,9 +5,11 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Participant;
 use App\Models\ParticipantAttachment;
+use App\Models\ProjectMobility;
 use App\Services\ParticipantCsvImporter;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
+use App\Support\ProjectOrganisations;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -90,7 +92,7 @@ class ViewProjectParticipants extends Page
     public function getParticipants()
     {
         $all = Participant::where('project_id', $this->record->id)
-            ->with(['attachments', 'mobilities'])
+            ->with(['attachments', 'mobilities', 'project'])
             ->orderBy('complete_name')
             ->orderBy('last_name')
             ->get();
@@ -133,13 +135,13 @@ class ViewProjectParticipants extends Page
 
     public function getProjectMobilities()
     {
-        return $this->record->mobilities()->orderBy('sort_order')->orderBy('id')->get();
+        return $this->record->mobilities()->with('project')->orderBy('sort_order')->orderBy('id')->get();
     }
 
     /** Statistici pe toti participantii proiectului (nu cei filtrati). */
     public function getStats(): array
     {
-        $all = Participant::where('project_id', $this->record->id)->with('attachments')->get();
+        $all = Participant::where('project_id', $this->record->id)->with(['attachments', 'mobilities', 'project'])->get();
         $complete = $all->filter->hasCompleteDocs()->count();
 
         return [
@@ -190,11 +192,10 @@ class ViewProjectParticipants extends Page
 
     public function getPartnerOrgs(): array
     {
-        return collect($this->record->partners)
-            ->filter(fn ($p) => ! empty($p['name']))
-            ->map(fn ($p) => [
-                'name' => $p['name'],
-                'label' => $p['name'].(! empty($p['is_coordinator']) ? ' (coordinator)' : ''),
+        return collect(ProjectOrganisations::forProject($this->record))
+            ->map(fn (array $organisation): array => [
+                'name' => $organisation['name'],
+                'label' => $organisation['name'].($organisation['is_coordinator'] ? ' (coordinator)' : ''),
             ])
             ->values()
             ->all();
@@ -331,10 +332,12 @@ class ViewProjectParticipants extends Page
 
     protected function blankData(): array
     {
+        $organisations = $this->getPartnerOrgs();
+
         return [
             'complete_name' => '', 'first_name' => '', 'last_name' => '', 'birth_date' => null,
             'nationality' => '', 'gender' => '',
-            'partner_organisation' => '', 'country' => '', 'role' => 'participant',
+            'partner_organisation' => count($organisations) === 1 ? $organisations[0]['name'] : '', 'country' => '', 'role' => 'participant',
             'email' => '', 'phone' => '', 'address' => '',
             'medical_conditions' => '', 'allergies' => '', 'dietary_restrictions' => '',
             'special_needs' => '', 'fewer_opportunities' => false,
@@ -361,6 +364,7 @@ class ViewProjectParticipants extends Page
 
         $this->mobilityParticipantId = $participant->id;
         $this->selectedParticipantMobilityIds = $participant->mobilities()->pluck('project_mobilities.id')->map(fn ($id): int => (int) $id)->all();
+        $this->resetValidation(['selectedParticipantMobilityIds', 'selectedParticipantMobilityIds.*']);
         $this->showParticipantMobilityModal = true;
     }
 
@@ -386,6 +390,21 @@ class ViewProjectParticipants extends Page
             'selectedParticipantMobilityIds' => ['array', 'max:10'],
             'selectedParticipantMobilityIds.*' => ['integer', 'distinct', Rule::exists('project_mobilities', 'id')->where('project_id', $this->record->id)],
         ]);
+
+        $selectedMobilities = $this->record->mobilities()
+            ->with('project')
+            ->whereKey($this->selectedParticipantMobilityIds)
+            ->get();
+        $ineligibleMobilities = $selectedMobilities
+            ->reject(fn (ProjectMobility $mobility): bool => ProjectOrganisations::mobilityAllows($mobility, $participant->partner_organisation))
+            ->pluck('name')
+            ->values();
+
+        if ($ineligibleMobilities->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'selectedParticipantMobilityIds' => $participant->partner_organisation.' does not participate in: '.$ineligibleMobilities->join(', ').'. Remove these assignments or update the mobility organisations first.',
+            ]);
+        }
 
         $existing = $participant->mobilities()->get()->keyBy('id');
         $participant->mobilities()->sync(collect($this->selectedParticipantMobilityIds)
@@ -510,7 +529,7 @@ class ViewProjectParticipants extends Page
         $this->validate([
             'data.complete_name' => 'required|string|max:255',
             'data.email' => 'nullable|email|max:255',
-            'data.birth_date' => 'nullable|date',
+            'data.birth_date' => 'nullable|date|before_or_equal:today',
             'data.partner_organisation' => $organisationRules,
         ], [], [
             'data.complete_name' => 'complete name',
@@ -522,6 +541,27 @@ class ViewProjectParticipants extends Page
         [$payload['first_name'], $payload['last_name']] = Participant::splitCompleteName($payload['complete_name']);
         $payload['fewer_opportunities'] = (bool) ($payload['fewer_opportunities'] ?? false);
         $payload['birth_date'] = $payload['birth_date'] ?: null;
+
+        if ($this->editingId) {
+            $participant = Participant::where('project_id', $this->record->id)
+                ->with(['mobilities.project'])
+                ->find($this->editingId);
+            $organisationChanged = $participant
+                && $participant->partner_organisation !== ($payload['partner_organisation'] ?? null);
+
+            if ($organisationChanged) {
+                $ineligibleMobilities = $participant->mobilities
+                    ->reject(fn (ProjectMobility $mobility): bool => ProjectOrganisations::mobilityAllows($mobility, $payload['partner_organisation'] ?? null))
+                    ->pluck('name')
+                    ->values();
+
+                if ($ineligibleMobilities->isNotEmpty()) {
+                    throw ValidationException::withMessages([
+                        'data.partner_organisation' => 'This organisation does not participate in: '.$ineligibleMobilities->join(', ').'. Remove those mobility assignments before changing the organisation.',
+                    ]);
+                }
+            }
+        }
 
         $p = null;
 
@@ -538,6 +578,19 @@ class ViewProjectParticipants extends Page
         $this->closeModal();
 
         Notification::make()->title('Participant saved')->success()->send();
+    }
+
+    public function participantCanAttendMobility(?Participant $participant, ProjectMobility $mobility): bool
+    {
+        return $participant !== null
+            && ProjectOrganisations::mobilityAllows($mobility, $participant->partner_organisation);
+    }
+
+    public function getParticipantMobilityChoices(?Participant $participant)
+    {
+        return $this->getProjectMobilities()
+            ->filter(fn (ProjectMobility $mobility): bool => $this->participantCanAttendMobility($participant, $mobility)
+                || collect($this->selectedParticipantMobilityIds)->map(fn ($id): int => (int) $id)->contains($mobility->id));
     }
 
     public function deleteParticipant(int $id): void

@@ -193,4 +193,76 @@ class ParticipantRegistrationLinkTest extends TestCase
         $this->assertTrue($participant->mobilities()->whereKey($porto->id)->exists());
         $this->assertFalse($participant->mobilities()->whereKey($braga->id)->exists());
     }
+
+    public function test_general_form_rejects_mobilities_not_served_by_the_selected_organisation(): void
+    {
+        $project = Project::create([
+            'name' => 'Partner-specific mobilities',
+            'status' => 'approved',
+            'partner_orgs' => [
+                ['name' => 'Romanian Coordinator', 'country' => 'Romania', 'oid' => 'E10000001'],
+                ['name' => 'Spanish Partner', 'country' => 'Spain', 'oid' => 'E20000002'],
+            ],
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+        ]);
+        $bucharest = $project->mobilities()->create([
+            'name' => 'Bucharest',
+            'participating_organisations' => ['oid_e10000001'],
+        ]);
+        $madrid = $project->mobilities()->create([
+            'name' => 'Madrid',
+            'participating_organisations' => ['oid_e20000002'],
+            'sort_order' => 1,
+        ]);
+
+        $this->post(route('public.participant-registration.store', $project->participant_registration_token), [
+            'complete_name' => 'Ana Popescu',
+            'partner_organisation' => 'Romanian Coordinator',
+            'mobility_ids' => [$bucharest->id, $madrid->id],
+        ])->assertSessionHasErrors('mobility_ids');
+
+        $this->assertDatabaseCount('participants', 0);
+
+        $this->post(route('public.participant-registration.store', $project->participant_registration_token), [
+            'complete_name' => 'Ana Popescu',
+            'partner_organisation' => 'Romanian Coordinator',
+            'mobility_ids' => [$bucharest->id],
+        ])->assertRedirect();
+
+        $participant = Participant::query()->sole();
+        $this->assertTrue($participant->mobilities()->whereKey($bucharest->id)->exists());
+        $this->assertFalse($participant->mobilities()->whereKey($madrid->id)->exists());
+    }
+
+    public function test_mobility_specific_form_only_accepts_its_participating_organisations(): void
+    {
+        $project = Project::create([
+            'name' => 'Partner-specific mobility',
+            'status' => 'approved',
+            'partner_orgs' => [
+                ['name' => 'Romanian Coordinator', 'country' => 'Romania', 'oid' => 'E10000001'],
+                ['name' => 'Spanish Partner', 'country' => 'Spain', 'oid' => 'E20000002'],
+            ],
+        ]);
+        $mobility = $project->mobilities()->create([
+            'name' => 'Bucharest',
+            'participating_organisations' => ['oid_e10000001'],
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+        ]);
+        $url = route('public.participant-registration.show', $mobility->participant_registration_token);
+
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('Romanian Coordinator')
+            ->assertDontSee('Spanish Partner');
+
+        $this->post($url, [
+            'complete_name' => 'Tampered Participant',
+            'partner_organisation' => 'Spanish Partner',
+        ])->assertSessionHasErrors('partner_organisation');
+
+        $this->assertDatabaseCount('participants', 0);
+    }
 }

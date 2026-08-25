@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class Participant extends Model
 {
@@ -94,36 +95,117 @@ class Participant extends Model
         return self::ROLES[$this->role] ?? $this->role;
     }
 
-    /**
-     * Data de referinta pentru calculul varstei:
-     * data inceperii mobilitatii daca exista, altfel data curenta.
-     */
+    /** The earliest relevant date, kept for numeric exports and legacy callers. */
     public function referenceDate(): Carbon
     {
-        return $this->project?->mobility_start_date
-            ? Carbon::parse($this->project->mobility_start_date)
-            : Carbon::now();
+        return $this->referenceDates()->first();
     }
 
-    /** Varsta la data de referinta. */
+    /** Age at the earliest relevant date. */
     public function ageAtReference(): ?int
     {
         if (! $this->birth_date) {
             return null;
         }
 
-        return (int) Carbon::parse($this->birth_date)->diffInYears($this->referenceDate());
+        return $this->ageAt($this->referenceDate());
     }
 
     /**
-     * Minor = sub 18 ani la data de referinta (inceputul mobilitatii sau azi).
-     * Minorii au nevoie de acord parental.
+     * A participant is a minor when they are under 18 at the start of at least
+     * one assigned mobility. This intentionally covers people who turn 18
+     * between two mobilities in the same project.
      */
     public function isMinor(): bool
     {
-        $age = $this->ageAtReference();
+        if (! $this->birth_date) {
+            return false;
+        }
 
-        return $age !== null && $age < 18;
+        return $this->referenceDates()
+            ->contains(fn (Carbon $date): bool => $this->ageAt($date) < 18);
+    }
+
+    public function isMinorForMobility(ProjectMobility $mobility): bool
+    {
+        if (! $this->birth_date || ! $mobility->start_date) {
+            return false;
+        }
+
+        return $this->ageAt(Carbon::parse($mobility->start_date)) < 18;
+    }
+
+    /**
+     * Human-friendly age for the participant register. A range is displayed
+     * when the person has a birthday between assigned mobilities.
+     */
+    public function ageDisplay(): ?string
+    {
+        if (! $this->birth_date) {
+            return null;
+        }
+
+        $ages = $this->referenceDates()
+            ->map(fn (Carbon $date): int => $this->ageAt($date))
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($ages->count() < 2) {
+            return (string) $ages->first();
+        }
+
+        return $ages->first().'–'.$ages->last();
+    }
+
+    /** @return array<int, string> */
+    public function minorMobilityNames(): array
+    {
+        return $this->assignedMobilities()
+            ->filter(fn (ProjectMobility $mobility): bool => $this->isMinorForMobility($mobility))
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Assigned mobility dates are authoritative. An unassigned participant
+     * falls back to the project period, then today, without borrowing dates
+     * from an unrelated mobility.
+     *
+     * @return Collection<int, Carbon>
+     */
+    private function referenceDates(): Collection
+    {
+        $dates = $this->assignedMobilities()
+            ->pluck('start_date')
+            ->filter()
+            ->map(fn ($date): Carbon => Carbon::parse($date))
+            ->sortBy(fn (Carbon $date): string => $date->toDateString())
+            ->values();
+
+        if ($dates->isNotEmpty()) {
+            return $dates;
+        }
+
+        $project = $this->relationLoaded('project') ? $this->project : $this->project()->first();
+
+        return collect([
+            $project?->start_date ? Carbon::parse($project->start_date) : Carbon::now(),
+        ]);
+    }
+
+    /** @return Collection<int, ProjectMobility> */
+    private function assignedMobilities(): Collection
+    {
+        return $this->relationLoaded('mobilities')
+            ? $this->mobilities
+            : $this->mobilities()->get();
+    }
+
+    private function ageAt(Carbon $date): int
+    {
+        return (int) Carbon::parse($this->birth_date)->diffInYears($date);
     }
 
     /**
