@@ -73,6 +73,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Shared project links
+    |--------------------------------------------------------------------------
+    |
+    | Participant and anonymous feedback forms are intentionally frictionless:
+    | there is no CAPTCHA or expiry timer. This high submission ceiling is only
+    | a last-resort flood safety valve and is keyed by both link and requester.
+    |
+    */
+
+    'public_links' => [
+        'max_submissions_per_minute' => (int) env('MOBILITYCLOUD_PUBLIC_LINK_MAX_PER_MINUTE', 120),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Legal company details
     |--------------------------------------------------------------------------
     |

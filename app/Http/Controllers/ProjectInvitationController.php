@@ -53,30 +53,38 @@ class ProjectInvitationController extends Controller
         abort_if(! $invitation->project, 410, 'This project invitation is no longer available because the project was removed.');
 
         DB::transaction(function () use ($invitation, $user): void {
-            $projectRole = str($invitation->role)->after('project_')->toString();
+            $lockedInvitation = ProjectInvitation::query()
+                ->with('project')
+                ->lockForUpdate()
+                ->findOrFail($invitation->id);
+
+            abort_unless($lockedInvitation->isPending(), 410, 'This invitation has expired or was already used.');
+            abort_if(! $lockedInvitation->project, 410, 'This project invitation is no longer available because the project was removed.');
+
+            $projectRole = str($lockedInvitation->role)->after('project_')->toString();
             $projectRole = array_key_exists($projectRole, Project::projectRoleOptions()) ? $projectRole : Project::PROJECT_ROLE_EDITOR;
 
-            $invitation->project?->members()->syncWithoutDetaching([
+            $lockedInvitation->project->members()->syncWithoutDetaching([
                 $user->id => ['role' => $projectRole],
             ]);
 
             Notification::make()
                 ->title('Project access granted')
-                ->body('You now have access to '.$invitation->project?->name.' as '.Project::projectRoleLabel($projectRole).'.')
+                ->body('You now have access to '.$lockedInvitation->project->name.' as '.Project::projectRoleLabel($projectRole).'.')
                 ->success()
                 ->actions([
                     Action::make('openProject')
                         ->label('Open project')
                         ->button()
                         ->markAsRead()
-                        ->url(ProjectResource::projectUrl($invitation->project, 'overview', $user)),
+                        ->url(ProjectResource::projectUrl($lockedInvitation->project, 'overview', $user)),
                 ])
                 ->sendToDatabase($user, isEventDispatched: true);
 
-            app(ProjectInvitationNotificationService::class)->markAccepted($invitation, $user);
+            app(ProjectInvitationNotificationService::class)->markAccepted($lockedInvitation, $user);
 
-            $invitation->accepted_at = now();
-            $invitation->save();
+            $lockedInvitation->accepted_at = now();
+            $lockedInvitation->save();
         });
 
         if ($invitation->project) {

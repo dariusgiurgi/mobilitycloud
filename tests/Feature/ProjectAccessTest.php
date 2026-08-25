@@ -347,6 +347,17 @@ class ProjectAccessTest extends TestCase
         $this->assertNotNull($invitation->fresh()->accepted_at);
         $this->assertSame(1, $existing->notifications()->count());
         $this->assertSame('Project access granted', $existing->notifications()->sole()->data['title']);
+
+        $this->actingAs($existing)
+            ->get(route('project-invitations.accept', $invitation->token))
+            ->assertGone();
+    }
+
+    public function test_malformed_project_invitation_tokens_are_rejected_by_the_router(): void
+    {
+        $this->get('/project-invitations/'.str_repeat('a', 63))->assertNotFound();
+        $this->get('/project-invitations/'.str_repeat('a', 65))->assertNotFound();
+        $this->get('/project-invitations/'.str_repeat('-', 64))->assertNotFound();
     }
 
     public function test_project_invitation_cannot_be_accepted_after_project_is_removed(): void
