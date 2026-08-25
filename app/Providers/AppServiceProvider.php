@@ -20,7 +20,10 @@ use App\Policies\ProjectPolicy;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -40,6 +43,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('public-link-submissions', function (Request $request): Limit {
+            $token = (string) $request->route('token');
+            $key = hash('sha256', $token.'|'.$request->ip());
+
+            return Limit::perMinute(max(30, (int) config('mobilitycloud.public_links.max_submissions_per_minute', 120)))
+                ->by($key);
+        });
+
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(ContentBlock::class, ContentBlockPolicy::class);
 

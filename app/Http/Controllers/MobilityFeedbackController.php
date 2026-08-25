@@ -7,6 +7,7 @@ use App\Models\MobilityFeedbackCampaign;
 use App\Models\MobilityFeedbackResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -30,38 +31,41 @@ class MobilityFeedbackController extends Controller
 
     public function store(Request $request, string $token): RedirectResponse
     {
-        $campaign = MobilityFeedbackCampaign::query()
-            ->where('public_token', $token)
-            ->firstOrFail();
+        return DB::transaction(function () use ($request, $token): RedirectResponse {
+            $campaign = MobilityFeedbackCampaign::query()
+                ->where('public_token', $token)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        abort_unless($campaign->hasActiveLink(), 404);
+            abort_unless($campaign->hasActiveLink(), 404);
 
-        $questions = $campaign->questions();
-        abort_if($questions === [], 404);
+            $questions = $campaign->questions();
+            abort_if($questions === [], 404);
 
-        $validated = $request->validate($this->answerRules($questions), [], [
-            'answers' => 'answers',
-        ]);
+            $validated = $request->validate($this->answerRules($questions), [], [
+                'answers' => 'answers',
+            ]);
 
-        $answers = [];
-        foreach ($questions as $question) {
-            $id = (string) ($question['id'] ?? '');
-            if ($id === '') {
-                continue;
+            $answers = [];
+            foreach ($questions as $question) {
+                $id = (string) ($question['id'] ?? '');
+                if ($id === '') {
+                    continue;
+                }
+
+                $answers[$id] = data_get($validated, 'answers.'.$id);
             }
 
-            $answers[$id] = data_get($validated, 'answers.'.$id);
-        }
+            MobilityFeedbackResponse::create([
+                'mobility_feedback_campaign_id' => $campaign->id,
+                'answers' => $answers,
+                'submitted_at' => now(),
+            ]);
 
-        MobilityFeedbackResponse::create([
-            'mobility_feedback_campaign_id' => $campaign->id,
-            'answers' => $answers,
-            'submitted_at' => now(),
-        ]);
-
-        return redirect()
-            ->route('public.mobility-feedback.show', $token)
-            ->with('submitted', true);
+            return redirect()
+                ->route('public.mobility-feedback.show', $token)
+                ->with('submitted', true);
+        }, attempts: 3);
     }
 
     /** @param array<int, array<string, mixed>> $questions */

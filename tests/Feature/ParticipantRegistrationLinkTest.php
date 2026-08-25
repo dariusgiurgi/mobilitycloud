@@ -27,6 +27,9 @@ class ParticipantRegistrationLinkTest extends TestCase
 
         $this->get(route('public.participant-registration.show', $project->participant_registration_token))
             ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
             ->assertSee('Participant form')
             ->assertSee('Scoala de Jocuri')
             ->assertSee('Youth Group Spain');
@@ -78,6 +81,55 @@ class ParticipantRegistrationLinkTest extends TestCase
             'partner_organisation' => 'Scoala de Jocuri',
         ])->assertNotFound();
 
+        $this->assertDatabaseCount('participants', 0);
+    }
+
+    public function test_public_link_is_closed_until_it_has_explicitly_been_opened(): void
+    {
+        $project = Project::create([
+            'name' => 'Youth Exchange',
+            'status' => 'approved',
+            'partner_orgs' => [['name' => 'Scoala de Jocuri', 'country' => 'Romania']],
+            'participant_registration_token' => Str::random(48),
+        ]);
+
+        $this->get(route('public.participant-registration.show', $project->participant_registration_token))
+            ->assertOk()
+            ->assertSee('currently closed');
+
+        $this->post(route('public.participant-registration.store', $project->participant_registration_token), [
+            'complete_name' => 'Ana Popescu',
+            'partner_organisation' => 'Scoala de Jocuri',
+        ])->assertNotFound();
+
+        $this->assertDatabaseCount('participants', 0);
+    }
+
+    public function test_malformed_public_tokens_are_rejected_by_the_router(): void
+    {
+        $this->get('/participant-registration/'.str_repeat('a', 47))->assertNotFound();
+        $this->post('/participant-registration/'.str_repeat('a', 49))->assertNotFound();
+        $this->get('/participant-registration/'.str_repeat('-', 48))->assertNotFound();
+    }
+
+    public function test_only_machine_like_submission_bursts_reach_the_safety_limit(): void
+    {
+        config()->set('mobilitycloud.public_links.max_submissions_per_minute', 30);
+
+        $project = Project::create([
+            'name' => 'Youth Exchange',
+            'status' => 'approved',
+            'partner_orgs' => [['name' => 'Scoala de Jocuri', 'country' => 'Romania']],
+            'participant_registration_token' => Str::random(48),
+            'participant_registration_opened_at' => now(),
+        ]);
+        $url = route('public.participant-registration.store', $project->participant_registration_token);
+
+        foreach (range(1, 30) as $attempt) {
+            $this->post($url, [])->assertRedirect();
+        }
+
+        $this->post($url, [])->assertTooManyRequests();
         $this->assertDatabaseCount('participants', 0);
     }
 

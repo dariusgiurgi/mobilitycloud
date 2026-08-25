@@ -595,6 +595,7 @@ class Project extends Model
     public function hasActiveParticipantRegistrationLink(): bool
     {
         return filled($this->participant_registration_token)
+            && $this->participant_registration_opened_at !== null
             && $this->participant_registration_closed_at === null;
     }
 

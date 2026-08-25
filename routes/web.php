@@ -13,6 +13,7 @@ use App\Http\Controllers\ProjectActivityExportController;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectExportController;
 use App\Http\Controllers\ProjectInvitationController;
+use App\Http\Middleware\AddPublicLinkSecurityHeaders;
 use App\Http\Middleware\RedirectSuspendedAccount;
 use App\Models\User;
 use App\Support\AuthSessionHash;
@@ -96,10 +97,22 @@ Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, Pr
         ]);
     })->name('agent.json');
 });
-Route::get('/participant-registration/{token}', [ParticipantRegistrationController::class, 'show'])->name('public.participant-registration.show');
-Route::post('/participant-registration/{token}', [ParticipantRegistrationController::class, 'store'])->name('public.participant-registration.store');
-Route::get('/mobility-feedback/{token}', [MobilityFeedbackController::class, 'show'])->name('public.mobility-feedback.show');
-Route::post('/mobility-feedback/{token}', [MobilityFeedbackController::class, 'store'])->name('public.mobility-feedback.store');
+Route::middleware(AddPublicLinkSecurityHeaders::class)->group(function (): void {
+    Route::get('/participant-registration/{token}', [ParticipantRegistrationController::class, 'show'])
+        ->where('token', '[A-Za-z0-9]{48}')
+        ->name('public.participant-registration.show');
+    Route::post('/participant-registration/{token}', [ParticipantRegistrationController::class, 'store'])
+        ->where('token', '[A-Za-z0-9]{48}')
+        ->middleware('throttle:public-link-submissions')
+        ->name('public.participant-registration.store');
+    Route::get('/mobility-feedback/{token}', [MobilityFeedbackController::class, 'show'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->name('public.mobility-feedback.show');
+    Route::post('/mobility-feedback/{token}', [MobilityFeedbackController::class, 'store'])
+        ->where('token', '[A-Za-z0-9]{64}')
+        ->middleware('throttle:public-link-submissions')
+        ->name('public.mobility-feedback.store');
+});
 
 Route::get('/account-suspended', function () {
     return view('account-suspended');
@@ -262,6 +275,7 @@ Route::get('/impersonation/stop', function (Request $request) {
 })->name('platform.impersonation.stop');
 
 Route::get('/project-invitations/{token}', [ProjectInvitationController::class, 'accept'])
+    ->where('token', '[A-Za-z0-9]{64}')
     ->name('project-invitations.accept');
 
 Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () {

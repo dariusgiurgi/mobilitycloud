@@ -29,6 +29,9 @@ class MobilityFeedbackTest extends TestCase
 
         $this->get(route('public.mobility-feedback.show', $campaign->public_token))
             ->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Referrer-Policy', 'no-referrer')
+            ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
             ->assertSee('Anonymous mobility feedback')
             ->assertSee('How satisfied were you?')
             ->assertDontSee($user->name);
@@ -48,6 +51,33 @@ class MobilityFeedbackTest extends TestCase
         ], $response->answers);
         $this->assertFalse(Schema::hasColumn('mobility_feedback_responses', 'user_id'));
         $this->assertFalse(Schema::hasColumn('mobility_feedback_responses', 'participant_id'));
+    }
+
+    public function test_closed_feedback_link_cannot_record_more_answers(): void
+    {
+        [$user, , $mobility] = $this->projectMobility();
+        $campaign = $this->campaign($user, $mobility);
+        $campaign->update(['closed_at' => now()]);
+
+        $this->get(route('public.mobility-feedback.show', $campaign->public_token))
+            ->assertOk()
+            ->assertSee('currently closed');
+
+        $this->post(route('public.mobility-feedback.store', $campaign->public_token), [
+            'answers' => [
+                'q_rating' => 5,
+                'q_comment' => 'This must not be saved.',
+            ],
+        ])->assertNotFound();
+
+        $this->assertDatabaseCount('mobility_feedback_responses', 0);
+    }
+
+    public function test_malformed_feedback_tokens_are_rejected_by_the_router(): void
+    {
+        $this->get('/mobility-feedback/'.str_repeat('a', 63))->assertNotFound();
+        $this->post('/mobility-feedback/'.str_repeat('a', 65))->assertNotFound();
+        $this->get('/mobility-feedback/'.str_repeat('-', 64))->assertNotFound();
     }
 
     public function test_public_feedback_form_requires_the_configured_answers(): void
