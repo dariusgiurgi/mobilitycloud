@@ -2,13 +2,19 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\User;
+use App\Services\StoredFileReplacementService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccess;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
+use App\Support\UploadedFileSize;
 use BackedEnum;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\Features\SupportFileUploads\WithFileUploads;
 
 class DocumentTemplates extends Page
@@ -97,17 +103,7 @@ class DocumentTemplates extends Page
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
         ]);
 
-        $settings = $user->document_settings ?? [];
-
-        if ($this->logo) {
-            if (! empty($settings['logo_path'])) {
-                Storage::disk('local')->delete($settings['logo_path']);
-            }
-            $settings['logo_path'] = $this->logo->store('account-branding/'.$user->id, 'local');
-        }
-
-        $user->document_settings = [
-            ...$settings,
+        $updatedSettings = [
             'brand_name' => trim($data['brandName']),
             'legal_name' => trim($data['legalName']),
             'vat_number' => trim($data['vatNumber'] ?? ''),
@@ -118,7 +114,43 @@ class DocumentTemplates extends Page
             'signatory_role' => trim($data['signatoryRole'] ?? ''),
             'accent_color' => strtolower($data['accentColor']),
         ];
-        $user->save();
+
+        if ($this->logo) {
+            $upload = $this->logo;
+            $extension = strtolower($upload->getClientOriginalExtension() ?: 'png');
+            $directory = 'account-branding/'.$user->id.'/'.Str::uuid();
+            $filename = 'logo.'.$extension;
+            $path = $directory.'/'.$filename;
+
+            app(StoredFileReplacementService::class)->replace(
+                disk: 'local',
+                path: $path,
+                write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+                swap: function (StoredFileReference $newFile) use ($user, $updatedSettings): StoredFileSwapResult {
+                    $lockedUser = User::withTrashed()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+                    $settings = $lockedUser->document_settings ?? [];
+                    $replacedFile = StoredFileReference::from('local', data_get($settings, 'logo_path'));
+                    $lockedUser->forceFill([
+                        'document_settings' => [
+                            ...$settings,
+                            ...$updatedSettings,
+                            'logo_path' => $newFile->path,
+                        ],
+                    ])->save();
+
+                    return new StoredFileSwapResult($lockedUser, $replacedFile);
+                },
+                expectedSize: UploadedFileSize::read($upload),
+            );
+        } else {
+            $user->forceFill([
+                'document_settings' => [
+                    ...($user->document_settings ?? []),
+                    ...$updatedSettings,
+                ],
+            ])->save();
+        }
+
         $this->logo = null;
         Notification::make()->title('Document template updated')->success()->send();
     }
@@ -128,12 +160,15 @@ class DocumentTemplates extends Page
         $user = auth()->user();
         abort_unless($user, 403);
 
-        $settings = $user->document_settings ?? [];
-        if (! empty($settings['logo_path'])) {
-            Storage::disk('local')->delete($settings['logo_path']);
-        }
-        unset($settings['logo_path']);
-        $user->update(['document_settings' => $settings]);
+        app(StoredFileReplacementService::class)->remove(function () use ($user): StoredFileSwapResult {
+            $lockedUser = User::withTrashed()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $settings = $lockedUser->document_settings ?? [];
+            $replacedFile = StoredFileReference::from('local', data_get($settings, 'logo_path'));
+            unset($settings['logo_path']);
+            $lockedUser->update(['document_settings' => $settings]);
+
+            return new StoredFileSwapResult($lockedUser, $replacedFile);
+        });
         Notification::make()->title('Document logo removed')->success()->send();
     }
 

@@ -10,6 +10,7 @@ use App\Models\ProjectApplicationVersion;
 use App\Models\User;
 use App\Support\ApplicationTableDefinitions;
 use App\Support\ApplicationTemplates;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -309,6 +310,64 @@ class WriteApplicationTest extends TestCase
         $this->assertSame('Original draft', $project->applicationSections()->sole()->content);
         $this->assertSame(2, ProjectApplicationVersion::where('project_id', $project->id)->count());
         $this->assertNull($component->instance()->versionDiffId);
+    }
+
+    public function test_invalid_version_snapshot_is_rejected_before_current_draft_is_changed(): void
+    {
+        [$project, $user] = $this->workspaceProjectAndUser('member');
+        $section = $this->createSection($project, 'Objectives', 'Current safe draft', 1000, 'Context', 0);
+        $version = ProjectApplicationVersion::create([
+            'project_id' => $project->id,
+            'created_by' => $user->id,
+            'label' => 'Corrupted version',
+            'template_key' => $project->ka_action,
+            'snapshot' => [
+                ['title' => 'Valid first section', 'content' => 'Would otherwise be restored'],
+                ['content' => 'Missing the required title'],
+            ],
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(WriteApplication::class, ['record' => $project->id])
+            ->call('restoreVersion', $version->id)
+            ->assertNotified('Version could not be restored');
+
+        $this->assertSame('Current safe draft', $section->fresh()->content);
+        $this->assertSame(1, $project->applicationSections()->count());
+        $this->assertSame(1, ProjectApplicationVersion::where('project_id', $project->id)->count());
+    }
+
+    public function test_failed_version_restore_rolls_back_sections_backup_and_project_template(): void
+    {
+        [$project, $user] = $this->workspaceProjectAndUser('member');
+        $originalAction = $project->ka_action;
+        $section = $this->createSection($project, 'Objectives', 'Current safe draft', 1000, 'Context', 0);
+        $version = ProjectApplicationVersion::create([
+            'project_id' => $project->id,
+            'created_by' => $user->id,
+            'label' => 'Version that cannot be persisted',
+            'template_key' => 'ka151-you',
+            'snapshot' => [
+                ['title' => 'First restored section', 'content' => 'Valid', 'sort_order' => 0],
+                ['title' => 'Second restored section', 'content' => 'Invalid database order', 'sort_order' => null],
+            ],
+        ]);
+
+        $this->actingAs($user);
+
+        try {
+            Livewire::test(WriteApplication::class, ['record' => $project->id])
+                ->call('restoreVersion', $version->id);
+            $this->fail('A restore database failure should be propagated.');
+        } catch (QueryException) {
+            // The transaction must leave the draft, automatic backup and project metadata untouched.
+        }
+
+        $this->assertSame('Current safe draft', $section->fresh()->content);
+        $this->assertSame(1, $project->applicationSections()->count());
+        $this->assertSame(1, ProjectApplicationVersion::where('project_id', $project->id)->count());
+        $this->assertSame($originalAction, $project->fresh()->ka_action);
     }
 
     public function test_template_manager_reports_alignment_and_can_switch_catalog_template(): void

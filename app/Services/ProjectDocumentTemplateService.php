@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -11,6 +13,10 @@ use InvalidArgumentException;
 
 class ProjectDocumentTemplateService
 {
+    public function __construct(
+        private readonly StoredFileReplacementService $files,
+    ) {}
+
     public const TEMPLATES = [
         'participant_agreement' => [
             'label' => 'Participant agreement',
@@ -47,41 +53,50 @@ class ProjectDocumentTemplateService
             'template' => $template,
         ])->setPaper('a4', 'portrait')->output();
 
-        $existing = $project->documents()
-            ->where('metadata->template_key', $key)
-            ->first();
-
-        if ($existing?->hasFile()) {
-            Storage::disk($existing->file_disk ?: 'local')->delete($existing->file_path);
-        }
-
-        $document = $existing ?? new ProjectDocument(['project_id' => $project->id]);
-        $document->fill([
-            'type' => ProjectDocument::TYPE_UPLOAD,
-            'category' => 'other',
-            'title' => $template['label'],
-            'document_date' => now()->toDateString(),
-            'notes' => 'Generic project template. Personal names and signatures are intentionally left blank.',
-            'metadata' => [
-                'generated_template' => true,
-                'template_key' => $key,
-                'template_version' => 1,
-            ],
-            'generated_at' => now(),
-        ]);
-        $document->save();
-
         $filename = Str::slug($template['label']).'-'.Str::slug($project->acronym ?: $project->name).'.pdf';
-        $path = 'project-documents/'.$project->id.'/generated-templates/'.$document->id.'/'.$filename;
-        Storage::disk('local')->put($path, $pdf);
+        $path = 'project-documents/'.$project->id.'/generated-templates/'.$key.'/'.Str::uuid().'/'.$filename;
 
-        $document->update([
-            'file_path' => $path,
-            'file_disk' => 'local',
-            'file_name' => $filename,
-            'file_size' => strlen($pdf),
-        ]);
+        return $this->files->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): bool => Storage::disk('local')->put($path, $pdf),
+            swap: function (StoredFileReference $newFile) use ($project, $key, $template, $filename): StoredFileSwapResult {
+                Project::query()->lockForUpdate()->findOrFail($project->id);
 
-        return $document->fresh();
+                $document = ProjectDocument::query()
+                    ->where('project_id', $project->id)
+                    ->where('metadata->template_key', $key)
+                    ->lockForUpdate()
+                    ->first();
+                $replacedFile = StoredFileReference::from(
+                    $document?->file_disk,
+                    $document?->file_path,
+                    $document?->file_size,
+                );
+
+                $document ??= new ProjectDocument(['project_id' => $project->id]);
+                $document->fill([
+                    'type' => ProjectDocument::TYPE_UPLOAD,
+                    'category' => 'other',
+                    'title' => $template['label'],
+                    'document_date' => now()->toDateString(),
+                    'notes' => 'Generic project template. Personal names and signatures are intentionally left blank.',
+                    'metadata' => [
+                        'generated_template' => true,
+                        'template_key' => $key,
+                        'template_version' => 1,
+                    ],
+                    'generated_at' => now(),
+                    'file_path' => $newFile->path,
+                    'file_disk' => $newFile->disk,
+                    'file_name' => $filename,
+                    'file_size' => $newFile->size,
+                ]);
+                $document->save();
+
+                return new StoredFileSwapResult($document->fresh(), $replacedFile);
+            },
+            expectedSize: strlen($pdf),
+        );
     }
 }

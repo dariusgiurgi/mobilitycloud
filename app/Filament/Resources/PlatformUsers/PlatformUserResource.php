@@ -7,15 +7,15 @@ use App\Filament\Resources\PlatformUsers\Pages\EditPlatformUser;
 use App\Filament\Resources\PlatformUsers\Pages\ListPlatformUsers;
 use App\Filament\Resources\PlatformUsers\Pages\ViewPlatformUser;
 use App\Filament\Resources\PlatformUsers\RelationManagers\SupportNotesRelationManager;
+use App\Jobs\DeletePlatformAccount;
 use App\Models\User;
+use App\Services\AccountDeletionService;
 use App\Support\PlanCatalog;
 use App\Support\PlatformAccountNotificationAction;
 use App\Support\PlatformAudit;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Actions\BulkAction;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
@@ -36,9 +36,10 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use RuntimeException;
 
 class PlatformUserResource extends Resource
 {
@@ -89,6 +90,10 @@ class PlatformUserResource extends Resource
             return false;
         }
 
+        if (filled($record->account_deletion_status)) {
+            return false;
+        }
+
         if ($actor->canManagePlatformAdmins()) {
             return true;
         }
@@ -100,7 +105,11 @@ class PlatformUserResource extends Resource
     {
         $actor = auth()->user();
 
-        if (! $actor?->canManagePlatformAdmins()) {
+        if (! $actor?->canManagePlatformAdmins() || filled($actor->archived_at) || $actor->is_suspended) {
+            return false;
+        }
+
+        if (filled($record->account_deletion_status)) {
             return false;
         }
 
@@ -108,8 +117,14 @@ class PlatformUserResource extends Resource
             return false;
         }
 
-        if ($record->isPlatformOwner() && User::withTrashed()->whereIn('role', [User::ROLE_PLATFORM_OWNER, User::ROLE_ADMIN])->count() <= 1) {
-            return false;
+        if ($record->isPlatformOwner()) {
+            return User::query()
+                ->whereKeyNot($record->id)
+                ->whereNull('archived_at')
+                ->where('is_suspended', false)
+                ->whereNull('account_deletion_status')
+                ->whereIn('role', [User::ROLE_PLATFORM_OWNER, User::ROLE_ADMIN])
+                ->exists();
         }
 
         return true;
@@ -322,16 +337,22 @@ class PlatformUserResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Archived' => 'gray',
+                        'Deletion queued', 'Deletion processing' => 'warning',
+                        'Deletion failed' => 'danger',
                         'Suspended' => 'danger',
                         'Password change required' => 'warning',
                         'Verification pending' => 'warning',
                         default => 'success',
                     })
-                    ->description(fn (User $record): ?string => $record->is_suspended && $record->suspension_category
-                        ? (self::suspensionCategoryOptions()[$record->suspension_category] ?? $record->suspension_category)
+                    ->description(fn (User $record): ?string => filled($record->account_deletion_status)
+                        ? ($record->hasFailedAccountDeletion()
+                            ? Str::limit($record->account_deletion_failure ?: 'Review the audit log, then retry the same deletion request.', 120)
+                            : ucfirst((string) $record->account_deletion_project_disposition).' of owned projects')
+                        : ($record->is_suspended && $record->suspension_category
+                            ? (self::suspensionCategoryOptions()[$record->suspension_category] ?? $record->suspension_category)
                         : ($record->archived_at
                             ? 'Archived '.$record->archived_at->format('d M Y')
-                            : ($record->email_verified_at === null ? 'Waiting for email confirmation' : null))
+                            : ($record->email_verified_at === null ? 'Waiting for email confirmation' : null)))
                     ),
                 TextColumn::make('email_verified_at')
                     ->label('Email verified')
@@ -595,7 +616,9 @@ class PlatformUserResource extends Resource
                         ->label('Restore account')
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('success')
-                        ->visible(fn (User $record): bool => filled($record->archived_at) && (auth()->user()?->canManagePlatformAdmins() ?? false))
+                        ->visible(fn (User $record): bool => filled($record->archived_at)
+                            && blank($record->account_deletion_status)
+                            && (auth()->user()?->canManagePlatformAdmins() ?? false))
                         ->requiresConfirmation()
                         ->modalHeading(fn (User $record): string => 'Restore '.$record->email.'?')
                         ->modalDescription('The account will become active in the admin list again. Review suspension and project access before handing it back to the user.')
@@ -615,9 +638,43 @@ class PlatformUserResource extends Resource
                         ->color('danger')
                         ->visible(fn (User $record): bool => static::canPermanentlyDeleteAccount($record))
                         ->modalHeading(fn (User $record): string => 'Permanently delete '.$record->email.'?')
-                        ->modalDescription('This is irreversible. It removes the account, project memberships and account-owned public activity that is configured to cascade. Historical audit entries remain where required for platform accountability.')
-                        ->modalSubmitActionLabel('Delete account permanently')
+                        ->modalDescription(fn (User $record): string => sprintf(
+                            'This account owns %d active or archived project(s). Before deletion you must explicitly transfer every owned project to another active customer account or permanently purge the projects and all their stored files. The operation runs as a resumable background job and remains audited.',
+                            $record->ownedProjects()->withTrashed()->count(),
+                        ))
+                        ->modalSubmitActionLabel('Queue permanent deletion')
                         ->form([
+                            Select::make('project_disposition')
+                                ->label('Owned projects')
+                                ->options([
+                                    AccountDeletionService::PROJECTS_TRANSFER => 'Transfer all projects to another account',
+                                    AccountDeletionService::PROJECTS_PURGE => 'Permanently delete all owned projects and files',
+                                ])
+                                ->required()
+                                ->live()
+                                ->native(false)
+                                ->helperText('This choice also covers archived projects and cannot be changed after the deletion job starts.'),
+                            Select::make('transfer_account_id')
+                                ->label('Transfer projects to')
+                                ->options(fn (User $record): array => User::query()
+                                    ->whereKeyNot($record->id)
+                                    ->where('role', User::ROLE_USER)
+                                    ->whereNull('archived_at')
+                                    ->where('is_suspended', false)
+                                    ->whereNull('account_deletion_status')
+                                    ->orderBy('email')
+                                    ->pluck('email', 'id')
+                                    ->all())
+                                ->searchable()
+                                ->required(fn (callable $get): bool => $get('project_disposition') === AccountDeletionService::PROJECTS_TRANSFER)
+                                ->visible(fn (callable $get): bool => $get('project_disposition') === AccountDeletionService::PROJECTS_TRANSFER)
+                                ->native(false)
+                                ->helperText('The receiving account becomes the owner of every active and archived project.'),
+                            TextInput::make('purge_confirmation')
+                                ->label('Type PURGE OWNED PROJECTS')
+                                ->required(fn (callable $get): bool => $get('project_disposition') === AccountDeletionService::PROJECTS_PURGE)
+                                ->visible(fn (callable $get): bool => $get('project_disposition') === AccountDeletionService::PROJECTS_PURGE)
+                                ->helperText(fn (User $record): string => 'This permanently removes '.$record->ownedProjects()->withTrashed()->count().' project(s), including participants, financial evidence, grant proof and final archives.'),
                             TextInput::make('confirmation_email')
                                 ->label('Type the account email to confirm')
                                 ->required()
@@ -644,75 +701,257 @@ class PlatformUserResource extends Resource
                                 return;
                             }
 
+                            $projectDisposition = (string) ($data['project_disposition'] ?? '');
+                            $transferAccountId = filled($data['transfer_account_id'] ?? null)
+                                ? (int) $data['transfer_account_id']
+                                : null;
+
+                            if (! in_array($projectDisposition, [
+                                AccountDeletionService::PROJECTS_TRANSFER,
+                                AccountDeletionService::PROJECTS_PURGE,
+                            ], true)) {
+                                Notification::make()
+                                    ->title('Choose what happens to owned projects')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            if ($projectDisposition === AccountDeletionService::PROJECTS_TRANSFER && ! $transferAccountId) {
+                                Notification::make()
+                                    ->title('Choose a transfer account')
+                                    ->body('Owned projects cannot be left without an account owner.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            if ($projectDisposition === AccountDeletionService::PROJECTS_TRANSFER
+                                && ! User::query()
+                                    ->whereKey($transferAccountId)
+                                    ->whereKeyNot($record->id)
+                                    ->where('role', User::ROLE_USER)
+                                    ->whereNull('archived_at')
+                                    ->where('is_suspended', false)
+                                    ->whereNull('account_deletion_status')
+                                    ->exists()) {
+                                Notification::make()
+                                    ->title('Transfer account is no longer available')
+                                    ->body('Choose another active customer account before queuing deletion.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            if ($projectDisposition === AccountDeletionService::PROJECTS_PURGE
+                                && ($data['purge_confirmation'] ?? null) !== 'PURGE OWNED PROJECTS') {
+                                Notification::make()
+                                    ->title('Project purge confirmation does not match')
+                                    ->body('Type PURGE OWNED PROJECTS exactly to approve permanent project and file removal.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
                             $deletedEmail = $record->email;
-                            $deletedId = $record->id;
-                            $ownedProjectCount = $record->ownedProjects()->count();
-                            $sharedProjectCount = $record->projects()->count();
+                            $deletedId = (int) $record->id;
+                            $actorId = (int) auth()->id();
 
-                            DB::transaction(function () use ($record, $deletedEmail, $deletedId, $ownedProjectCount, $sharedProjectCount): void {
-                                PlatformAudit::log('account.deleted_permanently', 'Permanently deleted account '.$deletedEmail, $record, [
-                                    'deleted_user_id' => $deletedId,
-                                    'owned_projects' => $ownedProjectCount,
-                                    'shared_project_access' => $sharedProjectCount,
-                                ]);
+                            try {
+                                DB::transaction(function () use (
+                                    $deletedEmail,
+                                    $deletedId,
+                                    $actorId,
+                                    $projectDisposition,
+                                    $transferAccountId,
+                                ): void {
+                                    $accountIds = collect([$deletedId, $actorId, $transferAccountId])
+                                        ->filter()
+                                        ->map(fn ($id): int => (int) $id)
+                                        ->unique()
+                                        ->sort()
+                                        ->values();
+                                    $accounts = User::withTrashed()
+                                        ->whereIn('id', $accountIds)
+                                        ->orderBy('id')
+                                        ->lockForUpdate()
+                                        ->get()
+                                        ->keyBy('id');
+                                    $lockedRecord = $accounts->get($deletedId);
+                                    $actor = $accounts->get($actorId);
 
-                                $record->forceDelete();
-                            });
+                                    if (! $lockedRecord
+                                        || ! $actor?->canManagePlatformAdmins()
+                                        || filled($actor->archived_at)
+                                        || $actor->is_suspended
+                                        || $actor->is($lockedRecord)) {
+                                        throw new RuntimeException('The account deletion is no longer authorised.');
+                                    }
 
-                            Notification::make()
-                                ->title('Account permanently deleted')
-                                ->body($deletedEmail.' was removed from the platform.')
-                                ->success()
-                                ->send();
-                        }),
-                ]),
-            ])
-            ->toolbarActions([
-                BulkActionGroup::make([
-                    BulkAction::make('deleteSelectedPermanently')
-                        ->label('Delete selected permanently')
-                        ->icon('heroicon-o-trash')
-                        ->color('danger')
-                        ->visible(fn (): bool => auth()->user()?->canManagePlatformAdmins() ?? false)
-                        ->requiresConfirmation()
-                        ->modalHeading('Permanently delete selected accounts?')
-                        ->modalDescription('This is irreversible. The action will delete only accounts that your owner permissions allow. Your own account and the last platform owner are always protected.')
-                        ->modalSubmitActionLabel('Delete selected permanently')
-                        ->action(function (Collection $records): void {
-                            $deleted = 0;
-                            $skipped = 0;
+                                    if (filled($lockedRecord->account_deletion_status)) {
+                                        throw new RuntimeException('A permanent deletion request already exists for this account.');
+                                    }
 
-                            foreach ($records as $record) {
-                                if (! $record instanceof User || ! static::canPermanentlyDeleteAccount($record)) {
-                                    $skipped++;
+                                    if ($projectDisposition === AccountDeletionService::PROJECTS_TRANSFER) {
+                                        $transferAccount = $accounts->get($transferAccountId);
 
-                                    continue;
-                                }
+                                        if (! $transferAccount
+                                            || $transferAccount->trashed()
+                                            || $transferAccount->role !== User::ROLE_USER
+                                            || filled($transferAccount->archived_at)
+                                            || $transferAccount->is_suspended
+                                            || filled($transferAccount->account_deletion_status)) {
+                                            throw new RuntimeException('The transfer account is no longer an active customer account.');
+                                        }
+                                    }
 
-                                $deletedEmail = $record->email;
-                                $deletedId = $record->id;
-                                $ownedProjectCount = $record->ownedProjects()->count();
-                                $sharedProjectCount = $record->projects()->count();
+                                    $ownedProjectCount = $lockedRecord->ownedProjects()->withTrashed()->count();
+                                    $sharedProjectCount = $lockedRecord->projects()->count();
 
-                                DB::transaction(function () use ($record, $deletedEmail, $deletedId, $ownedProjectCount, $sharedProjectCount): void {
-                                    PlatformAudit::log('account.deleted_permanently', 'Permanently deleted account '.$deletedEmail, $record, [
+                                    $lockedRecord->forceFill([
+                                        'archived_at' => $lockedRecord->archived_at ?: now(),
+                                        'archived_by' => $lockedRecord->archived_by ?: $actorId,
+                                        'archived_reason' => $lockedRecord->archived_reason ?: 'Permanent account deletion requested.',
+                                        'is_suspended' => true,
+                                        'suspension_category' => 'client_request',
+                                        'suspension_reason' => 'Permanent account deletion is being processed.',
+                                        'suspended_at' => now(),
+                                        'suspended_by' => $actorId,
+                                        'account_deletion_status' => User::ACCOUNT_DELETION_QUEUED,
+                                        'account_deletion_requested_at' => now(),
+                                        'account_deletion_requested_by' => $actorId,
+                                        'account_deletion_project_disposition' => $projectDisposition,
+                                        'account_deletion_transfer_account_id' => $transferAccountId,
+                                        'account_deletion_started_at' => null,
+                                        'account_deletion_failure' => null,
+                                    ])->save();
+
+                                    PlatformAudit::log('account.deletion_requested', 'Queued permanent deletion for '.$deletedEmail, $lockedRecord, [
                                         'deleted_user_id' => $deletedId,
+                                        'project_disposition' => $projectDisposition,
+                                        'transfer_account_id' => $transferAccountId,
                                         'owned_projects' => $ownedProjectCount,
                                         'shared_project_access' => $sharedProjectCount,
-                                        'bulk_action' => true,
                                     ]);
 
-                                    $record->forceDelete();
-                                });
+                                    DeletePlatformAccount::dispatch(
+                                        $deletedId,
+                                        $projectDisposition,
+                                        $transferAccountId,
+                                        $actorId,
+                                        $deletedEmail,
+                                    )->afterCommit();
+                                }, 3);
+                            } catch (RuntimeException $exception) {
+                                Notification::make()
+                                    ->title('Permanent deletion was not queued')
+                                    ->body($exception->getMessage())
+                                    ->danger()
+                                    ->send();
 
-                                $deleted++;
+                                return;
                             }
 
                             Notification::make()
-                                ->title($deleted === 1 ? '1 account permanently deleted' : $deleted.' accounts permanently deleted')
-                                ->body($skipped > 0 ? $skipped.' selected account(s) were protected or not allowed.' : null)
+                                ->title('Permanent deletion queued')
+                                ->body($projectDisposition === AccountDeletionService::PROJECTS_TRANSFER
+                                    ? 'The account is blocked immediately. Its projects will be transferred before the account is removed.'
+                                    : 'The account is blocked immediately. Its projects and files will be removed before the account is deleted.')
                                 ->success()
                                 ->send();
+                        }),
+                    Action::make('retryPermanentDeletion')
+                        ->label('Retry permanent deletion')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('danger')
+                        ->visible(fn (User $record): bool => $record->hasFailedAccountDeletion()
+                            && (auth()->user()?->canManagePlatformAdmins() ?? false))
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (User $record): string => 'Retry deletion of '.$record->email.'?')
+                        ->modalDescription(fn (User $record): string => 'The original '.($record->account_deletion_project_disposition ?: 'deletion').' decision is preserved. Last failure: '.($record->account_deletion_failure ?: 'Unknown error.'))
+                        ->modalSubmitActionLabel('Retry the original request')
+                        ->action(function (User $record): void {
+                            $actorId = (int) auth()->id();
+                            $disposition = (string) $record->account_deletion_project_disposition;
+                            $transferAccountId = $record->account_deletion_transfer_account_id
+                                ? (int) $record->account_deletion_transfer_account_id
+                                : null;
+
+                            try {
+                                DB::transaction(function () use ($record, $actorId, $disposition, $transferAccountId): void {
+                                    $accountIds = collect([$record->id, $actorId, $transferAccountId])
+                                        ->filter()
+                                        ->map(fn ($id): int => (int) $id)
+                                        ->unique()
+                                        ->sort()
+                                        ->values();
+                                    $accounts = User::withTrashed()
+                                        ->whereIn('id', $accountIds)
+                                        ->orderBy('id')
+                                        ->lockForUpdate()
+                                        ->get()
+                                        ->keyBy('id');
+                                    $lockedRecord = $accounts->get($record->id);
+                                    $actor = $accounts->get($actorId);
+
+                                    if (! $lockedRecord?->hasFailedAccountDeletion()
+                                        || ! $actor?->canManagePlatformAdmins()
+                                        || filled($actor->archived_at)
+                                        || $actor->is_suspended) {
+                                        throw new RuntimeException('The failed deletion request is no longer available.');
+                                    }
+
+                                    if (! in_array($disposition, [AccountDeletionService::PROJECTS_TRANSFER, AccountDeletionService::PROJECTS_PURGE], true)) {
+                                        throw new RuntimeException('The original project decision is invalid and cannot be retried.');
+                                    }
+
+                                    if ($disposition === AccountDeletionService::PROJECTS_TRANSFER) {
+                                        $transferAccount = $accounts->get($transferAccountId);
+
+                                        if (! $transferAccount
+                                            || $transferAccount->trashed()
+                                            || $transferAccount->role !== User::ROLE_USER
+                                            || filled($transferAccount->archived_at)
+                                            || $transferAccount->is_suspended
+                                            || filled($transferAccount->account_deletion_status)) {
+                                            throw new RuntimeException('The original transfer account is no longer active. Reactivate it before retrying.');
+                                        }
+                                    }
+
+                                    $lockedRecord->forceFill([
+                                        'account_deletion_status' => User::ACCOUNT_DELETION_QUEUED,
+                                        'account_deletion_requested_by' => $actorId,
+                                        'account_deletion_failure' => null,
+                                    ])->save();
+
+                                    PlatformAudit::log('account.deletion_retried', 'Retried permanent deletion for '.$lockedRecord->email, $lockedRecord, [
+                                        'project_disposition' => $disposition,
+                                        'transfer_account_id' => $transferAccountId,
+                                    ]);
+
+                                    DeletePlatformAccount::dispatch(
+                                        (int) $lockedRecord->id,
+                                        $disposition,
+                                        $transferAccountId,
+                                        $actorId,
+                                        (string) $lockedRecord->email,
+                                    )->afterCommit();
+                                }, 3);
+                            } catch (RuntimeException $exception) {
+                                Notification::make()
+                                    ->title('Deletion retry was not queued')
+                                    ->body($exception->getMessage())
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            Notification::make()->title('Permanent deletion queued again')->success()->send();
                         }),
                 ]),
             ])
@@ -749,6 +988,18 @@ class PlatformUserResource extends Resource
 
     public static function accountStatusLabel(User $record): string
     {
+        if ($record->account_deletion_status === User::ACCOUNT_DELETION_QUEUED) {
+            return 'Deletion queued';
+        }
+
+        if ($record->account_deletion_status === User::ACCOUNT_DELETION_PROCESSING) {
+            return 'Deletion processing';
+        }
+
+        if ($record->account_deletion_status === User::ACCOUNT_DELETION_FAILED) {
+            return 'Deletion failed';
+        }
+
         if ($record->archived_at) {
             return 'Archived';
         }

@@ -8,7 +8,10 @@ use App\Models\ParticipantAttachment;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\TestCase;
 
 class ProjectParticipantsPageTest extends TestCase
@@ -62,6 +65,79 @@ class ProjectParticipantsPageTest extends TestCase
             'first_name' => 'Daria',
             'last_name' => 'Marin',
         ]);
+    }
+
+    public function test_replacing_a_participant_document_keeps_the_old_file_until_the_database_swap_succeeds(): void
+    {
+        Storage::fake('local');
+        [$project, $user] = $this->projectAndUser();
+        $participant = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
+        $oldPath = 'participant-attachments/'.$participant->id.'/gdpr/old.pdf';
+        Storage::disk('local')->put($oldPath, 'old document');
+        $attachment = ParticipantAttachment::create([
+            'participant_id' => $participant->id,
+            'type' => 'gdpr',
+            'path' => $oldPath,
+            'disk' => 'local',
+            'original_name' => 'old.pdf',
+            'size' => 12,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->set('attachParticipantId', $participant->id)
+            ->set('uploadType', 'gdpr')
+            ->set('uploadFile', UploadedFile::fake()->create('new-consent.pdf', 12, 'application/pdf'))
+            ->call('uploadAttachment')
+            ->assertHasNoErrors();
+
+        $replacement = ParticipantAttachment::query()->sole();
+        $this->assertSame($attachment->id, $replacement->id);
+        $this->assertNotSame($oldPath, $replacement->path);
+        $this->assertSame('new-consent.pdf', $replacement->original_name);
+        Storage::disk('local')->assertExists($replacement->path);
+        Storage::disk('local')->assertMissing($oldPath);
+    }
+
+    public function test_a_failed_participant_document_database_swap_preserves_the_old_file_and_removes_the_new_file(): void
+    {
+        Storage::fake('local');
+        [$project, $user] = $this->projectAndUser();
+        $participant = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
+        $oldPath = 'participant-attachments/'.$participant->id.'/gdpr/old.pdf';
+        Storage::disk('local')->put($oldPath, 'old document');
+        $attachment = ParticipantAttachment::create([
+            'participant_id' => $participant->id,
+            'type' => 'gdpr',
+            'path' => $oldPath,
+            'disk' => 'local',
+            'original_name' => 'old.pdf',
+            'size' => 12,
+        ]);
+        ParticipantAttachment::saving(function (ParticipantAttachment $saving) use ($oldPath): void {
+            if ($saving->exists && $saving->isDirty('path') && $saving->path !== $oldPath) {
+                throw new RuntimeException('Simulated participant attachment database failure.');
+            }
+        });
+
+        $this->actingAs($user);
+
+        try {
+            Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+                ->set('attachParticipantId', $participant->id)
+                ->set('uploadType', 'gdpr')
+                ->set('uploadFile', UploadedFile::fake()->create('new-consent.pdf', 12, 'application/pdf'))
+                ->call('uploadAttachment');
+
+            $this->fail('The simulated database failure was not raised.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated participant attachment database failure.', $exception->getMessage());
+        }
+
+        $this->assertSame($oldPath, $attachment->fresh()->path);
+        Storage::disk('local')->assertExists($oldPath);
+        $this->assertSame([$oldPath], Storage::disk('local')->allFiles());
     }
 
     public function test_import_modal_offers_a_blank_template(): void

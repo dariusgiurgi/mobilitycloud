@@ -103,6 +103,11 @@ class Project extends Model
                 return;
             }
 
+            if (filled($project->approved_grant_proof_path)) {
+                Storage::disk($project->approved_grant_proof_disk ?: 'local')
+                    ->delete($project->approved_grant_proof_path);
+            }
+
             $project->participants()->get()->each->delete();
             $project->documents()->get()->each->delete();
             $project->budgetLines()->get()->each->delete();

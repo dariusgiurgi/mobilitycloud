@@ -2,10 +2,12 @@
 
 namespace App\Support;
 
+use App\Models\Project;
 use App\Models\ProjectModuleLock;
 use App\Models\ProjectPresence;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 trait AuthorizesProjectManagement
@@ -336,24 +338,64 @@ trait AuthorizesProjectManagement
             return false;
         }
 
-        $conflict = $this->projectEditingLockConflict($module, $lockKey);
+        $claimed = DB::transaction(function () use ($user, $module, $lockKey, $lockLabel): bool {
+            // Serialise claims through the parent project row. Locking only the
+            // collaboration row is insufficient when it does not exist yet.
+            $project = Project::query()
+                ->whereKey($this->record->getKey())
+                ->lockForUpdate()
+                ->first(['id']);
 
-        if ($conflict) {
+            if (! $project) {
+                return false;
+            }
+
+            $claimedAt = now();
+            $expiresAt = $claimedAt->copy()->addSeconds($this->projectLockSeconds);
+            $lock = ProjectModuleLock::query()
+                ->where('project_id', $project->getKey())
+                ->where('module', $module)
+                ->where('lock_key', $lockKey)
+                ->lockForUpdate()
+                ->first();
+
+            if ($lock && $lock->expires_at->gt($claimedAt) && (int) $lock->user_id !== (int) $user->id) {
+                return false;
+            }
+
+            if ($lock) {
+                $lock->update([
+                    'user_id' => $user->id,
+                    'lock_label' => $lockLabel,
+                    'expires_at' => $expiresAt,
+                ]);
+            } else {
+                ProjectModuleLock::query()->create([
+                    'project_id' => $project->getKey(),
+                    'module' => $module,
+                    'lock_key' => $lockKey,
+                    'user_id' => $user->id,
+                    'lock_label' => $lockLabel,
+                    'expires_at' => $expiresAt,
+                ]);
+            }
+
+            return true;
+        }, 3);
+
+        if (! $claimed) {
+            $conflict = $this->projectEditingLockConflict($module, $lockKey);
+
             if ($notify) {
                 Notification::make()
-                    ->title(($conflict->lock_label ?: $this->projectModuleLabel($module)).' is locked')
-                    ->body(($conflict->user?->name ?: 'Another user').' is currently editing it.')
+                    ->title(($conflict?->lock_label ?: $this->projectModuleLabel($module)).' is locked')
+                    ->body(($conflict?->user?->name ?: 'Another user').' is currently editing it.')
                     ->warning()
                     ->send();
             }
 
             return false;
         }
-
-        ProjectModuleLock::query()->updateOrCreate(
-            ['project_id' => $this->record->getKey(), 'module' => $module, 'lock_key' => $lockKey],
-            ['user_id' => $user->id, 'lock_label' => $lockLabel, 'expires_at' => now()->addSeconds($this->projectLockSeconds)],
-        );
 
         return true;
     }

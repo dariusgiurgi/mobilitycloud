@@ -7,9 +7,13 @@ use App\Models\Participant;
 use App\Models\ParticipantAttachment;
 use App\Models\ProjectMobility;
 use App\Services\ParticipantCsvImporter;
+use App\Services\StoredFileReplacementService;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
 use App\Support\ProjectOrganisations;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
+use App\Support\UploadedFileSize;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -629,7 +633,7 @@ class ViewProjectParticipants extends Page
             ->keyBy('type');
     }
 
-    public function uploadAttachment(): void
+    public function uploadAttachment(StoredFileReplacementService $files): void
     {
         $this->validate([
             'uploadFile' => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,doc,docx', // 10 MB
@@ -657,27 +661,49 @@ class ViewProjectParticipants extends Page
         $ext = $this->uploadFile->getClientOriginalExtension() ?: 'dat';
         $filename = $prefix.'_'.$namePart.'.'.strtolower($ext);
 
-        $dir = 'participant-attachments/'.$participant->id;
+        $upload = $this->uploadFile;
+        $type = $this->uploadType;
+        $originalName = $upload->getClientOriginalName();
+        $dir = 'participant-attachments/'.$participant->id.'/'.$type.'/'.Str::uuid();
+        $path = $dir.'/'.$filename;
 
-        // "Doar ultimul fisier per tip": stergem atasamentul vechi de acelasi tip.
-        $existing = ParticipantAttachment::where('participant_id', $participant->id)
-            ->where('type', $this->uploadType)
-            ->first();
-        if ($existing) {
-            $existing->delete(); // booted() sterge si fisierul de pe disk
-        }
+        $files->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): string|false => $upload->storeAs($dir, $filename, 'local'),
+            swap: function (StoredFileReference $newFile) use ($participant, $type, $originalName): StoredFileSwapResult {
+                Participant::query()
+                    ->where('project_id', $this->record->id)
+                    ->lockForUpdate()
+                    ->findOrFail($participant->id);
 
-        // Salvam fisierul nou cu numele generat.
-        $path = $this->uploadFile->storeAs($dir, $filename, 'local');
+                $attachment = ParticipantAttachment::query()
+                    ->where('participant_id', $participant->id)
+                    ->where('type', $type)
+                    ->lockForUpdate()
+                    ->first();
+                $replacedFile = StoredFileReference::from(
+                    $attachment?->disk,
+                    $attachment?->path,
+                    $attachment?->size,
+                );
 
-        ParticipantAttachment::create([
-            'participant_id' => $participant->id,
-            'type' => $this->uploadType,
-            'path' => $path,
-            'disk' => 'local',
-            'original_name' => $this->uploadFile->getClientOriginalName(),
-            'size' => $this->uploadFile->getSize(),
-        ]);
+                $attachment ??= new ParticipantAttachment([
+                    'participant_id' => $participant->id,
+                    'type' => $type,
+                ]);
+                $attachment->fill([
+                    'path' => $newFile->path,
+                    'disk' => $newFile->disk,
+                    'original_name' => $originalName,
+                    'size' => $newFile->size,
+                ]);
+                $attachment->save();
+
+                return new StoredFileSwapResult($attachment->fresh(), $replacedFile);
+            },
+            expectedSize: UploadedFileSize::read($upload),
+        );
 
         $this->reset(['uploadFile']);
 

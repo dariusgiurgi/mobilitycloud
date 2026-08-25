@@ -7,12 +7,16 @@ use App\Models\BudgetLine;
 use App\Models\BudgetTransfer;
 use App\Models\Expense;
 use App\Services\BudgetTransferService;
+use App\Services\StoredFileReplacementService;
 use App\Support\AuthorizesProjectManagement;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
+use App\Support\UploadedFileSize;
 use DomainException;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Livewire\WithFileUploads;
 
 class ViewProjectBoard extends Page
@@ -379,18 +383,38 @@ class ViewProjectBoard extends Page
 
         $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
 
-        if ($expense->attachmentExists()) {
-            Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
-        }
-
-        $extension = $this->uploadFile->getClientOriginalExtension()
-            ?: pathinfo((string) $this->uploadFile->getClientOriginalName(), PATHINFO_EXTENSION);
+        $upload = $this->uploadFile;
+        $extension = $upload->getClientOriginalExtension()
+            ?: pathinfo((string) $upload->getClientOriginalName(), PATHINFO_EXTENSION);
         $filename = $expense->supportingFileName($this->record, $extension);
-        $path = $this->uploadFile->storeAs('expenses/'.$expense->id, $filename, 'local');
-        $expense->attachment_path = $path;
-        $expense->attachment_disk = 'local';
-        $expense->attachment_name = $filename;
-        $expense->save();
+        $directory = 'expenses/'.$expense->id.'/'.Str::uuid();
+        $path = $directory.'/'.$filename;
+
+        app(StoredFileReplacementService::class)->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+            swap: function (StoredFileReference $newFile) use ($expense, $filename): StoredFileSwapResult {
+                $lockedExpense = Expense::query()
+                    ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
+                    ->whereKey($expense->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $replacedFile = StoredFileReference::from(
+                    $lockedExpense->attachment_disk,
+                    $lockedExpense->attachment_path,
+                );
+
+                $lockedExpense->forceFill([
+                    'attachment_path' => $newFile->path,
+                    'attachment_disk' => $newFile->disk,
+                    'attachment_name' => $filename,
+                ])->save();
+
+                return new StoredFileSwapResult($lockedExpense, $replacedFile);
+            },
+            expectedSize: UploadedFileSize::read($upload),
+        );
 
         $this->uploadFile = null;
         $this->uploadExpenseId = null;
@@ -409,13 +433,25 @@ class ViewProjectBoard extends Page
         if ($expense) {
             $this->authorizeManagementModuleMutation('board', $this->expenseLockKey($expense->id), $this->expenseLockLabel($expense));
         }
-        if ($expense && $expense->attachmentExists()) {
-            Storage::disk($expense->attachment_disk ?: 'local')->delete($expense->attachment_path);
-        }
         if ($expense) {
-            $expense->attachment_path = null;
-            $expense->attachment_name = null;
-            $expense->save();
+            app(StoredFileReplacementService::class)->remove(function () use ($expense): StoredFileSwapResult {
+                $lockedExpense = Expense::query()
+                    ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
+                    ->whereKey($expense->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $replacedFile = StoredFileReference::from(
+                    $lockedExpense->attachment_disk,
+                    $lockedExpense->attachment_path,
+                );
+
+                $lockedExpense->forceFill([
+                    'attachment_path' => null,
+                    'attachment_name' => null,
+                ])->save();
+
+                return new StoredFileSwapResult($lockedExpense, $replacedFile);
+            });
         }
         $this->reload();
     }

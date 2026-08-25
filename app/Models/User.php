@@ -18,6 +18,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
+use LogicException;
 
 class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, MustVerifyEmail
 {
@@ -57,6 +59,9 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         'demo_reset_stale_alerted_at',
         'is_suspended', 'suspension_category', 'suspension_reason', 'suspended_at', 'suspended_by',
         'archived_at', 'archived_by', 'archived_reason', 'must_change_password', 'support_notes', 'last_login_at',
+        'account_deletion_status', 'account_deletion_requested_at', 'account_deletion_requested_by',
+        'account_deletion_project_disposition', 'account_deletion_transfer_account_id',
+        'account_deletion_started_at', 'account_deletion_failure',
     ];
 
     protected $hidden = [
@@ -87,9 +92,32 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'is_suspended' => 'boolean',
             'suspended_at' => 'datetime',
             'archived_at' => 'datetime',
+            'account_deletion_requested_at' => 'datetime',
+            'account_deletion_requested_by' => 'integer',
+            'account_deletion_transfer_account_id' => 'integer',
+            'account_deletion_started_at' => 'datetime',
             'must_change_password' => 'boolean',
             'last_login_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::deleting(function (User $user): void {
+            if (! $user->isForceDeleting()) {
+                return;
+            }
+
+            if ($user->ownedProjects()->withTrashed()->exists()) {
+                throw new LogicException('Owned projects must be transferred or purged before permanently deleting an account.');
+            }
+
+            $logoPath = data_get($user->document_settings, 'logo_path');
+
+            if (filled($logoPath)) {
+                Storage::disk('local')->delete((string) $logoPath);
+            }
+        });
     }
 
     public function projects(): BelongsToMany
@@ -166,6 +194,12 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
 
     public const ROLE_USER = 'user';
 
+    public const ACCOUNT_DELETION_QUEUED = 'queued';
+
+    public const ACCOUNT_DELETION_PROCESSING = 'processing';
+
+    public const ACCOUNT_DELETION_FAILED = 'failed';
+
     public const ROLE_PLATFORM_OWNER = 'platform_owner';
 
     public const ROLE_PLATFORM_ADMIN = 'platform_admin';
@@ -203,6 +237,19 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function canManagePlatformAdmins(): bool
     {
         return $this->isPlatformOwner();
+    }
+
+    public function hasAccountDeletionInProgress(): bool
+    {
+        return in_array($this->account_deletion_status, [
+            self::ACCOUNT_DELETION_QUEUED,
+            self::ACCOUNT_DELETION_PROCESSING,
+        ], true);
+    }
+
+    public function hasFailedAccountDeletion(): bool
+    {
+        return $this->account_deletion_status === self::ACCOUNT_DELETION_FAILED;
     }
 
     public static function platformRoleOptions(): array
