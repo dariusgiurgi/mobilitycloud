@@ -30,8 +30,9 @@ class MobilityFeedbackTest extends TestCase
         $this->get(route('public.mobility-feedback.show', $campaign->public_token))
             ->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
-            ->assertHeader('Referrer-Policy', 'no-referrer')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
+            ->assertSee('<meta name="referrer" content="no-referrer">', false)
+            ->assertSee('<meta name="robots" content="noindex,nofollow,noarchive">', false)
             ->assertSee('Anonymous mobility feedback')
             ->assertSee('How satisfied were you?')
             ->assertDontSee($user->name);
