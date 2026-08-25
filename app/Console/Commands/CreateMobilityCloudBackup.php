@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Backups\LocalBackupRetention;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
@@ -17,7 +18,7 @@ class CreateMobilityCloudBackup extends Command
 
     protected $description = 'Create a production-safe MobilityCloud database and storage backup';
 
-    public function handle(): int
+    public function handle(LocalBackupRetention $retention): int
     {
         $backupPath = rtrim((string) ($this->option('path') ?: config('mobilitycloud.backups.path')), '/');
         $retentionDays = (int) ($this->option('retention-days') ?: config('mobilitycloud.backups.retention_days', 14));
@@ -48,7 +49,7 @@ class CreateMobilityCloudBackup extends Command
             chmod($manifestFile, 0640);
 
             if (! $this->option('no-retention')) {
-                $this->deleteOldBackups($backupPath, $retentionDays);
+                $retention->purge($backupPath, $retentionDays);
             }
 
             $this->writeHealthStatus('ok', $manifest);
@@ -159,21 +160,6 @@ class CreateMobilityCloudBackup extends Command
             'size_bytes' => filesize($file),
             'sha256' => hash_file('sha256', $file),
         ];
-    }
-
-    private function deleteOldBackups(string $backupPath, int $retentionDays): void
-    {
-        if ($retentionDays < 1) {
-            return;
-        }
-
-        $threshold = now()->subDays($retentionDays)->getTimestamp();
-
-        foreach (File::files($backupPath) as $file) {
-            if ($file->getMTime() < $threshold) {
-                File::delete($file->getPathname());
-            }
-        }
     }
 
     private function writeHealthStatus(string $status, array $manifest, ?Throwable $exception = null): void

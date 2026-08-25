@@ -13,7 +13,6 @@ use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Models\PlatformAuditLog;
 use App\Models\PublicBlockReport;
 use App\Models\User;
-use App\Support\AccountAccess;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -81,12 +80,12 @@ class PlatformOperationsOverview extends Widget
         return [
             [
                 'label' => 'Read-only accounts',
-                'count' => User::query()->get()->filter(fn (User $user): bool => AccountAccess::isReadOnly($user))->count(),
+                'count' => User::query()->readOnlyAccounts()->count(),
                 'detail' => 'Expired or suspended access',
             ],
             [
                 'label' => 'Unlimited accounts',
-                'count' => User::query()->get()->filter(fn (User $user): bool => $user->isUnlimitedAccount())->count(),
+                'count' => User::query()->withUnlimitedAccess()->count(),
                 'detail' => 'Full access granted by platform owner',
             ],
             [

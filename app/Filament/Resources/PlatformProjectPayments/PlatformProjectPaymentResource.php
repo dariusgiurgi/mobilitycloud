@@ -252,21 +252,7 @@ class PlatformProjectPaymentResource extends Resource
 
     public static function applyBillableOwnerScope(Builder $query): Builder
     {
-        return $query
-            ->where(function (Builder $query): void {
-                $query->whereNull('plan')->orWhere('plan', '!=', 'unlimited');
-            })
-            ->where(function (Builder $query): void {
-                $query
-                    ->whereNull('plan_limits')
-                    ->orWhere('plan_limits', 'not like', '%"unlimited":true%')
-                    ->where('plan_limits', 'not like', '%"unlimited": true%');
-            })
-            ->where(function (Builder $query): void {
-                $query
-                    ->whereNull('feature_flags')
-                    ->orWhere('feature_flags', 'not like', '%"unlimited"%');
-            });
+        return $query->withoutUnlimitedAccess();
     }
 
     public static function applyToInvoiceScope(Builder $query): Builder

@@ -9,16 +9,20 @@ class ProjectDocumentChecklist
 {
     public function build(Project $project): array
     {
-        $documents = $project->documents()->latest('id')->get();
+        $project->loadMissing([
+            'documents',
+            'budgetLines.expenses',
+        ]);
+
+        $documents = $project->documents->sortByDesc('id')->values();
         $uploads = $documents
             ->where('type', ProjectDocument::TYPE_UPLOAD)
             ->filter(fn (ProjectDocument $document) => $document->hasFile());
         $attendance = $documents->where('type', ProjectDocument::TYPE_ATTENDANCE);
         $expenseReports = $documents->where('type', ProjectDocument::TYPE_EXPENSE_REPORT);
-        $conventions = $project->budgetLines()
-            ->with(['expenses' => fn ($query) => $query->where('is_civil_convention', true)])
-            ->get()
-            ->flatMap->expenses;
+        $conventions = $project->budgetLines
+            ->flatMap->expenses
+            ->where('is_civil_convention', true);
 
         $partnerCount = collect($project->partners)
             ->reject(fn (array $partner) => (bool) ($partner['is_coordinator'] ?? false))

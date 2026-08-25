@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\DemoWorkspace;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecovery;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
@@ -223,6 +224,72 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
         return $this->plan === 'unlimited'
             || data_get($this->plan_limits, 'unlimited') === true
             || in_array('unlimited', $this->feature_flags ?: [], true);
+    }
+
+    /**
+     * Keep database-level account reporting in exact agreement with
+     * isUnlimitedAccount(). JSON predicates avoid fragile text matching.
+     */
+    public function scopeWithUnlimitedAccess(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query
+                ->where('plan', 'unlimited')
+                ->orWhere('plan_limits->unlimited', true)
+                ->orWhereJsonContains('feature_flags', 'unlimited');
+        });
+    }
+
+    public function scopeWithoutUnlimitedAccess(Builder $query): Builder
+    {
+        return $query
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('plan')
+                ->orWhere('plan', '!=', 'unlimited'))
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('plan_limits->unlimited')
+                ->orWhere('plan_limits->unlimited', '!=', true))
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('feature_flags')
+                ->orWhereJsonDoesntContain('feature_flags', 'unlimited'));
+    }
+
+    /**
+     * SQL equivalent of AccountAccess::isReadOnly() for aggregate reporting.
+     * Active owner overrides are deliberately evaluated before all lock rules.
+     */
+    public function scopeReadOnlyAccounts(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereNull('access_override_reason')
+                    ->orWhereRaw("TRIM(access_override_reason) = ''")
+                    ->orWhere(function (Builder $query): void {
+                        $query
+                            ->whereNotNull('access_override_ends_at')
+                            ->where('access_override_ends_at', '<=', now());
+                    });
+            })
+            ->where(function (Builder $query): void {
+                $query
+                    ->where('email', DemoWorkspace::VISITOR_EMAIL)
+                    ->orWhere('is_suspended', true)
+                    ->orWhere('subscription_status', 'suspended')
+                    ->orWhere(function (Builder $query): void {
+                        $query
+                            ->withoutUnlimitedAccess()
+                            ->where(function (Builder $query): void {
+                                $query
+                                    ->where('subscription_status', 'expired')
+                                    ->orWhere(function (Builder $query): void {
+                                        $query
+                                            ->whereNotNull('subscription_ends_at')
+                                            ->where('subscription_ends_at', '<', now());
+                                    });
+                            });
+                    });
+            });
     }
 
     public function hasBillingDetails(): bool
