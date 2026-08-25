@@ -59,7 +59,7 @@ class AccountProjectInvitationArchitectureTest extends TestCase
             ->test(ListProjects::class)
             ->assertSee('Shared Erasmus Project')
             ->assertSee('Owner: Owner Account')
-            ->assertSee('Editor');
+            ->assertSee('Project editor');
 
         $this->assertTrue($invited->fresh()->can('create', Project::class));
 

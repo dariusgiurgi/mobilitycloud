@@ -738,8 +738,8 @@
                             <ul>
                                 <li>The invoice can be paid after the first grant instalment arrives; its payment deadline is the due date written on the invoice or payment notice.</li>
                                 <li>All implementation modules are available immediately after grant declaration while the invoice is being handled.</li>
-                                <li>If payment becomes overdue, MobilityCloud may restrict or suspend implementation access until payment is confirmed.</li>
-                                <li>When an administrator marks the payment as paid or approved, restricted access may be restored automatically.</li>
+                                <li>An overdue invoice remains visible for billing follow-up, but it does not automatically interrupt implementation access.</li>
+                                <li>When an administrator confirms payment, the platform records the payment status and closes the billing follow-up.</li>
                             </ul>
                         </section>
 

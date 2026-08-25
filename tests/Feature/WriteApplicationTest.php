@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Filament\Resources\Projects\Pages\WriteApplication;
+use App\Models\ContentBlock;
 use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectApplicationVersion;
@@ -262,7 +263,16 @@ class WriteApplicationTest extends TestCase
 
         $this->assertSame('Do not delete this text.', $legacy->fresh()->content);
         $this->assertSame('ka151-you', $project->fresh()->ka_action);
-        $this->assertSame(4, $project->applicationSections()->count());
+        $this->assertSame(7, $project->applicationSections()->count());
+        $this->assertEqualsCanonicalizing(
+            ['additional-funding-needs', 'virtual-blended-components', 'participant-contributions'],
+            $project->applicationSections()
+                ->whereNotNull('question_key')
+                ->where('question_key', 'not like', 'template-heading-%')
+                ->pluck('question_key')
+                ->all(),
+        );
+        $this->assertSame(3, $project->applicationSections()->where('question_key', 'like', 'template-heading-%')->count());
         $this->assertSame(1, ProjectApplicationVersion::where('project_id', $project->id)->count());
     }
 
@@ -316,12 +326,9 @@ class WriteApplicationTest extends TestCase
             ->assertSee('Search by KA code, sector, form or keyword')
             ->assertSee('Officially verified')
             ->assertSee('Switch impact preview')
-            ->assertSee('Template audit')
-            ->assertSee('Audit score')
-            ->assertSee('Missing official questions')
+            ->assertDontSee('Template audit')
             ->set('templateCatalogSearch', '153')
             ->assertSee('KA153-YOU')
-            ->assertSee('Audit')
             ->call('selectTemplate', 'ka153-you')
             ->assertSet('selectedTemplate', 'ka153-you');
 
@@ -395,7 +402,7 @@ class WriteApplicationTest extends TestCase
             ->assertSee('800 EUR');
     }
 
-    public function test_standard_application_tables_can_be_populated_from_project_data(): void
+    public function test_standard_application_tables_accept_project_specific_planning_data(): void
     {
         [$project, $user] = $this->workspaceProjectAndUser('member');
         $project->update([
@@ -413,8 +420,12 @@ class WriteApplicationTest extends TestCase
             'fewer_opportunities' => true,
         ]);
 
-        $project->budgetLines()->where('title', 'Inclusion Support')->firstOrFail()->update([
+        $project->budgetLines()->create([
+            'title' => 'Inclusion Support',
+            'emoji' => '♿',
+            'color' => '#64748b',
             'allocated_budget' => 1200,
+            'sort_order' => 3,
         ]);
 
         $funding = $this->createSection($project, 'Have you identified the need of any specific additional funding? If this is the case, please fill in the table below.', '', 1000, 'Activities', 0, 'additional-funding-needs');
@@ -423,15 +434,21 @@ class WriteApplicationTest extends TestCase
         $this->actingAs($user);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
-            ->assertSee('Populate from project')
-            ->call('autofillTable', $funding->id, 'additional_funding')
-            ->call('autofillTable', $activities->id, 'activity_plan');
+            ->assertSee('Additional funding needs')
+            ->assertSee('Activity plan')
+            ->call('addTableRow', $funding->id, 'additional_funding')
+            ->set("tables.{$funding->id}.additional_funding.0.cost_type", 'Inclusion Support')
+            ->set("tables.{$funding->id}.additional_funding.0.participants", '1 participant with fewer opportunities')
+            ->set("tables.{$funding->id}.additional_funding.0.estimated_cost", '1200 EUR')
+            ->call('addTableRow', $activities->id, 'activity_plan')
+            ->set("tables.{$activities->id}.activity_plan.0.activity", 'Youth Exchange')
+            ->set("tables.{$activities->id}.activity_plan.0.participants", 'Participant group from Scoala de Jocuri');
 
         $funding->refresh();
         $activities->refresh();
 
         $this->assertSame('Inclusion Support', $funding->application_tables['additional_funding'][0]['cost_type']);
-        $this->assertSame('1 participants with fewer opportunities', $funding->application_tables['additional_funding'][0]['participants']);
+        $this->assertSame('1 participant with fewer opportunities', $funding->application_tables['additional_funding'][0]['participants']);
         $this->assertSame('Youth Exchange', $activities->application_tables['activity_plan'][0]['activity']);
         $this->assertStringContainsString('Participant', $activities->application_tables['activity_plan'][0]['participants']);
     }
@@ -636,17 +653,32 @@ class WriteApplicationTest extends TestCase
         $this->assertLessThan(100, $checklist['score']);
     }
 
-    public function test_answer_scaffold_can_be_inserted_for_a_question(): void
+    public function test_reusable_library_block_can_be_inserted_for_a_question(): void
     {
         [$project, $user] = $this->workspaceProjectAndUser('member');
         $section = $this->createSection($project, 'Expected impact and follow-up', '', 2000, 'Impact', 0, 'summary-impact');
+        $block = ContentBlock::create([
+            'owner_id' => $user->id,
+            'title' => 'Impact evidence structure',
+            'category' => 'impact',
+            'ka_action' => 'ka152',
+            'language' => 'en',
+            'body' => 'Expected result / proof / follow-up owner.',
+            'tags' => ['impact'],
+            'usage_count' => 0,
+        ]);
 
         $this->actingAs($user);
 
         Livewire::test(WriteApplication::class, ['record' => $project->id])
-            ->call('insertAnswerScaffold', $section->id);
+            ->call('openLibrary', $section->id)
+            ->assertSet('showLibrary', true)
+            ->assertSee('Impact evidence structure')
+            ->call('insertBlock', $block->id)
+            ->assertSet('showLibrary', false);
 
         $this->assertStringContainsString('Expected result / proof', $section->fresh()->content);
+        $this->assertSame(1, $block->fresh()->usage_count);
     }
 
     public function test_template_switch_replaces_old_official_questions_and_preserves_custom_sections(): void

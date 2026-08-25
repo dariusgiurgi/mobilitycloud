@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\ProjectModuleLock;
 use App\Models\ProjectPresence;
-use App\Support\DemoWorkspace;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;

@@ -8,7 +8,7 @@ use Livewire\Features\SupportRedirects\Redirector;
 
 class UnifiedLogoutResponse implements LogoutResponse
 {
-    public function toResponse($request): RedirectResponse | Redirector
+    public function toResponse($request): RedirectResponse|Redirector
     {
         return redirect()->route('filament.admin.auth.login');
     }
