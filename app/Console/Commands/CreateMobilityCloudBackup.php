@@ -140,7 +140,13 @@ class CreateMobilityCloudBackup extends Command
             'app',
         ]);
         $process->setTimeout(3600);
-        $process->mustRun();
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            @unlink($targetFile);
+
+            throw new \RuntimeException(trim($process->getErrorOutput()) ?: 'The private storage archive could not be created.');
+        }
 
         chmod($targetFile, 0640);
     }
@@ -198,8 +204,15 @@ class CreateMobilityCloudBackup extends Command
 
         try {
             File::ensureDirectoryExists(dirname($statusPath), 0750, true);
-            File::put($statusPath, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
-            chmod($statusPath, 0644);
+            $temporaryPath = $statusPath.'.'.bin2hex(random_bytes(6)).'.tmp';
+            File::put($temporaryPath, json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
+            chmod($temporaryPath, 0644);
+
+            if (! rename($temporaryPath, $statusPath)) {
+                @unlink($temporaryPath);
+
+                throw new \RuntimeException('Could not replace the backup health status record.');
+            }
         } catch (Throwable $statusException) {
             if ($status === 'ok') {
                 throw $statusException;

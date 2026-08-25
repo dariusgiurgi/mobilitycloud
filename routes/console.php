@@ -20,6 +20,14 @@ Schedule::command('mobilitycloud:backup')
     ->dailyAt('02:15')
     ->withoutOverlapping();
 
+Schedule::command('mobilitycloud:backup-external')
+    ->dailyAt('02:45')
+    ->withoutOverlapping();
+
+Schedule::command('mobilitycloud:backup-external-restore-test')
+    ->weeklyOn(1, '04:15')
+    ->withoutOverlapping();
+
 Schedule::command('mobilitycloud:prelaunch-audit')
     ->dailyAt('09:00')
     ->withoutOverlapping();

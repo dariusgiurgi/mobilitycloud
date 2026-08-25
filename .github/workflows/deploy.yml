@@ -78,6 +78,12 @@ jobs:
           trap restore_application EXIT
           php artisan down --retry=60 --no-interaction || true
 
+          usermod -aG www-data deploy
+          install -d -m 2770 -o www-data -g www-data "$APP_DIR/storage/app/private"
+          chown -R www-data:www-data "$APP_DIR/storage/app/private"
+          find "$APP_DIR/storage/app/private" -mindepth 1 -type d -exec chmod 2750 {} +
+          find "$APP_DIR/storage/app/private" -type f -exec chmod 0640 {} +
+
           git checkout main
           git pull --ff-only origin main
 

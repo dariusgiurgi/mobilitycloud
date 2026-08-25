@@ -36,6 +36,19 @@ class AuditMobilityCloudPrelaunch extends Command
         }
         $failed += $this->check('Recent backup exists', $this->recentBackupExists(), warnOnly: true);
 
+        if (config('mobilitycloud.external_backups.enabled')) {
+            $failed += $this->check('Recent encrypted external backup exists', $this->recentExternalOperation(
+                (string) config('mobilitycloud.external_backups.status_path'),
+                now()->subHours((int) config('mobilitycloud.external_backups.max_age_hours', 30))->getTimestamp(),
+                'created_at',
+            ), warnOnly: true);
+            $failed += $this->check('External restore test is recent', $this->recentExternalOperation(
+                (string) config('mobilitycloud.external_backups.restore_status_path'),
+                now()->subDays((int) config('mobilitycloud.external_backups.restore_max_age_days', 8))->getTimestamp(),
+                'verified_at',
+            ), warnOnly: true);
+        }
+
         if ($failed > 0) {
             $this->error($failed.' required launch checks failed.');
 
@@ -91,5 +104,22 @@ class AuditMobilityCloudPrelaunch extends Command
             ->first();
 
         return $latest && (filemtime($latest) ?: 0) >= now()->subHours($maxAgeHours)->getTimestamp();
+    }
+
+    private function recentExternalOperation(string $statusPath, int $threshold, string $timestampKey): bool
+    {
+        if ($statusPath === '' || ! File::exists($statusPath)) {
+            return false;
+        }
+
+        try {
+            $status = json_decode((string) File::get($statusPath), true, flags: JSON_THROW_ON_ERROR);
+
+            return ($status['status'] ?? null) === 'ok'
+                && filled($status[$timestampKey] ?? null)
+                && strtotime((string) $status[$timestampKey]) >= $threshold;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }
