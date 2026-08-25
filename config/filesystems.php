@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\SecretValue;
+
 return [
 
     /*
@@ -33,6 +35,17 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
+            'permissions' => [
+                'file' => [
+                    'public' => 0644,
+                    'private' => 0640,
+                ],
+                'dir' => [
+                    'public' => 0755,
+                    'private' => 0750,
+                ],
+            ],
+            'directory_visibility' => 'private',
             'serve' => true,
             'throw' => false,
             'report' => false,
@@ -58,6 +71,25 @@ return [
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
             'throw' => false,
             'report' => false,
+        ],
+
+        'external_backups' => [
+            'driver' => 's3',
+            'key' => SecretValue::resolve(
+                env('MOBILITYCLOUD_BACKUP_S3_KEY'),
+                env('MOBILITYCLOUD_BACKUP_S3_KEY_FILE'),
+            ),
+            'secret' => SecretValue::resolve(
+                env('MOBILITYCLOUD_BACKUP_S3_SECRET'),
+                env('MOBILITYCLOUD_BACKUP_S3_SECRET_FILE'),
+            ),
+            'region' => env('MOBILITYCLOUD_BACKUP_S3_REGION', 'auto'),
+            'bucket' => env('MOBILITYCLOUD_BACKUP_S3_BUCKET'),
+            'endpoint' => env('MOBILITYCLOUD_BACKUP_S3_ENDPOINT'),
+            'use_path_style_endpoint' => (bool) env('MOBILITYCLOUD_BACKUP_S3_PATH_STYLE', true),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => true,
         ],
 
     ],

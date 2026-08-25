@@ -50,6 +50,17 @@ class TestMobilityCloudBackupRestore extends Command
                 throw new \RuntimeException('Restore completed, but no tables were found.');
             }
 
+            $migrationsTable = trim($this->mysql([
+                '--batch',
+                '--skip-column-names',
+                '-e',
+                'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = \''.$database.'\' AND table_name = \'migrations\'',
+            ], capture: true));
+
+            if ((int) $migrationsTable !== 1) {
+                throw new \RuntimeException('Restore completed, but the migrations table is missing.');
+            }
+
             $this->info('Restore test passed. Tables restored: '.$tableCount);
 
             return self::SUCCESS;

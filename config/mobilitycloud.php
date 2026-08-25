@@ -32,6 +32,24 @@ return [
         'max_age_hours' => (int) env('MOBILITYCLOUD_BACKUP_MAX_AGE_HOURS', 30),
     ],
 
+    'external_backups' => [
+        'enabled' => (bool) env('MOBILITYCLOUD_EXTERNAL_BACKUP_ENABLED', false),
+        'disk' => env('MOBILITYCLOUD_EXTERNAL_BACKUP_DISK', 'external_backups'),
+        'prefix' => env('MOBILITYCLOUD_EXTERNAL_BACKUP_PREFIX', 'mobilitycloud'),
+        'key_path' => env('MOBILITYCLOUD_EXTERNAL_BACKUP_KEY_PATH', '/etc/mobilitycloud/backup-encryption.key'),
+        'status_path' => env('MOBILITYCLOUD_EXTERNAL_BACKUP_STATUS_PATH', storage_path('app/private/external-backup-health.json')),
+        'restore_status_path' => env('MOBILITYCLOUD_EXTERNAL_RESTORE_STATUS_PATH', storage_path('app/private/external-restore-health.json')),
+        'max_age_hours' => (int) env('MOBILITYCLOUD_EXTERNAL_BACKUP_MAX_AGE_HOURS', 30),
+        'restore_max_age_days' => (int) env('MOBILITYCLOUD_EXTERNAL_RESTORE_MAX_AGE_DAYS', 8),
+        'restore' => [
+            'database' => env('MOBILITYCLOUD_BACKUP_RESTORE_DATABASE', 'mobilitycloud_restore_test'),
+            'mysql_user' => env('MOBILITYCLOUD_BACKUP_RESTORE_MYSQL_USER', env('DB_USERNAME')),
+            'mysql_password' => env('MOBILITYCLOUD_BACKUP_RESTORE_MYSQL_PASSWORD', env('DB_PASSWORD')),
+            'mysql_host' => env('MOBILITYCLOUD_BACKUP_RESTORE_MYSQL_HOST', env('DB_HOST')),
+            'mysql_port' => env('MOBILITYCLOUD_BACKUP_RESTORE_MYSQL_PORT', env('DB_PORT', 3306)),
+        ],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Public analytics

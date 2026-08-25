@@ -166,6 +166,8 @@ class PlatformHealth extends Page
             $this->failedJobsCheck(),
             $this->mailCheck(),
             $this->backupCheck(),
+            $this->externalBackupCheck(),
+            $this->externalRestoreCheck(),
             $this->applicationLogCheck(),
             $this->schedulerCheck(),
             $this->environmentCheck(),
@@ -337,7 +339,7 @@ class PlatformHealth extends Page
         $statusPath = (string) config('mobilitycloud.backups.status_path');
 
         if ($statusPath === '' || ! File::exists($statusPath)) {
-            return $this->warn('Backups', 'No backup status record', 'The next scheduled or manual backup will publish safe status metadata here.');
+            return $this->warn('Local backups', 'No backup status record', 'The next scheduled or manual backup will publish safe status metadata here.');
         }
 
         try {
@@ -349,7 +351,7 @@ class PlatformHealth extends Page
                     : 'at an unknown time';
 
                 return $this->bad(
-                    'Backups',
+                    'Local backups',
                     'Latest backup failed',
                     $recordedAt.' · '.$this->errorSummary((string) ($status['error'] ?? 'No failure detail was recorded.')),
                 );
@@ -361,11 +363,105 @@ class PlatformHealth extends Page
             $detail = $files->count().' file(s) · '.$this->formatBytes((int) ($status['total_size_bytes'] ?? 0)).' · '.$lastBackup->diffForHumans();
 
             return $lastBackup->isBefore(now()->subHours($maxAgeHours))
-                ? $this->warn('Backups', 'Latest backup is older than expected', $detail)
-                : $this->ok('Backups', 'Recent backup available', $detail);
+                ? $this->warn('Local backups', 'Latest backup is older than expected', $detail)
+                : $this->ok('Local backups', 'Recent backup available', $detail);
         } catch (Throwable $exception) {
-            return $this->bad('Backups', 'Backup status could not be read', $this->errorSummary($exception->getMessage()));
+            return $this->bad('Local backups', 'Backup status could not be read', $this->errorSummary($exception->getMessage()));
         }
+    }
+
+    protected function externalBackupCheck(): array
+    {
+        if (! config('mobilitycloud.external_backups.enabled')) {
+            return $this->warn('External backups', 'External replication disabled', 'Enable it only after the private object-storage credentials and encryption key are installed.');
+        }
+
+        $status = $this->readOperationalStatus(
+            (string) config('mobilitycloud.external_backups.status_path'),
+            'External backups',
+            'The first encrypted external backup has not completed yet.',
+        );
+
+        if (isset($status['level'])) {
+            return $status;
+        }
+
+        try {
+            $createdAt = CarbonImmutable::parse((string) ($status['created_at'] ?? ''));
+            $maxAgeHours = max(1, (int) config('mobilitycloud.external_backups.max_age_hours', 30));
+            $detail = $this->formatBytes((int) ($status['size_bytes'] ?? 0))
+                .' · encrypted key '.$this->safeIdentifier((string) ($status['key_id'] ?? 'unknown'))
+                .' · '.$createdAt->diffForHumans();
+
+            return $createdAt->isBefore(now()->subHours($maxAgeHours))
+                ? $this->warn('External backups', 'Latest external backup is older than expected', $detail)
+                : $this->ok('External backups', 'Encrypted external backup verified', $detail);
+        } catch (Throwable $exception) {
+            return $this->bad('External backups', 'External backup status could not be read', $this->errorSummary($exception->getMessage()));
+        }
+    }
+
+    protected function externalRestoreCheck(): array
+    {
+        if (! config('mobilitycloud.external_backups.enabled')) {
+            return $this->warn('Restore verification', 'Restore tests disabled', 'Restore tests start automatically after external backups are enabled.');
+        }
+
+        $status = $this->readOperationalStatus(
+            (string) config('mobilitycloud.external_backups.restore_status_path'),
+            'Restore verification',
+            'The first scheduled external restore test has not completed yet.',
+        );
+
+        if (isset($status['level'])) {
+            return $status;
+        }
+
+        try {
+            $verifiedAt = CarbonImmutable::parse((string) ($status['verified_at'] ?? ''));
+            $maxAgeDays = max(1, (int) config('mobilitycloud.external_backups.restore_max_age_days', 8));
+            $tables = (int) data_get($status, 'database.tables_restored', 0);
+            $storageEntries = (int) ($status['storage_entries'] ?? 0);
+            $detail = $tables.' database table(s) · '.$storageEntries.' storage entry/entries · '.$verifiedAt->diffForHumans();
+
+            return $verifiedAt->isBefore(now()->subDays($maxAgeDays))
+                ? $this->warn('Restore verification', 'Latest restore test is older than expected', $detail)
+                : $this->ok('Restore verification', 'External restore test passed', $detail);
+        } catch (Throwable $exception) {
+            return $this->bad('Restore verification', 'Restore status could not be read', $this->errorSummary($exception->getMessage()));
+        }
+    }
+
+    protected function readOperationalStatus(string $path, string $label, string $missingDetail): array
+    {
+        if ($path === '' || ! File::exists($path)) {
+            return $this->warn($label, 'No status record', $missingDetail);
+        }
+
+        try {
+            $status = json_decode((string) File::get($path), true, flags: JSON_THROW_ON_ERROR);
+        } catch (Throwable $exception) {
+            return $this->bad($label, 'Status record could not be read', $this->errorSummary($exception->getMessage()));
+        }
+
+        if (($status['status'] ?? null) !== 'ok') {
+            $recordedAt = filled($status['recorded_at'] ?? null)
+                ? CarbonImmutable::parse($status['recorded_at'])->diffForHumans()
+                : 'at an unknown time';
+
+            return $this->bad(
+                $label,
+                'Latest operation failed',
+                $recordedAt.' · '.$this->errorSummary((string) ($status['error'] ?? 'No failure detail was recorded.')),
+            );
+        }
+
+        return $status;
+    }
+
+    protected function safeIdentifier(string $value): string
+    {
+        return preg_match('/^[a-zA-Z0-9_-]{1,32}$/', $value) === 1 ? $value : 'unknown';
     }
 
     protected function applicationLogCheck(): array
