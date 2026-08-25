@@ -10,6 +10,15 @@
         $exportsLocked = $record->exportsLockedUntilPayment();
         $canConfigure = $this->canConfigureArchive();
         $recommendations = $this->finalisationRecommendations();
+        $archive = $this->currentArchive();
+        $archiveInProgress = $archive && in_array($archive->status, [\App\Models\ProjectFinalArchive::STATUS_QUEUED, \App\Models\ProjectFinalArchive::STATUS_PROCESSING], true);
+        $archiveReady = $archive?->isReady() ?? false;
+        $archiveFailed = $archive?->status === \App\Models\ProjectFinalArchive::STATUS_FAILED;
+        $archiveSize = $archiveReady
+            ? (((int) $archive->size) >= 1048576
+                ? number_format(((int) $archive->size) / 1048576, 1).' MB'
+                : max(1, (int) ceil(((int) $archive->size) / 1024)).' KB')
+            : null;
         $groups = [
             'Project essentials' => ['project_data', 'application', 'participants', 'budget', 'agreements'],
             'Evidence & files' => ['generated_records', 'project_files', 'mobility', 'dissemination', 'feedback'],
@@ -45,6 +54,9 @@
         .mc-final-row-copy { display:block;color:#7c8799;font-size:.64rem;line-height:1.35;margin-top:.12rem; }
         .mc-final-count { color:#64748b;font-size:.63rem;font-weight:700;white-space:nowrap; }
         .mc-final-note { display:flex;gap:.6rem;align-items:flex-start;padding:.75rem .85rem;margin-top:1rem;border:1px solid rgba(245,158,11,.25);border-radius:.8rem;background:rgba(255,251,235,.72); }
+        .mc-final-sensitive { display:flex;gap:.65rem;align-items:flex-start;padding:.78rem .88rem;margin-top:.65rem;border:1px solid rgba(239,68,68,.18);border-radius:.8rem;background:rgba(254,242,242,.6); }
+        .mc-final-archive-state { width:100%;color:#64748b;font-size:.64rem;line-height:1.35;text-align:right; }
+        .mc-final-archive-state strong { color:#334155;font-weight:750; }
         .mc-final-preflight { margin-top:1rem;padding:.85rem;border:1px solid rgba(148,163,184,.2);border-radius:.9rem;background:rgba(248,250,252,.75); }
         .mc-final-preflight-head { display:flex;align-items:flex-start;justify-content:space-between;gap:.8rem;margin:0 0 .7rem; }
         .mc-final-preflight-head h3 { color:#27272a;font-size:.82rem;font-weight:780;margin:.14rem 0 0; }
@@ -71,7 +83,7 @@
         @media (max-width:520px) { .mc-final-summary { width:100%; }.mc-final-stat { flex:1; }.mc-final-row { grid-template-columns:22px minmax(0,1fr); }.mc-final-count { grid-column:2; }.mc-final-preflight-head { display:block; }.mc-final-preflight-note { text-align:left;margin-top:.35rem;max-width:none; } }
     </style>
 
-    <section class="mc-final-hero">
+    <section class="mc-final-hero" @if ($archiveInProgress) wire:poll.4s @endif>
         <div class="mc-final-hero-main">
             <div>
                 <div class="mc-final-eyebrow">Finalisation</div>
@@ -84,14 +96,29 @@
                 @if ($exportsLocked)
                     <x-filament::badge color="warning" icon="heroicon-m-lock-closed">Export locked</x-filament::badge>
                 @elseif ($selected)
-                    <x-filament::button tag="a" :href="route('projects.final-archive', $record)" icon="heroicon-m-archive-box-arrow-down">Download ZIP</x-filament::button>
+                    @if ($archiveReady)
+                        <x-filament::button tag="a" :href="route('projects.final-archive', [$record, $archive])" icon="heroicon-m-arrow-down-tray">Download ZIP</x-filament::button>
+                    @elseif ($archiveInProgress)
+                        <x-filament::button disabled icon="heroicon-m-arrow-path">Preparing ZIP…</x-filament::button>
+                    @elseif ($canConfigure)
+                        <x-filament::button wire:click="requestFinalArchive" icon="heroicon-m-archive-box-arrow-down">{{ $archiveFailed || $archive?->hasExpired() ? 'Prepare again' : 'Prepare archive' }}</x-filament::button>
+                    @endif
+                @endif
+                @if ($archiveReady)
+                    <div class="mc-final-archive-state"><strong>Ready now</strong> · {{ $archiveSize }} · expires {{ $archive->expires_at->diffForHumans() }}</div>
+                @elseif ($archiveInProgress)
+                    <div class="mc-final-archive-state"><strong>{{ $archive->status === \App\Models\ProjectFinalArchive::STATUS_QUEUED ? 'Waiting in queue' : 'Building securely' }}</strong><br>You can leave this page and return later.</div>
+                @elseif ($archiveFailed)
+                    <div class="mc-final-archive-state"><strong>Preparation did not finish.</strong><br>No project data was changed. You can try again.</div>
+                @elseif ($archive?->hasExpired())
+                    <div class="mc-final-archive-state"><strong>The temporary ZIP was removed.</strong><br>Prepare a fresh copy when you need it.</div>
                 @endif
             </div>
         </div>
         <div class="mc-final-steps">
             <span class="mc-final-step"><i>1</i> Select project material</span>
-            <span class="mc-final-step"><i>2</i> Download the handover ZIP</span>
-            <span class="mc-final-step"><i>3</i> Keep the original project data intact</span>
+            <span class="mc-final-step"><i>2</i> Prepare it safely in the background</span>
+            <span class="mc-final-step"><i>3</i> Download within 24 hours</span>
         </div>
     </section>
 
@@ -104,6 +131,14 @@
             </div>
         </div>
     @endif
+
+    <div class="mc-final-sensitive">
+        <x-filament::icon icon="heroicon-o-shield-exclamation" style="width:1.08rem;height:1.08rem;color:#dc2626;flex:none;margin-top:.05rem;" />
+        <div>
+            <strong class="text-gray-950 dark:text-white" style="font-size:.75rem;">This ZIP may contain sensitive project data</strong>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;line-height:1.45;margin:.12rem 0 0;">Depending on your selection, it can include participant contact or medical details, financial evidence and signed documents. The ZIP is not password-protected: download it only to a trusted device and share it through a secure channel. The temporary platform copy is removed automatically after 24 hours.</p>
+        </div>
+    </div>
 
     <section class="mc-final-preflight">
         <div class="mc-final-preflight-head">

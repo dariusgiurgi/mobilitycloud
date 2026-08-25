@@ -106,6 +106,7 @@ class Project extends Model
             $project->participants()->get()->each->delete();
             $project->documents()->get()->each->delete();
             $project->budgetLines()->get()->each->delete();
+            $project->finalArchives()->get()->each->delete();
         });
     }
 
@@ -237,6 +238,11 @@ class Project extends Model
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ProjectActivityLog::class);
+    }
+
+    public function finalArchives(): HasMany
+    {
+        return $this->hasMany(ProjectFinalArchive::class);
     }
 
     public function tasks(): HasMany

@@ -286,7 +286,7 @@ Route::middleware(['auth', RedirectSuspendedAccount::class])->group(function () 
     Route::get('/projects/{project}/export-application', [ProjectExportController::class, 'exportApplication'])->name('projects.export-application');
     Route::get('/projects/{project}/export-application-word', [ProjectExportController::class, 'exportApplicationWord'])->name('projects.export-application-word');
     Route::get('/projects/{project}/export-application-pack', [ProjectExportController::class, 'exportApplicationPack'])->name('projects.export-application-pack');
-    Route::get('/projects/{project}/final-archive', [ProjectExportController::class, 'finalArchive'])->name('projects.final-archive');
+    Route::get('/projects/{project}/final-archives/{archive}', [ProjectExportController::class, 'finalArchive'])->name('projects.final-archive');
     Route::get('/projects/{project}/export-participants', [ProjectExportController::class, 'participantsCsv'])->name('projects.export-participants');
     Route::get('/projects/{project}/participant-import-template', [ProjectExportController::class, 'participantImportTemplate'])->name('projects.participant-import-template');
     Route::get('/calc/{type}/export', [ProjectExportController::class, 'calcExport'])->name('calc.export');

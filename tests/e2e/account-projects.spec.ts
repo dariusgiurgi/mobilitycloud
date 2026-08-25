@@ -43,7 +43,19 @@ async function expectPrivatePdf(page: Page, path: string) {
 }
 
 async function archiveEntries(page: Page, projectId: number): Promise<string[]> {
-  const archive = await page.request.get(`/projects/${projectId}/final-archive`);
+  await page.goto(`/app/projects/${projectId}/finalisation`);
+
+  const download = page.getByRole('link', { name: /Download ZIP/i });
+  if (!(await download.isVisible())) {
+    await page.getByRole('button', { name: /Prepare archive|Prepare again/i }).click();
+    await expect(page.getByText(/Waiting in queue|Building securely/i)).toBeVisible();
+    await expect(download).toBeVisible({ timeout: 40_000 });
+  }
+
+  const downloadPath = await download.getAttribute('href');
+  expect(downloadPath).toBeTruthy();
+
+  const archive = await page.request.get(downloadPath!);
   expect(archive.status()).toBe(200);
   expect(archive.headers()['content-type']).toContain('zip');
 
