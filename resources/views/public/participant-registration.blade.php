@@ -3,6 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex,nofollow,noarchive">
     <title>Participant form — MobilityCloud</title>
     <style>
         :root { color-scheme: light; --brand:#4f46e5; --ink:#111827; --muted:#667085; --line:#e5e7eb; --bg:#f7f8fb; }

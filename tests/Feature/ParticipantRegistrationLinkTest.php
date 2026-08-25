@@ -28,8 +28,9 @@ class ParticipantRegistrationLinkTest extends TestCase
         $this->get(route('public.participant-registration.show', $project->participant_registration_token))
             ->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
-            ->assertHeader('Referrer-Policy', 'no-referrer')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
+            ->assertSee('<meta name="referrer" content="no-referrer">', false)
+            ->assertSee('<meta name="robots" content="noindex,nofollow,noarchive">', false)
             ->assertSee('Participant form')
             ->assertSee('Scoala de Jocuri')
             ->assertSee('Youth Group Spain');
