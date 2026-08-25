@@ -41,7 +41,6 @@ jobs:
           EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           ssh \
-            -6 \
             -i "$HOME/.ssh/mobilitycloud" \
             -o BatchMode=yes \
             -o IdentitiesOnly=yes \
