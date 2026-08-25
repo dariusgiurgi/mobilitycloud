@@ -1,0 +1,104 @@
+name: Production deploy
+
+on:
+  workflow_run:
+    workflows:
+      - Quality gate
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy verified main
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+
+    steps:
+      - name: Configure production SSH access
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.MOBILITYCLOUD_SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.MOBILITYCLOUD_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/mobilitycloud"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/mobilitycloud" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy the verified revision
+        env:
+          EXPECTED_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          ssh \
+            -6 \
+            -i "$HOME/.ssh/mobilitycloud" \
+            -o BatchMode=yes \
+            -o IdentitiesOnly=yes \
+            -o StrictHostKeyChecking=yes \
+            mobilityadmin@mobilitycloud.eu \
+            "sudo EXPECTED_SHA='$EXPECTED_SHA' bash -se" <<'REMOTE'
+          set -Eeuo pipefail
+
+          readonly APP_DIR=/var/www/mobilitycloud
+
+          cd "$APP_DIR"
+
+          if ! git diff --quiet || ! git diff --cached --quiet || test -n "$(git ls-files --others --exclude-standard)"; then
+              echo "Production worktree is not clean; refusing to overwrite server changes."
+              git status --short --branch
+              exit 1
+          fi
+
+          git fetch --prune origin main
+          readonly REMOTE_SHA="$(git rev-parse origin/main)"
+
+          if test "$REMOTE_SHA" != "$EXPECTED_SHA"; then
+              echo "Verified revision $EXPECTED_SHA no longer matches origin/main $REMOTE_SHA."
+              exit 1
+          fi
+
+          restore_application() {
+              php artisan up --no-interaction >/dev/null 2>&1 || true
+          }
+
+          trap restore_application EXIT
+          php artisan down --retry=60 --no-interaction || true
+
+          git checkout main
+          git pull --ff-only origin main
+
+          COMPOSER_ALLOW_SUPERUSER=1 composer install \
+              --no-dev \
+              --no-interaction \
+              --no-progress \
+              --prefer-dist \
+              --optimize-autoloader
+
+          npm ci --no-audit --no-fund
+          npm run build
+
+          php artisan migrate --force --no-interaction
+          php artisan optimize:clear --no-interaction
+          php artisan optimize --no-interaction
+          php artisan queue:restart --no-interaction
+          php artisan mobilitycloud:prelaunch-audit --no-interaction
+
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+
+          php artisan up --no-interaction
+          trap - EXIT
+          REMOTE
+
+      - name: Verify production health
+        run: curl --fail --silent --show-error --retry 5 --retry-delay 3 https://mobilitycloud.eu/up
