@@ -15,6 +15,7 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
+use RuntimeException;
 use Tests\TestCase;
 use ZipArchive;
 
@@ -572,6 +573,48 @@ class ProjectDocumentsTest extends TestCase
         $this->assertNotFalse($zip->locateName('youth-exchange/06-generated-records/project-templates/'.$document->id.'-participant-agreement/original-'.$document->file_name));
         $zip->close();
         unlink($archive);
+    }
+
+    public function test_regenerating_a_project_template_swaps_the_file_without_replacing_the_document_record(): void
+    {
+        Storage::fake('local');
+        [$project] = $this->projectAndUser();
+        $templates = app(ProjectDocumentTemplateService::class);
+
+        $first = $templates->generate($project, 'participant_agreement');
+        $oldPath = $first->file_path;
+        $second = $templates->generate($project, 'participant_agreement');
+
+        $this->assertSame($first->id, $second->id);
+        $this->assertNotSame($oldPath, $second->file_path);
+        $this->assertDatabaseCount('project_documents', 1);
+        Storage::disk('local')->assertExists($second->file_path);
+        Storage::disk('local')->assertMissing($oldPath);
+    }
+
+    public function test_a_failed_project_template_database_swap_preserves_the_old_file_and_removes_the_new_file(): void
+    {
+        Storage::fake('local');
+        [$project] = $this->projectAndUser();
+        $templates = app(ProjectDocumentTemplateService::class);
+        $document = $templates->generate($project, 'participant_agreement');
+        $oldPath = $document->file_path;
+        ProjectDocument::saving(function (ProjectDocument $saving) use ($oldPath): void {
+            if ($saving->exists && $saving->isDirty('file_path') && $saving->file_path !== $oldPath) {
+                throw new RuntimeException('Simulated project document database failure.');
+            }
+        });
+
+        try {
+            $templates->generate($project, 'participant_agreement');
+            $this->fail('The simulated database failure was not raised.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated project document database failure.', $exception->getMessage());
+        }
+
+        $this->assertSame($oldPath, $document->fresh()->file_path);
+        Storage::disk('local')->assertExists($oldPath);
+        $this->assertSame([$oldPath], Storage::disk('local')->allFiles());
     }
 
     public function test_primary_signed_upload_action_hides_after_document_is_signed(): void

@@ -5,8 +5,12 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
+use App\Services\StoredFileReplacementService;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\ProjectOrganisations;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
+use App\Support\UploadedFileSize;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
@@ -450,39 +454,21 @@ class ViewProjectMobility extends Page
         ]);
 
         foreach ($this->photoUploads as $upload) {
-            $document = $this->record->documents()->create([
+            $title = trim($this->photoEvidenceTitle);
+            $extension = strtolower($upload->getClientOriginalExtension() ?: 'jpg');
+            $this->storeMobilityDocument($upload, [
                 'project_mobility_id' => $this->selectedMobility()->id,
                 'type' => ProjectDocument::TYPE_UPLOAD,
                 'category' => 'mobility_photo_video',
-                'title' => trim($this->photoEvidenceTitle),
+                'title' => $title,
                 'document_date' => $this->photoEvidenceDate ?: null,
                 'notes' => trim($this->photoEvidenceNotes) ?: null,
                 'metadata' => [
                     'source' => 'mobility',
                     'uploaded_from' => 'mobility_photo_batch',
-                    'batch_title' => trim($this->photoEvidenceTitle),
+                    'batch_title' => $title,
                 ],
-            ]);
-
-            try {
-                $extension = strtolower($upload->getClientOriginalExtension() ?: 'jpg');
-                $filename = Str::slug($document->title).'_'.$document->id.'.'.$extension;
-                $path = $upload->storeAs(
-                    'project-documents/'.$this->record->id.'/mobility/photos',
-                    $filename,
-                    'local'
-                );
-
-                $document->update([
-                    'file_path' => $path,
-                    'file_disk' => 'local',
-                    'file_name' => $upload->getClientOriginalName(),
-                    'file_size' => $upload->getSize(),
-                ]);
-            } catch (\Throwable $exception) {
-                $document->delete();
-                throw $exception;
-            }
+            ], 'project-documents/'.$this->record->id.'/mobility/photos', Str::slug($title).'.'.$extension);
         }
 
         $count = count($this->photoUploads);
@@ -520,38 +506,20 @@ class ViewProjectMobility extends Page
             'documentUpload' => ['required', 'file', 'max:51200', 'mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,zip'],
         ]);
 
-        $document = $this->record->documents()->create([
+        $title = trim($this->documentTitle);
+        $extension = strtolower($this->documentUpload->getClientOriginalExtension() ?: 'dat');
+        $this->storeMobilityDocument($this->documentUpload, [
             'project_mobility_id' => $this->selectedMobility()->id,
             'type' => ProjectDocument::TYPE_UPLOAD,
             'category' => $this->documentCategory,
-            'title' => trim($this->documentTitle),
+            'title' => $title,
             'document_date' => $this->documentDate ?: null,
             'notes' => trim($this->documentNotes) ?: null,
             'metadata' => [
                 'source' => 'mobility',
                 'uploaded_from' => 'mobility_page',
             ],
-        ]);
-
-        try {
-            $extension = strtolower($this->documentUpload->getClientOriginalExtension() ?: 'dat');
-            $filename = Str::slug($document->title).'_'.$document->id.'.'.$extension;
-            $path = $this->documentUpload->storeAs(
-                'project-documents/'.$this->record->id.'/mobility/'.$this->documentCategory,
-                $filename,
-                'local'
-            );
-
-            $document->update([
-                'file_path' => $path,
-                'file_disk' => 'local',
-                'file_name' => $this->documentUpload->getClientOriginalName(),
-                'file_size' => $this->documentUpload->getSize(),
-            ]);
-        } catch (\Throwable $exception) {
-            $document->delete();
-            throw $exception;
-        }
+        ], 'project-documents/'.$this->record->id.'/mobility/'.$this->documentCategory, Str::slug($title).'.'.$extension);
 
         $this->reset('documentTitle', 'documentNotes', 'documentUpload');
         $this->documentCategory = 'mobility_material';
@@ -917,11 +885,13 @@ class ViewProjectMobility extends Page
         ]);
 
         foreach ($this->disseminationUploads as $upload) {
-            $document = $this->record->documents()->create([
+            $title = trim($this->disseminationUploadTitle);
+            $extension = strtolower($upload->getClientOriginalExtension() ?: 'dat');
+            $this->storeMobilityDocument($upload, [
                 'project_mobility_id' => $this->selectedMobility()->id,
                 'type' => ProjectDocument::TYPE_UPLOAD,
                 'category' => 'dissemination_evidence',
-                'title' => trim($this->disseminationUploadTitle),
+                'title' => $title,
                 'document_date' => $this->disseminationUploadDate ?: now()->toDateString(),
                 'notes' => trim((string) ($this->disseminationReports[$organisation['key']] ?? '')) ?: null,
                 'metadata' => [
@@ -932,27 +902,7 @@ class ViewProjectMobility extends Page
                     'organisation_country' => $organisation['country'],
                     'organisation_oid' => $organisation['oid'],
                 ],
-            ]);
-
-            try {
-                $extension = strtolower($upload->getClientOriginalExtension() ?: 'dat');
-                $filename = Str::slug('dissemination-'.$organisation['name']).'_'.$document->id.'.'.$extension;
-                $path = $upload->storeAs(
-                    'project-documents/'.$this->record->id.'/dissemination/'.$organisation['key'],
-                    $filename,
-                    'local'
-                );
-
-                $document->update([
-                    'file_path' => $path,
-                    'file_disk' => 'local',
-                    'file_name' => $upload->getClientOriginalName(),
-                    'file_size' => $upload->getSize(),
-                ]);
-            } catch (\Throwable $exception) {
-                $document->delete();
-                throw $exception;
-            }
+            ], 'project-documents/'.$this->record->id.'/dissemination/'.$organisation['key'], Str::slug('dissemination-'.$organisation['name']).'.'.$extension);
         }
 
         $count = count($this->disseminationUploads);
@@ -1211,7 +1161,8 @@ class ViewProjectMobility extends Page
         $day = $this->evidenceDays[$dayId];
 
         foreach ($uploads as $upload) {
-            $document = $this->record->documents()->create([
+            $extension = strtolower($upload->getClientOriginalExtension() ?: 'dat');
+            $this->storeMobilityDocument($upload, [
                 'project_mobility_id' => $this->selectedMobility()->id,
                 'type' => ProjectDocument::TYPE_UPLOAD,
                 'category' => $category,
@@ -1225,30 +1176,34 @@ class ViewProjectMobility extends Page
                     'evidence_day_title' => $day['title'],
                     'evidence_kind' => $kind,
                 ],
-            ]);
-
-            try {
-                $extension = strtolower($upload->getClientOriginalExtension() ?: 'dat');
-                $filename = Str::slug($title).'_'.$document->id.'.'.$extension;
-                $path = $upload->storeAs(
-                    'project-documents/'.$this->record->id.'/mobility/evidence/'.$dayId.'/'.$kind,
-                    $filename,
-                    'local'
-                );
-
-                $document->update([
-                    'file_path' => $path,
-                    'file_disk' => 'local',
-                    'file_name' => $upload->getClientOriginalName(),
-                    'file_size' => $upload->getSize(),
-                ]);
-            } catch (\Throwable $exception) {
-                $document->delete();
-                throw $exception;
-            }
+            ], 'project-documents/'.$this->record->id.'/mobility/evidence/'.$dayId.'/'.$kind, Str::slug($title).'.'.$extension);
         }
 
         return count($uploads);
+    }
+
+    private function storeMobilityDocument(mixed $upload, array $attributes, string $baseDirectory, string $filename): ProjectDocument
+    {
+        $directory = trim($baseDirectory, '/').'/'.Str::uuid();
+        $path = $directory.'/'.$filename;
+
+        return app(StoredFileReplacementService::class)->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+            swap: function (StoredFileReference $newFile) use ($upload, $attributes): StoredFileSwapResult {
+                $document = $this->record->documents()->create([
+                    ...$attributes,
+                    'file_path' => $newFile->path,
+                    'file_disk' => $newFile->disk,
+                    'file_name' => $upload->getClientOriginalName(),
+                    'file_size' => $newFile->size,
+                ]);
+
+                return new StoredFileSwapResult($document);
+            },
+            expectedSize: UploadedFileSize::read($upload),
+        );
     }
 
     private function selectedMobility(): ProjectMobility

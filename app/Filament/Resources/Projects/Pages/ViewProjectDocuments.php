@@ -9,13 +9,16 @@ use App\Services\ExpenseReportSnapshot;
 use App\Services\ProjectDocumentChecklist;
 use App\Services\ProjectDocumentTemplateService;
 use App\Services\ProjectReadinessCheck;
+use App\Services\StoredFileReplacementService;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
+use App\Support\UploadedFileSize;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\WithFileUploads;
 
@@ -569,25 +572,37 @@ class ViewProjectDocuments extends Page
             },
             422
         );
-        $existing = $expense->conventionSignedCopy($kind);
-        if ($expense->hasConventionSignedCopy($kind)) {
-            Storage::disk($existing['disk'])->delete($existing['path']);
-        }
-
-        $extension = strtolower($this->conventionSignedUpload->getClientOriginalExtension() ?: 'pdf');
+        $upload = $this->conventionSignedUpload;
+        $extension = strtolower($upload->getClientOriginalExtension() ?: 'pdf');
         $filename = 'signed_'.$kind.'_'.Str::slug($expense->description ?: 'civil-convention').'_'.$expense->id.'.'.$extension;
-        $path = $this->conventionSignedUpload->storeAs(
-            'project-documents/'.$this->record->id.'/civil-conventions/'.$expense->id,
-            $filename,
-            'local'
+        $directory = 'project-documents/'.$this->record->id.'/civil-conventions/'.$expense->id.'/'.Str::uuid();
+        $path = $directory.'/'.$filename;
+        $originalName = $upload->getClientOriginalName();
+
+        app(StoredFileReplacementService::class)->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+            swap: function (StoredFileReference $newFile) use ($expense, $kind, $originalName): StoredFileSwapResult {
+                $lockedExpense = Expense::query()
+                    ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
+                    ->whereKey($expense->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $existing = $lockedExpense->conventionSignedCopy($kind);
+                $replacedFile = StoredFileReference::from($existing['disk'], $existing['path'], $existing['size']);
+                $data = $lockedExpense->convention_data ?? [];
+                $data[$kind.'_signed_path'] = $newFile->path;
+                $data[$kind.'_signed_disk'] = $newFile->disk;
+                $data[$kind.'_signed_name'] = $originalName;
+                $data[$kind.'_signed_size'] = $newFile->size;
+                $data[$kind.'_signed_at'] = now()->toIso8601String();
+                $lockedExpense->update(['convention_data' => $data]);
+
+                return new StoredFileSwapResult($lockedExpense, $replacedFile);
+            },
+            expectedSize: UploadedFileSize::read($upload),
         );
-        $data = $expense->convention_data ?? [];
-        $data[$kind.'_signed_path'] = $path;
-        $data[$kind.'_signed_disk'] = 'local';
-        $data[$kind.'_signed_name'] = $this->conventionSignedUpload->getClientOriginalName();
-        $data[$kind.'_signed_size'] = $this->conventionSignedUpload->getSize();
-        $data[$kind.'_signed_at'] = now()->toIso8601String();
-        $expense->update(['convention_data' => $data]);
 
         $this->closeConventionSignedUpload();
         Notification::make()->title(ucfirst($kind).' signed copy uploaded')->success()->send();
@@ -603,16 +618,24 @@ class ViewProjectDocuments extends Page
 
         $this->authorizeManagementModuleMutation('documents', $this->conventionLockKey($expense->id), $this->conventionLockLabel($expense));
 
-        $copy = $expense->conventionSignedCopy($kind);
-        if ($expense->hasConventionSignedCopy($kind)) {
-            Storage::disk($copy['disk'])->delete($copy['path']);
-        }
+        app(StoredFileReplacementService::class)->remove(function () use ($expense, $kind): StoredFileSwapResult {
+            $lockedExpense = Expense::query()
+                ->whereHas('budgetLine', fn ($query) => $query->where('project_id', $this->record->id))
+                ->whereKey($expense->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $copy = $lockedExpense->conventionSignedCopy($kind);
+            $replacedFile = StoredFileReference::from($copy['disk'], $copy['path'], $copy['size']);
+            $data = $lockedExpense->convention_data ?? [];
 
-        $data = $expense->convention_data ?? [];
-        foreach (['path', 'disk', 'name', 'size', 'at'] as $field) {
-            unset($data[$kind.'_signed_'.$field]);
-        }
-        $expense->update(['convention_data' => $data]);
+            foreach (['path', 'disk', 'name', 'size', 'at'] as $field) {
+                unset($data[$kind.'_signed_'.$field]);
+            }
+
+            $lockedExpense->update(['convention_data' => $data]);
+
+            return new StoredFileSwapResult($lockedExpense, $replacedFile);
+        });
         Notification::make()->title(ucfirst($kind).' signed copy removed')->success()->send();
     }
 
@@ -656,33 +679,34 @@ class ViewProjectDocuments extends Page
             'documentUpload' => ['required', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,doc,docx,xls,xlsx'],
         ]);
 
-        $document = $this->record->documents()->create([
-            'type' => ProjectDocument::TYPE_UPLOAD,
-            'category' => $this->documentCategory,
-            'title' => trim($this->documentTitle),
-            'document_date' => $this->documentDate ?: null,
-            'notes' => trim($this->documentNotes) ?: null,
-        ]);
+        $upload = $this->documentUpload;
+        $title = trim($this->documentTitle);
+        $extension = strtolower($upload->getClientOriginalExtension() ?: 'dat');
+        $filename = Str::slug($title).'.'.$extension;
+        $directory = 'project-documents/'.$this->record->id.'/uploads/'.Str::uuid();
+        $path = $directory.'/'.$filename;
 
-        try {
-            $extension = strtolower($this->documentUpload->getClientOriginalExtension() ?: 'dat');
-            $filename = Str::slug($document->title).'_'.$document->id.'.'.$extension;
-            $path = $this->documentUpload->storeAs(
-                'project-documents/'.$this->record->id.'/'.$document->id,
-                $filename,
-                'local'
-            );
+        app(StoredFileReplacementService::class)->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+            swap: function (StoredFileReference $newFile) use ($upload, $title): StoredFileSwapResult {
+                $document = $this->record->documents()->create([
+                    'type' => ProjectDocument::TYPE_UPLOAD,
+                    'category' => $this->documentCategory,
+                    'title' => $title,
+                    'document_date' => $this->documentDate ?: null,
+                    'notes' => trim($this->documentNotes) ?: null,
+                    'file_path' => $newFile->path,
+                    'file_disk' => $newFile->disk,
+                    'file_name' => $upload->getClientOriginalName(),
+                    'file_size' => $newFile->size,
+                ]);
 
-            $document->update([
-                'file_path' => $path,
-                'file_disk' => 'local',
-                'file_name' => $this->documentUpload->getClientOriginalName(),
-                'file_size' => $this->documentUpload->getSize(),
-            ]);
-        } catch (\Throwable $exception) {
-            $document->delete();
-            throw $exception;
-        }
+                return new StoredFileSwapResult($document);
+            },
+            expectedSize: UploadedFileSize::read($upload),
+        );
 
         $this->closeDocumentUpload();
         Notification::make()->title('Project document uploaded')->success()->send();
@@ -727,25 +751,41 @@ class ViewProjectDocuments extends Page
 
         $this->authorizeManagementModuleMutation('documents', $this->documentLockKey($document->id), $this->documentLockLabel($document));
 
-        if ($document->hasSignedCopy()) {
-            Storage::disk($document->signed_disk ?: 'local')->delete($document->signed_path);
-        }
-
-        $extension = strtolower($this->signedUpload->getClientOriginalExtension() ?: 'pdf');
+        $upload = $this->signedUpload;
+        $extension = strtolower($upload->getClientOriginalExtension() ?: 'pdf');
         $filename = 'signed_'.Str::slug($document->title).'_'.$document->id.'.'.$extension;
-        $path = $this->signedUpload->storeAs(
-            'project-documents/'.$this->record->id.'/'.$document->id,
-            $filename,
-            'local'
-        );
+        $directory = 'project-documents/'.$this->record->id.'/'.$document->id.'/signed/'.Str::uuid();
+        $path = $directory.'/'.$filename;
+        $originalName = $upload->getClientOriginalName();
 
-        $document->update([
-            'signed_path' => $path,
-            'signed_disk' => 'local',
-            'signed_name' => $this->signedUpload->getClientOriginalName(),
-            'signed_size' => $this->signedUpload->getSize(),
-            'signed_at' => now(),
-        ]);
+        app(StoredFileReplacementService::class)->replace(
+            disk: 'local',
+            path: $path,
+            write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+            swap: function (StoredFileReference $newFile) use ($document, $originalName): StoredFileSwapResult {
+                $lockedDocument = ProjectDocument::query()
+                    ->where('project_id', $this->record->id)
+                    ->whereKey($document->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+                $replacedFile = StoredFileReference::from(
+                    $lockedDocument->signed_disk,
+                    $lockedDocument->signed_path,
+                    $lockedDocument->signed_size,
+                );
+
+                $lockedDocument->update([
+                    'signed_path' => $newFile->path,
+                    'signed_disk' => $newFile->disk,
+                    'signed_name' => $originalName,
+                    'signed_size' => $newFile->size,
+                    'signed_at' => now(),
+                ]);
+
+                return new StoredFileSwapResult($lockedDocument, $replacedFile);
+            },
+            expectedSize: UploadedFileSize::read($upload),
+        );
 
         $this->closeSignedUpload();
         Notification::make()->title('Signed copy uploaded')->success()->send();
@@ -760,16 +800,27 @@ class ViewProjectDocuments extends Page
 
         $this->authorizeManagementModuleMutation('documents', $this->documentLockKey($document->id), $this->documentLockLabel($document));
 
-        if ($document->hasSignedCopy()) {
-            Storage::disk($document->signed_disk ?: 'local')->delete($document->signed_path);
-        }
+        app(StoredFileReplacementService::class)->remove(function () use ($document): StoredFileSwapResult {
+            $lockedDocument = ProjectDocument::query()
+                ->where('project_id', $this->record->id)
+                ->whereKey($document->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $replacedFile = StoredFileReference::from(
+                $lockedDocument->signed_disk,
+                $lockedDocument->signed_path,
+                $lockedDocument->signed_size,
+            );
 
-        $document->update([
-            'signed_path' => null,
-            'signed_name' => null,
-            'signed_size' => 0,
-            'signed_at' => null,
-        ]);
+            $lockedDocument->update([
+                'signed_path' => null,
+                'signed_name' => null,
+                'signed_size' => 0,
+                'signed_at' => null,
+            ]);
+
+            return new StoredFileSwapResult($lockedDocument, $replacedFile);
+        });
 
         Notification::make()->title('Signed copy removed')->success()->send();
     }

@@ -13,8 +13,11 @@ use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use UnexpectedValueException;
 
 class WriteApplication extends Page
 {
@@ -2791,14 +2794,16 @@ class WriteApplication extends Page
         Notification::make()->title('Version saved')->success()->send();
     }
 
-    protected function createSnapshot(string $label): ProjectApplicationVersion
+    protected function createSnapshot(string $label, ?Collection $sections = null): ProjectApplicationVersion
     {
+        $sections ??= $this->sectionsQuery()->get();
+
         return ProjectApplicationVersion::create([
             'project_id' => $this->record->id,
             'created_by' => auth()->id(),
             'label' => $label,
             'template_key' => $this->record->ka_action,
-            'snapshot' => $this->sectionsQuery()->get()->map(fn ($section) => $section->only([
+            'snapshot' => $sections->map(fn ($section) => $section->only([
                 'question_key', 'title', 'content', 'application_tables', 'table_definitions', 'review_status', 'internal_notes',
                 'char_limit', 'category', 'sort_order',
             ]))->values()->all(),
@@ -2960,14 +2965,39 @@ class WriteApplication extends Page
     {
         $this->authorizeApplicationStructureEditing();
         $version = ProjectApplicationVersion::where('project_id', $this->record->id)->findOrFail($versionId);
-        $this->createSnapshot('Automatic backup before restore');
 
-        ProjectApplicationSection::where('project_id', $this->record->id)->delete();
-        foreach ($version->snapshot as $section) {
-            ProjectApplicationSection::create(array_merge($section, ['project_id' => $this->record->id]));
+        try {
+            $snapshot = $this->validatedVersionSnapshot($version);
+        } catch (UnexpectedValueException $exception) {
+            report($exception);
+            Notification::make()
+                ->title('Version could not be restored')
+                ->body('The saved version is incomplete or invalid. Your current draft was not changed.')
+                ->danger()
+                ->send();
+
+            return;
         }
+
+        DB::transaction(function () use ($snapshot, $version): void {
+            $currentSections = $this->sectionsQuery()
+                ->lockForUpdate()
+                ->get();
+
+            $this->createSnapshot('Automatic backup before restore', $currentSections);
+
+            ProjectApplicationSection::where('project_id', $this->record->id)->delete();
+
+            foreach ($snapshot as $section) {
+                ProjectApplicationSection::create(array_merge($section, ['project_id' => $this->record->id]));
+            }
+
+            if ($version->template_key) {
+                $this->record->update(['ka_action' => $version->template_key]);
+            }
+        }, 3);
+
         if ($version->template_key) {
-            $this->record->update(['ka_action' => $version->template_key]);
             $this->selectedTemplate = ApplicationTemplates::normaliseKey($version->template_key);
         }
 
@@ -2975,6 +3005,39 @@ class WriteApplication extends Page
         $this->versionDiffId = null;
         $this->loadState();
         Notification::make()->title('Version restored')->body('A backup of the previous state was created automatically.')->success()->send();
+    }
+
+    /**
+     * Validate the complete snapshot before deleting any current section.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function validatedVersionSnapshot(ProjectApplicationVersion $version): array
+    {
+        $snapshot = $version->snapshot;
+
+        if (! is_array($snapshot)) {
+            throw new UnexpectedValueException('The selected application version has an invalid snapshot.');
+        }
+
+        $fields = [
+            'question_key', 'title', 'content', 'application_tables', 'table_definitions', 'review_status', 'internal_notes',
+            'char_limit', 'category', 'sort_order',
+        ];
+
+        return collect($snapshot)->map(function (mixed $section, int $index) use ($fields): array {
+            if (! is_array($section) || ! array_key_exists('title', $section) || ! is_string($section['title'])) {
+                throw new UnexpectedValueException('Application version section '.($index + 1).' is invalid.');
+            }
+
+            foreach (['application_tables', 'table_definitions'] as $arrayField) {
+                if (array_key_exists($arrayField, $section) && $section[$arrayField] !== null && ! is_array($section[$arrayField])) {
+                    throw new UnexpectedValueException('Application version section '.($index + 1).' contains invalid table data.');
+                }
+            }
+
+            return Arr::only($section, $fields);
+        })->values()->all();
     }
 
     public function addSection(): void

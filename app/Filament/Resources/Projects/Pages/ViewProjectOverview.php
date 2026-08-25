@@ -13,8 +13,12 @@ use App\Notifications\ProjectInvitationNotification;
 use App\Services\ProjectDocumentChecklist;
 use App\Services\ProjectInvitationNotificationService;
 use App\Services\ProjectReadinessCheck;
+use App\Services\StoredFileReplacementService;
 use App\Services\TaskNotificationService;
 use App\Support\AuthorizesProjectManagement;
+use App\Support\StoredFileReference;
+use App\Support\StoredFileSwapResult;
+use App\Support\UploadedFileSize;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Radio;
@@ -776,17 +780,39 @@ class ViewProjectOverview extends Page
         ];
 
         if ($this->approvedGrantProof) {
-            $proofPath = $this->approvedGrantProof->store('project-approval-proofs/'.$this->record->id, 'local');
+            $upload = $this->approvedGrantProof;
+            $extension = strtolower($upload->getClientOriginalExtension() ?: 'pdf');
+            $directory = 'project-approval-proofs/'.$this->record->id.'/'.Str::uuid();
+            $filename = 'approved-grant-proof.'.$extension;
+            $path = $directory.'/'.$filename;
+            $originalName = $upload->getClientOriginalName();
 
-            $proofData = array_merge($proofData, [
-                'approved_grant_proof_path' => $proofPath,
-                'approved_grant_proof_disk' => 'local',
-                'approved_grant_proof_original_name' => $this->approvedGrantProof->getClientOriginalName(),
-                'approved_grant_proof_uploaded_at' => now(),
-            ]);
+            app(StoredFileReplacementService::class)->replace(
+                disk: 'local',
+                path: $path,
+                write: fn (): string|false => $upload->storeAs($directory, $filename, 'local'),
+                swap: function (StoredFileReference $newFile) use ($proofData, $originalName): StoredFileSwapResult {
+                    $lockedProject = Project::query()->whereKey($this->record->id)->lockForUpdate()->firstOrFail();
+                    $replacedFile = StoredFileReference::from(
+                        $lockedProject->approved_grant_proof_disk,
+                        $lockedProject->approved_grant_proof_path,
+                    );
+                    $lockedProject->forceFill([
+                        ...$proofData,
+                        'approved_grant_proof_path' => $newFile->path,
+                        'approved_grant_proof_disk' => $newFile->disk,
+                        'approved_grant_proof_original_name' => $originalName,
+                        'approved_grant_proof_uploaded_at' => now(),
+                    ])->save();
+
+                    return new StoredFileSwapResult($lockedProject, $replacedFile);
+                },
+                expectedSize: UploadedFileSize::read($upload),
+            );
+        } else {
+            $this->record->forceFill($proofData)->save();
         }
 
-        $this->record->forceFill($proofData)->save();
         $this->record->refresh();
         $this->record->declareApprovedGrant($this->approvedGrantAmount, auth()->user());
         $this->applyEstimateToBudget(seedApprovedGrant: false);

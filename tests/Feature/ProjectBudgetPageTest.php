@@ -171,7 +171,10 @@ class ProjectBudgetPageTest extends TestCase
         $expense->refresh();
 
         $this->assertSame($expectedName, $expense->attachment_name);
-        $this->assertSame('expenses/'.$expense->id.'/'.$expectedName, $expense->attachment_path);
+        $this->assertMatchesRegularExpression(
+            '#^expenses/'.$expense->id.'/[0-9a-f-]{36}/'.preg_quote($expectedName, '#').'$#',
+            $expense->attachment_path,
+        );
         Storage::disk('local')->assertExists($expense->attachment_path);
 
         $this->get(route('attachments.expenses.download', $expense))

@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectModuleLock;
 use App\Models\User;
+use App\Support\AuthorizesProjectManagement;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -144,6 +145,65 @@ class ProjectCollaborationLockTest extends TestCase
             ->exists());
     }
 
+    public function test_an_active_lock_cannot_be_stolen_or_changed_by_another_editor(): void
+    {
+        [$project, $owner, $editor] = $this->projectWithEditor('active');
+        $expiresAt = now()->addMinute()->startOfSecond();
+        $lock = ProjectModuleLock::query()->create([
+            'project_id' => $project->id,
+            'user_id' => $owner->id,
+            'module' => 'board',
+            'lock_key' => 'expense:42',
+            'lock_label' => 'Owner expense',
+            'expires_at' => $expiresAt,
+        ]);
+
+        $this->actingAs($editor);
+
+        $this->assertFalse($this->lockHarness($project)->claimLock('board', 'expense:42', 'Editor expense', false));
+
+        $lock->refresh();
+
+        $this->assertSame($owner->id, $lock->user_id);
+        $this->assertSame('Owner expense', $lock->lock_label);
+        $this->assertTrue($expiresAt->equalTo($lock->expires_at));
+    }
+
+    public function test_an_expired_lock_has_only_one_successful_contender(): void
+    {
+        [$project, $owner, $firstEditor] = $this->projectWithEditor('active');
+        $secondEditor = User::factory()->create();
+        $project->members()->attach($secondEditor, ['role' => Project::PROJECT_ROLE_EDITOR]);
+        $lock = ProjectModuleLock::query()->create([
+            'project_id' => $project->id,
+            'user_id' => $owner->id,
+            'module' => 'board',
+            'lock_key' => 'expense:42',
+            'lock_label' => 'Expired expense lock',
+            'expires_at' => now()->subSecond(),
+        ]);
+        $harness = $this->lockHarness($project);
+
+        $this->actingAs($firstEditor);
+        $this->assertTrue($harness->claimLock('board', 'expense:42', 'First editor', false));
+
+        $firstClaimExpiry = $lock->fresh()->expires_at;
+
+        $this->actingAs($secondEditor);
+        $this->assertFalse($harness->claimLock('board', 'expense:42', 'Second editor', false));
+
+        $lock->refresh();
+
+        $this->assertSame($firstEditor->id, $lock->user_id);
+        $this->assertSame('First editor', $lock->lock_label);
+        $this->assertTrue($firstClaimExpiry->equalTo($lock->expires_at));
+        $this->assertSame(1, ProjectModuleLock::query()
+            ->where('project_id', $project->id)
+            ->where('module', 'board')
+            ->where('lock_key', 'expense:42')
+            ->count());
+    }
+
     public function test_five_users_can_be_present_with_independent_locks_but_not_edit_the_same_block(): void
     {
         $owner = User::factory()->create(['name' => 'User 1']);
@@ -237,5 +297,17 @@ class ProjectCollaborationLockTest extends TestCase
         $project->members()->attach($editor, ['role' => Project::PROJECT_ROLE_EDITOR]);
 
         return [$project, $owner, $editor];
+    }
+
+    private function lockHarness(Project $project): object
+    {
+        return new class($project)
+        {
+            use AuthorizesProjectManagement {
+                claimProjectEditingLock as public claimLock;
+            }
+
+            public function __construct(public Project $record) {}
+        };
     }
 }
