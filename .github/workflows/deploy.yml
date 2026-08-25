@@ -80,9 +80,20 @@ jobs:
 
           usermod -aG www-data deploy
           install -d -m 2770 -o www-data -g www-data "$APP_DIR/storage/app/private"
+
+          if command -v setfacl >/dev/null 2>&1; then
+              setfacl -Rb "$APP_DIR/storage/app/private"
+              setfacl -Rk "$APP_DIR/storage/app/private"
+          fi
+
           chown -R www-data:www-data "$APP_DIR/storage/app/private"
-          find "$APP_DIR/storage/app/private" -mindepth 1 -type d -exec chmod 2750 {} +
+          find "$APP_DIR/storage/app/private" -mindepth 1 -type d -exec chmod 2770 {} +
           find "$APP_DIR/storage/app/private" -type f -exec chmod 0640 {} +
+
+          if ! runuser -u deploy -- test -w "$APP_DIR/storage/app/private"; then
+              echo "The scheduler user cannot write backup health and archive files."
+              exit 1
+          fi
 
           git checkout main
           git pull --ff-only origin main
