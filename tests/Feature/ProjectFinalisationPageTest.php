@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Resources\Projects\Pages\ViewProjectFinalisation;
 use App\Jobs\GenerateProjectFinalArchive;
+use App\Models\Expense;
 use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectFinalArchive;
@@ -77,5 +78,39 @@ class ProjectFinalisationPageTest extends TestCase
             ->exists());
 
         Queue::assertPushed(GenerateProjectFinalArchive::class, 1);
+    }
+
+    public function test_archive_category_counts_only_civil_conventions_as_agreements(): void
+    {
+        $user = User::factory()->create();
+        $project = Project::create([
+            'owner_id' => $user->id,
+            'access_mode' => 'restricted',
+            'name' => 'Youth Exchange',
+            'status' => 'active',
+        ]);
+        $line = $project->budgetLines()->firstOrFail();
+
+        foreach ([false, true] as $isConvention) {
+            Expense::create([
+                'budget_line_id' => $line->id,
+                'description' => $isConvention ? 'Facilitator agreement' : 'Train ticket',
+                'expense_date' => now()->toDateString(),
+                'amount' => 100,
+                'currency' => 'EUR',
+                'exchange_rate' => 1,
+                'amount_eur' => 100,
+                'is_civil_convention' => $isConvention,
+            ]);
+        }
+
+        $this->actingAs($user);
+
+        $categories = Livewire::test(ViewProjectFinalisation::class, ['record' => $project->id])
+            ->instance()
+            ->archiveCategories();
+
+        $this->assertSame(1, $categories['agreements']['count']);
+        $this->assertSame(3, $categories['budget']['count']);
     }
 }

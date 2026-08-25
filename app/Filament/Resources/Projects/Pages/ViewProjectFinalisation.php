@@ -4,7 +4,6 @@ namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Jobs\GenerateProjectFinalArchive;
-use App\Models\MobilityFeedbackCampaign;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectDocument;
 use App\Models\ProjectFinalArchive;
@@ -43,33 +42,41 @@ class ViewProjectFinalisation extends Page
 
     public function archiveCategories(): array
     {
-        $documents = $this->record->documents();
-        $generated = (clone $documents)
-            ->where(function ($query): void {
-                $query->whereIn('type', [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT])
-                    ->orWhereNotNull('metadata->template_key');
-            })
+        $this->record->loadMissing([
+            'tasks',
+            'applicationSections',
+            'participants',
+            'budgetLines.expenses',
+            'documents',
+            'mobilities.feedbackCampaigns',
+        ]);
+
+        $documents = $this->record->documents;
+        $generated = $documents
+            ->filter(fn (ProjectDocument $document): bool => in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)
+                || data_get($document->metadata, 'template_key') !== null)
             ->count();
-        $mobility = (clone $documents)
+        $mobility = $documents
             ->whereIn('category', array_keys(ProjectDocument::MOBILITY_CATEGORIES))
             ->count();
-        $dissemination = (clone $documents)
+        $dissemination = $documents
             ->where('category', 'dissemination_evidence')
             ->count();
-        $projectFiles = (clone $documents)
-            ->whereNotIn('type', [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT])
-            ->whereNotIn('category', array_merge(array_keys(ProjectDocument::MOBILITY_CATEGORIES), ['dissemination_evidence']))
+        $projectFiles = $documents
+            ->filter(fn (ProjectDocument $document): bool => ! in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)
+                && ! in_array($document->category, [...array_keys(ProjectDocument::MOBILITY_CATEGORIES), 'dissemination_evidence'], true))
             ->count();
-        $feedback = MobilityFeedbackCampaign::query()
-            ->whereHas('mobility', fn ($query) => $query->where('project_id', $this->record->id))
+        $expenses = $this->record->budgetLines->flatMap->expenses;
+        $feedback = $this->record->mobilities
+            ->flatMap->feedbackCampaigns
             ->count();
 
         return [
-            'project_data' => ['label' => 'Project data & activity', 'detail' => 'Project summary, tasks and activity record.', 'count' => $this->record->tasks()->count()],
-            'application' => ['label' => 'Application', 'detail' => 'Writing answers and application structure.', 'count' => $this->record->applicationSections()->count()],
-            'participants' => ['label' => 'Participants', 'detail' => 'Participant records and uploaded participant files.', 'count' => $this->record->participants()->count()],
-            'budget' => ['label' => 'Budget & expenses', 'detail' => 'Budget lines, transfers and supporting expense files.', 'count' => $this->record->budgetLines()->count()],
-            'agreements' => ['label' => 'Civil conventions', 'detail' => 'Signed agreement and payment evidence attached to expenses.', 'count' => $this->record->budgetLines()->withCount('expenses')->get()->sum('expenses_count')],
+            'project_data' => ['label' => 'Project data & activity', 'detail' => 'Project summary, tasks and activity record.', 'count' => $this->record->tasks->count()],
+            'application' => ['label' => 'Application', 'detail' => 'Writing answers and application structure.', 'count' => $this->record->applicationSections->count()],
+            'participants' => ['label' => 'Participants', 'detail' => 'Participant records and uploaded participant files.', 'count' => $this->record->participants->count()],
+            'budget' => ['label' => 'Budget & expenses', 'detail' => 'Budget lines, transfers and supporting expense files.', 'count' => $this->record->budgetLines->count()],
+            'agreements' => ['label' => 'Civil conventions', 'detail' => 'Signed agreement and payment evidence attached to expenses.', 'count' => $expenses->where('is_civil_convention', true)->count()],
             'generated_records' => ['label' => 'Generated records', 'detail' => 'Attendance sheets and expense reports generated in the platform.', 'count' => $generated],
             'project_files' => ['label' => 'Project files', 'detail' => 'Uploaded project documents, agreements and other records.', 'count' => $projectFiles],
             'mobility' => ['label' => 'Mobility evidence', 'detail' => 'Daily evidence, materials, outputs and mobility uploads.', 'count' => $mobility],
@@ -245,7 +252,7 @@ class ViewProjectFinalisation extends Page
     {
         abort_unless($this->canConfigureArchive(), 403);
 
-        if (! array_key_exists($key, $this->archiveCategories())) {
+        if (! in_array($key, ProjectFinalArchive::CATEGORY_KEYS, true)) {
             return;
         }
 
@@ -261,7 +268,7 @@ class ViewProjectFinalisation extends Page
 
     private function hydrateSelection(): void
     {
-        $defaults = array_fill_keys(array_keys($this->archiveCategories()), true);
+        $defaults = array_fill_keys(ProjectFinalArchive::CATEGORY_KEYS, true);
         $saved = data_get($this->record->action_data, 'finalisation.include');
 
         $this->include = is_array($saved) && $saved !== []
