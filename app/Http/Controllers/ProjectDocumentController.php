@@ -240,4 +240,3 @@ class ProjectDocumentController extends Controller
         abort_unless($canAccessDocuments || $canAccessMobilityDocument, 403);
     }
 }
-

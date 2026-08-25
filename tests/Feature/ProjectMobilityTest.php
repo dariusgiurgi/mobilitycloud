@@ -23,7 +23,7 @@ class ProjectMobilityTest extends TestCase
 
     public function test_mobility_workspace_data_and_files_are_scoped_to_the_selected_mobility(): void
     {
-        [$project, $user] = $this->projectAndUser();
+        [$project, $user] = $this->projectAndUser(withMobility: false);
         $first = $project->mobilities()->create(['name' => 'Porto', 'start_date' => '2026-07-01', 'end_date' => '2026-07-05']);
         $second = $project->mobilities()->create(['name' => 'Braga', 'start_date' => '2026-08-01', 'end_date' => '2026-08-05', 'sort_order' => 1]);
         $first->documents()->create([
@@ -53,7 +53,7 @@ class ProjectMobilityTest extends TestCase
 
     public function test_mobilities_are_managed_only_from_the_mobility_module_and_limited_to_ten(): void
     {
-        [$project, $user] = $this->projectAndUser();
+        [$project, $user] = $this->projectAndUser(withMobility: false);
         $this->actingAs($user);
 
         $mobilities = collect(range(1, 10))->map(fn (int $number): array => [
@@ -78,7 +78,7 @@ class ProjectMobilityTest extends TestCase
 
     public function test_mobility_uses_only_its_selected_organisations_for_dissemination(): void
     {
-        [$project, $user] = $this->projectAndUser();
+        [$project, $user] = $this->projectAndUser(withMobility: false);
         $project->update(['partner_orgs' => [
             ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => 'E10000001', 'is_coordinator' => true],
             ['name' => 'Partner Association', 'country' => 'IT', 'oid' => 'E10000002'],
@@ -107,6 +107,7 @@ class ProjectMobilityTest extends TestCase
     {
         Storage::fake('local');
         [$project, $user] = $this->projectAndUser();
+        $mobility = $project->mobilities()->sole();
         $this->actingAs($user);
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
@@ -137,11 +138,11 @@ class ProjectMobilityTest extends TestCase
             ->assertHasNoErrors()
             ->assertSee('Activity worksheet');
 
-        $project->refresh();
-        $this->assertSame('The mobility delivered workshops, worksheets and participant outputs.', data_get($project->action_data, 'mobility.report'));
-        $this->assertSame('https://drive.google.com/drive/folders/mobility-evidence', data_get($project->action_data, 'mobility.photo_folder_url'));
-        $this->assertSame('Drive', data_get($project->action_data, 'mobility.photo_folder_links.0.label'));
-        $this->assertSame('https://www.youtube.com/watch?v=mobility-final', data_get($project->action_data, 'mobility.final_video_url'));
+        $mobility->refresh();
+        $this->assertSame('The mobility delivered workshops, worksheets and participant outputs.', data_get($mobility->workspace_data, 'report'));
+        $this->assertSame('https://drive.google.com/drive/folders/mobility-evidence', data_get($mobility->workspace_data, 'photo_folder_url'));
+        $this->assertSame('Drive', data_get($mobility->workspace_data, 'photo_folder_links.0.label'));
+        $this->assertSame('https://www.youtube.com/watch?v=mobility-final', data_get($mobility->workspace_data, 'final_video_url'));
 
         $document = ProjectDocument::query()
             ->where('project_id', $project->id)
@@ -150,6 +151,7 @@ class ProjectMobilityTest extends TestCase
 
         $this->assertSame('mobility', data_get($document->metadata, 'source'));
         $this->assertSame('mobility_page', data_get($document->metadata, 'uploaded_from'));
+        $this->assertSame($mobility->id, $document->project_mobility_id);
         $this->assertSame('worksheet.pdf', $document->file_name);
         Storage::disk('local')->assertExists($document->file_path);
     }
@@ -158,6 +160,7 @@ class ProjectMobilityTest extends TestCase
     {
         Storage::fake('local');
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_MOBILITY);
+        $mobility = $project->mobilities()->sole();
         $this->actingAs($user);
 
         Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
@@ -175,10 +178,11 @@ class ProjectMobilityTest extends TestCase
 
         $this->assertSame(
             'Facilitator report about delivered mobility activities.',
-            data_get($project->fresh()->action_data, 'mobility.report')
+            data_get($mobility->fresh()->workspace_data, 'report')
         );
         $this->assertDatabaseHas('project_documents', [
             'project_id' => $project->id,
+            'project_mobility_id' => $mobility->id,
             'category' => 'mobility_material',
             'file_name' => 'facilitator-worksheet.pdf',
         ]);
@@ -188,6 +192,7 @@ class ProjectMobilityTest extends TestCase
     {
         Storage::fake('local');
         [$project, $user] = $this->projectAndUser();
+        $mobility = $project->mobilities()->sole();
         $this->actingAs($user);
 
         $component = Livewire::test(ViewProjectMobility::class, ['record' => $project->id])
@@ -240,10 +245,10 @@ class ProjectMobilityTest extends TestCase
             ->assertSet('evidenceUploadDayId', null)
             ->assertHasNoErrors();
 
-        $project->refresh();
-        $this->assertSame('Day 1 - Arrival and workshops', data_get($project->action_data, 'mobility.evidence_days.0.title'));
-        $this->assertSame('Facebook', data_get($project->action_data, 'mobility.evidence_days.0.links.0.label'));
-        $this->assertSame($linkId, data_get($project->action_data, 'mobility.evidence_days.0.links.0.id'));
+        $mobility->refresh();
+        $this->assertSame('Day 1 - Arrival and workshops', data_get($mobility->workspace_data, 'evidence_days.0.title'));
+        $this->assertSame('Facebook', data_get($mobility->workspace_data, 'evidence_days.0.links.0.label'));
+        $this->assertSame($linkId, data_get($mobility->workspace_data, 'evidence_days.0.links.0.id'));
 
         $documents = ProjectDocument::query()
             ->where('project_id', $project->id)
@@ -251,6 +256,7 @@ class ProjectMobilityTest extends TestCase
             ->get();
 
         $this->assertCount(4, $documents);
+        $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => $document->project_mobility_id === $mobility->id));
         $this->assertEqualsCanonicalizing(['group-work.jpg', 'presentation.png', 'presentation.pptx', 'worksheet.pdf'], $documents->pluck('file_name')->all());
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'uploaded_from') === 'mobility_evidence_day'));
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'evidence_day_id') === $dayId));
@@ -415,6 +421,7 @@ class ProjectMobilityTest extends TestCase
     {
         Storage::fake('local');
         [$project, $user] = $this->projectAndUser();
+        $mobility = $project->mobilities()->sole();
         $project->update(['partner_orgs' => [
             ['name' => 'Coordinator Association', 'country' => 'RO', 'oid' => 'E10000001', 'is_coordinator' => true],
             ['name' => 'Partner Association', 'country' => 'IT', 'oid' => 'E10000002'],
@@ -445,10 +452,10 @@ class ProjectMobilityTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('disseminationUploadOrgKey', null);
 
-        $project->refresh();
+        $mobility->refresh();
         $this->assertSame(
             'Partner organised two local presentations and published campaign screenshots.',
-            data_get($project->action_data, 'dissemination_reports.'.$organisation['key'])
+            data_get($mobility->workspace_data, 'dissemination_reports.'.$organisation['key'])
         );
 
         $documents = ProjectDocument::query()
@@ -458,6 +465,7 @@ class ProjectMobilityTest extends TestCase
             ->get();
 
         $this->assertCount(2, $documents);
+        $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => $document->project_mobility_id === $mobility->id));
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_name') === 'Partner Association'));
         $this->assertTrue($documents->every(fn (ProjectDocument $document): bool => data_get($document->metadata, 'organisation_key') === $organisation['key']));
 
@@ -524,18 +532,17 @@ class ProjectMobilityTest extends TestCase
         [$project, $editorA] = $this->projectAndUser();
         $editorB = User::factory()->create();
         $project->members()->attach($editorB, ['role' => Project::PROJECT_ROLE_EDITOR]);
-        $project->update([
-            'action_data' => [
-                'mobility' => [
-                    'evidence_days' => [[
-                        'id' => 'day_1',
-                        'title' => 'Day 1',
-                        'date' => '2026-07-03',
-                        'description' => 'Original description',
-                        'observations' => '',
-                        'links' => [],
-                    ]],
-                ],
+        $mobility = $project->mobilities()->sole();
+        $mobility->update([
+            'workspace_data' => [
+                'evidence_days' => [[
+                    'id' => 'day_1',
+                    'title' => 'Day 1',
+                    'date' => '2026-07-03',
+                    'description' => 'Original description',
+                    'observations' => '',
+                    'links' => [],
+                ]],
             ],
         ]);
 
@@ -565,11 +572,11 @@ class ProjectMobilityTest extends TestCase
             ->call('startProjectEditing', 'mobility', 'evidence-day:day_1', 'Evidence day: Day 1')
             ->set('evidenceDays.day_1.description', 'Local draft from editor A');
 
-        $project->refresh();
-        $data = $project->action_data;
-        data_set($data, 'mobility.evidence_days.0.description', 'Remote saved text for day 1');
-        data_set($data, 'mobility.evidence_days.1.description', 'Remote saved text for day 2');
-        $project->update(['action_data' => $data]);
+        $mobility = $project->mobilities()->sole();
+        $data = $mobility->workspace_data;
+        data_set($data, 'evidence_days.0.description', 'Remote saved text for day 1');
+        data_set($data, 'evidence_days.1.description', 'Remote saved text for day 2');
+        $mobility->update(['workspace_data' => $data]);
 
         $editorAComponent
             ->call('refreshProjectCollaboration', 'mobility')
@@ -595,9 +602,9 @@ class ProjectMobilityTest extends TestCase
         $editorAComponent
             ->set('evidenceDays.day_1.description', 'Editor A saved day 1');
 
-        $project->refresh();
-        $this->assertSame('Editor A saved day 1', data_get($project->action_data, 'mobility.evidence_days.0.description'));
-        $this->assertSame('Editor B saved day 2', data_get($project->action_data, 'mobility.evidence_days.1.description'));
+        $mobility = $project->mobilities()->sole()->fresh();
+        $this->assertSame('Editor A saved day 1', data_get($mobility->workspace_data, 'evidence_days.0.description'));
+        $this->assertSame('Editor B saved day 2', data_get($mobility->workspace_data, 'evidence_days.1.description'));
     }
 
     public function test_stale_mobility_report_save_preserves_fresh_evidence_day_changes(): void
@@ -619,12 +626,12 @@ class ProjectMobilityTest extends TestCase
             ->set('mobilityReport', 'Editor A report text')
             ->call('saveMobilityReport');
 
-        $project->refresh();
-        $this->assertSame('Editor A report text', data_get($project->action_data, 'mobility.report'));
-        $this->assertSame('Fresh evidence text from editor B', data_get($project->action_data, 'mobility.evidence_days.1.description'));
+        $mobility = $project->mobilities()->sole()->fresh();
+        $this->assertSame('Editor A report text', data_get($mobility->workspace_data, 'report'));
+        $this->assertSame('Fresh evidence text from editor B', data_get($mobility->workspace_data, 'evidence_days.1.description'));
     }
 
-    private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR): array
+    private function projectAndUser(string $role = Project::PROJECT_ROLE_EDITOR, bool $withMobility = true): array
     {
         $project = Project::create([
             'name' => 'Youth Exchange',
@@ -635,31 +642,37 @@ class ProjectMobilityTest extends TestCase
         $user = User::factory()->create();
         $project->members()->attach($user, ['role' => $role]);
 
+        if ($withMobility) {
+            $project->mobilities()->create([
+                'name' => 'Mobility 1',
+                'start_date' => '2026-07-01',
+                'end_date' => '2026-07-05',
+            ]);
+        }
+
         return [$project, $user];
     }
 
     private function seedEvidenceDays(Project $project): void
     {
-        $project->update([
-            'action_data' => [
-                'mobility' => [
-                    'evidence_days' => [
-                        [
-                            'id' => 'day_1',
-                            'title' => 'Day 1',
-                            'date' => '2026-07-03',
-                            'description' => 'Original day 1 description',
-                            'observations' => '',
-                            'links' => [],
-                        ],
-                        [
-                            'id' => 'day_2',
-                            'title' => 'Day 2',
-                            'date' => '2026-07-04',
-                            'description' => 'Original day 2 description',
-                            'observations' => '',
-                            'links' => [],
-                        ],
+        $project->mobilities()->sole()->update([
+            'workspace_data' => [
+                'evidence_days' => [
+                    [
+                        'id' => 'day_1',
+                        'title' => 'Day 1',
+                        'date' => '2026-07-03',
+                        'description' => 'Original day 1 description',
+                        'observations' => '',
+                        'links' => [],
+                    ],
+                    [
+                        'id' => 'day_2',
+                        'title' => 'Day 2',
+                        'date' => '2026-07-04',
+                        'description' => 'Original day 2 description',
+                        'observations' => '',
+                        'links' => [],
                     ],
                 ],
             ],

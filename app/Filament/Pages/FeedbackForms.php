@@ -117,6 +117,7 @@ class FeedbackForms extends Page
     public function getCampaignResultsProperty(): array
     {
         $campaign = $this->getViewingCampaignProperty();
+
         return $campaign
             ? app(MobilityFeedbackAnalytics::class)->forCampaign($campaign)
             : ['response_count' => 0, 'question_count' => 0, 'overall_rating' => null, 'questions' => []];

@@ -15,7 +15,7 @@ class ProjectStatsOverview extends BaseWidget
 
     protected ?string $pollingInterval = null;
 
-    protected int | array | null $columns = [
+    protected int|array|null $columns = [
         'default' => 1,
         'md' => 2,
         'xl' => 4,

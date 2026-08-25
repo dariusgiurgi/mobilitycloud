@@ -97,7 +97,7 @@ class ProjectLifecycleAccessTest extends TestCase
             ->assertSee('Mobility');
     }
 
-    public function test_overdue_invoice_pauses_management_modules_without_hiding_the_project(): void
+    public function test_overdue_invoice_does_not_interrupt_management_modules(): void
     {
         [$project, $owner] = $this->projectAndOwner('payment_overdue');
         $project->update([
@@ -111,23 +111,24 @@ class ProjectLifecycleAccessTest extends TestCase
         $this->actingAs($owner);
 
         $this->assertTrue($project->fresh()->isManagementStage());
-        $this->assertFalse($project->fresh()->implementationModulesAvailable());
+        $this->assertTrue($project->fresh()->implementationModulesAvailable());
+        $this->assertFalse($project->fresh()->operationalModulesLockedUntilPayment());
 
         $this->get(ProjectResource::getUrl('board', ['record' => $project]))
             ->assertOk()
-            ->assertSee('Budget is paused until payment is confirmed');
+            ->assertSee('Budget control');
         $this->get(ProjectResource::getUrl('participants', ['record' => $project]))
             ->assertOk()
-            ->assertSee('paused until payment is confirmed');
+            ->assertSee('Participant register');
         $this->get(ProjectResource::getUrl('documents', ['record' => $project]))
             ->assertOk()
-            ->assertSee('paused until payment is confirmed');
+            ->assertSee('Documents');
         $this->get(ProjectResource::getUrl('mobility', ['record' => $project]))
             ->assertOk()
-            ->assertSee('paused until payment is confirmed');
+            ->assertSee('Choose a mobility');
     }
 
-    public function test_unpaid_invoice_pauses_modules_automatically_after_due_date(): void
+    public function test_unpaid_invoice_is_flagged_without_pausing_modules_after_due_date(): void
     {
         [$project, $owner] = $this->projectAndOwner('active');
         $project->update([
@@ -141,11 +142,12 @@ class ProjectLifecycleAccessTest extends TestCase
         $this->actingAs($owner);
 
         $this->assertTrue($project->fresh()->hasPaymentOverdue());
-        $this->assertFalse($project->fresh()->implementationModulesAvailable());
+        $this->assertTrue($project->fresh()->implementationModulesAvailable());
+        $this->assertFalse($project->fresh()->operationalModulesLockedUntilPayment());
 
         $this->get(ProjectResource::getUrl('board', ['record' => $project]))
             ->assertOk()
-            ->assertSee('Budget is paused until payment is confirmed');
+            ->assertSee('Budget control');
     }
 
     public function test_global_individual_support_calculator_saves_scenarios_to_the_user_account(): void

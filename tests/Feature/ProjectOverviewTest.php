@@ -10,6 +10,8 @@ use App\Models\ProjectMobility;
 use App\Models\User;
 use App\Services\ProjectReadinessCheck;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -104,6 +106,7 @@ class ProjectOverviewTest extends TestCase
 
     public function test_marking_a_project_as_approved_requires_and_locks_the_approved_grant(): void
     {
+        Storage::fake('local');
         [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->actingAs($user);
 
@@ -112,8 +115,13 @@ class ProjectOverviewTest extends TestCase
             ->call('requestTransitionTo', 'approved')
             ->assertSet('showApprovalModal', true)
             ->assertSee('Declare approved grant')
-            ->set('approvedGrantAmount', 25000)
             ->call('confirmApprovedGrant')
+            ->assertHasErrors(['approvedGrantAmount', 'approvedProjectCode', 'approvedGrantProof'])
+            ->set('approvedGrantAmount', 25000)
+            ->set('approvedProjectCode', '2026-1-RO01-KA152-YOU-000000001')
+            ->set('approvedGrantProof', UploadedFile::fake()->create('approval.pdf', 120, 'application/pdf'))
+            ->call('confirmApprovedGrant')
+            ->assertHasNoErrors()
             ->assertSet('showApprovalModal', false)
             ->assertSee('Fiscal invoice pending')
             ->assertSee('250.00 €');
@@ -125,26 +133,34 @@ class ProjectOverviewTest extends TestCase
         $this->assertSame('25000.00', $project->approved_budget);
         $this->assertSame('250.00', $project->activation_fee_amount);
         $this->assertSame(Project::INVOICE_PENDING, $project->invoice_status);
+        $this->assertSame('2026-1-RO01-KA152-YOU-000000001', $project->grant_ref);
         $this->assertNotNull($project->approved_declared_at);
-        $this->assertNotNull($project->invoice_due_at);
+        $this->assertNotNull($project->approved_grant_proof_path);
+        Storage::disk('local')->assertExists($project->approved_grant_proof_path);
+        $this->assertNull($project->invoice_due_at);
         $this->assertTrue($project->implementationModulesAvailable());
     }
 
-    public function test_approved_grant_fee_has_a_one_hundred_euro_minimum(): void
+    public function test_approved_grant_fee_is_one_percent_without_an_old_minimum(): void
     {
+        Storage::fake('local');
         [$project, $user] = $this->workspaceProjectAndUser('member');
         $this->actingAs($user);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->call('requestTransitionTo', 'approved')
             ->set('approvedGrantAmount', 4500)
-            ->call('confirmApprovedGrant');
+            ->set('approvedProjectCode', '2026-1-RO01-KA152-YOU-000000002')
+            ->set('approvedGrantProof', UploadedFile::fake()->create('approval.pdf', 120, 'application/pdf'))
+            ->call('confirmApprovedGrant')
+            ->assertHasNoErrors();
 
-        $this->assertSame('100.00', $project->fresh()->activation_fee_amount);
+        $this->assertSame('45.00', $project->fresh()->activation_fee_amount);
     }
 
     public function test_unlimited_account_approval_has_no_administration_fee_or_invoice(): void
     {
+        Storage::fake('local');
         $user = User::factory()->create([
             'plan' => 'unlimited',
             'feature_flags' => ['unlimited'],
@@ -169,8 +185,11 @@ class ProjectOverviewTest extends TestCase
             ->call('requestTransitionTo', 'approved')
             ->assertSet('showApprovalModal', true)
             ->set('approvedGrantAmount', 25000)
+            ->set('approvedProjectCode', '2026-1-RO01-KA152-YOU-000000003')
+            ->set('approvedGrantProof', UploadedFile::fake()->create('approval.pdf', 120, 'application/pdf'))
             ->assertSee('Included in unlimited account access')
             ->call('confirmApprovedGrant')
+            ->assertHasNoErrors()
             ->assertDontSee('Fiscal invoice pending');
 
         $project->refresh();
@@ -247,7 +266,8 @@ class ProjectOverviewTest extends TestCase
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
             ->assertSee('Approved application')
-            ->assertSee('implementation readiness')
+            ->assertSee('What needs attention now')
+            ->assertDontSee('Project readiness check')
             ->assertDontSee('Application answers')
             ->assertDontSee('sections contain text');
 
@@ -294,7 +314,8 @@ class ProjectOverviewTest extends TestCase
         $this->actingAs($user);
 
         $component = Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
-            ->assertSee('Create tasks')
+            ->assertSee('What needs attention now')
+            ->assertSee('Project dates')
             ->call('createTasksFromReadiness');
 
         $this->assertGreaterThan(0, $project->tasks()->where('status', 'open')->count());

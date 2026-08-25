@@ -87,7 +87,7 @@ class PlatformProjectPaymentTest extends TestCase
 
         $this->assertTrue(PlatformProjectPaymentResource::canAccess());
         $this->assertTrue($project->fresh()->hasPaymentOverdue());
-        $this->assertFalse($project->fresh()->implementationModulesAvailable());
+        $this->assertTrue($project->fresh()->implementationModulesAvailable());
 
         Livewire::test(ListPlatformProjectPayments::class)
             ->set('activeTab', 'overdue')
@@ -250,8 +250,7 @@ class PlatformProjectPaymentTest extends TestCase
         $this->actingAs($admin);
         Filament::setCurrentPanel('platform');
 
-        $this->get(PlatformBillingOperations::getUrl(panel: 'platform'))
-            ->assertSuccessful()
+        Livewire::test(PlatformBillingOperations::class)
             ->assertSee('Billing operations')
             ->assertSee('Ready to invoice')
             ->assertSee('Operations Invoice Project')
@@ -351,7 +350,8 @@ class PlatformProjectPaymentTest extends TestCase
         $this->assertSame(Project::INVOICE_OVERDUE, $lateProject->invoice_status);
         $this->assertSame(ProjectStatus::PaymentOverdue->value, $lateProject->status);
         $this->assertTrue($lateProject->hasPaymentOverdue());
-        $this->assertFalse($lateProject->implementationModulesAvailable());
+        $this->assertTrue($lateProject->implementationModulesAvailable());
+        $this->assertFalse($lateProject->operationalModulesLockedUntilPayment());
 
         $this->assertSame(Project::INVOICE_SENT, $futureProject->invoice_status);
         $this->assertSame(ProjectStatus::Approved->value, $futureProject->status);

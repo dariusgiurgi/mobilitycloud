@@ -3,9 +3,9 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\AccountSettings;
-use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Filament\Resources\Projects\Pages\CreateProject;
 use App\Filament\Resources\Projects\Pages\ListProjects;
+use App\Filament\Resources\Projects\Pages\ViewProjectMobility;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\Filament\UnifiedLoginResponse;
+use App\Http\Responses\Filament\UnifiedLogoutResponse;
+use App\Http\Responses\Filament\UnifiedRegistrationResponse;
 use App\Models\BudgetLine;
 use App\Models\BudgetTransfer;
 use App\Models\ContentBlock;
@@ -14,9 +17,6 @@ use App\Models\ProjectTask;
 use App\Observers\ProjectActivityObserver;
 use App\Policies\ContentBlockPolicy;
 use App\Policies\ProjectPolicy;
-use App\Http\Responses\Filament\UnifiedLoginResponse;
-use App\Http\Responses\Filament\UnifiedLogoutResponse;
-use App\Http\Responses\Filament\UnifiedRegistrationResponse;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;

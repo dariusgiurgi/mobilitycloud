@@ -106,17 +106,17 @@ class ProjectFinalArchiveService
         if ($included['participants']) {
             foreach ($project->participants as $participant) {
                 foreach ($participant->attachments->sortBy('type') as $attachment) {
-                $this->addStoredFile(
-                    $zip,
-                    $fileIndex,
-                    'participant_attachment',
-                    $attachment->id,
-                    'file',
-                    $attachment->disk,
-                    $attachment->path,
-                    $projectDir.'/03-participants/'.$this->safeName($participant->fullName()).'/'.$attachment->id.'-'.$this->safeFilename($attachment->original_name),
-                    $attachment->original_name,
-                );
+                    $this->addStoredFile(
+                        $zip,
+                        $fileIndex,
+                        'participant_attachment',
+                        $attachment->id,
+                        'file',
+                        $attachment->disk,
+                        $attachment->path,
+                        $projectDir.'/03-participants/'.$this->safeName($participant->fullName()).'/'.$attachment->id.'-'.$this->safeFilename($attachment->original_name),
+                        $attachment->original_name,
+                    );
                 }
             }
         }
@@ -125,17 +125,17 @@ class ProjectFinalArchiveService
             foreach ($project->budgetLines as $line) {
                 foreach ($line->expenses as $expense) {
                     if ($included['budget']) {
-                $this->addStoredFile(
-                    $zip,
-                    $fileIndex,
-                    'expense',
-                    $expense->id,
-                    'evidence',
-                    $expense->attachment_disk,
-                    $expense->attachment_path,
-                    $projectDir.'/04-budget-expenses/'.$this->safeName($line->title).'/'.$expense->id.'-'.$this->safeFilename($expense->supportingFileName($project)),
-                    $expense->supportingFileName($project),
-                );
+                        $this->addStoredFile(
+                            $zip,
+                            $fileIndex,
+                            'expense',
+                            $expense->id,
+                            'evidence',
+                            $expense->attachment_disk,
+                            $expense->attachment_path,
+                            $projectDir.'/04-budget-expenses/'.$this->safeName($line->title).'/'.$expense->id.'-'.$this->safeFilename($expense->supportingFileName($project)),
+                            $expense->supportingFileName($project),
+                        );
                     }
 
                     if (! $included['agreements']) {
@@ -143,18 +143,18 @@ class ProjectFinalArchiveService
                     }
 
                     foreach (['agreement', 'payment'] as $kind) {
-                    $copy = $expense->conventionSignedCopy($kind);
-                    $this->addStoredFile(
-                        $zip,
-                        $fileIndex,
-                        'expense',
-                        $expense->id,
-                        $kind,
-                        $copy['disk'],
-                        $copy['path'],
-                        $projectDir.'/05-civil-conventions/'.$expense->id.'-'.$kind.'-'.$this->safeFilename($copy['name']),
-                        $copy['name'],
-                    );
+                        $copy = $expense->conventionSignedCopy($kind);
+                        $this->addStoredFile(
+                            $zip,
+                            $fileIndex,
+                            'expense',
+                            $expense->id,
+                            $kind,
+                            $copy['disk'],
+                            $copy['path'],
+                            $projectDir.'/05-civil-conventions/'.$expense->id.'-'.$kind.'-'.$this->safeFilename($copy['name']),
+                            $copy['name'],
+                        );
                     }
                 }
             }
