@@ -22,6 +22,8 @@ class ProjectReadinessCheck
         $project->loadMissing([
             'applicationSections',
             'participants.attachments',
+            'participants.mobilities',
+            'participants.project',
             'documents',
             'budgetLines.expenses',
             'mobilities',

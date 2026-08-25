@@ -6,6 +6,7 @@ use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
 use App\Support\AuthorizesProjectManagement;
+use App\Support\ProjectOrganisations;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
@@ -797,11 +798,7 @@ class ViewProjectMobility extends Page
     /** @return array<string, string> */
     public function projectOrganisationOptions(): array
     {
-        return collect($this->projectOrganisations())
-            ->mapWithKeys(fn (array $organisation): array => [
-                $organisation['key'] => $organisation['name'].($organisation['country'] ? ' · '.$organisation['country'] : ''),
-            ])
-            ->all();
+        return ProjectOrganisations::options($this->record);
     }
 
     /** @return array<int, string> */
@@ -813,39 +810,7 @@ class ViewProjectMobility extends Page
     /** @return array<int, array{key: string, name: string, country: ?string, oid: ?string, is_coordinator: bool}> */
     private function projectOrganisations(): array
     {
-        $partners = collect($this->record->partners)
-            ->filter(fn (array $partner): bool => filled($partner['name'] ?? null))
-            ->values();
-
-        if ($partners->isEmpty()) {
-            $owner = $this->record->owner();
-            $settings = $owner?->document_settings ?? [];
-
-            $partners = collect([[
-                'name' => $settings['legal_name']
-                    ?? $settings['brand_name']
-                    ?? $owner?->name
-                    ?? 'Coordinator organisation',
-                'country' => null,
-                'oid' => null,
-                'is_coordinator' => true,
-            ]]);
-        }
-
-        return $partners
-            ->map(function (array $partner, int $index): array {
-                $name = trim((string) ($partner['name'] ?? 'Organisation '.($index + 1)));
-
-                return [
-                    'key' => $this->disseminationOrganisationKey($partner, $index),
-                    'name' => $name,
-                    'country' => filled($partner['country'] ?? null) ? trim((string) $partner['country']) : null,
-                    'oid' => filled($partner['oid'] ?? null) ? trim((string) $partner['oid']) : null,
-                    'is_coordinator' => (bool) ($partner['is_coordinator'] ?? false),
-                ];
-            })
-            ->values()
-            ->all();
+        return ProjectOrganisations::forProject($this->record);
     }
 
     /**
@@ -858,17 +823,10 @@ class ViewProjectMobility extends Page
     public function getDisseminationOrganisations(?ProjectMobility $mobility = null): array
     {
         $mobility ??= $this->getSelectedMobility();
-        $selected = $mobility?->participating_organisations;
-        $organisations = collect($this->projectOrganisations());
 
-        if (! is_array($selected)) {
-            return $organisations->all();
-        }
-
-        return $organisations
-            ->whereIn('key', $selected)
-            ->values()
-            ->all();
+        return $mobility
+            ? ProjectOrganisations::forMobility($mobility)
+            : $this->projectOrganisations();
     }
 
     public function getDisseminationEvidenceByOrganisation(): array
@@ -1135,17 +1093,6 @@ class ViewProjectMobility extends Page
         $this->saveWorkspaceData($data);
         $this->photoFolderUrl = (string) data_get($this->workspaceData(), 'photo_folder_url', '');
         $this->photoFolderLinks = $this->storedPhotoFolderLinks();
-    }
-
-    private function disseminationOrganisationKey(array $partner, int $index): string
-    {
-        if (filled($partner['oid'] ?? null)) {
-            return 'oid_'.Str::slug((string) $partner['oid'], '_');
-        }
-
-        $base = trim(($partner['name'] ?? 'organisation').'|'.($partner['country'] ?? '').'|'.$index);
-
-        return 'org_'.substr(sha1($base), 0, 12);
     }
 
     private function storedEvidenceDays(): array

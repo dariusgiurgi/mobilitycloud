@@ -31,7 +31,7 @@ class DashboardOverview extends Widget
         $projects = Project::query()
             ->visibleToAccount(auth()->user())
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
-            ->with(['ownerAccount', 'members', 'budgetLines.expenses', 'participants.attachments', 'documents', 'tasks.assignee'])
+            ->with(['ownerAccount', 'members', 'budgetLines.expenses', 'participants.attachments', 'participants.mobilities', 'participants.project', 'documents', 'tasks.assignee'])
             ->latest('updated_at')
             ->get();
 

@@ -37,7 +37,7 @@ class ProjectExportController extends Controller
         }
 
         $participants = $project->participants()
-            ->with('attachments')
+            ->with(['attachments', 'mobilities', 'project'])
             ->orderBy('complete_name')
             ->orderBy('last_name')
             ->get();
@@ -57,7 +57,7 @@ class ProjectExportController extends Controller
                     $participant->roleLabel(),
                     $participant->country,
                     $participant->birth_date?->format('Y-m-d'),
-                    $participant->ageAtReference(),
+                    $participant->ageDisplay(),
                     $participant->nationality,
                     $participant->gender,
                     $participant->email,

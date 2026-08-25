@@ -150,23 +150,30 @@
     @endif
 
     @if($showParticipantMobilityModal)
-        @php $mobilityModalParticipant = $this->record->participants()->find($mobilityParticipantId); @endphp
+        @php
+            $mobilityModalParticipant = $this->record->participants()->find($mobilityParticipantId);
+            $participantMobilityChoices = $this->getParticipantMobilityChoices($mobilityModalParticipant);
+        @endphp
         <div class="mc-modal-backdrop" wire:click.self="closeParticipantMobilityModal">
             <div class="mc-part-modal mc-modal-panel"><div class="mc-modal-body">
                 <h3 class="mc-modal-heading">Mobilities{{ $mobilityModalParticipant ? ' — '.$mobilityModalParticipant->fullName() : '' }}</h3>
                 <p class="mc-modal-description">Select every mobility this participant will attend. New selections use the standard participant setup automatically.</p>
 
-                @if($projectMobilities->isEmpty())
-                    <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:1rem 0;">There are no mobilities in this project yet.</p>
+                @if($participantMobilityChoices->isEmpty())
+                    <p class="text-gray-500 dark:text-gray-400" style="font-size:13px;margin:1rem 0;">This participant's organisation is not included in any mobility yet. Add it from Mobility → Manage mobilities first.</p>
                 @else
                     <div style="display:flex;flex-direction:column;gap:.5rem;">
-                        @foreach($projectMobilities as $mobility)
-                            <label style="display:flex;align-items:center;gap:.65rem;padding:.7rem .75rem;border:1px solid rgba(148,163,184,.22);border-radius:.7rem;cursor:pointer;">
+                        @foreach($participantMobilityChoices as $mobility)
+                            @php $canAttendMobility = $this->participantCanAttendMobility($mobilityModalParticipant, $mobility); @endphp
+                            <label style="display:flex;align-items:center;gap:.65rem;padding:.7rem .75rem;border:1px solid {{ $canAttendMobility ? 'rgba(148,163,184,.22)' : 'rgba(239,68,68,.3)' }};border-radius:.7rem;cursor:pointer;">
                                 <input type="checkbox" wire:model="selectedParticipantMobilityIds" value="{{ $mobility->id }}" style="accent-color:#6366f1;">
                                 <span>
                                     <strong class="text-gray-950 dark:text-white" style="display:block;font-size:13px;">{{ $mobility->name }}</strong>
                                     @if($mobility->start_date || $mobility->end_date)
                                         <span class="text-gray-500 dark:text-gray-400" style="font-size:11px;">{{ $mobility->start_date?->format('d M Y') ?: 'Date to be confirmed' }} – {{ $mobility->end_date?->format('d M Y') ?: 'Date to be confirmed' }}</span>
+                                    @endif
+                                    @if(! $canAttendMobility)
+                                        <span style="display:block;color:#dc2626;font-size:11px;margin-top:2px;">Organisation no longer participates — remove this assignment.</span>
                                     @endif
                                 </span>
                             </label>
@@ -178,7 +185,7 @@
 
                 <div class="mc-modal-actions">
                     <button type="button" wire:click="closeParticipantMobilityModal" style="padding:8px 16px;border-radius:8px;border:1px solid rgba(100,116,139,.3);background:transparent;cursor:pointer;font-size:13px;">Cancel</button>
-                    @if($projectMobilities->isNotEmpty())
+                    @if($participantMobilityChoices->isNotEmpty())
                         <button type="button" wire:click="saveParticipantMobilities" style="padding:8px 16px;border-radius:8px;border:none;background:#6366f1;color:#fff;cursor:pointer;font-size:13px;font-weight:600;">Save mobilities</button>
                     @endif
                 </div>
@@ -404,9 +411,10 @@
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->partner_organisation ?: '—' }}</td>
                             <td style="padding:9px 12px;" class="text-gray-500 dark:text-gray-400">{{ $p->country ?: '—' }}</td>
                             <td style="padding:9px 12px;text-align:center;">
-                                {{ $p->ageAtReference() ?? '—' }}
+                                @php $minorMobilityNames = $p->minorMobilityNames(); @endphp
+                                {{ $p->ageDisplay() ?? '—' }}
                                 @if($p->isMinor())
-                                    <span title="Minor — needs parental consent" style="display:inline-block;margin-left:4px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:rgba(245,158,11,.18);color:#d97706;">MINOR</span>
+                                    <span title="{{ $minorMobilityNames ? 'Minor in: '.implode(', ', $minorMobilityNames).'. Parental consent is required.' : 'Minor at the project reference date — parental consent is required.' }}" style="display:inline-block;margin-left:4px;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px;background:rgba(245,158,11,.18);color:#d97706;">MINOR</span>
                                 @endif
                             </td>
                             <td style="padding:9px 12px;text-align:center;">

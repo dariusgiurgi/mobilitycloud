@@ -105,6 +105,99 @@ class ProjectParticipantsPageTest extends TestCase
         $this->assertSame('participant', $assignments[$braga->id]->pivot->role);
     }
 
+    public function test_participant_cannot_be_assigned_to_a_mobility_without_their_organisation(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $project->update([
+            'partner_orgs' => [
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'oid' => 'E10000001'],
+                ['name' => 'Youth Group Spain', 'country' => 'Spain', 'oid' => 'E20000002'],
+            ],
+        ]);
+        $participant = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
+        $madrid = $project->mobilities()->create([
+            'name' => 'Madrid',
+            'participating_organisations' => ['oid_e20000002'],
+        ]);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->call('openParticipantMobilityModal', $participant->id)
+            ->set('selectedParticipantMobilityIds', [$madrid->id])
+            ->call('saveParticipantMobilities')
+            ->assertHasErrors('selectedParticipantMobilityIds');
+
+        $this->assertDatabaseCount('mobility_participant', 0);
+    }
+
+    public function test_changing_an_organisation_cannot_invalidate_existing_mobility_assignments(): void
+    {
+        [$project, $user] = $this->projectAndUser();
+        $project->update([
+            'partner_orgs' => [
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'oid' => 'E10000001'],
+                ['name' => 'Youth Group Spain', 'country' => 'Spain', 'oid' => 'E20000002'],
+            ],
+        ]);
+        $participant = $this->participant($project, 'Ana', 'Popescu', 'Scoala de Jocuri', 'RO', '2000-01-01');
+        $bucharest = $project->mobilities()->create([
+            'name' => 'Bucharest',
+            'participating_organisations' => ['oid_e10000001'],
+        ]);
+        $participant->mobilities()->attach($bucharest->id, ['role' => 'participant', 'status' => 'planned']);
+        $this->actingAs($user);
+
+        Livewire::test(ViewProjectParticipants::class, ['record' => $project->id])
+            ->call('openEdit', $participant->id)
+            ->set('data.partner_organisation', 'Youth Group Spain')
+            ->call('save')
+            ->assertHasErrors('data.partner_organisation');
+
+        $this->assertSame('Scoala de Jocuri', $participant->fresh()->partner_organisation);
+        $this->assertTrue($participant->mobilities()->whereKey($bucharest->id)->exists());
+    }
+
+    public function test_minor_and_parental_consent_follow_every_assigned_mobility_date(): void
+    {
+        [$project] = $this->projectAndUser();
+        $beforeBirthday = $project->mobilities()->create([
+            'name' => 'Summer mobility',
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-07',
+        ]);
+        $afterBirthday = $project->mobilities()->create([
+            'name' => 'Autumn mobility',
+            'start_date' => '2026-10-01',
+            'end_date' => '2026-10-07',
+            'sort_order' => 1,
+        ]);
+        $participant = $this->participant($project, 'Mara', 'Ionescu', 'Scoala de Jocuri', 'RO', '2008-09-15');
+        foreach (['gdpr', 'agreement'] as $type) {
+            ParticipantAttachment::create([
+                'participant_id' => $participant->id,
+                'type' => $type,
+                'path' => "participants/{$participant->id}/{$type}.pdf",
+                'disk' => 'local',
+                'original_name' => "{$type}.pdf",
+                'size' => 100,
+            ]);
+        }
+
+        $participant->mobilities()->sync([$afterBirthday->id]);
+        $participant->unsetRelation('mobilities')->unsetRelation('attachments');
+        $this->assertFalse($participant->isMinor());
+        $this->assertTrue($participant->hasCompleteDocs());
+        $this->assertSame('18', $participant->ageDisplay());
+
+        $participant->mobilities()->sync([$beforeBirthday->id, $afterBirthday->id]);
+        $participant->unsetRelation('mobilities')->unsetRelation('attachments');
+        $this->assertTrue($participant->isMinor());
+        $this->assertFalse($participant->hasCompleteDocs());
+        $this->assertContains('parental', $participant->missingDocTypes());
+        $this->assertSame('17–18', $participant->ageDisplay());
+        $this->assertSame(['Summer mobility'], $participant->minorMobilityNames());
+    }
+
     public function test_mobility_access_member_can_add_a_participant_from_the_register(): void
     {
         [$project, $user] = $this->projectAndUser(Project::PROJECT_ROLE_MOBILITY);
@@ -184,6 +277,9 @@ class ProjectParticipantsPageTest extends TestCase
             'status' => 'active',
             'ka_action' => 'ka152',
             'mobility_start_date' => '2026-07-01',
+            'partner_orgs' => [
+                ['name' => 'Scoala de Jocuri', 'country' => 'Romania', 'oid' => 'E10000001', 'is_coordinator' => true],
+            ],
         ]);
 
         if (! $project->isOwnedBy($user)) {
