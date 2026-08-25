@@ -27,3 +27,7 @@ Schedule::command('mobilitycloud:prelaunch-audit')
 Schedule::command('mobilitycloud:purge-unverified-users')
     ->dailyAt('03:00')
     ->withoutOverlapping();
+
+Schedule::command('mobilitycloud:purge-final-archives')
+    ->hourly()
+    ->withoutOverlapping();

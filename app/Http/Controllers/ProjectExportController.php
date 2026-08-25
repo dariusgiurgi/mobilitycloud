@@ -3,29 +3,72 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectApplicationSection;
+use App\Models\ProjectFinalArchive;
 use App\Services\ParticipantCsvImporter;
-use App\Services\ProjectFinalArchiveService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProjectExportController extends Controller
 {
-    public function finalArchive(Project $project, ProjectFinalArchiveService $archives)
+    public function finalArchive(Project $project, ProjectFinalArchive $archive)
     {
-        $this->authorizeProjectModule($project, 'documents');
+        $this->authorizeProjectModule($project, 'finalisation');
 
         if ($response = $this->ensureFinalExportsAvailable($project)) {
             return $response;
         }
 
-        $path = $archives->create($project);
+        abort_unless((int) $archive->project_id === (int) $project->id, 404);
 
-        return response()
-            ->download($path, 'final-archive-'.Str::slug($project->name).'.zip')
-            ->deleteFileAfterSend(true);
+        if ($archive->hasExpired()) {
+            if ($archive->status === ProjectFinalArchive::STATUS_READY) {
+                $archive->expire();
+            }
+
+            abort(410, 'This temporary archive has expired. Prepare a new one from Finalisation.');
+        }
+
+        abort_unless($archive->isReady(), 409, 'The archive is not ready yet.');
+
+        $storage = Storage::disk($archive->disk ?: 'local');
+        abort_unless(filled($archive->path) && $storage->exists($archive->path), 404);
+
+        $stream = $storage->readStream($archive->path);
+        abort_unless(is_resource($stream), 404);
+
+        $archive->increment('download_count', 1, ['downloaded_at' => now()]);
+
+        ProjectActivityLog::create([
+            'project_id' => $project->id,
+            'user_id' => Auth::id(),
+            'event' => 'final_archive_downloaded',
+            'subject_type' => ProjectFinalArchive::class,
+            'subject_id' => $archive->id,
+            'description' => 'downloaded the final project archive',
+            'metadata' => [
+                'archive_uuid' => $archive->uuid,
+                'size' => $archive->size,
+                'sha256' => $archive->sha256,
+            ],
+        ]);
+
+        return response()->streamDownload(function () use ($stream): void {
+            try {
+                fpassthru($stream);
+            } finally {
+                fclose($stream);
+            }
+        }, $archive->filename, [
+            'Content-Type' => 'application/zip',
+            'Content-Length' => (string) $archive->size,
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function participantsCsv(Project $project)

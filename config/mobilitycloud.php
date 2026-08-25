@@ -88,6 +88,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Temporary final project archives
+    |--------------------------------------------------------------------------
+    |
+    | Final ZIP files are generated in the background and kept only long enough
+    | for a secure handover. Project records and source files are not affected.
+    |
+    */
+
+    'final_archives' => [
+        'disk' => env('MOBILITYCLOUD_FINAL_ARCHIVE_DISK', 'local'),
+        'retention_hours' => (int) env('MOBILITYCLOUD_FINAL_ARCHIVE_RETENTION_HOURS', 24),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Legal company details
     |--------------------------------------------------------------------------
     |

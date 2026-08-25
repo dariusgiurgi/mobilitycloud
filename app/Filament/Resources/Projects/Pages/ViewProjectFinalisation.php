@@ -3,13 +3,18 @@
 namespace App\Filament\Resources\Projects\Pages;
 
 use App\Filament\Resources\Projects\ProjectResource;
+use App\Jobs\GenerateProjectFinalArchive;
 use App\Models\MobilityFeedbackCampaign;
+use App\Models\ProjectActivityLog;
 use App\Models\ProjectDocument;
+use App\Models\ProjectFinalArchive;
 use App\Services\ProjectReadinessCheck;
 use App\Support\AuthorizesProjectManagement;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class ViewProjectFinalisation extends Page
 {
@@ -142,6 +147,100 @@ class ViewProjectFinalisation extends Page
         return $this->record->canBeManagedBy(auth()->user());
     }
 
+    public function currentArchive(): ?ProjectFinalArchive
+    {
+        return $this->record->finalArchives()
+            ->where('selection_hash', $this->selectionHash())
+            ->latest('id')
+            ->first();
+    }
+
+    public function requestFinalArchive(): void
+    {
+        abort_unless($this->canConfigureArchive(), 403);
+
+        if ($this->selectedCount() === 0) {
+            Notification::make()
+                ->title('Select at least one category')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if ($this->record->exportsLockedUntilPayment()) {
+            Notification::make()
+                ->title('Archive export is locked')
+                ->body('The archive becomes available after payment confirmation.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $selection = $this->normalisedSelection();
+        $selectionHash = $this->selectionHash($selection);
+
+        [$archive, $created] = DB::transaction(function () use ($selection, $selectionHash): array {
+            $this->record->newQuery()->whereKey($this->record->getKey())->lockForUpdate()->firstOrFail();
+
+            $existing = $this->record->finalArchives()
+                ->where('selection_hash', $selectionHash)
+                ->where(function ($query): void {
+                    $query->whereIn('status', [
+                        ProjectFinalArchive::STATUS_QUEUED,
+                        ProjectFinalArchive::STATUS_PROCESSING,
+                    ])->orWhere(function ($query): void {
+                        $query->where('status', ProjectFinalArchive::STATUS_READY)
+                            ->where('expires_at', '>', now());
+                    });
+                })
+                ->latest('id')
+                ->first();
+
+            if ($existing) {
+                if ($existing->status !== ProjectFinalArchive::STATUS_READY || $existing->isReady()) {
+                    return [$existing, false];
+                }
+
+                $existing->expire();
+            }
+
+            $archive = $this->record->finalArchives()->create([
+                'requested_by' => auth()->id(),
+                'status' => ProjectFinalArchive::STATUS_QUEUED,
+                'selection' => $selection,
+                'selection_hash' => $selectionHash,
+                'filename' => 'final-archive-'.(Str::slug($this->record->name) ?: 'project').'.zip',
+            ]);
+
+            ProjectActivityLog::create([
+                'project_id' => $this->record->id,
+                'user_id' => auth()->id(),
+                'event' => 'final_archive_queued',
+                'subject_type' => ProjectFinalArchive::class,
+                'subject_id' => $archive->id,
+                'description' => 'requested the final project archive',
+                'metadata' => [
+                    'archive_uuid' => $archive->uuid,
+                    'included_categories' => array_keys(array_filter($selection)),
+                ],
+            ]);
+
+            return [$archive, true];
+        });
+
+        if ($created) {
+            GenerateProjectFinalArchive::dispatch($archive->id);
+        }
+
+        Notification::make()
+            ->title($created ? 'Archive preparation started' : 'Archive already in progress')
+            ->body('You can stay on this page or return later. The download will appear here when it is ready.')
+            ->success()
+            ->send();
+    }
+
     public function toggleArchiveCategory(string $key): void
     {
         abort_unless($this->canConfigureArchive(), 403);
@@ -179,5 +278,17 @@ class ViewProjectFinalisation extends Page
         ];
 
         $this->record->update(['action_data' => $data]);
+    }
+
+    private function normalisedSelection(): array
+    {
+        return collect(ProjectFinalArchive::CATEGORY_KEYS)
+            ->mapWithKeys(fn (string $key): array => [$key => (bool) ($this->include[$key] ?? false)])
+            ->all();
+    }
+
+    private function selectionHash(?array $selection = null): string
+    {
+        return hash('sha256', json_encode($selection ?? $this->normalisedSelection(), JSON_THROW_ON_ERROR));
     }
 }
