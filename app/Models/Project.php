@@ -287,7 +287,7 @@ class Project extends Model
         }
 
         if ($this->hasMobilityAccessRoleFor($user)) {
-            return in_array($module, ['participants', 'mobility'], true)
+            return in_array($module, ['participants', 'mobility', 'feedback'], true)
                 && $this->isManagementStage();
         }
 
@@ -307,12 +307,12 @@ class Project extends Model
 
     public function canManageProjectModule(?User $user, string $module): bool
     {
-        if (in_array($module, ['participants', 'mobility'], true) && $this->operationalModulesLockedUntilPayment()) {
+        if (in_array($module, ['participants', 'mobility', 'feedback'], true) && $this->operationalModulesLockedUntilPayment()) {
             return false;
         }
 
         if ($this->hasMobilityAccessRoleFor($user)) {
-            return in_array($module, ['participants', 'mobility'], true)
+            return in_array($module, ['participants', 'mobility', 'feedback'], true)
                 && $this->isManagementStage()
                 && $this->operationalModulesAvailable()
                 && ! AccountAccess::isReadOnly($this->owner());

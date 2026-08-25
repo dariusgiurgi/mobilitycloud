@@ -119,17 +119,17 @@ class ProjectResource extends Resource
                 ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'board'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectEstimate || $page instanceof ViewProjectBoard),
 
-            NavigationItem::make('Mobility')
-                ->icon(Heroicon::OutlinedMap)
-                ->url(static::projectUrl($record, 'mobility'))
-                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'mobility'))
-                ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
-
             NavigationItem::make('Participants')
                 ->icon(Heroicon::OutlinedUsers)
                 ->url(static::projectUrl($record, 'participants'))
                 ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'participants'))
                 ->isActiveWhen(fn () => $page instanceof ViewProjectParticipants),
+
+            NavigationItem::make('Mobility')
+                ->icon(Heroicon::OutlinedMap)
+                ->url(static::projectUrl($record, 'mobility'))
+                ->visible(fn (): bool => $record->canAccessProjectModule(auth()->user(), 'mobility'))
+                ->isActiveWhen(fn () => $page instanceof ViewProjectMobility),
 
             NavigationItem::make('Feedback')
                 ->icon(Heroicon::OutlinedChatBubbleLeftRight)

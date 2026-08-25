@@ -52,7 +52,7 @@ class ViewProjectFeedback extends Page
     public function getForms()
     {
         return FeedbackForm::query()
-            ->ownedBy(auth()->user())
+            ->where('owner_id', $this->record->owner_id)
             ->where('is_archived', false)
             ->withCount('campaigns')
             ->latest('updated_at')
@@ -104,7 +104,7 @@ class ViewProjectFeedback extends Page
     {
         $this->authorizeFeedbackManagement();
 
-        $form = $this->ownedForm($formId);
+        $form = $this->projectForm($formId);
         $this->shareFormId = $form->id;
         $this->shareCampaignTitle = $form->name;
         $this->shareMobilityId = (string) ($this->getMobilities()->first()?->id ?: '');
@@ -118,7 +118,7 @@ class ViewProjectFeedback extends Page
             'shareMobilityId' => ['required', 'integer'],
             'shareCampaignTitle' => ['required', 'string', 'max:160'],
         ]);
-        $form = $this->ownedForm((int) $this->shareFormId);
+        $form = $this->projectForm((int) $this->shareFormId);
         $mobility = $this->record->mobilities()->find((int) $data['shareMobilityId']);
         abort_unless($mobility, 403);
 
@@ -191,14 +191,22 @@ class ViewProjectFeedback extends Page
         return FeedbackForms::getUrl();
     }
 
+    public function canManageFormLibrary(): bool
+    {
+        return $this->record->isOwnedBy(auth()->user());
+    }
+
     private function authorizeFeedbackManagement(): void
     {
         abort_unless($this->canManageFeedback(), 403);
     }
 
-    private function ownedForm(int $formId): FeedbackForm
+    private function projectForm(int $formId): FeedbackForm
     {
-        return FeedbackForm::query()->ownedBy(auth()->user())->where('is_archived', false)->findOrFail($formId);
+        return FeedbackForm::query()
+            ->where('owner_id', $this->record->owner_id)
+            ->where('is_archived', false)
+            ->findOrFail($formId);
     }
 
     private function campaign(int $campaignId): MobilityFeedbackCampaign

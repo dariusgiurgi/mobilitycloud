@@ -7,6 +7,7 @@
         $viewingCampaign = $this->getViewingCampaign();
         $analytics = $this->getViewingCampaignAnalytics();
         $canManage = $this->canManageFeedback();
+        $canManageLibrary = $this->canManageFormLibrary();
         $campaignsByMobility = $campaigns->groupBy('project_mobility_id');
     @endphp
     <style>
@@ -20,7 +21,7 @@
                 <h2 class="text-gray-950 dark:text-white" style="font-size:1.05rem;font-weight:850;margin:.18rem 0 0;">Anonymous evaluations, organised by mobility</h2>
                 <p class="mc-project-feedback-sub" style="margin:.24rem 0 0;max-width:650px;">Choose a reusable form, create a separate link for each mobility and review anonymous results here. Responses are never connected to participant records.</p>
             </div>
-            @if($canManage)
+            @if($canManageLibrary)
                 <x-filament::button tag="a" :href="$this->formLibraryUrl()" color="gray" size="sm" icon="heroicon-m-squares-2x2">Manage form library</x-filament::button>
             @endif
         </div>
@@ -39,7 +40,7 @@
                 </div>
             @empty
                 <div class="mc-project-feedback-sub" style="padding:.65rem 0;">Create a reusable form in the library first, then return here to share it with a mobility.</div>
-                @if($canManage)<x-filament::button tag="a" :href="$this->formLibraryUrl()" size="sm">Open form library</x-filament::button>@endif
+                @if($canManageLibrary)<x-filament::button tag="a" :href="$this->formLibraryUrl()" size="sm">Open form library</x-filament::button>@endif
             @endforelse
         </aside>
 

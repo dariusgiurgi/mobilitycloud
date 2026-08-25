@@ -222,6 +222,32 @@ class MobilityFeedbackTest extends TestCase
             ->assertDontSee('View results');
     }
 
+    public function test_project_editor_and_mobility_coordinator_can_manage_project_feedback_with_owner_forms(): void
+    {
+        [$owner, $project, $mobility] = $this->projectMobility();
+        $form = FeedbackForm::create([
+            'owner_id' => $owner->id,
+            'name' => 'Owner evaluation form',
+            'questions' => [['id' => 'q_rating', 'type' => 'rating', 'label' => 'Rate it', 'required' => true, 'options' => []]],
+        ]);
+
+        foreach ([Project::PROJECT_ROLE_EDITOR, Project::PROJECT_ROLE_MOBILITY] as $role) {
+            $collaborator = User::factory()->create();
+            $project->members()->attach($collaborator, ['role' => $role]);
+            $this->actingAs($collaborator);
+
+            Livewire::test(ViewProjectFeedback::class, ['record' => $project->id])
+                ->assertSee('Owner evaluation form')
+                ->call('openShareForm', $form->id)
+                ->set('shareMobilityId', (string) $mobility->id)
+                ->set('shareCampaignTitle', $role.' feedback')
+                ->call('createCampaign')
+                ->assertHasNoErrors();
+        }
+
+        $this->assertSame(2, MobilityFeedbackCampaign::query()->count());
+    }
+
     public function test_final_archive_includes_a_feedback_pdf_for_each_mobility_campaign(): void
     {
         [$user, $project, $mobility] = $this->projectMobility();
