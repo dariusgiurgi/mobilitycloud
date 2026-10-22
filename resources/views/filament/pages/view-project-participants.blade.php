@@ -338,6 +338,8 @@
 
     
 
+    <div style="margin:16px 0;">{{ $participants->links() }}</div>
+
     {{-- List --}}
     @if($participants->isEmpty())
         <x-mobi-empty-state

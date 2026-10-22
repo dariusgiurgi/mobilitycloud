@@ -7,6 +7,7 @@ use App\Models\Participant;
 use App\Models\ParticipantAttachment;
 use App\Models\ProjectMobility;
 use App\Services\ParticipantCsvImporter;
+use App\Services\ParticipantRegister;
 use App\Services\StoredFileReplacementService;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\GeneratesAttendanceSheets;
@@ -21,6 +22,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\WithFileUploads;
+use Livewire\WithPagination;
 
 class ViewProjectParticipants extends Page
 {
@@ -28,6 +30,7 @@ class ViewProjectParticipants extends Page
     use GeneratesAttendanceSheets;
     use InteractsWithRecord;
     use WithFileUploads;
+    use WithPagination;
 
     protected static string $resource = ProjectResource::class;
 
@@ -95,41 +98,31 @@ class ViewProjectParticipants extends Page
 
     public function getParticipants()
     {
-        $all = Participant::where('project_id', $this->record->id)
+        $query = Participant::where('project_id', $this->record->id)
             ->with(['attachments', 'mobilities', 'project'])
-            ->orderBy('complete_name')
-            ->orderBy('last_name')
-            ->get();
+            ->when($this->filterSearch !== '', function ($q) {
+                $q->whereRaw('LOWER(complete_name) LIKE ?', ['%'.mb_strtolower($this->filterSearch).'%']);
+            })
+            ->when($this->filterRole !== '', fn ($q) => $q->where('role', $this->filterRole))
+            ->when($this->filterCountry !== '', fn ($q) => $q->where('country', $this->filterCountry))
+            ->when($this->filterOrg !== '', fn ($q) => $q->where('partner_organisation', $this->filterOrg))
+            ->when($this->filterMobilityId !== '', fn ($q) => $q->whereHas('mobilities', fn ($m) => $m->whereKey((int) $this->filterMobilityId)));
+        $register = app(ParticipantRegister::class);
+        if ($this->filterMinorsOnly) {
+            $register->minors($query, $this->record);
+        }
+        if ($this->filterIncompleteOnly) {
+            $register->incomplete($query, $this->record);
+        }
 
-        return $all->filter(function (Participant $p) {
-            // Cautare nume
-            if ($this->filterSearch !== '') {
-                $needle = mb_strtolower($this->filterSearch);
-                if (! str_contains(mb_strtolower($p->fullName()), $needle)) {
-                    return false;
-                }
-            }
-            if ($this->filterRole !== '' && $p->role !== $this->filterRole) {
-                return false;
-            }
-            if ($this->filterCountry !== '' && $p->country !== $this->filterCountry) {
-                return false;
-            }
-            if ($this->filterOrg !== '' && $p->partner_organisation !== $this->filterOrg) {
-                return false;
-            }
-            if ($this->filterMobilityId !== '' && ! $p->mobilities->contains('id', (int) $this->filterMobilityId)) {
-                return false;
-            }
-            if ($this->filterMinorsOnly && ! $p->isMinor()) {
-                return false;
-            }
-            if ($this->filterIncompleteOnly && $p->hasCompleteDocs()) {
-                return false;
-            }
+        return $query->orderBy('complete_name')->orderBy('last_name')->orderBy('id')->paginate(50);
+    }
 
-            return true;
-        })->values();
+    public function updated($property): void
+    {
+        if (str_starts_with($property, 'filter')) {
+            $this->resetPage();
+        }
     }
 
     public function getRoles(): array
@@ -145,16 +138,16 @@ class ViewProjectParticipants extends Page
     /** Statistici pe toti participantii proiectului (nu cei filtrati). */
     public function getStats(): array
     {
-        $all = Participant::where('project_id', $this->record->id)->with(['attachments', 'mobilities', 'project'])->get();
-        $complete = $all->filter->hasCompleteDocs()->count();
+        $query = Participant::where('project_id', $this->record->id);
+        $register = app(ParticipantRegister::class);
+        $total = (clone $query)->count();
+        $incomplete = $register->incomplete(clone $query, $this->record)->count();
 
         return [
-            'total' => $all->count(),
-            'complete' => $complete,
-            'incomplete' => $all->count() - $complete,
-            'minors' => $all->filter(fn ($p) => $p->isMinor())->count(),
-            'fo' => $all->where('fewer_opportunities', true)->count(),
-            'organisations' => $all->pluck('partner_organisation')->filter()->unique()->count(),
+            'total' => $total, 'complete' => $total - $incomplete, 'incomplete' => $incomplete,
+            'minors' => $register->minors(clone $query, $this->record)->count(),
+            'fo' => (clone $query)->where('fewer_opportunities', true)->count(),
+            'organisations' => (clone $query)->whereNotNull('partner_organisation')->where('partner_organisation', '!=', '')->distinct()->count('partner_organisation'),
         ];
     }
 
@@ -185,6 +178,7 @@ class ViewProjectParticipants extends Page
 
     public function clearParticipantFilters(): void
     {
+        $this->resetPage();
         $this->filterSearch = '';
         $this->filterRole = '';
         $this->filterCountry = '';

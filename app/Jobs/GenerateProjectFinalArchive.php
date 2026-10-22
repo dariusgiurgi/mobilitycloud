@@ -7,6 +7,9 @@ use App\Models\ProjectFinalArchive;
 use App\Services\ProjectFinalArchiveService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
@@ -21,7 +24,13 @@ class GenerateProjectFinalArchive implements ShouldQueue
 
     public function __construct(public int $archiveId)
     {
-        $this->onQueue('default');
+        $this->onQueue((string) config('mobilitycloud.final_archives.queue', 'exports'));
+    }
+
+    public function middleware(): array
+    {
+        return [(new WithoutOverlapping('final-archive:'.$this->archiveId))
+            ->releaseAfter(30)->expireAfter(960)];
     }
 
     /** @return array<int, int> */
@@ -46,6 +55,8 @@ class GenerateProjectFinalArchive implements ShouldQueue
             'failure_message' => null,
         ])->save();
 
+        $started = microtime(true);
+        $committed = false;
         $temporaryPath = null;
         $storedPath = null;
         $disk = (string) config('mobilitycloud.final_archives.disk', 'local');
@@ -73,46 +84,55 @@ class GenerateProjectFinalArchive implements ShouldQueue
                 throw new RuntimeException('Could not verify the generated archive.');
             }
 
-            $archive->forceFill([
-                'status' => ProjectFinalArchive::STATUS_READY,
-                'disk' => $disk,
-                'path' => $storedPath,
-                'size' => $size,
-                'sha256' => $sha256,
-                'completed_at' => now(),
-                'expires_at' => now()->addHours(max(1, (int) config('mobilitycloud.final_archives.retention_hours', 24))),
-            ])->save();
-
-            $newerReadyArchiveExists = $archive->project->finalArchives()
-                ->where('id', '>', $archive->id)
-                ->where('status', ProjectFinalArchive::STATUS_READY)
-                ->exists();
-
-            if ($newerReadyArchiveExists) {
-                $archive->expire();
-            } else {
-                $archive->project->finalArchives()
-                    ->where('id', '<', $archive->id)
-                    ->where('status', ProjectFinalArchive::STATUS_READY)
-                    ->get()
-                    ->each->expire();
-            }
-
-            ProjectActivityLog::create([
-                'project_id' => $archive->project_id,
-                'user_id' => $archive->requested_by,
-                'event' => 'final_archive_ready',
-                'subject_type' => ProjectFinalArchive::class,
-                'subject_id' => $archive->id,
-                'description' => 'prepared the final project archive',
-                'metadata' => [
-                    'archive_uuid' => $archive->uuid,
+            DB::transaction(function () use ($archive, $disk, $storedPath, $size, $sha256): void {
+                $archive->forceFill([
+                    'status' => ProjectFinalArchive::STATUS_READY,
+                    'disk' => $disk,
+                    'path' => $storedPath,
                     'size' => $size,
                     'sha256' => $sha256,
-                ],
-            ]);
+                    'completed_at' => now(),
+                    'expires_at' => now()->addHours(max(1, (int) config('mobilitycloud.final_archives.retention_hours', 24))),
+                ])->save();
+
+                ProjectActivityLog::create([
+                    'project_id' => $archive->project_id,
+                    'user_id' => $archive->requested_by,
+                    'event' => 'final_archive_ready',
+                    'subject_type' => ProjectFinalArchive::class,
+                    'subject_id' => $archive->id,
+                    'description' => 'prepared the final project archive',
+                    'metadata' => [
+                        'archive_uuid' => $archive->uuid,
+                        'size' => $size,
+                        'sha256' => $sha256,
+                    ],
+                ]);
+            });
+            $committed = true;
+
+            try {
+                $newerReadyArchiveExists = $archive->project->finalArchives()
+                    ->where('id', '>', $archive->id)
+                    ->where('status', ProjectFinalArchive::STATUS_READY)
+                    ->exists();
+
+                if ($newerReadyArchiveExists) {
+                    $archive->expire();
+                } else {
+                    $archive->project->finalArchives()
+                        ->where('id', '<', $archive->id)
+                        ->where('status', ProjectFinalArchive::STATUS_READY)
+                        ->get()
+                        ->each->expire();
+                }
+
+            } catch (Throwable $cleanupError) {
+                report($cleanupError);
+            }
+            Log::channel('performance')->info('Final archive prepared', ['archive_id' => $archive->id, 'bytes' => $size, 'duration_ms' => (int) ((microtime(true) - $started) * 1000), 'peak_memory_bytes' => memory_get_peak_usage(true)]);
         } catch (Throwable $exception) {
-            if ($storedPath !== null) {
+            if (! $committed && $storedPath !== null) {
                 Storage::disk($disk)->delete($storedPath);
             }
 
@@ -127,7 +147,7 @@ class GenerateProjectFinalArchive implements ShouldQueue
     public function failed(?Throwable $exception): void
     {
         $archive = ProjectFinalArchive::query()->with('project')->find($this->archiveId);
-        if (! $archive) {
+        if (! $archive || $archive->status === ProjectFinalArchive::STATUS_READY) {
             return;
         }
 
@@ -136,7 +156,8 @@ class GenerateProjectFinalArchive implements ShouldQueue
             'status' => ProjectFinalArchive::STATUS_FAILED,
             'disk' => null,
             'path' => null,
-            'failure_message' => 'The archive could not be prepared. Please try again.',
+            'failure_message' => str_starts_with($exception?->getMessage() ?? '', 'A referenced archive file is missing:')
+                ? $exception->getMessage() : 'The archive could not be prepared. Please try again.',
         ])->save();
 
         if ($archive->project) {

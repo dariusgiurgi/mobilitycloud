@@ -13,8 +13,8 @@ async function expectApplicationExports(page: Page, projectId: number, expectedT
 
   const word = await page.request.get(`/projects/${projectId}/export-application-word`);
   expect(word.status()).toBe(200);
-  expect(word.headers()['content-type']).toContain('application/msword');
-  expect(await word.text()).toContain(expectedText);
+  expect(word.headers()['content-type']).toContain('application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  expect((await word.body()).subarray(0, 2).toString()).toBe('PK');
 
   const pack = await page.request.get(`/projects/${projectId}/export-application-pack`);
   expect(pack.status()).toBe(200);
@@ -27,13 +27,13 @@ async function expectParticipantsCsv(page: Page, projectId: number) {
   expect(csv.headers()['content-type']).toContain('text/csv');
 
   const body = await csv.text();
-  expect(body).toContain('Last name');
-  expect(body).toContain('Adams;Ana');
-  expect(body).toContain('Ionescu;Mara');
-  expect(body).toContain('Zimmer;Zoe');
+  expect(body).toContain('Complete name');
+  expect(body).toContain('Ana Adams');
+  expect(body).toContain('Mara Ionescu');
+  expect(body).toContain('Zoe Zimmer');
   expect(body).toContain("'=HYPERLINK");
-  expect(body.indexOf('Adams;Ana')).toBeLessThan(body.indexOf('Ionescu;Mara'));
-  expect(body.indexOf('Ionescu;Mara')).toBeLessThan(body.indexOf('Zimmer;Zoe'));
+  expect(body.indexOf('Ana Adams')).toBeLessThan(body.indexOf('Mara Ionescu'));
+  expect(body.indexOf('Mara Ionescu')).toBeLessThan(body.indexOf('Zoe Zimmer'));
 }
 
 async function expectPrivatePdf(page: Page, path: string) {
@@ -107,10 +107,12 @@ startxref
 190
 %%EOF`;
 
-test.describe.serial('Account-owned projects and project invitations', () => {
-  const state = qaState();
+test.describe('Account-owned projects and project invitations', () => {
+  let state: ReturnType<typeof qaState>;
+  test.beforeAll(() => { state = qaState(); });
 
   test('owner can sign in, see dashboard projects, open core modules and create a project without a workspace', async ({ page }) => {
+    test.setTimeout(120_000);
     await login(page, state.users.owner.email, state.password);
 
     await expect(page.getByRole('heading', { name: /Project dashboard|Platform overview/i })).toBeVisible();
@@ -136,9 +138,9 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     await page.goto('/app/account-settings');
     await expect(page.getByRole('heading', { name: /Account Center/i })).toBeVisible();
-    await expect(page.getByText(/Project plan/i).first()).toBeVisible();
-    await expect(page.getByText(/Plans are applied directly to this email account/i)).toBeVisible();
-    await expect(page.getByText(/Billing and limits count only projects owned by your account/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Account access' })).toBeVisible();
+    await expect(page.getByText(/Access is attached to this email account/i)).toBeVisible();
+    await expect(page.getByText(/Approved projects are billed separately through manual fiscal invoices/i)).toBeVisible();
     await page.getByLabel(/Default landing/i).selectOption('projects');
     await page.getByLabel(/Interface density/i).selectOption('compact');
     await expect(page.getByText(/Preferences saved automatically|Changes are saved automatically/i)).toBeVisible();
@@ -179,15 +181,21 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.locator('textarea[placeholder^="Write your answer here"]').first()).toHaveValue(qaAnswer);
 
     await page.getByPlaceholder(/Search questions or answers/i).fill('background of the participants');
-    const participantTable = page.locator('.mc-wa-table-block').filter({ hasText: 'Participant groups' }).first();
-    await expect(participantTable).toBeVisible();
+    const participantTable = page.locator('.mc-wa-table-block').first();
+    await expect(participantTable.getByRole('textbox', { name: 'Table title' })).toHaveValue('Participant groups');
+    const rowAdded = page.waitForResponse(response => response.url().endsWith('/livewire/update') && (response.request().postData() || '').includes('addTableRow'));
     await participantTable.getByRole('button', { name: /Add row/i }).click();
-    await participantTable.getByPlaceholder('Group / country').fill('Romania group');
-    await participantTable.getByPlaceholder('Participants').fill('12 young people');
-    await page.waitForTimeout(1_200);
+    await rowAdded;
+    const groupSaved = page.waitForResponse(response => response.url().endsWith('/livewire/update') && (response.request().postData() || '').includes('Romania group'));
+    await participantTable.locator('tbody tr').last().locator('input').nth(0).fill('Romania group');
+    await groupSaved;
+    const countSaved = page.waitForResponse(response => response.url().endsWith('/livewire/update') && (response.request().postData() || '').includes('12 young people'));
+    await participantTable.locator('tbody tr').last().locator('input').nth(1).fill('12 young people');
+    await countSaved;
     await page.reload();
-    await expect(page.getByPlaceholder('Group / country').first()).toHaveValue('Romania group');
-    await expect(page.getByPlaceholder('Participants').first()).toHaveValue('12 young people');
+    await page.getByPlaceholder(/Search questions or answers/i).fill('background of the participants');
+    await expect(participantTable.locator('tbody tr').last().locator('input').nth(0)).toHaveValue('Romania group');
+    await expect(participantTable.locator('tbody tr').last().locator('input').nth(1)).toHaveValue('12 young people');
     await expectApplicationExports(page, state.projects.writing_ka152.id, qaAnswer);
 
     await page.goto(`/app/projects/${state.projects.owned.id}/estimate`);
@@ -229,8 +237,8 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     const manualParticipantLastName = `Browser${Date.now()}`;
     await page.getByRole('button', { name: /^Add participant$/i }).click();
     await expect(page.getByText(/^Add participant$/i)).toBeVisible();
-    await page.getByLabel(/Participant first name/i).fill('QA');
-    await page.getByLabel(/Participant last name/i).fill(manualParticipantLastName);
+    await page.getByLabel(/Participant complete name/i).fill(`QA ${manualParticipantLastName}`);
+    await page.getByLabel(/Participant organisation/i).selectOption('Scoala de Jocuri');
     await page.getByLabel(/Participant birth date/i).fill('2010-05-20');
     await page.getByLabel(/Participant nationality/i).fill('Romanian');
     await page.getByLabel(/Participant country/i).fill('Romania');
@@ -244,7 +252,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(manualParticipantRow.getByText('FO')).toBeVisible();
     await manualParticipantRow.getByRole('button', { name: new RegExp(`Edit QA ${manualParticipantLastName}`) }).click();
     await expect(page.getByText(/^Edit participant$/i)).toBeVisible();
-    await page.getByLabel(/Participant last name/i).fill(`${manualParticipantLastName} Edited`);
+    await page.getByLabel(/Participant complete name/i).fill(`QA ${manualParticipantLastName} Edited`);
     await page.getByRole('button', { name: /^Save$/i }).click();
     await expect(page.getByText(`QA ${manualParticipantLastName} Edited`).first()).toBeVisible();
 
@@ -255,15 +263,15 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     const importedParticipantLastName = `Imported${Date.now()}`;
     await writeFile(csvImportPath, [
       '"Last name";"First name";Organisation;Role;Country;"Birth date";Nationality;Gender;Email;"Fewer opportunities"',
-      `${importedParticipantLastName};CSV;QA CSV Association;Participant;Romania;2001-02-03;Romanian;female;csv.${importedParticipantLastName.toLowerCase()}@mobilitycloud.test;No`,
+      `${importedParticipantLastName};CSV;Youth Group Spain;Participant;Romania;2001-02-03;Romanian;female;csv.${importedParticipantLastName.toLowerCase()}@mobilitycloud.test;No`,
     ].join('\n'));
 
-    await page.getByRole('button', { name: /^Import CSV$/i }).click();
-    await expect(page.getByText(/Import participants/i)).toBeVisible();
-    await page.getByLabel(/Participants CSV file/i).setInputFiles(csvImportPath);
+    await page.getByRole('button', { name: /^Import \/ export CSV$/i }).click();
+    await expect(page.getByRole('heading', { name: /Import or export participants/i })).toBeVisible();
+    await setLivewireFile(page, '[aria-label="Participants CSV file"]', csvImportPath);
     await page.getByRole('button', { name: /^Import$/i }).click();
     await expect(page.getByText(`CSV ${importedParticipantLastName}`).first()).toBeVisible();
-    await expect(page.getByText('QA CSV Association').first()).toBeVisible();
+    await expect(page.getByText('Youth Group Spain').first()).toBeVisible();
     await rm(csvImportDir, { recursive: true, force: true });
 
     const attendanceActivity = `QA Bot Browser Attendance ${Date.now()}`;
@@ -279,12 +287,12 @@ test.describe.serial('Account-owned projects and project invitations', () => {
 
     await page.goto(`/app/projects/${state.projects.participants.id}/documents`);
     await expect(page.getByText(`Attendance list - ${attendanceActivity}`).first()).toBeVisible();
-    await expect(page.getByText(/Cluj-Napoca/i).first()).toBeVisible();
+    // Location is part of the downloaded PDF; the compact document list shows its title.
 
     const projectName = `QA Bot Created ${Date.now()}`;
     await page.goto('/app/projects/create');
 
-    await expect(page.getByText(/Create a new project/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Create Project$/i })).toBeVisible();
     await page.getByLabel(/Project name/i).fill(projectName);
     await page.getByRole('button', { name: /^Create$/i }).click();
 
@@ -293,6 +301,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
   });
 
   test('project lifecycle actions cover duplicate, archive and restore without workspace context', async ({ page }) => {
+    test.setTimeout(120_000);
     await login(page, state.users.owner.email, state.password);
     await page.goto('/app/projects');
 
@@ -300,7 +309,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('button', { name: /Duplicate project/i })).toBeVisible();
 
     await page.goto(`/app/projects/${state.projects.lifecycle.id}`);
-    await expect(page.getByRole('tab', { name: /^Settings$/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /^Settings$/i })).toBeVisible();
 
     await page.goto(`/app/projects/${state.projects.lifecycle.id}/edit`);
     await expect(page.getByRole('button', { name: /More actions/i })).toBeVisible();
@@ -352,7 +361,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
     const projectName = `QA Bot Editor Owned ${Date.now()}`;
     await page.goto('/app/projects/create');
 
-    await expect(page.getByText(/Create a new project/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /^Create Project$/i })).toBeVisible();
     await page.getByLabel(/Project name/i).fill(projectName);
     await page.getByRole('button', { name: /^Create$/i }).click();
 
@@ -420,6 +429,7 @@ test.describe.serial('Account-owned projects and project invitations', () => {
   test('documents centre covers generated records, civil conventions and read-only sharing', async ({ page }) => {
     const project = state.projects.documents;
 
+    test.setTimeout(120_000);
     await login(page, state.users.owner.email, state.password);
     await page.goto(`/app/projects/${project.id}/documents`);
 

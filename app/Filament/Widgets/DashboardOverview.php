@@ -6,6 +6,7 @@ use App\Enums\ProjectStatus;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\Project;
 use App\Models\ProjectInvitation;
+use App\Services\ParticipantRegister;
 use App\Services\ProjectInvitationNotificationService;
 use App\Services\ProjectReadinessCheck;
 use Carbon\Carbon;
@@ -31,17 +32,11 @@ class DashboardOverview extends Widget
         $projects = Project::query()
             ->visibleToAccount(auth()->user())
             ->whereNotIn('status', [ProjectStatus::Completed->value, ProjectStatus::Rejected->value])
-            ->with([
-                'ownerAccount',
-                'members',
-                'applicationSections',
-                'budgetLines.expenses',
-                'participants.attachments',
-                'participants.mobilities',
-                'participants.project',
-                'documents',
-                'mobilities',
-                'tasks.assignee',
+            ->with(['ownerAccount', 'members', 'tasks' => fn ($q) => $q->where('status', 'open')->whereNotNull('due_date'), 'tasks.assignee:id,name'])
+            ->withCount([
+                'participants as incomplete_participants_count' => fn ($q) => app(ParticipantRegister::class)->incomplete($q),
+                'expenses as missing_evidence_count' => fn ($q) => $q->whereNull('attachment_path'),
+                'documents as unsigned_documents_count' => fn ($q) => $q->whereIn('type', ['attendance', 'expense_report'])->whereNull('signed_path'),
             ])
             ->latest('updated_at')
             ->get();
@@ -54,7 +49,7 @@ class DashboardOverview extends Widget
             ->take(4)
             ->values();
 
-        $readiness = $this->readinessItems($projects);
+        $readiness = $this->readinessItems($currentProjects);
         $attention = $this->attentionItems($projects, $readiness);
         $milestones = $this->milestones($projects);
         $primaryProject = $projects->first(fn (Project $project) => $project->isManagementStage());
@@ -98,6 +93,8 @@ class DashboardOverview extends Widget
     /** @param Collection<int, Project> $projects */
     private function readinessItems(Collection $projects): Collection
     {
+        $projects->loadMissing(['applicationSections', 'participants.attachments', 'participants.mobilities', 'participants.project',
+            'documents', 'budgetLines.expenses', 'mobilities']);
         $checker = app(ProjectReadinessCheck::class);
 
         return $projects
@@ -163,9 +160,7 @@ class DashboardOverview extends Widget
             }
 
             if ($status->isManagementStage()) {
-                $participantsMissingDocuments = $project->participants
-                    ->filter(fn ($participant): bool => ! $participant->hasCompleteDocs())
-                    ->count();
+                $participantsMissingDocuments = (int) $project->incomplete_participants_count;
 
                 if ($participantsMissingDocuments > 0) {
                     $items->push($this->attentionItem(
@@ -177,8 +172,7 @@ class DashboardOverview extends Widget
                     ));
                 }
 
-                $expenses = $project->budgetLines->flatMap->expenses;
-                $missingEvidence = $expenses->whereNull('attachment_path')->count();
+                $missingEvidence = (int) $project->missing_evidence_count;
 
                 if ($missingEvidence > 0) {
                     $items->push($this->attentionItem(
@@ -190,10 +184,7 @@ class DashboardOverview extends Widget
                     ));
                 }
 
-                $unsignedDocuments = $project->documents
-                    ->filter(fn ($document): bool => in_array($document->type, ['attendance', 'expense_report'], true))
-                    ->whereNull('signed_path')
-                    ->count();
+                $unsignedDocuments = (int) $project->unsigned_documents_count;
 
                 if ($unsignedDocuments > 0) {
                     $items->push($this->attentionItem(

@@ -198,8 +198,10 @@ class SeedE2eQaData extends Command
                 'plan' => $defaults['plan'],
                 'subscription_status' => $defaults['subscription_status'],
                 'feature_flags' => $defaults['feature_flags'],
-                'plan_limits' => $defaults['plan_limits'],
-                'email_verified_at' => now(),
+                'plan_limits' => $email === self::FREE_EMAIL ? [...$defaults['plan_limits'], 'projects' => 1] : $defaults['plan_limits'],
+                'billing_name' => 'QA Training Association',
+                'billing_country' => 'Romania',
+                'billing_address' => '1 Synthetic Test Street, Test City',
                 'is_suspended' => false,
                 'suspended_at' => null,
                 'suspended_by' => null,
@@ -208,6 +210,9 @@ class SeedE2eQaData extends Command
                 'deleted_at' => null,
             ],
         );
+
+        // Verification is deliberately guarded against normal mass assignment.
+        $user->forceFill(['email_verified_at' => now(), 'deleted_at' => null])->save();
 
         return $user;
     }

@@ -51,6 +51,10 @@ return [
     */
 
     'channels' => [
+        'performance' => [
+            'driver' => 'daily', 'path' => storage_path('logs/performance.log'),
+            'level' => 'info', 'days' => 14, 'permission' => 0660,
+        ],
 
         'stack' => [
             'driver' => 'stack',

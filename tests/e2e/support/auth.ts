@@ -50,7 +50,7 @@ export async function login(page: Page, email: string, password: string) {
     }
   }
 
-  await expect(page.getByRole('heading', { name: /Project dashboard|Platform administration/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Project dashboard|Platform administration|^Projects$/i })).toBeVisible();
 }
 
 export async function logoutByClearingSession(page: Page) {

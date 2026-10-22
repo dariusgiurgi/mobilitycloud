@@ -20,9 +20,9 @@ permissions:
 jobs:
   deploy:
     name: Deploy verified main
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     environment: production
 
     steps:
@@ -48,76 +48,13 @@ jobs:
             mobilityadmin@mobilitycloud.eu \
             "sudo EXPECTED_SHA='$EXPECTED_SHA' bash -se" <<'REMOTE'
           set -Eeuo pipefail
-
-          readonly APP_DIR=/var/www/mobilitycloud
-
-          cd "$APP_DIR"
-
-          if ! git diff --quiet || ! git diff --cached --quiet; then
-              echo "Tracked production files contain server changes; refusing to overwrite them."
-              git status --short --branch
-              exit 1
-          fi
-
-          if test -n "$(git ls-files --others --exclude-standard)"; then
-              echo "Preserving untracked server backups and auxiliary files."
-          fi
-
-          git fetch --prune origin main
-          readonly REMOTE_SHA="$(git rev-parse origin/main)"
-
-          if test "$REMOTE_SHA" != "$EXPECTED_SHA"; then
-              echo "Verified revision $EXPECTED_SHA no longer matches origin/main $REMOTE_SHA."
-              exit 1
-          fi
-
-          restore_application() {
-              php artisan up --no-interaction >/dev/null 2>&1 || true
-          }
-
-          trap restore_application EXIT
-          php artisan down --retry=60 --no-interaction || true
-
-          usermod -aG www-data deploy
-          install -d -m 2770 -o www-data -g www-data "$APP_DIR/storage/app/private"
-
-          if command -v setfacl >/dev/null 2>&1; then
-              setfacl -Rb "$APP_DIR/storage/app/private"
-              setfacl -Rk "$APP_DIR/storage/app/private"
-          fi
-
-          chown -R www-data:www-data "$APP_DIR/storage/app/private"
-          find "$APP_DIR/storage/app/private" -mindepth 1 -type d -exec chmod 2770 {} +
-          find "$APP_DIR/storage/app/private" -type f -exec chmod 0640 {} +
-
-          if ! runuser -u deploy -- test -w "$APP_DIR/storage/app/private"; then
-              echo "The scheduler user cannot write backup health and archive files."
-              exit 1
-          fi
-
-          git checkout main
-          git pull --ff-only origin main
-
-          COMPOSER_ALLOW_SUPERUSER=1 composer install \
-              --no-dev \
-              --no-interaction \
-              --no-progress \
-              --prefer-dist \
-              --optimize-autoloader
-
-          npm ci --no-audit --no-fund
-          npm run build
-
-          php artisan migrate --force --no-interaction
-          php artisan optimize:clear --no-interaction
-          php artisan optimize --no-interaction
-          php artisan queue:restart --no-interaction
-          php artisan mobilitycloud:prelaunch-audit --no-interaction
-
-          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-
-          php artisan up --no-interaction
-          trap - EXIT
+          cd /var/www/mobilitycloud
+          runuser -u deploy -- git fetch --prune origin main
+          test "$(runuser -u deploy -- git rev-parse origin/main)" = "$EXPECTED_SHA"
+          script="$(mktemp /tmp/mobilitycloud-deploy.XXXXXX)"
+          trap 'rm -f "$script"' EXIT
+          runuser -u deploy -- git show "$EXPECTED_SHA:deploy/production.sh" > "$script"
+          bash "$script"
           REMOTE
 
       - name: Verify production health

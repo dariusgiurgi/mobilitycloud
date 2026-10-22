@@ -454,11 +454,11 @@ class WriteApplicationTest extends TestCase
         $this->assertSame('Inclusion support', $section->application_tables['additional_funding'][0]['cost_type']);
         $this->assertSame('4 participants', $section->application_tables['additional_funding'][0]['participants']);
 
-        $this->get(route('projects.export-application-word', $project))
-            ->assertOk()
-            ->assertSee('Additional funding needs')
-            ->assertSee('Inclusion support')
-            ->assertSee('800 EUR');
+        $response = $this->get(route('projects.export-application-word', $project))->assertOk();
+        $xml = $this->wordDocumentXml($response);
+        $this->assertStringContainsString('Additional funding needs', $xml);
+        $this->assertStringContainsString('Inclusion support', $xml);
+        $this->assertStringContainsString('800 EUR', $xml);
     }
 
     public function test_standard_application_tables_accept_project_specific_planning_data(): void
@@ -519,13 +519,13 @@ class WriteApplicationTest extends TestCase
 
         $this->actingAs($user);
 
-        $this->get(route('projects.export-application-word', $project))
-            ->assertOk()
-            ->assertHeader('Content-Type', 'application/msword; charset=UTF-8')
-            ->assertSee('Official question')
-            ->assertSee('Clean answer for export.')
-            ->assertDontSee('Writing guidance')
-            ->assertDontSee('Evaluator hints');
+        $response = $this->get(route('projects.export-application-word', $project))
+            ->assertOk()->assertHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+        $xml = $this->wordDocumentXml($response);
+        $this->assertStringContainsString('Official question', $xml);
+        $this->assertStringContainsString('Clean answer for export.', $xml);
+        $this->assertStringNotContainsString('Writing guidance', $xml);
+        $this->assertStringNotContainsString('Evaluator hints', $xml);
     }
 
     public function test_activity_flows_can_be_generated_and_used_by_application_pack(): void
@@ -967,5 +967,19 @@ class WriteApplicationTest extends TestCase
             'category' => $category,
             'sort_order' => $order,
         ]);
+    }
+
+    private function wordDocumentXml($response): string
+    {
+        $path = $response->baseResponse->getFile()->getPathname();
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($path) === true);
+        $xml = $zip->getFromName('word/document.xml');
+        $this->assertNotFalse($xml);
+        $this->assertNotFalse(simplexml_load_string($xml));
+        $zip->close();
+        unlink($path);
+
+        return $xml;
     }
 }

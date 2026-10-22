@@ -6,12 +6,14 @@ use App\Models\Project;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectApplicationSection;
 use App\Models\ProjectFinalArchive;
+use App\Services\ApplicationWordExport;
 use App\Services\ParticipantCsvImporter;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 
 class ProjectExportController extends Controller
 {
@@ -26,10 +28,7 @@ class ProjectExportController extends Controller
         abort_unless((int) $archive->project_id === (int) $project->id, 404);
 
         if ($archive->hasExpired()) {
-            if ($archive->status === ProjectFinalArchive::STATUS_READY) {
-                $archive->expire();
-            }
-
+            // The scheduler owns file cleanup; web and queue processes may use different OS users.
             abort(410, 'This temporary archive has expired. Prepare a new one from Finalisation.');
         }
 
@@ -37,9 +36,6 @@ class ProjectExportController extends Controller
 
         $storage = Storage::disk($archive->disk ?: 'local');
         abort_unless(filled($archive->path) && $storage->exists($archive->path), 404);
-
-        $stream = $storage->readStream($archive->path);
-        abort_unless(is_resource($stream), 404);
 
         $archive->increment('download_count', 1, ['downloaded_at' => now()]);
 
@@ -56,6 +52,24 @@ class ProjectExportController extends Controller
                 'sha256' => $archive->sha256,
             ],
         ]);
+
+        if (config('mobilitycloud.final_archives.accelerated_downloads') && $archive->disk === 'local'
+            && preg_match('~^final-archives/[0-9]+/[a-f0-9-]+\.zip$~', $archive->path)) {
+            return response('', 200, [
+                'X-Accel-Redirect' => '/_protected_archives/'.substr($archive->path, strlen('final-archives/')),
+                'Content-Type' => 'application/zip',
+                'Content-Disposition' => HeaderUtils::makeDisposition('attachment', $archive->filename),
+                'Cache-Control' => 'private, no-store, max-age=0',
+            ]);
+        }
+        if (config('filesystems.disks.'.$archive->disk.'.driver') === 'local') {
+            return response()->download($storage->path($archive->path), $archive->filename, [
+                'Content-Type' => 'application/zip', 'Cache-Control' => 'private, no-store, max-age=0',
+                'X-Content-Type-Options' => 'nosniff',
+            ])->setPrivate();
+        }
+        $stream = $storage->readStream($archive->path);
+        abort_unless(is_resource($stream), 404);
 
         return response()->streamDownload(function () use ($stream): void {
             try {
@@ -237,21 +251,12 @@ class ProjectExportController extends Controller
             return $response;
         }
 
-        $project->loadMissing('ownerAccount');
+        $path = app(ApplicationWordExport::class)->create($project);
 
-        $sections = ProjectApplicationSection::where('project_id', $project->id)
-            ->orderBy('sort_order')->orderBy('id')->get();
-
-        $html = view('pdf.application-report', [
-            'project' => $project,
-            'sections' => $sections,
-            'forWord' => true,
-        ])->render();
-
-        return response($html, 200, [
-            'Content-Type' => 'application/msword; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="application-'.Str::slug($project->name).'.doc"',
-        ]);
+        return response()->download($path, 'application-'.Str::slug($project->name).'.docx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'Cache-Control' => 'private, no-store',
+        ])->setPrivate()->deleteFileAfterSend(true);
     }
 
     public function exportApplicationPack(Project $project)

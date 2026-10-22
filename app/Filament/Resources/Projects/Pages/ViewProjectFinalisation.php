@@ -64,6 +64,7 @@ class ViewProjectFinalisation extends Page
             ->count();
         $projectFiles = $documents
             ->filter(fn (ProjectDocument $document): bool => ! in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)
+                && ! filled(data_get($document->metadata, 'template_key'))
                 && ! in_array($document->category, [...array_keys(ProjectDocument::MOBILITY_CATEGORIES), 'dissemination_evidence'], true))
             ->count();
         $expenses = $this->record->budgetLines->flatMap->expenses;
@@ -162,6 +163,14 @@ class ViewProjectFinalisation extends Page
             ->first();
     }
 
+    public function pollArchive(): void
+    {
+        $archive = $this->currentArchive();
+        if ($archive && in_array($archive->status, [ProjectFinalArchive::STATUS_QUEUED, ProjectFinalArchive::STATUS_PROCESSING], true)) {
+            $this->skipRender();
+        }
+    }
+
     public function requestFinalArchive(): void
     {
         abort_unless($this->canConfigureArchive(), 403);
@@ -197,20 +206,13 @@ class ViewProjectFinalisation extends Page
                     $query->whereIn('status', [
                         ProjectFinalArchive::STATUS_QUEUED,
                         ProjectFinalArchive::STATUS_PROCESSING,
-                    ])->orWhere(function ($query): void {
-                        $query->where('status', ProjectFinalArchive::STATUS_READY)
-                            ->where('expires_at', '>', now());
-                    });
+                    ]);
                 })
                 ->latest('id')
                 ->first();
 
             if ($existing) {
-                if ($existing->status !== ProjectFinalArchive::STATUS_READY || $existing->isReady()) {
-                    return [$existing, false];
-                }
-
-                $existing->expire();
+                return [$existing, false];
             }
 
             $archive = $this->record->finalArchives()->create([
@@ -238,7 +240,15 @@ class ViewProjectFinalisation extends Page
         });
 
         if ($created) {
-            GenerateProjectFinalArchive::dispatch($archive->id);
+            try {
+                GenerateProjectFinalArchive::dispatch($archive->id);
+            } catch (\Throwable $exception) {
+                $archive->update(['status' => ProjectFinalArchive::STATUS_FAILED, 'failure_message' => 'Preparation could not be queued. Please try again.']);
+                report($exception);
+                Notification::make()->danger()->title('Archive could not be queued')->send();
+
+                return;
+            }
         }
 
         Notification::make()

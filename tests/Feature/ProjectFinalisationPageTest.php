@@ -36,11 +36,11 @@ class ProjectFinalisationPageTest extends TestCase
             ->assertSee('not requirements for downloading the archive')
             ->assertSee('Prepare archive')
             ->assertSee('This ZIP may contain sensitive project data')
-            ->assertSee('removed automatically after 24 hours')
+            ->assertSee('download expires after 24 hours')
             ->assertSee('Project essentials')
             ->assertSee('Evidence & files')
             ->assertSee('Participant feedback')
-            ->assertSee('records included')
+            ->assertSee('source records selected')
             ->call('toggleArchiveCategory', 'application')
             ->assertHasNoErrors();
     }
