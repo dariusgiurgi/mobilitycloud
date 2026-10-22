@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ExpenseReportSnapshot;
 use App\Support\ApplicationTemplates;
 use App\Support\PlanCatalog;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +60,9 @@ class SeedE2eQaData extends Command
         $free = $this->upsertUser(self::FREE_EMAIL, 'QA Bot Free Account', 'free', User::ROLE_USER, $password);
         $admin = $this->upsertUser(self::ADMIN_EMAIL, 'QA Bot Platform Owner', 'demo', User::ROLE_PLATFORM_OWNER, $password);
 
+        $authenticator = AppAuthentication::make();
+        $authenticator->saveSecret($admin, $authenticator->generateSecret());
+
         $ownedProject = $this->upsertProject($owner, 'QA Bot Owned Project', 'QA-OWN');
         $lifecycleProject = $this->upsertProject($owner, 'QA Bot Lifecycle Project', 'QA-LIFE');
         $archivedProject = $this->upsertProject($owner, 'QA Bot Archived Project', 'QA-ARCHIVE');
@@ -87,6 +91,7 @@ class SeedE2eQaData extends Command
         $state = [
             'base_url' => config('app.url'),
             'password' => $password,
+            'adminAuthenticatorSecret' => $admin->getAppAuthenticationSecret(),
             'users' => [
                 'owner' => ['email' => self::OWNER_EMAIL, 'name' => $owner->name],
                 'editor' => ['email' => self::EDITOR_EMAIL, 'name' => $editor->name],
@@ -395,6 +400,12 @@ class SeedE2eQaData extends Command
 
         $this->seedParticipants($project);
         $this->seedBudgetBoard($project, $owner);
+
+        $project->mobilities()->updateOrCreate(['name' => 'QA Mobility'], [
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-08',
+            'participating_organisations' => $project->partner_orgs,
+        ]);
 
         $attendance = $project->documents()->updateOrCreate(
             [

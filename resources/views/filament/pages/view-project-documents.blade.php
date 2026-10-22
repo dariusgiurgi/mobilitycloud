@@ -100,7 +100,7 @@
                                         Generate report
                                     </x-filament::button>
                                 @elseif($item['action'] === 'pending_signatures')
-                                    <x-filament::button wire:click="$set('documentFilter', 'unsigned')" color="gray" size="xs" icon="heroicon-m-pencil-square">
+                                    <x-filament::button wire:click="showPendingSignatures" color="gray" size="xs" icon="heroicon-m-pencil-square">
                                         View pending signatures
                                     </x-filament::button>
                                 @elseif($item['action'] === 'open_conventions')
@@ -305,9 +305,14 @@
         @endif
         <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;margin-bottom:1rem;">
             @if($record->canBeManagedBy(auth()->user()))
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
                 <x-filament::button wire:click="openDocumentUpload" icon="heroicon-m-arrow-up-tray" size="sm">
                     Upload project file
                 </x-filament::button>
+                    <x-filament::button wire:click="openExpenseReportGenerator" color="gray" icon="heroicon-m-chart-bar-square" size="sm">
+                        Generate expense report
+                    </x-filament::button>
+                </div>
             @else
                 <span></span>
             @endif

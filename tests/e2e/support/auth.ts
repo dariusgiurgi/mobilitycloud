@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -29,7 +30,7 @@ function clearLocalLoginThrottle() {
   });
 }
 
-export async function login(page: Page, email: string, password: string) {
+export async function login(page: Page, email: string, password: string, authenticatorSecret?: string) {
   clearLocalLoginThrottle();
   await page.goto('/app/login');
 
@@ -37,6 +38,19 @@ export async function login(page: Page, email: string, password: string) {
     await page.getByLabel(/email/i).fill(email);
     await page.getByRole('textbox', { name: /password/i }).fill(password);
     await page.getByRole('button', { name: /sign in|log in|login/i }).click();
+
+    if (authenticatorSecret) {
+      await expect(page.getByRole('heading', { name: 'Verify your identity' })).toBeVisible();
+      const bits = [...authenticatorSecret].map(char => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(char).toString(2).padStart(5, '0')).join('');
+      const key = Buffer.from(bits.match(/.{8}/g)!.map(byte => parseInt(byte, 2)));
+      const counter = Buffer.alloc(8);
+      counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30_000)));
+      const hash = createHmac('sha1', key).update(counter).digest();
+      const offset = hash[hash.length - 1] & 15;
+      const code = ((hash.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0');
+      await page.getByRole('textbox', { name: /Enter the 6-digit code/i }).fill(code);
+      await page.getByRole('button', { name: 'Confirm sign in' }).click();
+    }
 
     try {
       await expect(page).not.toHaveURL(/\/app\/login/, { timeout: 5_000 });

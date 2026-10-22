@@ -224,6 +224,13 @@ class ViewProjectDocuments extends Page
             : 'files';
     }
 
+    public function showPendingSignatures(): void
+    {
+        $this->activeDocumentTab = 'files';
+        $this->documentFilter = 'unsigned';
+        $this->documentSearch = '';
+    }
+
     public function updatedDocumentFilter(string $filter): void
     {
         if (! in_array($filter, ['all', 'generated', 'uploaded', 'signed', 'unsigned'], true)) {

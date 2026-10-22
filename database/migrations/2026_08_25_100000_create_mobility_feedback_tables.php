@@ -55,7 +55,7 @@ return new class extends Migration
                 $table->timestamp('submitted_at');
                 $table->timestamps();
 
-                $table->index(['mobility_feedback_campaign_id', 'submitted_at']);
+                $table->index(['mobility_feedback_campaign_id', 'submitted_at'], 'mobility_feedback_campaign_submitted_index');
             });
         }
     }

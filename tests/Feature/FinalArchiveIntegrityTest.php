@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Rules\MaxUploadBatchSize;
 use App\Services\ParticipantRegister;
 use App\Services\ProjectFinalArchiveService;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -122,6 +123,29 @@ class FinalArchiveIntegrityTest extends TestCase
         $this->assertSame('processing', $archive->fresh()->status);
         (new GenerateProjectFinalArchive($archive->id))->handle(app(ProjectFinalArchiveService::class));
         $this->assertTrue($archive->fresh()->isReady());
+    }
+
+    public function test_failed_archive_cleanup_preserves_the_file_reference_for_retry(): void
+    {
+        $project = $this->project();
+        $archive = $project->finalArchives()->create([
+            'requested_by' => auth()->id(), 'status' => 'ready', 'selection' => [],
+            'selection_hash' => hash('sha256', '[]'), 'filename' => 'archive.zip',
+            'disk' => 'local', 'path' => 'final-archives/retry.zip', 'expires_at' => now()->subMinute(),
+        ]);
+        $disk = \Mockery::mock(FilesystemAdapter::class);
+        $disk->shouldReceive('delete')->once()->with($archive->path)->andReturn(false);
+        Storage::shouldReceive('disk')->with('local')->andReturn($disk);
+
+        try {
+            $archive->expire();
+            $this->fail('Expected failed file cleanup to be reported.');
+        } catch (\RuntimeException $exception) {
+            $this->assertStringContainsString('Cleanup will be retried', $exception->getMessage());
+        }
+
+        $this->assertSame('final-archives/retry.zip', $archive->fresh()->path);
+        $this->assertSame('ready', $archive->fresh()->status);
     }
 
     public function test_participant_register_pages_results_and_filters_across_pages(): void

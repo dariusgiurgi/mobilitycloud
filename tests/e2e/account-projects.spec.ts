@@ -293,6 +293,7 @@ test.describe('Account-owned projects and project invitations', () => {
     await page.goto('/app/projects/create');
 
     await expect(page.getByRole('heading', { name: /^Create Project$/i })).toBeVisible();
+    await page.getByRole('button', { name: /New application Write and prepare/i }).click();
     await page.getByLabel(/Project name/i).fill(projectName);
     await page.getByRole('button', { name: /^Create$/i }).click();
 
@@ -317,7 +318,7 @@ test.describe('Account-owned projects and project invitations', () => {
     await page.getByText(/Archive project/i).click();
     await Promise.all([
       page.waitForURL(/\/app\/projects$/),
-      page.getByRole('dialog').getByRole('button', { name: /^Delete$/i }).click(),
+      page.getByRole('alertdialog').getByRole('button', { name: /^Delete$/i }).click(),
     ]);
     await expect(page.getByText(state.projects.lifecycle.name)).toHaveCount(0);
 
@@ -344,7 +345,7 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page).toHaveURL(new RegExp(`/app/projects/${state.projects.collaboration.id}`));
     await expect(page.getByText(state.projects.collaboration.name).first()).toBeVisible();
     await expect(page.getByText(/Owner: QA Bot Owner/i).first()).toBeVisible();
-    await expect(page.getByText(/^\s*Editor\s*$/).last()).toBeVisible();
+    await expect(page.getByText('Project editor', { exact: true }).last()).toBeVisible();
 
     await page.goto(`/app/projects/${state.projects.collaboration.id}/write`);
     await expect(page.getByRole('heading', { name: /Application workspace/i })).toBeVisible();
@@ -362,6 +363,7 @@ test.describe('Account-owned projects and project invitations', () => {
     await page.goto('/app/projects/create');
 
     await expect(page.getByRole('heading', { name: /^Create Project$/i })).toBeVisible();
+    await page.getByRole('button', { name: /New application Write and prepare/i }).click();
     await page.getByLabel(/Project name/i).fill(projectName);
     await page.getByRole('button', { name: /^Create$/i }).click();
 
@@ -377,7 +379,8 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('link', { name: /New project/i })).toHaveCount(0);
 
     await page.goto('/app/projects/create');
-    await expect(page.getByText(/403|forbidden|not authorized|not available/i)).toBeVisible();
+    await expect(page).toHaveURL(/\/app\/account-settings$/);
+    await expect(page.getByRole('heading', { name: 'Account access' })).toBeVisible();
 
     const forbiddenExport = await page.request.get(`/projects/${state.projects.viewer.id}/export-application-word`);
     expect(forbiddenExport.status()).toBe(403);
@@ -396,7 +399,7 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page).toHaveURL(new RegExp(`/app/projects/${state.projects.viewer.id}`));
     await expect(page.getByText(state.projects.viewer.name).first()).toBeVisible();
     await expect(page.getByText(/Owner: QA Bot Owner/i).first()).toBeVisible();
-    await expect(page.getByText(/^\s*Viewer\s*$/).last()).toBeVisible();
+    await expect(page.getByText('View only', { exact: true }).last()).toBeVisible();
     await expect(page.getByRole('link', { name: /^Settings$/i })).toHaveCount(0);
 
     await page.goto(`/app/projects/${state.projects.viewer.id}/write`);
@@ -434,25 +437,25 @@ test.describe('Account-owned projects and project invitations', () => {
     await page.goto(`/app/projects/${project.id}/documents`);
 
     await expect(page.getByRole('heading', { name: /Project document centre/i })).toBeVisible();
-    await expect(page.getByText(/Project readiness/i)).toBeVisible();
-    await expect(page.getByText(/Document readiness/i)).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Document sections' })).toBeVisible();
     await expect(page.getByText(project.name).first()).toBeVisible();
     await expect(page.getByText('QA Bot uploaded grant agreement').first()).toBeVisible();
     await expect(page.getByText('QA Bot attendance list - Mobility workshop').first()).toBeVisible();
     await expect(page.getByText('QA Bot official expense report').first()).toBeVisible();
-    await expect(page.getByText(/awaiting signature/i).first()).toBeVisible();
+    await expect(page.locator('.mc-file-card').getByText(/awaiting signatures/i).first()).toBeVisible();
 
     await page.getByPlaceholder(/Search documents/i).fill('grant');
     await expect(page.getByText('QA Bot uploaded grant agreement').first()).toBeVisible();
     await expect(page.getByText('QA Bot attendance list - Mobility workshop')).toHaveCount(0);
     await page.getByPlaceholder(/Search documents/i).fill('');
 
+    await page.getByRole('button', { name: /Checklist/i }).click();
     await page.getByRole('button', { name: /View pending signatures/i }).first().click();
     await expect(page.getByText('QA Bot attendance list - Mobility workshop').first()).toBeVisible();
     await expect(page.getByText('QA Bot official expense report').first()).toBeVisible();
     await expect(page.getByText('QA Bot uploaded grant agreement')).toHaveCount(0);
 
-    await page.getByRole('tab', { name: /Civil conventions/i }).click();
+    await page.getByRole('button', { name: /Civil conventions/i }).click();
     await expect(page.getByText('QA Bot facilitation civil convention').first()).toBeVisible();
     const civilConventionSummary = page
       .locator('summary')
@@ -478,11 +481,12 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page.getByLabel(/Payment reference/i)).toHaveValue('QA-PAY-BROWSER');
     await page.getByRole('button', { name: /^Cancel$/i }).click();
 
-    await page.getByRole('tab', { name: /Dissemination/i }).click();
+    await page.goto(`/app/projects/${project.id}/mobility`);
+    await page.getByRole('button', { name: /^Dissemination/i }).click();
     await expect(page.getByText('Scoala de Jocuri').first()).toBeVisible();
     await expect(page.getByText('Youth Group Spain').first()).toBeVisible();
     await expect(page.getByText(/Save report/i).first()).toBeVisible();
-    await expect(page.getByText(/Upload evidence/i).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Prepare upload' }).first()).toBeVisible();
 
     const disseminationDirectory = await mkdtemp(path.join(os.tmpdir(), 'mobilitycloud-dissemination-'));
     const disseminationEvidencePath = path.join(disseminationDirectory, 'qa-dissemination-evidence.pdf');
@@ -490,29 +494,28 @@ test.describe('Account-owned projects and project invitations', () => {
     try {
       await writeFile(disseminationEvidencePath, MINIMAL_SIGNED_PDF);
 
-      const disseminationReport = page.getByLabel(/Dissemination report for Youth Group Spain/i);
-      const disseminationCard = disseminationReport.locator('xpath=ancestor::div[contains(@class, "fi-section")][1]');
+      const disseminationCard = page.locator('.mc-lock-frame').filter({ has: page.getByRole('heading', { name: 'Youth Group Spain', exact: true }) });
+      const disseminationReport = disseminationCard.locator('textarea');
 
       await disseminationReport.fill('QA Bot verified that Youth Group Spain delivered a local dissemination session and saved proof.');
       await disseminationCard.getByRole('button', { name: /^Save report$/i }).click();
       await expect(page.getByText(/Dissemination report saved/i)).toBeVisible();
 
-      await disseminationCard.getByRole('button', { name: /^Upload evidence$/i }).click();
-      await expect(page.getByRole('heading', { name: /Upload dissemination evidence/i })).toBeVisible();
-      await setLivewireFile(page, 'input[type="file"][wire\\:model="disseminationUpload"]', disseminationEvidencePath);
-      await page.locator('.mc-modal-panel').getByRole('button', { name: /^Upload evidence$/i }).click();
+      await disseminationCard.getByRole('button', { name: 'Prepare upload' }).click();
+      await setLivewireFile(page, '[aria-label="Upload dissemination evidence"]', disseminationEvidencePath);
+      await disseminationCard.getByRole('button', { name: 'Upload selected evidence' }).click();
       await expect(page.getByText(/Dissemination evidence uploaded/i)).toBeVisible();
       await expect(disseminationCard.getByText('qa-dissemination-evidence.pdf')).toBeVisible();
     } finally {
       await rm(disseminationDirectory, { recursive: true, force: true });
     }
 
-    await page.getByRole('tab', { name: /Checklist/i }).click();
+    await page.goto(`/app/projects/${project.id}/documents`);
+    await page.getByRole('button', { name: /Checklist/i }).click();
     await expect(page.getByText(/Project file checklist/i)).toBeVisible();
     await expect(page.getByText(/Grant agreement/i).first()).toBeVisible();
 
-    await page.getByRole('tab', { name: /Files/i }).click();
-    await page.getByRole('button', { name: /Add document/i }).click();
+    await page.getByRole('button', { name: /Files/i }).click();
     await page.getByRole('button', { name: /^Generate expense report$/i }).click();
     await expect(page.getByRole('heading', { name: /Generate official expense report/i })).toBeVisible();
     await page.getByLabel(/Expense report title/i).fill('QA Bot browser generated expense report');
@@ -540,11 +543,11 @@ test.describe('Account-owned projects and project invitations', () => {
     try {
       await writeFile(signedCopyPath, MINIMAL_SIGNED_PDF);
 
-      await page.getByRole('tab', { name: /Files/i }).click();
-      await page.getByRole('button', { name: /View pending signatures/i }).first().click();
+      await page.getByRole('button', { name: /Files/i }).click();
+      await page.locator('select[wire\\:model\\.live="documentFilter"]').selectOption('unsigned');
 
       const expenseReportDocument = page
-        .locator('div[style*="padding:1rem 1.1rem"]')
+        .locator('.mc-file-card')
         .filter({ hasText: 'QA Bot official expense report' })
         .first();
 
@@ -557,16 +560,16 @@ test.describe('Account-owned projects and project invitations', () => {
 
       await page.getByRole('combobox').first().selectOption('all');
       await expect(expenseReportDocument).toContainText('Signed');
-      await expenseReportDocument.getByRole('button', { name: /Document actions/i }).click();
+      await expenseReportDocument.locator('summary').click();
       page.once('dialog', dialog => dialog.accept());
       await page.getByText(/Remove signed copy/i).click();
       await expect(page.getByText(/Signed copy removed/i)).toBeVisible();
       await expect(expenseReportDocument.getByRole('button', { name: /Upload signed copy/i }).first()).toBeVisible();
 
-      await page.getByRole('button', { name: /View pending signatures/i }).first().click();
+      await page.locator('select[wire\\:model\\.live="documentFilter"]').selectOption('unsigned');
 
       const attendanceDocument = page
-        .locator('div[style*="padding:1rem 1.1rem"]')
+        .locator('.mc-file-card')
         .filter({ hasText: 'QA Bot attendance list - Mobility workshop' })
         .first();
 
@@ -597,12 +600,14 @@ test.describe('Account-owned projects and project invitations', () => {
 
       await page.goto(`/app/projects/${project.id}/mobility`);
       await expect(page.getByRole('heading', { name: /Choose a mobility/i })).toBeVisible();
+      await page.getByRole('navigation', { name: 'Mobility sections' }).getByRole('button', { name: /^Mobility/i }).click();
       await page
         .getByLabel(/Mobility implementation report/i)
         .fill('QA Bot confirmed the mobility implementation report and uploaded a worksheet for the final archive.');
       await page.getByRole('button', { name: /^Save report$/i }).click();
       await expect(page.getByText(/Mobility report saved/i)).toBeVisible();
 
+      await page.getByRole('button', { name: /Materials & Outputs/i }).click();
       await page.getByLabel(/Mobility document title/i).fill('QA Bot mobility worksheet');
       await page.getByLabel(/Mobility document category/i).selectOption('mobility_material');
       await page.getByLabel(/Mobility document notes/i).fill('Worksheet used during the QA browser mobility check.');
@@ -622,7 +627,10 @@ test.describe('Account-owned projects and project invitations', () => {
   });
 
   test('platform owner opens the platform administration surface, not a workspace dashboard', async ({ page }) => {
-    await login(page, state.users.admin.email, state.password);
+    test.setTimeout(90_000);
+    // A used TOTP cannot be replayed if CI retries after a later assertion failure.
+    if (test.info().retry > 0) await page.waitForTimeout(30_000);
+    await login(page, state.users.admin.email, state.password, state.adminAuthenticatorSecret);
 
     await expect(page.getByRole('heading', { name: /Platform administration/i })).toBeVisible();
     await expect(page.getByRole('link', { name: /workspace/i })).toHaveCount(0);
