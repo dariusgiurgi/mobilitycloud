@@ -49,7 +49,8 @@ export async function login(page: Page, email: string, password: string, authent
       const offset = hash[hash.length - 1] & 15;
       const code = ((hash.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).toString().padStart(6, '0');
       await page.getByRole('textbox', { name: /Enter the 6-digit code/i }).fill(code);
-      await page.getByRole('button', { name: 'Confirm sign in' }).click();
+      // Filament submits automatically when all six digits are entered.
+      await expect(page).not.toHaveURL(/\/app\/login/);
     }
 
     try {

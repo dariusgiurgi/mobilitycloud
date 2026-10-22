@@ -1,6 +1,6 @@
 # Production rollout and rollback
 
-This change does not alter the database schema. Deploy only the revision that passes the Quality gate (PHP 8.3, SQLite, MariaDB, frontend build and browser downloads).
+This release adds no migrations and does not alter the production database schema. An existing migration now names its feedback index explicitly within MariaDB’s 64-character limit, allowing a fresh database to be initialized. Deploy only the revision that passes the Quality gate (PHP 8.3, SQLite, MariaDB, frontend build and browser downloads).
 
 ## Application release
 

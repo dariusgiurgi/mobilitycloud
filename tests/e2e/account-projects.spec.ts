@@ -504,7 +504,7 @@ test.describe('Account-owned projects and project invitations', () => {
       await disseminationCard.getByRole('button', { name: 'Prepare upload' }).click();
       await setLivewireFile(page, '[aria-label="Upload dissemination evidence"]', disseminationEvidencePath);
       await disseminationCard.getByRole('button', { name: 'Upload selected evidence' }).click();
-      await expect(page.getByText(/Dissemination evidence uploaded/i)).toBeVisible();
+      await expect(page.getByText(/dissemination evidence file.*uploaded/i)).toBeVisible();
       await expect(disseminationCard.getByText('qa-dissemination-evidence.pdf')).toBeVisible();
     } finally {
       await rm(disseminationDirectory, { recursive: true, force: true });
@@ -636,7 +636,7 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page.getByRole('link', { name: /workspace/i })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Accounts', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Communications', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Plans & entitlements', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Billing operations', exact: true })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Audit log', exact: true })).toBeVisible();
     await expect(page.getByText(/No access deadlines or blocked accounts need attention/i)).toBeVisible();
 

@@ -201,7 +201,7 @@ class ProjectDocumentsTest extends TestCase
             'attachment_name' => 'train.pdf',
         ]);
         Storage::disk('local')->put('expenses/train.pdf', 'proof');
-        $support->expenses()->create([
+        $facilitation = $support->expenses()->create([
             'description' => 'Facilitation',
             'expense_date' => '2026-06-15',
             'amount' => 250,
@@ -226,7 +226,7 @@ class ProjectDocumentsTest extends TestCase
 
         $this->assertSame(2, $snapshot['expense_count']);
         $this->assertSame(350.0, $snapshot['total_eur']);
-        $this->assertSame(['INV-10', 'EXP-002'], array_column($snapshot['expenses'], 'reference'));
+        $this->assertSame(['INV-10', 'EXP-'.str_pad((string) $facilitation->id, 3, '0', STR_PAD_LEFT)], array_column($snapshot['expenses'], 'reference'));
         $this->assertSame(['Attached', 'Missing'], array_column($snapshot['expenses'], 'evidence'));
         $this->assertEqualsCanonicalizing([
             ['category' => 'Travel', 'amount_eur' => 100.0],

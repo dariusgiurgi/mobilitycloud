@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\ExpenseReportSnapshot;
 use App\Support\ApplicationTemplates;
 use App\Support\PlanCatalog;
+use App\Support\ProjectOrganisations;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -404,7 +405,7 @@ class SeedE2eQaData extends Command
         $project->mobilities()->updateOrCreate(['name' => 'QA Mobility'], [
             'start_date' => '2026-08-01',
             'end_date' => '2026-08-08',
-            'participating_organisations' => $project->partner_orgs,
+            'participating_organisations' => array_keys(ProjectOrganisations::options($project)),
         ]);
 
         $attendance = $project->documents()->updateOrCreate(
