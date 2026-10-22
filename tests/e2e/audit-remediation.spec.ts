@@ -63,9 +63,16 @@ test.describe('Audit remediation: exports and existing project modules', () => {
     test.setTimeout(90_000);
     await login(page, state.users.owner.email, state.password);
     await page.goto(`/app/projects/${state.projects.documents.id}/finalisation`);
-    await page.getByRole('button', { name: /^Prepare archive$/i }).click();
     const download = page.getByRole('link', { name: /Download ZIP/i });
-    await expect(download).toBeVisible({ timeout: 45_000 });
+    const prepare = async () => {
+      const previous = await download.count() ? await download.getAttribute('href') : null;
+      const queued = page.waitForResponse(response => response.url().endsWith('/livewire/update') && (response.request().postData() || '').includes('requestFinalArchive'));
+      await page.getByRole('button', { name: /^Prepare (archive|fresh archive|again)$/i }).click();
+      await queued;
+      await expect(download).toBeVisible({ timeout: 45_000 });
+      if (previous) await expect(download).not.toHaveAttribute('href', previous);
+    };
+    await prepare();
     const firstUrl = await download.getAttribute('href');
     const archive = await page.request.get(firstUrl!);
     expect(archive.status()).toBe(200);
@@ -89,8 +96,7 @@ test.describe('Audit remediation: exports and existing project modules', () => {
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
-    await page.getByRole('button', { name: /Prepare fresh archive/i }).click();
-    await expect(download).toBeVisible({ timeout: 45_000 });
+    await prepare();
     await expect(download).not.toHaveAttribute('href', firstUrl!);
   });
 });
