@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Project;
+use App\Support\ApplicationExportLayout;
 use App\Support\ApplicationTableDefinitions;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -18,31 +19,35 @@ class ApplicationWordExport
         $word->setDefaultFontName('Calibri');
         $word->setDefaultFontSize(11);
         $word->addTitleStyle(1, ['size' => 22, 'bold' => true, 'color' => '172033']);
-        $word->addTitleStyle(2, ['size' => 16, 'bold' => true, 'color' => '2563EB']);
-        $word->addTitleStyle(3, ['size' => 12, 'bold' => true]);
+        $word->addTitleStyle(2, ['size' => 16, 'bold' => true, 'color' => '2563EB'], ['keepNext' => true, 'spaceBefore' => 200, 'spaceAfter' => 80]);
+        $word->addTitleStyle(3, ['size' => 12, 'bold' => true], ['keepNext' => true, 'spaceBefore' => 160, 'spaceAfter' => 60]);
         $section = $word->addSection(['marginTop' => 1000, 'marginBottom' => 1000]);
         $section->addTitle('Project Application', 1);
         $section->addText($project->name, ['bold' => true]);
         $section->addText('Grant reference: '.($project->grant_ref ?: '—'));
         $section->addText('Generated '.now()->toIso8601String());
         $section->addFooter()->addPreserveText('MobilityCloud · Page {PAGE} of {NUMPAGES}', ['size' => 9, 'color' => '64748B']);
-        $category = null;
         $project->loadMissing(['applicationSections' => fn ($query) => $query->orderBy('sort_order')->orderBy('id')]);
-        foreach ($project->applicationSections as $question) {
-            if ($question->category && $question->category !== $category) {
-                $category = $question->category;
-                $section->addTitle($category, 2);
+        foreach (ApplicationExportLayout::sections($project->applicationSections) as $entry) {
+            $question = $entry['section'];
+            if ($entry['heading'] !== null) {
+                $section->addTitle($entry['heading'], 2);
             }
-            $section->addTitle($question->title, 3);
-            foreach (preg_split('/\R/u', (string) ($question->content ?: '— not answered —')) as $paragraph) {
-                $section->addText($paragraph);
+            if (! $entry['is_heading']) {
+                $section->addTitle($question->title, 3);
+            }
+            $content = trim((string) $question->content);
+            if ($content !== '' || ! $entry['is_heading']) {
+                foreach (preg_split('/\R/u', $content !== '' ? $content : '— not answered —') as $paragraph) {
+                    $section->addText($paragraph);
+                }
             }
             foreach (ApplicationTableDefinitions::forSection($question) as $definition) {
                 $rows = ApplicationTableDefinitions::filledRows($question, $definition['key']);
                 if (! count($rows)) {
                     continue;
                 }
-                $section->addText($definition['label'], ['bold' => true]);
+                $section->addText($definition['label'], ['bold' => true], ['keepNext' => true]);
                 $table = $section->addTable(['borderSize' => 4, 'borderColor' => 'CBD5E1', 'cellMargin' => 80]);
                 $table->addRow(null, ['tblHeader' => true]);
                 foreach ($definition['columns'] as $column) {
