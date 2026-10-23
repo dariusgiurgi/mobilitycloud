@@ -54,8 +54,8 @@ class ParticipantCsvImporter
             throw ValidationException::withMessages(['importFile' => 'The CSV file is empty.']);
         }
 
-        $commaRow = str_getcsv($line, ',');
-        $semicolonRow = str_getcsv($line, ';');
+        $commaRow = str_getcsv($line, ',', '"', '');
+        $semicolonRow = str_getcsv($line, ';', '"', '');
         $delimiter = count($semicolonRow) > count($commaRow) ? ';' : ',';
         $row = $delimiter === ';' ? $semicolonRow : $commaRow;
 
@@ -85,7 +85,7 @@ class ParticipantCsvImporter
         $processedRows = 0;
         $line = 1;
 
-        while (($values = fgetcsv($handle, null, $delimiter)) !== false) {
+        while (($values = fgetcsv($handle, null, $delimiter, '"', '')) !== false) {
             $line++;
             if ($this->isBlankRow($values)) {
                 continue;
