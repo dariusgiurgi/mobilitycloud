@@ -154,3 +154,19 @@ jobs:
             /tmp/http.log
             /tmp/queue.log
           retention-days: 7
+
+  quality:
+    name: PHP tests and quality
+    if: always()
+    needs: [backend, frontend, browser]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every quality check
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          test "$BACKEND_RESULT" = success
+          test "$FRONTEND_RESULT" = success
+          test "$BROWSER_RESULT" = success
