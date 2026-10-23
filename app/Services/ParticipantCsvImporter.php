@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Participant;
 use App\Models\Project;
+use App\Support\CsvExport;
 use DateTimeImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -128,11 +129,11 @@ class ParticipantCsvImporter
     private function validateRow(Project $project, array $row, int $line): array
     {
         $role = $this->roleKey($row['role'] ?? '');
-        $completeName = trim((string) ($row['complete name'] ?? ''));
+        $completeName = $this->nullable($row['complete name'] ?? null) ?? '';
         $organisationNames = collect($project->partners)->pluck('name')->filter()->values()->all();
 
         if ($completeName === '') {
-            $completeName = trim(trim((string) ($row['first name'] ?? '')).' '.trim((string) ($row['last name'] ?? '')));
+            $completeName = trim(($this->nullable($row['first name'] ?? null) ?? '').' '.($this->nullable($row['last name'] ?? null) ?? ''));
         }
 
         [$firstName, $lastName] = Participant::splitCompleteName($completeName);
@@ -251,11 +252,7 @@ class ParticipantCsvImporter
 
     private function nullable(?string $value): ?string
     {
-        $value = trim((string) $value);
-
-        if (preg_match('/^\'[=+\-@]/', $value)) {
-            $value = substr($value, 1);
-        }
+        $value = CsvExport::unescapeText(trim((string) $value));
 
         return $value === '' ? null : $value;
     }

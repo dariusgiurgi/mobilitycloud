@@ -6,6 +6,8 @@ use RuntimeException;
 
 class CsvExport
 {
+    private const FORMULA_PREFIX = '/^[\s\p{Z}\x00-\x20\x{FEFF}]*[=+\-@＝＋－＠\t\r\n]/u';
+
     /** @param resource $stream */
     public static function writeRow($stream, array $values, string $delimiter = ','): void
     {
@@ -22,7 +24,13 @@ class CsvExport
 
         // Only the exported copy changes. Include leading whitespace and locale
         // variants; stored data and JSON remain available in their original form.
-        return preg_match('/^[\s\p{Z}\x00-\x20\x{FEFF}]*[=+\-@＝＋－＠\t\r\n]/u', $text)
+        return preg_match(self::FORMULA_PREFIX, $text)
             ? "'".$text : $text;
+    }
+
+    public static function unescapeText(string $text): string
+    {
+        return str_starts_with($text, "'") && preg_match(self::FORMULA_PREFIX, substr($text, 1))
+            ? substr($text, 1) : $text;
     }
 }
