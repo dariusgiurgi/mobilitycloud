@@ -9,6 +9,16 @@ readonly SHARED=/var/www/mobilitycloud-shared
 exec 9>/var/lock/mobilitycloud-deploy.lock
 flock -n 9 || { echo 'Another deploy is running.'; exit 1; }
 as_deploy() { runuser -u deploy -- "$@"; }
+prepare_runtime_permissions() {
+    install -d -m 2770 -o deploy -g www-data "$SHARED/storage/framework" "$SHARED/storage/logs"
+    chgrp -R www-data "$SHARED/storage/framework" "$SHARED/storage/logs"
+    chmod -R g+rwX "$SHARED/storage/framework" "$SHARED/storage/logs"
+    find "$SHARED/storage/framework" "$SHARED/storage/logs" -type d -exec chmod g+s {} +
+    setfacl -R -m u:deploy:rwX,u:www-data:rwX "$SHARED/storage/framework" "$SHARED/storage/logs"
+    find "$SHARED/storage/framework" "$SHARED/storage/logs" -type d -exec setfacl -m d:u:deploy:rwx,d:u:www-data:rwx {} +
+}
+
+command -v setfacl >/dev/null
 cd "$APP"
 as_deploy git diff --quiet && as_deploy git diff --cached --quiet || { echo 'Tracked production files have local changes.'; exit 1; }
 as_deploy git fetch --prune origin main
@@ -109,12 +119,14 @@ ln -s "$SHARED/.env" "$RELEASE/.env"
 chown -R deploy:www-data "$RELEASE"
 chmod -R g+rX "$RELEASE"
 chmod -R g+w "$RELEASE/bootstrap/cache"
+prepare_runtime_permissions
 cd "$RELEASE"
 if grep -q Pending migration-status.txt; then
     migrations_started=1
     as_deploy php artisan migrate --force --no-interaction
 fi
 as_deploy php artisan optimize --no-interaction
+prepare_runtime_permissions
 activate "$RELEASE"
 switched=1
 systemctl reload php8.3-fpm
@@ -124,6 +136,7 @@ supervisorctl update
 as_deploy php artisan queue:restart --no-interaction
 as_deploy php artisan up --no-interaction
 curl --fail --silent --show-error --retry 3 --retry-delay 2 --resolve mobilitycloud.eu:443:127.0.0.1 https://mobilitycloud.eu/up >/dev/null
+test "$(curl --fail --silent --show-error --retry 3 --retry-delay 2 --output /dev/null --write-out '%{http_code}' --resolve mobilitycloud.eu:443:127.0.0.1 https://mobilitycloud.eu/app/login)" = 200
 supervisorctl start 'mobilitycloud-worker:*' || supervisorctl status 'mobilitycloud-worker:*' | grep -q RUNNING
 supervisorctl start 'mobilitycloud-exports:*' || supervisorctl status 'mobilitycloud-exports:*' | grep -q RUNNING
 finished=1

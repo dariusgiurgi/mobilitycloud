@@ -50,6 +50,7 @@ if name == 'mv':
     sys.exit(0)
 if name == 'composer' and fail == 'build': sys.exit(1)
 if name == 'curl' and fail == 'health': sys.exit(1)
+if name == 'curl' and '--write-out' in args: print('500' if fail == 'login' else '200')
 if name == 'supervisorctl': print('mobilitycloud-worker RUNNING')
 if name == 'php':
     command = args[1]
@@ -80,7 +81,7 @@ class DeploymentTests(unittest.TestCase):
         stub = bin_dir / 'stub'
         stub.write_text(STUB)
         stub.chmod(0o755)
-        for command in ['runuser', 'git', 'install', 'mv', 'composer', 'npm', 'php', 'curl', 'supervisorctl', 'systemctl', 'chown', 'flock']:
+        for command in ['runuser', 'git', 'install', 'mv', 'composer', 'npm', 'php', 'curl', 'supervisorctl', 'systemctl', 'chown', 'chgrp', 'setfacl', 'flock']:
             (bin_dir / command).symlink_to(stub)
         script = (ROOT / 'deploy/production.sh').read_text()
         script = script.replace('/var/www', str(root / 'www')).replace('/var/lock', str(root / 'lock'))
@@ -107,6 +108,12 @@ class DeploymentTests(unittest.TestCase):
         self.assertFalse(app.is_symlink())
         self.assertFalse((app / 'storage/framework/down').exists())
         self.assertNotIn('artisan down', (root / 'commands.log').read_text())
+
+    def test_failed_login_check_restores_old_release(self):
+        app, _, result = self.run_deploy('login')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('legacy-', str(app.resolve()))
+        self.assertFalse((app / 'storage/framework/down').exists())
 
     def test_failed_health_check_restores_old_release(self):
         app, _, result = self.run_deploy('health')

@@ -2,6 +2,8 @@
 
 This release adds no migrations and does not alter the production database schema. An existing migration now names its feedback index explicitly within MariaDB’s 64-character limit, allowing a fresh database to be initialized. Deploy only the revision that passes the Quality gate (PHP 8.3, SQLite, MariaDB, frontend build and browser downloads).
 
+The host must provide `setfacl` (the `acl` package). Shared framework caches and logs receive access and default ACLs for both deploy and www-data; generated files must remain usable by PHP-FPM and workers. Activation checks both `/up` and `/app/login`.
+
 ## Application release
 
 `production.sh` builds Composer and Vite assets in a separate release directory while the current site remains online. It verifies the exact main SHA, takes a database backup, enters maintenance, drains the application workers and switches the application symlink. The previous checkout, including its untracked operational files, is retained. On the first run, `.env` and `storage` move into `/var/www/mobilitycloud-shared`; subsequent releases use those same paths.
@@ -18,7 +20,7 @@ Run the first conversion during a maintenance window: the original directory mus
 2. Install `nginx-performance.conf` outside the document root. Include it **inside the mobilitycloud.eu TLS server block**, replacing the existing `client_max_body_size 16M;` directive (do not leave both). Run `nginx -t` before reloading. The internal archive location must never be a public alias.
 3. Install `php-performance.ini` in both `/etc/php/8.3/fpm/conf.d/` and `/etc/php/8.3/cli/conf.d/`. This permits the existing 50 MiB upload contract and 60 MiB upload batches within a 64 MiB request. Test with `php-fpm8.3 -t` before reloading PHP-FPM.
 4. Add `php-fpm-observability.conf` settings to the existing `www` pool and validate again. Keep the existing `pm.max_children` until process RSS and latency justify a change.
-5. After the Nginx internal location has been tested, set `MOBILITYCLOUD_FINAL_ARCHIVE_ACCELERATED_DOWNLOADS=true` in the shared environment. Until then, downloads use PHP's private binary-file response with range support. Set `MOBILITYCLOUD_PERFORMANCE_LOG=true` to record route-template latency/status/buffered-response size and peak PHP memory. These records omit request bodies, query strings and route token values; log retention is 14 days.
+5. After the Nginx internal location has been tested, set `MOBILITYCLOUD_ARCHIVE_ACCELERATION=true` in the shared environment. Until then, downloads use PHP's private binary-file response with range support. Set `MOBILITYCLOUD_PERFORMANCE_LOG=true` to record route-template latency/status/buffered-response size and peak PHP memory. These records omit request bodies, query strings and route token values; log retention is 14 days.
 6. Rebuild Laravel's configuration cache and restart the queue workers after environment changes.
 
 ## Verification
