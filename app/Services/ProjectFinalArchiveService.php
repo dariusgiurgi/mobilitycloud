@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\BudgetTransfer;
 use App\Models\MobilityFeedbackCampaign;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectFinalArchive;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -18,9 +18,12 @@ class ProjectFinalArchiveService
     /** @var array<int, string> */
     private array $temporaryFiles = [];
 
+    private int $inputBytes = 0;
+
     public function create(Project $project, ?array $selection = null): string
     {
         $this->temporaryFiles = [];
+        $this->inputBytes = 0;
         $included = $this->selectedCategories($project, $selection);
         $documentCategoriesSelected = collect([
             'generated_records',
@@ -29,41 +32,10 @@ class ProjectFinalArchiveService
             'dissemination',
         ])->contains(fn (string $category): bool => $included[$category]);
 
-        $relations = [
-            'ownerAccount:id,name,email,billing_name,billing_vat,billing_country,billing_address',
-            'members:id,name,email',
-        ];
+        $snapshot = app(ProjectArchiveSnapshot::class)->capture($project, $included);
+        $project = $snapshot['project'];
 
-        if ($included['application']) {
-            $relations['applicationSections'] = fn ($query) => $query->orderBy('sort_order')->orderBy('id');
-        }
-
-        if ($included['budget'] || $included['agreements']) {
-            $relations['budgetLines'] = fn ($query) => $query->orderBy('sort_order')->orderBy('id');
-            $relations['budgetLines.expenses'] = fn ($query) => $query->withTrashed()->orderBy('expense_date')->orderBy('id');
-        }
-
-        if ($included['participants']) {
-            $relations['participants'] = fn ($query) => $query->orderBy('complete_name')->orderBy('last_name');
-            $relations[] = 'participants.attachments';
-        }
-
-        if ($documentCategoriesSelected) {
-            $relations['documents'] = fn ($query) => $query
-                ->orderBy('category')
-                ->orderByRaw('document_date is null')
-                ->orderBy('document_date')
-                ->orderBy('title')
-                ->orderBy('id');
-        }
-
-        if ($included['project_data']) {
-            $relations['tasks'] = fn ($query) => $query->orderByRaw('due_date is null')->orderBy('due_date')->orderBy('priority')->orderBy('title');
-        }
-
-        $project->loadMissing($relations);
-
-        $path = tempnam(sys_get_temp_dir(), 'mobilitycloud-project-archive-');
+        $path = tempnam($this->workDirectory(), 'mobilitycloud-project-archive-');
         if ($path === false) {
             throw new RuntimeException('Could not create the final archive file.');
         }
@@ -86,18 +58,12 @@ class ProjectFinalArchiveService
                     ->filter(fn (ProjectDocument $document): bool => $this->shouldIncludeDocument($document, $included))
                     ->values()
                 : collect();
-            $feedbackCampaigns = $included['feedback']
-                ? MobilityFeedbackCampaign::query()
-                    ->with(['mobility', 'responses' => fn ($query) => $query->latest('submitted_at')])
-                    ->whereHas('mobility', fn ($query) => $query->where('project_id', $project->id))
-                    ->orderBy('project_mobility_id')
-                    ->orderBy('id')
-                    ->get()
-                : collect();
+            $feedbackCampaigns = $snapshot['campaigns'];
 
             $payload = [
                 'exported_at' => now()->toIso8601String(),
-                'format_version' => 2,
+                'format_version' => 3,
+                'snapshot_at' => $snapshot['captured_at'],
                 'project' => [
                     'id' => $project->id,
                     'name' => $project->name,
@@ -109,6 +75,9 @@ class ProjectFinalArchiveService
                     'end_date' => $project->end_date?->toDateString(),
                     'approved_grant_amount' => $project->approved_grant_amount,
                     'approved_grant_currency' => $project->approved_grant_currency,
+                    'description' => $included['project_data'] ? $project->description : null,
+                    'partner_orgs' => $included['project_data'] ? $project->partner_orgs : [],
+                    'notes' => $included['project_data'] ? $project->notes : null,
                 ],
                 'included_sections' => $included,
                 'owner' => $project->owner()?->only(['id', 'name', 'email', 'billing_name', 'billing_vat', 'billing_country', 'billing_address']),
@@ -117,16 +86,26 @@ class ProjectFinalArchiveService
                     'name' => $user->name,
                     'email' => $user->email,
                 ])->values()->all(),
+                'application_flows' => $included['application'] ? data_get($project->action_data, 'application_flows', []) : [],
+                'mobilities' => ($included['mobility'] || $included['dissemination'] || $included['participants'] || $included['feedback'])
+                    ? $project->mobilities->map(fn ($mobility): array => [
+                        ...$mobility->only(['id', 'name', 'start_date', 'end_date', 'destination_country', 'host_organisation', 'participating_organisations']),
+                        'workspace_data' => array_intersect_key($mobility->workspace_data ?? [], array_flip(array_merge(
+                            $included['mobility'] ? ['report', 'photo_folder_url', 'photo_folder_links', 'final_video_url', 'evidence_days'] : [],
+                            $included['dissemination'] ? ['dissemination_reports'] : [],
+                        ))),
+                    ])->all() : [],
                 'application_sections' => $included['application'] ? $project->applicationSections->toArray() : [],
                 'budget_lines' => $included['budget'] ? $project->budgetLines->map(fn ($line): array => [
                     ...$line->attributesToArray(),
                     'expenses' => $line->expenses->map->attributesToArray()->all(),
                 ])->values()->all() : [],
-                'budget_transfers' => $included['budget']
-                    ? BudgetTransfer::query()->where('project_id', $project->id)->orderBy('created_at')->orderBy('id')->get()->toArray()
-                    : [],
+                'budget_transfers' => $snapshot['transfers'],
                 'participants' => $included['participants'] ? $project->participants->map(fn ($participant): array => [
                     ...$participant->attributesToArray(),
+                    'mobilities' => $participant->mobilities->map(fn ($mobility): array => [
+                        'id' => $mobility->id, 'role' => $mobility->pivot->role, 'status' => $mobility->pivot->status,
+                    ])->all(),
                     'attachments' => $participant->attachments->sortBy('type')->values()->map->attributesToArray()->all(),
                 ])->values()->all() : [],
                 'documents' => $documents->map->attributesToArray()->all(),
@@ -135,7 +114,7 @@ class ProjectFinalArchiveService
                 'activity_log_export' => $included['project_data'] ? [
                     'format' => 'csv',
                     'path' => $activityArchivePath,
-                    'records' => $project->activityLogs()->count(),
+                    'records' => $project->activityLogs()->where('id', '<=', $snapshot['activity_max_id'])->count(),
                 ] : null,
                 'feedback_campaigns' => $feedbackCampaigns->map(fn (MobilityFeedbackCampaign $campaign): array => [
                     'title' => $campaign->title,
@@ -166,6 +145,10 @@ class ProjectFinalArchiveService
             if ($included['budget'] || $included['agreements']) {
                 foreach ($project->budgetLines as $line) {
                     foreach ($line->expenses as $expense) {
+                        // Deleted expenses remain in the data history; their files may have been deliberately purged.
+                        if ($expense->trashed()) {
+                            continue;
+                        }
                         if ($included['budget']) {
                             $this->addStoredFile(
                                 $zip,
@@ -205,6 +188,12 @@ class ProjectFinalArchiveService
             foreach ($documents as $document) {
                 $folder = $this->documentFolder($document);
                 $base = $projectDir.'/'.$folder.'/'.$document->id.'-'.$this->safeName($document->title);
+
+                if (in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)) {
+                    $this->addGeneratedFile($zip, $fileIndex, $base.'/generated.pdf',
+                        app(ProjectDocumentRenderer::class)->render($project, $document)->output(),
+                        'project_document', $document->id);
+                }
 
                 $this->addStoredFile(
                     $zip,
@@ -261,15 +250,27 @@ class ProjectFinalArchiveService
             }
 
             if ($included['project_data']) {
-                $this->addActivityLog($zip, $fileIndex, $project, $activityArchivePath);
+                $this->addActivityLog($zip, $fileIndex, $project, $activityArchivePath, $snapshot['activity_max_id']);
             }
 
+            if ($included['project_files']) {
+                $this->addStoredFile($zip, $fileIndex, 'project', $project->id, 'grant_approval',
+                    $project->approved_grant_proof_disk, $project->approved_grant_proof_path,
+                    $projectDir.'/09-project-documents/grant-approval/'.$this->safeFilename($project->approved_grant_proof_original_name),
+                    $project->approved_grant_proof_original_name);
+            }
+            app(ProjectArchiveReports::class)->add($project, $included,
+                fn (string $name, string $contents) => $this->addGeneratedFile($zip, $fileIndex, $projectDir.'/'.$name, $contents, 'project', $project->id));
             $payload['file_index'] = $fileIndex;
-            $zip->addFromString($projectDir.'/00-project-data/project-data.json', json_encode(
+            $this->addGeneratedFile($zip, $fileIndex, $projectDir.'/INDEX.html',
+                view('exports.archive-index', ['payload' => $payload])->render(), 'project', $project->id);
+            if (! $zip->addFromString($projectDir.'/00-project-data/project-data.json', json_encode(
                 $payload,
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
-            ));
-            $zip->addFromString($projectDir.'/README.txt', "MobilityCloud final project archive\n\nThis archive includes only the categories selected in Finalisation. The project-data.json file contains the structured records and file index. When Project data & activity is selected, the complete activity history is stored separately as activity-log.csv so large histories can be exported safely.\n");
+            ))) {
+                throw new RuntimeException('Could not write archive metadata.');
+            }
+            $zip->addFromString($projectDir.'/README.txt', "MobilityCloud final project archive\n\nOpen INDEX.html for the readable project summary and document index. This archive includes only the categories selected in Finalisation. The project-data.json file contains the structured records and file index. When Project data & activity is selected, the complete activity history is stored separately as activity-log.csv so large histories can be exported safely.\n");
 
             if (! $zip->close()) {
                 throw new RuntimeException('Could not finish the final archive.');
@@ -373,9 +374,15 @@ class ProjectFinalArchiveService
 
         $storage = Storage::disk($disk ?: 'local');
         if (! $storage->exists($path)) {
-            return;
+            throw new RuntimeException('A referenced archive file is missing: '.$entity.' #'.$recordId.' ('.$slot.'). Restore or remove the broken reference and prepare again.');
         }
 
+        $size = $storage->size($path);
+        $free = disk_free_space($this->workDirectory());
+        if ($free !== false && $free < $this->inputBytes + ($size * 2) + 104857600) {
+            throw new RuntimeException('Insufficient temporary disk space to safely prepare the archive.');
+        }
+        $this->inputBytes += $size;
         $stream = $storage->readStream($path);
         if (! is_resource($stream)) {
             throw new RuntimeException('Could not read a file selected for the final archive.');
@@ -390,7 +397,7 @@ class ProjectFinalArchiveService
         }
 
         try {
-            if (stream_copy_to_stream($stream, $output) === false) {
+            if (stream_copy_to_stream($stream, $output) !== $size) {
                 throw new RuntimeException('Could not stream a file into the final archive.');
             }
         } finally {
@@ -413,7 +420,7 @@ class ProjectFinalArchiveService
         ];
     }
 
-    private function addActivityLog(ZipArchive $zip, array &$fileIndex, Project $project, string $archivePath): void
+    private function addActivityLog(ZipArchive $zip, array &$fileIndex, Project $project, string $archivePath, int $maximumId): void
     {
         $temporaryFile = $this->temporaryFile('mobilitycloud-activity-log-');
         $output = fopen($temporaryFile, 'w+b');
@@ -428,6 +435,7 @@ class ProjectFinalArchiveService
             ], ';');
 
             $project->activityLogs()
+                ->where('id', '<=', $maximumId)
                 ->orderBy('id')
                 ->chunkById(500, function ($entries) use ($output): void {
                     foreach ($entries as $entry) {
@@ -461,9 +469,20 @@ class ProjectFinalArchiveService
         ];
     }
 
+    private function addGeneratedFile(ZipArchive $zip, array &$index, string $path, string $contents, string $entity, int $recordId): void
+    {
+        $temporary = $this->temporaryFile('mobilitycloud-archive-report-');
+        if (file_put_contents($temporary, $contents) === false || ! $zip->addFile($temporary, $path)) {
+            throw new RuntimeException('Could not add a generated archive document.');
+        }
+        $index[] = ['entity' => $entity, 'record_id' => $recordId, 'slot' => 'generated',
+            'archive_path' => $path, 'original_name' => basename($path),
+            'size' => strlen($contents), 'sha256' => hash('sha256', $contents)];
+    }
+
     private function temporaryFile(string $prefix): string
     {
-        $temporaryFile = tempnam(sys_get_temp_dir(), $prefix);
+        $temporaryFile = tempnam($this->workDirectory(), $prefix);
         if ($temporaryFile === false) {
             throw new RuntimeException('Could not prepare a temporary file for the final archive.');
         }
@@ -471,6 +490,14 @@ class ProjectFinalArchiveService
         $this->temporaryFiles[] = $temporaryFile;
 
         return $temporaryFile;
+    }
+
+    private function workDirectory(): string
+    {
+        $directory = storage_path('app/private/final-archive-work');
+        File::ensureDirectoryExists($directory, 0700);
+
+        return $directory;
     }
 
     private function safeName(?string $value): string

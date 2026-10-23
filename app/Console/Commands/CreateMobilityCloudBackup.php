@@ -134,6 +134,8 @@ class CreateMobilityCloudBackup extends Command
 
         $process = new Process([
             'tar',
+            '--exclude=app/private/final-archives',
+            '--exclude=app/private/final-archive-work',
             '-czf',
             $targetFile,
             '-C',

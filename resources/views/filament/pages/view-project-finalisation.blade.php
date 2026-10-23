@@ -83,7 +83,7 @@
         @media (max-width:520px) { .mc-final-summary { width:100%; }.mc-final-stat { flex:1; }.mc-final-row { grid-template-columns:22px minmax(0,1fr); }.mc-final-count { grid-column:2; }.mc-final-preflight-head { display:block; }.mc-final-preflight-note { text-align:left;margin-top:.35rem;max-width:none; } }
     </style>
 
-    <section class="mc-final-hero" @if ($archiveInProgress) wire:poll.4s @endif>
+    <section class="mc-final-hero" @if ($archiveInProgress) wire:poll.4s="pollArchive" @endif>
         <div class="mc-final-hero-main">
             <div>
                 <div class="mc-final-eyebrow">Finalisation</div>
@@ -92,12 +92,13 @@
             </div>
             <div class="mc-final-summary">
                 <div class="mc-final-stat"><strong>{{ $selected }}/{{ $totalCategories }}</strong><span>categories</span></div>
-                <div class="mc-final-stat"><strong>{{ $selectedRecords }}</strong><span>records included</span></div>
+                <div class="mc-final-stat"><strong>{{ $selectedRecords }}</strong><span>source records selected</span></div>
                 @if ($exportsLocked)
                     <x-filament::badge color="warning" icon="heroicon-m-lock-closed">Export locked</x-filament::badge>
                 @elseif ($selected)
                     @if ($archiveReady)
                         <x-filament::button tag="a" :href="route('projects.final-archive', [$record, $archive])" icon="heroicon-m-arrow-down-tray">Download ZIP</x-filament::button>
+                        @if($canConfigure)<x-filament::button wire:click="requestFinalArchive" color="gray" wire:loading.attr="disabled">Prepare fresh archive</x-filament::button>@endif
                     @elseif ($archiveInProgress)
                         <x-filament::button disabled icon="heroicon-m-arrow-path">Preparing ZIP…</x-filament::button>
                     @elseif ($canConfigure)
@@ -105,11 +106,11 @@
                     @endif
                 @endif
                 @if ($archiveReady)
-                    <div class="mc-final-archive-state"><strong>Ready now</strong> · {{ $archiveSize }} · expires {{ $archive->expires_at->diffForHumans() }}</div>
+                    <div class="mc-final-archive-state"><strong>Snapshot {{ $archive->started_at?->format('d M Y H:i') }}</strong> · {{ $archiveSize }} · expires {{ $archive->expires_at->diffForHumans() }}</div>
                 @elseif ($archiveInProgress)
                     <div class="mc-final-archive-state"><strong>{{ $archive->status === \App\Models\ProjectFinalArchive::STATUS_QUEUED ? 'Waiting in queue' : 'Building securely' }}</strong><br>You can leave this page and return later.</div>
                 @elseif ($archiveFailed)
-                    <div class="mc-final-archive-state"><strong>Preparation did not finish.</strong><br>No project data was changed. You can try again.</div>
+                    <div class="mc-final-archive-state"><strong>Preparation did not finish.</strong><br>{{ $archive->failure_message ?: 'No project data was changed. You can try again.' }}</div>
                 @elseif ($archive?->hasExpired())
                     <div class="mc-final-archive-state"><strong>The temporary ZIP was removed.</strong><br>Prepare a fresh copy when you need it.</div>
                 @endif
@@ -136,7 +137,7 @@
         <x-filament::icon icon="heroicon-o-shield-exclamation" style="width:1.08rem;height:1.08rem;color:#dc2626;flex:none;margin-top:.05rem;" />
         <div>
             <strong class="text-gray-950 dark:text-white" style="font-size:.75rem;">This ZIP may contain sensitive project data</strong>
-            <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;line-height:1.45;margin:.12rem 0 0;">Depending on your selection, it can include participant contact or medical details, financial evidence and signed documents. The ZIP is not password-protected: download it only to a trusted device and share it through a secure channel. The temporary platform copy is removed automatically after 24 hours.</p>
+            <p class="text-gray-500 dark:text-gray-400" style="font-size:.68rem;line-height:1.45;margin:.12rem 0 0;">Depending on your selection, it can include participant contact or medical details, financial evidence and signed documents. The ZIP is not password-protected: download it only to a trusted device and share it through a secure channel. The download expires after 24 hours. Expired temporary copies are removed during the next hourly cleanup; backup retention is separate.</p>
         </div>
     </div>
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Expense;
 use App\Models\Project;
 use App\Models\ProjectDocument;
+use App\Services\ProjectDocumentRenderer;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,23 +20,10 @@ class ProjectDocumentController extends Controller
             return $response;
         }
 
-        $participants = $project->participants()
-            ->orderBy('complete_name')
-            ->orderBy('last_name')
-            ->get();
-
-        $groups = $participants
-            ->groupBy(fn ($participant) => trim((string) $participant->partner_organisation) ?: 'Unassigned')
-            ->sortKeys(SORT_NATURAL | SORT_FLAG_CASE);
-
         $filename = 'attendance_'.Str::slug($project->acronym ?: $project->name)
             .'_'.$document->activity_date?->format('Y-m-d').'.pdf';
 
-        return Pdf::loadView('pdf.attendance-list', [
-            'project' => $project,
-            'document' => $document,
-            'groups' => $groups,
-        ])->setPaper('a4', 'landscape')->download($filename);
+        return app(ProjectDocumentRenderer::class)->render($project, $document)->download($filename);
     }
 
     public function signed(Project $project, ProjectDocument $document)
@@ -63,11 +51,7 @@ class ProjectDocumentController extends Controller
         $filename = 'expense-report-'.Str::slug($project->acronym ?: $project->name)
             .'-'.$document->document_date?->format('Y-m-d').'.pdf';
 
-        return Pdf::loadView('pdf.expense-report', [
-            'project' => $project->load('ownerAccount'),
-            'document' => $document,
-            'report' => $document->metadata ?? [],
-        ])->setPaper('a4', 'landscape')->download($filename);
+        return app(ProjectDocumentRenderer::class)->render($project, $document)->download($filename);
     }
 
     public function file(Project $project, ProjectDocument $document)

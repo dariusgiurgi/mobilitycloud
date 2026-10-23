@@ -94,7 +94,9 @@ class ProjectFinalArchive extends Model
     public function deleteStoredFile(): void
     {
         if (filled($this->path)) {
-            Storage::disk($this->disk ?: 'local')->delete($this->path);
+            if (! Storage::disk($this->disk ?: 'local')->delete($this->path)) {
+                throw new \RuntimeException('Could not delete the stored final archive. Cleanup will be retried.');
+            }
         }
     }
 

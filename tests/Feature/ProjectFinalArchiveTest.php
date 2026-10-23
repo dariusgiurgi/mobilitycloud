@@ -59,7 +59,7 @@ class ProjectFinalArchiveTest extends TestCase
         $this->assertNotFalse($zip->locateName('youth-exchange/00-project-data/activity-log.csv'));
         $this->assertFalse($zip->locateName('youth-exchange/04-budget-expenses'));
         $payload = json_decode($zip->getFromName('youth-exchange/00-project-data/project-data.json'), true, flags: JSON_THROW_ON_ERROR);
-        $this->assertSame(2, $payload['format_version']);
+        $this->assertSame(3, $payload['format_version']);
         $this->assertTrue($payload['included_sections']['project_files']);
         $this->assertFalse($payload['included_sections']['budget']);
         $this->assertSame('csv', $payload['activity_log_export']['format']);

@@ -216,7 +216,7 @@
                                 <div style="margin-top:.65rem;padding:.7rem;border:1px dashed rgba(99,102,241,.35);border-radius:.75rem;background:rgba(99,102,241,.045);display:grid;gap:.55rem;">
                                     <input type="text" wire:model="disseminationUploadTitle" aria-label="Dissemination evidence title" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;">
                                     <input type="date" wire:model="disseminationUploadDate" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;">
-                                    <input type="file" wire:model="disseminationUploads" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" aria-label="Upload dissemination evidence" style="font-size:.76rem;">
+                                    <x-upload-batch><input type="file" wire:model="disseminationUploads" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" aria-label="Upload dissemination evidence" style="font-size:.76rem;"></x-upload-batch>
                                     @error('disseminationUploads') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
                                     @error('disseminationUploads.*') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
                                     <x-filament::button wire:click="uploadDisseminationEvidence('{{ $organisation['key'] }}')" wire:loading.attr="disabled" wire:target="uploadDisseminationEvidence,disseminationUploads" size="sm" icon="heroicon-m-arrow-up-tray">
@@ -454,7 +454,7 @@
                                                 <strong style="font-size:.78rem;">Upload images for {{ $day['title'] }}</strong>
                                                 <input type="text" wire:model="evidenceImageTitle" aria-label="Evidence image title" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;">
                                                 <textarea rows="2" wire:model="evidenceUploadNotes" placeholder="Short note for this batch of images." style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;resize:vertical;"></textarea>
-                                                <input type="file" wire:model="evidenceImageUploads" multiple accept=".jpg,.jpeg,.png,.webp" aria-label="Upload evidence images" style="font-size:.76rem;">
+                                                <x-upload-batch><input type="file" wire:model="evidenceImageUploads" multiple accept=".jpg,.jpeg,.png,.webp" aria-label="Upload evidence images" style="font-size:.76rem;"></x-upload-batch>
                                                 @error('evidenceImageUploads') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
                                                 @error('evidenceImageUploads.*') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
                                                 <x-filament::button wire:click="uploadEvidenceImages('{{ $day['id'] }}')" wire:loading.attr="disabled" wire:target="uploadEvidenceImages,evidenceImageUploads" size="sm" icon="heroicon-m-arrow-up-tray">
@@ -468,7 +468,7 @@
                                                 <strong style="font-size:.78rem;">Upload files for {{ $day['title'] }}</strong>
                                                 <input type="text" wire:model="evidenceFileTitle" aria-label="Evidence file title" style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;">
                                                 <textarea rows="2" wire:model="evidenceUploadNotes" placeholder="What are these files? Participant outputs, presentations, worksheets..." style="width:100%;padding:.58rem .68rem;border:1px solid rgba(100,116,139,.25);border-radius:.6rem;background:transparent;resize:vertical;"></textarea>
-                                                <input type="file" wire:model="evidenceFileUploads" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" aria-label="Upload evidence files" style="font-size:.76rem;">
+                                                <x-upload-batch><input type="file" wire:model="evidenceFileUploads" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip" aria-label="Upload evidence files" style="font-size:.76rem;"></x-upload-batch>
                                                 @error('evidenceFileUploads') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
                                                 @error('evidenceFileUploads.*') <span style="display:block;color:#dc2626;font-size:11px;">{{ $message }}</span> @enderror
                                                 <x-filament::button wire:click="uploadEvidenceFiles('{{ $day['id'] }}')" wire:loading.attr="disabled" wire:target="uploadEvidenceFiles,evidenceFileUploads" size="sm" icon="heroicon-m-arrow-up-tray">

@@ -28,6 +28,7 @@ type QaInvitation = {
 export type QaState = {
   base_url: string;
   password: string;
+  adminAuthenticatorSecret: string;
   users: {
     owner: QaUser;
     editor: QaUser;

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateDemoVisitor;
+use App\Http\Middleware\RecordRequestPerformance;
 use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         Authenticate::redirectUsing(fn (): string => '/app/login');
         $middleware->prepend(AuthenticateDemoVisitor::class);
+        $middleware->append(RecordRequestPerformance::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

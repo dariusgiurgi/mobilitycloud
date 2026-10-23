@@ -12,7 +12,8 @@
         "filament/filament": "^4.0",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
-        "league/flysystem-aws-s3-v3": "^3.25"
+        "league/flysystem-aws-s3-v3": "^3.25",
+        "phpoffice/phpword": "^1.4"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -88,17 +89,6 @@
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true
-        },
-        "audit": {
-            "abandoned": "ignore"
-        },
-        "policy": {
-            "advisories": {
-                "ignore": [
-                    "filament/actions filament/infolists filament/forms filament/tables filament/notifications filament/support filament/widgets"
-                ],
-                "block": false
-            }
         }
     },
     "minimum-stability": "stable",

@@ -14,6 +14,12 @@ class PurgeExpiredProjectFinalArchives extends Command
 
     public function handle(): int
     {
+        $directory = storage_path('app/private/final-archive-work');
+        foreach (glob($directory.'/mobilitycloud-*') ?: [] as $temporaryFile) {
+            if (is_file($temporaryFile) && filemtime($temporaryFile) < now()->subHours(3)->getTimestamp()) {
+                @unlink($temporaryFile);
+            }
+        }
         $expiredCount = 0;
         ProjectFinalArchive::query()
             ->where('status', ProjectFinalArchive::STATUS_READY)

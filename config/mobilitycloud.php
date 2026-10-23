@@ -114,7 +114,11 @@ return [
     |
     */
 
+    'performance' => ['enabled' => (bool) env('MOBILITYCLOUD_PERFORMANCE_LOG', false)],
+
     'final_archives' => [
+        'accelerated_downloads' => (bool) env('MOBILITYCLOUD_ARCHIVE_ACCELERATION', false),
+        'queue' => env('MOBILITYCLOUD_FINAL_ARCHIVE_QUEUE', 'exports'),
         'disk' => env('MOBILITYCLOUD_FINAL_ARCHIVE_DISK', 'local'),
         'retention_hours' => (int) env('MOBILITYCLOUD_FINAL_ARCHIVE_RETENTION_HOURS', 24),
     ],

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Projects\Pages;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Models\ProjectDocument;
 use App\Models\ProjectMobility;
+use App\Rules\MaxUploadBatchSize;
 use App\Services\StoredFileReplacementService;
 use App\Support\AuthorizesProjectManagement;
 use App\Support\ProjectOrganisations;
@@ -449,7 +450,7 @@ class ViewProjectMobility extends Page
             'photoEvidenceTitle' => ['required', 'string', 'max:255'],
             'photoEvidenceDate' => ['nullable', 'date'],
             'photoEvidenceNotes' => ['nullable', 'string', 'max:3000'],
-            'photoUploads' => ['required', 'array', 'max:20'],
+            'photoUploads' => ['required', 'array', 'max:20', new MaxUploadBatchSize],
             'photoUploads.*' => ['file', 'max:8192', 'mimes:jpg,jpeg,png,webp'],
         ]);
 
@@ -710,7 +711,7 @@ class ViewProjectMobility extends Page
         $this->validate([
             'evidenceImageTitle' => ['required', 'string', 'max:255'],
             'evidenceUploadNotes' => ['nullable', 'string', 'max:3000'],
-            'evidenceImageUploads' => ['required', 'array', 'max:20'],
+            'evidenceImageUploads' => ['required', 'array', 'max:20', new MaxUploadBatchSize],
             'evidenceImageUploads.*' => ['file', 'max:8192', 'mimes:jpg,jpeg,png,webp'],
         ]);
 
@@ -741,7 +742,7 @@ class ViewProjectMobility extends Page
         $this->validate([
             'evidenceFileTitle' => ['required', 'string', 'max:255'],
             'evidenceUploadNotes' => ['nullable', 'string', 'max:3000'],
-            'evidenceFileUploads' => ['required', 'array', 'max:20'],
+            'evidenceFileUploads' => ['required', 'array', 'max:20', new MaxUploadBatchSize],
             'evidenceFileUploads.*' => ['file', 'max:51200', 'mimes:pdf,jpg,jpeg,png,gif,webp,doc,docx,xls,xlsx,ppt,pptx,zip'],
         ]);
 
@@ -880,7 +881,7 @@ class ViewProjectMobility extends Page
         $this->validate([
             'disseminationUploadTitle' => ['required', 'string', 'max:255'],
             'disseminationUploadDate' => ['nullable', 'date'],
-            'disseminationUploads' => ['required', 'array', 'max:12'],
+            'disseminationUploads' => ['required', 'array', 'max:12', new MaxUploadBatchSize],
             'disseminationUploads.*' => ['file', 'max:12288', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx'],
         ]);
 

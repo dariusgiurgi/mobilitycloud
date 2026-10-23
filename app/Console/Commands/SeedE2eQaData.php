@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Services\ExpenseReportSnapshot;
 use App\Support\ApplicationTemplates;
 use App\Support\PlanCatalog;
+use App\Support\ProjectOrganisations;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +61,9 @@ class SeedE2eQaData extends Command
         $free = $this->upsertUser(self::FREE_EMAIL, 'QA Bot Free Account', 'free', User::ROLE_USER, $password);
         $admin = $this->upsertUser(self::ADMIN_EMAIL, 'QA Bot Platform Owner', 'demo', User::ROLE_PLATFORM_OWNER, $password);
 
+        $authenticator = AppAuthentication::make();
+        $authenticator->saveSecret($admin, $authenticator->generateSecret());
+
         $ownedProject = $this->upsertProject($owner, 'QA Bot Owned Project', 'QA-OWN');
         $lifecycleProject = $this->upsertProject($owner, 'QA Bot Lifecycle Project', 'QA-LIFE');
         $archivedProject = $this->upsertProject($owner, 'QA Bot Archived Project', 'QA-ARCHIVE');
@@ -87,6 +92,7 @@ class SeedE2eQaData extends Command
         $state = [
             'base_url' => config('app.url'),
             'password' => $password,
+            'adminAuthenticatorSecret' => $admin->getAppAuthenticationSecret(),
             'users' => [
                 'owner' => ['email' => self::OWNER_EMAIL, 'name' => $owner->name],
                 'editor' => ['email' => self::EDITOR_EMAIL, 'name' => $editor->name],
@@ -198,8 +204,10 @@ class SeedE2eQaData extends Command
                 'plan' => $defaults['plan'],
                 'subscription_status' => $defaults['subscription_status'],
                 'feature_flags' => $defaults['feature_flags'],
-                'plan_limits' => $defaults['plan_limits'],
-                'email_verified_at' => now(),
+                'plan_limits' => $email === self::FREE_EMAIL ? [...$defaults['plan_limits'], 'projects' => 1] : $defaults['plan_limits'],
+                'billing_name' => 'QA Training Association',
+                'billing_country' => 'Romania',
+                'billing_address' => '1 Synthetic Test Street, Test City',
                 'is_suspended' => false,
                 'suspended_at' => null,
                 'suspended_by' => null,
@@ -208,6 +216,9 @@ class SeedE2eQaData extends Command
                 'deleted_at' => null,
             ],
         );
+
+        // Verification is deliberately guarded against normal mass assignment.
+        $user->forceFill(['email_verified_at' => now(), 'deleted_at' => null])->save();
 
         return $user;
     }
@@ -390,6 +401,12 @@ class SeedE2eQaData extends Command
 
         $this->seedParticipants($project);
         $this->seedBudgetBoard($project, $owner);
+
+        $project->mobilities()->updateOrCreate(['name' => 'QA Mobility'], [
+            'start_date' => '2026-08-01',
+            'end_date' => '2026-08-08',
+            'participating_organisations' => array_keys(ProjectOrganisations::options($project)),
+        ]);
 
         $attendance = $project->documents()->updateOrCreate(
             [
