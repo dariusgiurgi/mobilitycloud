@@ -6,6 +6,7 @@ use App\Models\MobilityFeedbackCampaign;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectFinalArchive;
+use App\Support\ArchivePerformance;
 use App\Support\CsvExport;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -21,8 +22,11 @@ class ProjectFinalArchiveService
 
     private int $inputBytes = 0;
 
-    public function create(Project $project, ?array $selection = null): string
+    private ArchivePerformance $performance;
+
+    public function create(Project $project, ?array $selection = null, ?ArchivePerformance $performance = null): string
     {
+        $this->performance = $performance ?? new ArchivePerformance;
         $this->temporaryFiles = [];
         $this->inputBytes = 0;
         $included = $this->selectedCategories($project, $selection);
@@ -33,7 +37,7 @@ class ProjectFinalArchiveService
             'dissemination',
         ])->contains(fn (string $category): bool => $included[$category]);
 
-        $snapshot = app(ProjectArchiveSnapshot::class)->capture($project, $included);
+        $snapshot = $this->performance->measure('snapshot', fn () => app(ProjectArchiveSnapshot::class)->capture($project, $included));
         $project = $snapshot['project'];
 
         $path = tempnam($this->workDirectory(), 'mobilitycloud-project-archive-');
@@ -61,7 +65,7 @@ class ProjectFinalArchiveService
                 : collect();
             $feedbackCampaigns = $snapshot['campaigns'];
 
-            $payload = [
+            $payload = $this->performance->measure('serialize', fn () => [
                 'exported_at' => now()->toIso8601String(),
                 'format_version' => 3,
                 'snapshot_at' => $snapshot['captured_at'],
@@ -123,7 +127,7 @@ class ProjectFinalArchiveService
                     'responses' => $campaign->responses->count(),
                     'link_status' => $campaign->hasActiveLink() ? 'open' : 'closed',
                 ])->values()->all(),
-            ];
+            ]);
 
             if ($included['participants']) {
                 foreach ($project->participants as $participant) {
@@ -192,7 +196,7 @@ class ProjectFinalArchiveService
 
                 if (in_array($document->type, [ProjectDocument::TYPE_ATTENDANCE, ProjectDocument::TYPE_EXPENSE_REPORT], true)) {
                     $this->addGeneratedFile($zip, $fileIndex, $base.'/generated.pdf',
-                        app(ProjectDocumentRenderer::class)->render($project, $document)->output(),
+                        $this->performance->measure('pdf', fn () => app(ProjectDocumentRenderer::class)->render($project, $document)->output()),
                         'project_document', $document->id);
                 }
 
@@ -229,24 +233,9 @@ class ProjectFinalArchiveService
                     $archivePath = $projectDir.'/10-participant-feedback/'
                         .$this->safeName($campaign->mobility?->name).'-'.$campaign->id.'/'
                         .$filename;
-                    $contents = $reports->output($campaign);
-                    $temporaryReport = $this->temporaryFile('mobilitycloud-feedback-report-');
-
-                    if (file_put_contents($temporaryReport, $contents) === false
-                        || ! $zip->addFile($temporaryReport, $archivePath)) {
-                        throw new RuntimeException('Could not add a feedback report to the final archive.');
-                    }
-
-                    unset($contents);
-                    $fileIndex[] = [
-                        'entity' => 'mobility_feedback_campaign',
-                        'record_id' => $campaign->id,
-                        'slot' => 'anonymous_feedback_pdf',
-                        'archive_path' => $archivePath,
-                        'original_name' => $filename,
-                        'size' => filesize($temporaryReport) ?: 0,
-                        'sha256' => hash_file('sha256', $temporaryReport),
-                    ];
+                    $this->addGeneratedFile($zip, $fileIndex, $archivePath,
+                        $this->performance->measure('pdf', fn () => $reports->output($campaign)),
+                        'mobility_feedback_campaign', $campaign->id, 'anonymous_feedback_pdf');
                 }
             }
 
@@ -261,21 +250,26 @@ class ProjectFinalArchiveService
                     $project->approved_grant_proof_original_name);
             }
             app(ProjectArchiveReports::class)->add($project, $included,
-                fn (string $name, string $contents) => $this->addGeneratedFile($zip, $fileIndex, $projectDir.'/'.$name, $contents, 'project', $project->id));
+                function (string $name, string $contents) use ($zip, &$fileIndex, $projectDir, $project): void {
+                    $this->addGeneratedFile($zip, $fileIndex, $projectDir.'/'.$name, $contents, 'project', $project->id);
+                }, $this->performance);
             $payload['file_index'] = $fileIndex;
             $this->addGeneratedFile($zip, $fileIndex, $projectDir.'/INDEX.html',
-                view('exports.archive-index', ['payload' => $payload])->render(), 'project', $project->id);
-            if (! $zip->addFromString($projectDir.'/00-project-data/project-data.json', json_encode(
+                $this->performance->measure('serialize', fn () => view('exports.archive-index', ['payload' => $payload])->render()), 'project', $project->id);
+            if (! $zip->addFromString($projectDir.'/00-project-data/project-data.json', $this->performance->measure('serialize', fn () => json_encode(
                 $payload,
                 JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR,
-            ))) {
+            )))) {
                 throw new RuntimeException('Could not write archive metadata.');
             }
             $zip->addFromString($projectDir.'/README.txt', "MobilityCloud final project archive\n\nOpen INDEX.html for the readable project summary and document index. This archive includes only the categories selected in Finalisation. The project-data.json file contains the structured records and file index. When Project data & activity is selected, the complete activity history is stored separately as activity-log.csv so large histories can be exported safely.\n");
 
-            if (! $zip->close()) {
-                throw new RuntimeException('Could not finish the final archive.');
-            }
+            $this->performance->increment('zip_entries', $zip->numFiles);
+            $this->performance->measure('zip_finalize', function () use ($zip): void {
+                if (! $zip->close()) {
+                    throw new RuntimeException('Could not finish the final archive.');
+                }
+            });
 
             $zipOpen = false;
 
@@ -373,112 +367,125 @@ class ProjectFinalArchiveService
             return;
         }
 
-        $storage = Storage::disk($disk ?: 'local');
-        if (! $storage->exists($path)) {
-            throw new RuntimeException('A referenced archive file is missing: '.$entity.' #'.$recordId.' ('.$slot.'). Restore or remove the broken reference and prepare again.');
-        }
-
-        $size = $storage->size($path);
-        $free = disk_free_space($this->workDirectory());
-        if ($free !== false && $free < $this->inputBytes + ($size * 2) + 104857600) {
-            throw new RuntimeException('Insufficient temporary disk space to safely prepare the archive.');
-        }
-        $this->inputBytes += $size;
-        $stream = $storage->readStream($path);
-        if (! is_resource($stream)) {
-            throw new RuntimeException('Could not read a file selected for the final archive.');
-        }
-
-        $temporaryFile = $this->temporaryFile('mobilitycloud-archive-file-');
-        $output = fopen($temporaryFile, 'w+b');
-        if (! is_resource($output)) {
-            fclose($stream);
-
-            throw new RuntimeException('Could not prepare a file for the final archive.');
-        }
-
-        try {
-            if (stream_copy_to_stream($stream, $output) !== $size) {
-                throw new RuntimeException('Could not stream a file into the final archive.');
+        $this->performance->measure('file_copy', function () use ($zip, &$fileIndex, $entity, $recordId, $slot, $disk, $path, $archivePath, $originalName): void {
+            $storage = Storage::disk($disk ?: 'local');
+            if (! $storage->exists($path)) {
+                throw new RuntimeException('A referenced archive file is missing: '.$entity.' #'.$recordId.' ('.$slot.'). Restore or remove the broken reference and prepare again.');
             }
-        } finally {
-            fclose($stream);
-            fclose($output);
-        }
 
-        if (! $zip->addFile($temporaryFile, $archivePath)) {
-            throw new RuntimeException('Could not add a selected file to the final archive.');
-        }
+            $size = $storage->size($path);
+            $free = disk_free_space($this->workDirectory());
+            if ($free !== false && $free < $this->inputBytes + ($size * 2) + 104857600) {
+                throw new RuntimeException('Insufficient temporary disk space to safely prepare the archive.');
+            }
+            $this->inputBytes += $size;
+            $stream = $storage->readStream($path);
+            if (! is_resource($stream)) {
+                throw new RuntimeException('Could not read a file selected for the final archive.');
+            }
 
-        $fileIndex[] = [
-            'entity' => $entity,
-            'record_id' => $recordId,
-            'slot' => $slot,
-            'archive_path' => $archivePath,
-            'original_name' => $originalName,
-            'size' => filesize($temporaryFile) ?: 0,
-            'sha256' => hash_file('sha256', $temporaryFile),
-        ];
+            $temporaryFile = $this->temporaryFile('mobilitycloud-archive-file-');
+            $output = fopen($temporaryFile, 'w+b');
+            if (! is_resource($output)) {
+                fclose($stream);
+
+                throw new RuntimeException('Could not prepare a file for the final archive.');
+            }
+
+            try {
+                if (stream_copy_to_stream($stream, $output) !== $size) {
+                    throw new RuntimeException('Could not stream a file into the final archive.');
+                }
+            } finally {
+                fclose($stream);
+                fclose($output);
+            }
+
+            if (! $zip->addFile($temporaryFile, $archivePath)) {
+                throw new RuntimeException('Could not add a selected file to the final archive.');
+            }
+
+            $fileIndex[] = [
+                'entity' => $entity,
+                'record_id' => $recordId,
+                'slot' => $slot,
+                'archive_path' => $archivePath,
+                'original_name' => $originalName,
+                'size' => filesize($temporaryFile) ?: 0,
+                'sha256' => hash_file('sha256', $temporaryFile),
+            ];
+            $this->performance->increment('copied_files');
+            $this->performance->increment('copied_bytes', $size);
+        });
     }
 
     private function addActivityLog(ZipArchive $zip, array &$fileIndex, Project $project, string $archivePath, int $maximumId): void
     {
-        $temporaryFile = $this->temporaryFile('mobilitycloud-activity-log-');
-        $output = fopen($temporaryFile, 'w+b');
-        if (! is_resource($output)) {
-            throw new RuntimeException('Could not prepare the activity history for the final archive.');
-        }
+        $this->performance->measure('activity_csv', function () use ($zip, &$fileIndex, $project, $archivePath, $maximumId): void {
+            $temporaryFile = $this->temporaryFile('mobilitycloud-activity-log-');
+            $output = fopen($temporaryFile, 'w+b');
+            if (! is_resource($output)) {
+                throw new RuntimeException('Could not prepare the activity history for the final archive.');
+            }
 
-        try {
-            fwrite($output, "\xEF\xBB\xBF");
-            CsvExport::writeRow($output, [
-                'Date', 'User ID', 'Event', 'Subject type', 'Subject ID', 'Description', 'Metadata',
-            ], ';');
+            try {
+                fwrite($output, "\xEF\xBB\xBF");
+                CsvExport::writeRow($output, [
+                    'Date', 'User ID', 'Event', 'Subject type', 'Subject ID', 'Description', 'Metadata',
+                ], ';');
 
-            $project->activityLogs()
-                ->where('id', '<=', $maximumId)
-                ->orderBy('id')
-                ->chunkById(500, function ($entries) use ($output): void {
-                    foreach ($entries as $entry) {
-                        CsvExport::writeRow($output, [
-                            $entry->created_at?->toIso8601String(),
-                            $entry->user_id,
-                            $entry->event,
-                            $entry->subject_type,
-                            $entry->subject_id,
-                            $entry->description,
-                            json_encode($entry->metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE),
-                        ], ';');
-                    }
-                });
-        } finally {
-            fclose($output);
-        }
+                $project->activityLogs()
+                    ->where('id', '<=', $maximumId)
+                    ->orderBy('id')
+                    ->chunkById(500, function ($entries) use ($output): void {
+                        foreach ($entries as $entry) {
+                            CsvExport::writeRow($output, [
+                                $entry->created_at?->toIso8601String(),
+                                $entry->user_id,
+                                $entry->event,
+                                $entry->subject_type,
+                                $entry->subject_id,
+                                $entry->description,
+                                json_encode($entry->metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE),
+                            ], ';');
+                            $this->performance->increment('activity_rows');
+                        }
+                    });
+            } finally {
+                fclose($output);
+            }
 
-        if (! $zip->addFile($temporaryFile, $archivePath)) {
-            throw new RuntimeException('Could not add the activity history to the final archive.');
-        }
+            if (! $zip->addFile($temporaryFile, $archivePath)) {
+                throw new RuntimeException('Could not add the activity history to the final archive.');
+            }
 
-        $fileIndex[] = [
-            'entity' => 'project_activity_log',
-            'record_id' => $project->id,
-            'slot' => 'complete_csv',
-            'archive_path' => $archivePath,
-            'original_name' => 'activity-log.csv',
-            'size' => filesize($temporaryFile) ?: 0,
-            'sha256' => hash_file('sha256', $temporaryFile),
-        ];
+            $fileIndex[] = [
+                'entity' => 'project_activity_log',
+                'record_id' => $project->id,
+                'slot' => 'complete_csv',
+                'archive_path' => $archivePath,
+                'original_name' => 'activity-log.csv',
+                'size' => filesize($temporaryFile) ?: 0,
+                'sha256' => hash_file('sha256', $temporaryFile),
+            ];
+            $this->performance->increment('generated_files');
+            $this->performance->increment('generated_bytes', filesize($temporaryFile) ?: 0);
+        });
     }
 
-    private function addGeneratedFile(ZipArchive $zip, array &$index, string $path, string $contents, string $entity, int $recordId): void
+    private function addGeneratedFile(ZipArchive $zip, array &$index, string $path, string $contents, string $entity, int $recordId, string $slot = 'generated'): void
     {
-        $temporary = $this->temporaryFile('mobilitycloud-archive-report-');
-        if (file_put_contents($temporary, $contents) === false || ! $zip->addFile($temporary, $path)) {
-            throw new RuntimeException('Could not add a generated archive document.');
-        }
-        $index[] = ['entity' => $entity, 'record_id' => $recordId, 'slot' => 'generated',
-            'archive_path' => $path, 'original_name' => basename($path),
-            'size' => strlen($contents), 'sha256' => hash('sha256', $contents)];
+        $this->performance->measure('generated_write', function () use ($zip, &$index, $path, $contents, $entity, $recordId, $slot): void {
+            $temporary = $this->temporaryFile('mobilitycloud-archive-report-');
+            if (file_put_contents($temporary, $contents) === false || ! $zip->addFile($temporary, $path)) {
+                throw new RuntimeException('Could not add a generated archive document.');
+            }
+            $index[] = ['entity' => $entity, 'record_id' => $recordId, 'slot' => $slot,
+                'archive_path' => $path, 'original_name' => basename($path),
+                'size' => strlen($contents), 'sha256' => hash('sha256', $contents)];
+            $this->performance->increment('generated_files');
+            $this->performance->increment('generated_bytes', strlen($contents));
+        });
     }
 
     private function temporaryFile(string $prefix): string

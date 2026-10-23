@@ -3,17 +3,19 @@
 namespace App\Services;
 
 use App\Models\Project;
+use App\Support\ArchivePerformance;
 use App\Support\CsvExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ProjectArchiveReports
 {
-    public function add(Project $project, array $included, callable $add): void
+    public function add(Project $project, array $included, callable $add, ?ArchivePerformance $performance = null): void
     {
+        $performance ??= new ArchivePerformance;
         if ($included['application']) {
-            $add('01-application/application.pdf', Pdf::loadView('pdf.application-report', [
+            $add('01-application/application.pdf', $performance->measure('pdf', fn () => Pdf::loadView('pdf.application-report', [
                 'project' => $project, 'sections' => $project->applicationSections,
-            ])->setPaper('a4')->output());
+            ])->setPaper('a4')->output()));
         }
         if ($included['budget']) {
             // Keep deleted expenses in JSON history, but never count them in the financial report.
@@ -25,10 +27,10 @@ class ProjectArchiveReports
             }));
             $totalBudget = (float) $reportProject->budgetLines->sum('allocated_budget');
             $totalSpent = (float) $reportProject->budgetLines->sum(fn ($line) => $line->expenses->sum('amount_eur'));
-            $add('04-budget-expenses/financial-report.pdf', Pdf::loadView('pdf.project-report', [
+            $add('04-budget-expenses/financial-report.pdf', $performance->measure('pdf', fn () => Pdf::loadView('pdf.project-report', [
                 'project' => $reportProject, 'totalBudget' => $totalBudget, 'totalSpent' => $totalSpent,
                 'totalRemaining' => $totalBudget - $totalSpent,
-            ])->setPaper('a4')->output());
+            ])->setPaper('a4')->output()));
         }
         if ($included['participants']) {
             $output = fopen('php://temp', 'w+b');

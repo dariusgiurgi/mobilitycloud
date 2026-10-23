@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\ProjectActivityLog;
 use App\Models\ProjectFinalArchive;
 use App\Services\ProjectFinalArchiveService;
+use App\Support\ArchivePerformance;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
@@ -49,42 +50,50 @@ class GenerateProjectFinalArchive implements ShouldQueue
             return;
         }
 
-        $archive->forceFill([
-            'status' => ProjectFinalArchive::STATUS_PROCESSING,
-            'started_at' => now(),
-            'failure_message' => null,
-        ])->save();
-
-        $started = microtime(true);
+        $performance = new ArchivePerformance;
+        $requestAgeMs = max(0, (int) $archive->created_at->diffInMilliseconds(now()));
+        // On retries this age includes previous work and backoff, not just queue wait.
+        $queueWaitMs = $archive->status === ProjectFinalArchive::STATUS_QUEUED ? $requestAgeMs : null;
         $committed = false;
+        $size = null;
         $temporaryPath = null;
         $storedPath = null;
         $disk = (string) config('mobilitycloud.final_archives.disk', 'local');
 
         try {
-            $temporaryPath = $archives->create($archive->project, $archive->selection);
+            $performance->measure('archive_start', fn () => $archive->forceFill([
+                'status' => ProjectFinalArchive::STATUS_PROCESSING,
+                'started_at' => now(),
+                'failure_message' => null,
+            ])->save());
+
+            $temporaryPath = $archives->create($archive->project, $archive->selection, $performance);
             $storedPath = 'final-archives/'.$archive->project_id.'/'.$archive->uuid.'.zip';
-            $input = fopen($temporaryPath, 'rb');
-
-            if (! is_resource($input)) {
-                throw new RuntimeException('Could not read the generated archive.');
-            }
-
-            try {
-                if (! Storage::disk($disk)->put($storedPath, $input)) {
-                    throw new RuntimeException('Could not store the generated archive.');
+            $performance->measure('archive_store', function () use ($temporaryPath, $disk, $storedPath): void {
+                $input = fopen($temporaryPath, 'rb');
+                if (! is_resource($input)) {
+                    throw new RuntimeException('Could not read the generated archive.');
                 }
-            } finally {
-                fclose($input);
-            }
+                try {
+                    if (! Storage::disk($disk)->put($storedPath, $input)) {
+                        throw new RuntimeException('Could not store the generated archive.');
+                    }
+                } finally {
+                    fclose($input);
+                }
+            });
 
-            $size = filesize($temporaryPath);
-            $sha256 = hash_file('sha256', $temporaryPath);
-            if ($size === false || $sha256 === false) {
-                throw new RuntimeException('Could not verify the generated archive.');
-            }
+            [$size, $sha256] = $performance->measure('archive_verify', function () use ($temporaryPath): array {
+                $size = filesize($temporaryPath);
+                $sha256 = hash_file('sha256', $temporaryPath);
+                if ($size === false || $sha256 === false) {
+                    throw new RuntimeException('Could not verify the generated archive.');
+                }
 
-            DB::transaction(function () use ($archive, $disk, $storedPath, $size, $sha256): void {
+                return [$size, $sha256];
+            });
+
+            $performance->measure('archive_commit', fn () => DB::transaction(function () use ($archive, $disk, $storedPath, $size, $sha256): void {
                 $archive->forceFill([
                     'status' => ProjectFinalArchive::STATUS_READY,
                     'disk' => $disk,
@@ -108,29 +117,29 @@ class GenerateProjectFinalArchive implements ShouldQueue
                         'sha256' => $sha256,
                     ],
                 ]);
-            });
+            }));
             $committed = true;
 
             try {
-                $newerReadyArchiveExists = $archive->project->finalArchives()
-                    ->where('id', '>', $archive->id)
-                    ->where('status', ProjectFinalArchive::STATUS_READY)
-                    ->exists();
-
-                if ($newerReadyArchiveExists) {
-                    $archive->expire();
-                } else {
-                    $archive->project->finalArchives()
-                        ->where('id', '<', $archive->id)
+                $performance->measure('archive_cleanup', function () use ($archive): void {
+                    $newerReadyArchiveExists = $archive->project->finalArchives()
+                        ->where('id', '>', $archive->id)
                         ->where('status', ProjectFinalArchive::STATUS_READY)
-                        ->get()
-                        ->each->expire();
-                }
+                        ->exists();
 
+                    if ($newerReadyArchiveExists) {
+                        $archive->expire();
+                    } else {
+                        $archive->project->finalArchives()
+                            ->where('id', '<', $archive->id)
+                            ->where('status', ProjectFinalArchive::STATUS_READY)
+                            ->get()
+                            ->each->expire();
+                    }
+                });
             } catch (Throwable $cleanupError) {
                 report($cleanupError);
             }
-            Log::channel('performance')->info('Final archive prepared', ['archive_id' => $archive->id, 'bytes' => $size, 'duration_ms' => (int) ((microtime(true) - $started) * 1000), 'peak_memory_bytes' => memory_get_peak_usage(true)]);
         } catch (Throwable $exception) {
             if (! $committed && $storedPath !== null) {
                 Storage::disk($disk)->delete($storedPath);
@@ -140,6 +149,16 @@ class GenerateProjectFinalArchive implements ShouldQueue
         } finally {
             if ($temporaryPath !== null) {
                 @unlink($temporaryPath);
+            }
+            try {
+                Log::channel('performance')->info('Final archive attempt', [
+                    'archive_id' => $archive->id, 'attempt' => $this->attempts(),
+                    'outcome' => $committed ? 'ready' : 'failed', 'bytes' => $size,
+                    'queue_wait_ms' => $queueWaitMs, 'request_age_ms' => $requestAgeMs,
+                    ...$performance->summary(),
+                ]);
+            } catch (Throwable) {
+                // Performance logging must never fail an export or hide its original error.
             }
         }
     }
