@@ -15,6 +15,11 @@
     .empty { font-style: italic; color: #9ca3af; }
     .kpi { display: inline-block; border: 1px solid #cbd5e1; border-radius: 5px; padding: 5px 7px; margin: 0 5px 5px 0; }
     .kpi strong { display:block; font-size: 13px; color:#111827; }
+
+    /* Keep labels with the following content, while long answers can flow across pages. */
+    .cat, h2, h3, .q-title, .q-table-title { page-break-after: avoid; }
+    .q-content, .answer { orphans: 2; widows: 2; }
+    thead { display: table-header-group; }
     @include('pdf.partials.document-theme')
 </style></head><body>
 
@@ -95,22 +100,23 @@
 </table>
 
 <h2>4. Official application answers</h2>
-@php $currentCat = null; @endphp
-@forelse($sections as $sec)
-    @if($sec->category && $sec->category !== $currentCat)
-        @php $currentCat = $sec->category; @endphp
-        <h3>{{ $currentCat }}</h3>
+@forelse(\App\Support\ApplicationExportLayout::sections($sections) as $entry)
+    @php $sec = $entry['section']; @endphp
+    @if($entry['heading'] !== null)
+        <h3>{{ $entry['heading'] }}</h3>
     @endif
-    <p><strong>{{ $sec->title }}</strong></p>
-    @if(trim(strip_tags($sec->content ?? '')) !== '')
+    @if(! $entry['is_heading'])
+        <p class="q-title"><strong>{{ $sec->title }}</strong></p>
+    @endif
+    @if(trim((string) $sec->content) !== '')
         <div class="answer">{{ $sec->content }}</div>
-    @else
+    @elseif(! $entry['is_heading'])
         <div class="answer empty">— not answered —</div>
     @endif
     @foreach(\App\Support\ApplicationTableDefinitions::forSection($sec) as $tableDef)
         @php $rows = \App\Support\ApplicationTableDefinitions::filledRows($sec, $tableDef['key']); @endphp
         @if(count($rows))
-            <p><strong>{{ $tableDef['label'] }}</strong></p>
+            <p class="q-table-title"><strong>{{ $tableDef['label'] }}</strong></p>
             <table>
                 <thead>
                     <tr>

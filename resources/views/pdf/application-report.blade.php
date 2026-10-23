@@ -14,6 +14,11 @@
     .q-table th { text-align: left; background: #eef2ff; color: #334155; border: 1px solid #cbd5e1; padding: 4px; }
     .q-table td { vertical-align: top; border: 1px solid #cbd5e1; padding: 4px; }
     .empty { font-style: italic; color: #9ca3af; }
+
+    /* Keep labels with the following content, while long answers can flow across pages. */
+    .cat, h2, h3, .q-title, .q-table-title { page-break-after: avoid; }
+    .q-content, .answer { orphans: 2; widows: 2; }
+    thead { display: table-header-group; }
     @include('pdf.partials.document-theme')
 </style></head><body>
 
@@ -27,16 +32,17 @@
     </div>
 </div>
 
-@php $currentCat = null; @endphp
-@forelse($sections as $sec)
-    @if($sec->category && $sec->category !== $currentCat)
-        @php $currentCat = $sec->category; @endphp
-        <div class="cat">{{ $currentCat }}</div>
+@forelse(\App\Support\ApplicationExportLayout::sections($sections) as $entry)
+    @php $sec = $entry['section']; @endphp
+    @if($entry['heading'] !== null)
+        <div class="cat">{{ $entry['heading'] }}</div>
     @endif
-    <div class="q-title">{{ $sec->title }}</div>
-    @if(trim(strip_tags($sec->content ?? '')) !== '')
+    @if(! $entry['is_heading'])
+        <div class="q-title">{{ $sec->title }}</div>
+    @endif
+    @if(trim((string) $sec->content) !== '')
         <div class="q-content">{{ $sec->content }}</div>
-    @else
+    @elseif(! $entry['is_heading'])
         <div class="q-content empty">— not answered —</div>
     @endif
     @foreach(\App\Support\ApplicationTableDefinitions::forSection($sec) as $tableDef)
@@ -63,7 +69,9 @@
             </table>
         @endif
     @endforeach
+    @if(! $entry['is_heading'])
     <div class="q-meta">{{ $sec->word_count }} words · {{ $sec->char_count }}@if($sec->char_limit)/{{ $sec->char_limit }}@endif characters</div>
+    @endif
 @empty
     <p class="empty">No application sections.</p>
 @endforelse
