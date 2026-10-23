@@ -22,7 +22,9 @@ class CsvExportTest extends TestCase
         $stream = fopen('php://temp', 'w+b');
         CsvExport::writeRow($stream, [$value, 'next cell']);
         rewind($stream);
-        $this->assertSame(["'".$value, 'next cell'], fgetcsv($stream, null, ',', '"', ''));
+        $row = fgetcsv($stream, null, ',', '"', '');
+        $this->assertSame(["'".$value, 'next cell'], $row);
+        $this->assertSame($value, CsvExport::unescapeText($row[0]));
         $this->assertFalse(fgetcsv($stream, null, ',', '"', ''));
         fclose($stream);
     }
@@ -37,6 +39,13 @@ class CsvExportTest extends TestCase
             $this->assertSame(['România, școală', "Text \\\";=1+1\nsecond line", "Already 'quoted'", '', '  ordinary text', '42', ''], fgetcsv($stream, null, $delimiter, '"', ''));
             $this->assertFalse(fgetcsv($stream, null, $delimiter, '"', ''));
             fclose($stream);
+        }
+    }
+
+    public function test_ordinary_and_repeated_apostrophes_are_preserved(): void
+    {
+        foreach (["'O'Connor", "''=1+1", "'ordinary text", ''] as $value) {
+            $this->assertSame($value, CsvExport::unescapeText($value));
         }
     }
 }

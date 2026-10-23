@@ -103,6 +103,27 @@ class CsvExportSafetyTest extends TestCase
         }
     }
 
+    public function test_reimport_removes_only_the_single_protection_prefix_for_special_values(): void
+    {
+        $project = $this->project();
+        $original = $project->participants()->create([
+            'complete_name' => '＋Synthetic participant', 'phone' => '＋4012345',
+            'guardian_contact' => " \t=1+1", 'address' => "'O'Connor Street", 'role' => 'participant',
+        ]);
+        $csv = $this->get(route('projects.export-participants', $project))->assertOk()->streamedContent();
+        $path = tempnam(sys_get_temp_dir(), 'csv-prefix-');
+        try {
+            file_put_contents($path, $csv);
+            $this->assertSame(1, app(ParticipantCsvImporter::class)->import($project, $path));
+            $imported = $project->participants()->latest('id')->first();
+            foreach (['complete_name', 'phone', 'guardian_contact', 'address'] as $field) {
+                $this->assertSame($original->$field, $imported->$field, $field);
+            }
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function test_platform_activity_export_protects_actor_email_and_description(): void
     {
         $this->project();
