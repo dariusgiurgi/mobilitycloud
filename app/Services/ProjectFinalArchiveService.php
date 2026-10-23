@@ -6,6 +6,7 @@ use App\Models\MobilityFeedbackCampaign;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\ProjectFinalArchive;
+use App\Support\CsvExport;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -430,7 +431,7 @@ class ProjectFinalArchiveService
 
         try {
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, [
+            CsvExport::writeRow($output, [
                 'Date', 'User ID', 'Event', 'Subject type', 'Subject ID', 'Description', 'Metadata',
             ], ';');
 
@@ -439,7 +440,7 @@ class ProjectFinalArchiveService
                 ->orderBy('id')
                 ->chunkById(500, function ($entries) use ($output): void {
                     foreach ($entries as $entry) {
-                        fputcsv($output, [
+                        CsvExport::writeRow($output, [
                             $entry->created_at?->toIso8601String(),
                             $entry->user_id,
                             $entry->event,

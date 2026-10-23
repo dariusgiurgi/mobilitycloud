@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Support\CsvExport;
 use Illuminate\Support\Str;
 
 class ProjectActivityExportController extends Controller
@@ -15,11 +16,11 @@ class ProjectActivityExportController extends Controller
 
         return response()->streamDownload(function () use ($project): void {
             $stream = fopen('php://output', 'w');
-            fputcsv($stream, ['Date and time', 'User', 'Action', 'Description', 'Subject', 'Details']);
+            CsvExport::writeRow($stream, ['Date and time', 'User', 'Action', 'Description', 'Subject', 'Details']);
 
             $project->activityLogs()->with('user')->orderBy('created_at')->chunkById(250, function ($entries) use ($stream): void {
                 foreach ($entries as $entry) {
-                    fputcsv($stream, [
+                    CsvExport::writeRow($stream, [
                         $entry->created_at?->format('Y-m-d H:i:s'),
                         $entry->user?->name ?: 'System',
                         $entry->event,

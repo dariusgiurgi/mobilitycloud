@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\MobilityFeedbackCampaign;
 use App\Services\MobilityFeedbackReportService;
+use App\Support\CsvExport;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -30,7 +31,7 @@ class MobilityFeedbackExportController extends Controller
 
         return response()->streamDownload(function () use ($campaign, $questions): void {
             $output = fopen('php://output', 'w');
-            fputcsv($output, array_merge(['Submitted at'], array_map(
+            CsvExport::writeRow($output, array_merge(['Submitted at'], array_map(
                 fn (array $question): string => (string) ($question['label'] ?? 'Question'),
                 $questions,
             )));
@@ -41,7 +42,7 @@ class MobilityFeedbackExportController extends Controller
                     $answer = data_get($response->answers, (string) ($question['id'] ?? ''));
                     $row[] = is_array($answer) ? implode(' | ', $answer) : $answer;
                 }
-                fputcsv($output, $row);
+                CsvExport::writeRow($output, $row);
             }
 
             fclose($output);

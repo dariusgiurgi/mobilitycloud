@@ -7,6 +7,7 @@ use App\Filament\Resources\PlatformActivities\Pages\ViewPlatformActivity;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\PlatformAuditLog;
 use App\Models\User;
+use App\Support\CsvExport;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ViewAction;
@@ -342,7 +343,7 @@ class PlatformActivityResource extends Resource
 
         return response()->streamDownload(function (): void {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Time', 'Actor', 'Action', 'Description', 'Subject type', 'Subject ID', 'IP address', 'Metadata']);
+            CsvExport::writeRow($handle, ['Time', 'Actor', 'Action', 'Description', 'Subject type', 'Subject ID', 'IP address', 'Metadata']);
 
             PlatformAuditLog::query()
                 ->with('actor')
@@ -350,7 +351,7 @@ class PlatformActivityResource extends Resource
                 ->limit(5000)
                 ->lazy()
                 ->each(function (PlatformAuditLog $log) use ($handle): void {
-                    fputcsv($handle, [
+                    CsvExport::writeRow($handle, [
                         $log->created_at?->format('Y-m-d H:i:s'),
                         $log->actor?->email ?? 'System',
                         $log->action,

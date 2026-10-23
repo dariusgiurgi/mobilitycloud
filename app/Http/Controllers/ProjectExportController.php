@@ -8,6 +8,7 @@ use App\Models\ProjectApplicationSection;
 use App\Models\ProjectFinalArchive;
 use App\Services\ApplicationWordExport;
 use App\Services\ParticipantCsvImporter;
+use App\Support\CsvExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -105,10 +106,10 @@ class ProjectExportController extends Controller
             $output = fopen('php://output', 'wb');
 
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ParticipantCsvImporter::HEADERS, ';');
+            CsvExport::writeRow($output, ParticipantCsvImporter::HEADERS, ';');
 
             foreach ($participants as $participant) {
-                fputcsv($output, array_map($this->csvValue(...), [
+                CsvExport::writeRow($output, [
                     $participant->fullName(),
                     $participant->partner_organisation,
                     $participant->roleLabel(),
@@ -129,7 +130,7 @@ class ProjectExportController extends Controller
                     $participant->guardian_contact,
                     $participant->gdpr_consented_at?->format('Y-m-d'),
                     $participant->hasCompleteDocs() ? 'Yes' : 'No',
-                ]), ';');
+                ], ';');
             }
 
             fclose($output);
@@ -143,16 +144,9 @@ class ProjectExportController extends Controller
         return response()->streamDownload(function (): void {
             $output = fopen('php://output', 'wb');
             fwrite($output, "\xEF\xBB\xBF");
-            fputcsv($output, ParticipantCsvImporter::HEADERS, ';');
+            CsvExport::writeRow($output, ParticipantCsvImporter::HEADERS, ';');
             fclose($output);
         }, 'participant-import-template.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
-    }
-
-    private function csvValue(mixed $value): string
-    {
-        $value = (string) ($value ?? '');
-
-        return preg_match('/^[=+\-@]/', $value) ? "'".$value : $value;
     }
 
     public function report(Project $project)

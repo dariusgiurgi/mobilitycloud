@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Project;
+use App\Support\CsvExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class ProjectArchiveReports
@@ -33,13 +34,13 @@ class ProjectArchiveReports
             $output = fopen('php://temp', 'w+b');
             try {
                 fwrite($output, "\xEF\xBB\xBF");
-                fputcsv($output, ['Name', 'Organisation', 'Role', 'Country', 'Email', 'Phone', 'Mobilities'], ';', '"', '');
+                CsvExport::writeRow($output, ['Name', 'Organisation', 'Role', 'Country', 'Email', 'Phone', 'Mobilities'], ';');
                 foreach ($project->participants as $participant) {
-                    fputcsv($output, array_map($this->csvValue(...), [
+                    CsvExport::writeRow($output, [
                         $participant->fullName(), $participant->partner_organisation, $participant->roleLabel(),
                         $participant->country, $participant->email, $participant->phone,
                         $participant->mobilities->map(fn ($m) => $m->name.' ('.$m->pivot->role.', '.$m->pivot->status.')')->implode('; '),
-                    ]), ';', '"', '');
+                    ], ';');
                 }
                 rewind($output);
                 $add('03-participants/participants.csv', stream_get_contents($output));
@@ -47,12 +48,5 @@ class ProjectArchiveReports
                 fclose($output);
             }
         }
-    }
-
-    private function csvValue(mixed $value): string
-    {
-        $value = (string) ($value ?? '');
-
-        return preg_match('/^[\s]*[=+\-@]/u', $value) ? "'".$value : $value;
     }
 }
