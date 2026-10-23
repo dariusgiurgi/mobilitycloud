@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class LegalPagesTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_legal_pages_render_with_company_details(): void
     {
         foreach (['legal.terms', 'legal.privacy', 'legal.cookies', 'legal.security'] as $route) {

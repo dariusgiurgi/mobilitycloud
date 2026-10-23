@@ -636,7 +636,7 @@
                         <div class="mc-readiness-group">
                             <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">Platform fee</p>
                             <p class="text-gray-950 dark:text-white" style="font-size:1.15rem;font-weight:850;margin-top:.18rem;">{{ $eur($previewFee) }}</p>
-                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ $isUnlimitedOwner ? 'Included in unlimited account access' : '1% of approved grant' }}</p>
+                            <p class="mc-overview-muted" style="font-size:.66rem;margin-top:.15rem;">{{ app(\App\Services\ProjectPricing::class)->label(app(\App\Services\ProjectPricing::class)->forProject($this->record)) }}</p>
                         </div>
                         <div class="mc-readiness-group">
                             <p class="mc-overview-muted" style="font-size:.58rem;text-transform:uppercase;font-weight:800;">{{ $isUnlimitedOwner ? 'Invoice' : 'Payment term' }}</p>

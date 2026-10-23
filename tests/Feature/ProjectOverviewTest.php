@@ -124,14 +124,14 @@ class ProjectOverviewTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('showApprovalModal', false)
             ->assertSee('Fiscal invoice pending')
-            ->assertSee('250.00 €');
+            ->assertSee('125.00 €');
 
         $project->refresh();
 
         $this->assertSame('approved', $project->status);
         $this->assertSame('25000.00', $project->approved_grant_amount);
         $this->assertSame('25000.00', $project->approved_budget);
-        $this->assertSame('250.00', $project->activation_fee_amount);
+        $this->assertSame('125.00', $project->activation_fee_amount);
         $this->assertSame(Project::INVOICE_PENDING, $project->invoice_status);
         $this->assertSame('2026-1-RO01-KA152-YOU-000000001', $project->grant_ref);
         $this->assertNotNull($project->approved_declared_at);
@@ -141,7 +141,7 @@ class ProjectOverviewTest extends TestCase
         $this->assertTrue($project->implementationModulesAvailable());
     }
 
-    public function test_approved_grant_fee_is_one_percent_without_an_old_minimum(): void
+    public function test_approved_grant_fee_is_half_a_percent_without_an_old_minimum(): void
     {
         Storage::fake('local');
         [$project, $user] = $this->workspaceProjectAndUser('member');
@@ -155,7 +155,7 @@ class ProjectOverviewTest extends TestCase
             ->call('confirmApprovedGrant')
             ->assertHasNoErrors();
 
-        $this->assertSame('45.00', $project->fresh()->activation_fee_amount);
+        $this->assertSame('22.50', $project->fresh()->activation_fee_amount);
     }
 
     public function test_unlimited_account_approval_has_no_administration_fee_or_invoice(): void

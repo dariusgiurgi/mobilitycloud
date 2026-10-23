@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class MarketingSiteTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_public_marketing_pages_render(): void
     {
         foreach (['/', '/features', '/pricing', '/guide', '/help', '/contact'] as $path) {

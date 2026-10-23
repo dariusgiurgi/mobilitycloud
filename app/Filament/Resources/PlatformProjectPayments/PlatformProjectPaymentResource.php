@@ -23,6 +23,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class PlatformProjectPaymentResource extends Resource
 {
@@ -377,6 +378,8 @@ class PlatformProjectPaymentResource extends Resource
 
     protected static function updateInvoice(Project $project, array $data, string $auditAction): null
     {
+        abort_unless(auth()->user()?->isPlatformAdmin(), 403);
+
         $amount = round(max(0, (float) ($data['approved_grant_amount'] ?? $project->approvedGrantAmount())), 2);
         $status = $data['invoice_status'] ?? Project::INVOICE_PENDING;
         $previousStatus = $project->invoice_status;
@@ -417,13 +420,22 @@ class PlatformProjectPaymentResource extends Resource
             return null;
         }
 
+        if ($amount !== $project->approvedGrantAmount()
+            && ($project->invoice_sent_at || $project->payment_confirmed_at || in_array($previousStatus, [Project::INVOICE_SENT, Project::INVOICE_PAID, Project::INVOICE_OVERDUE], true))) {
+            throw ValidationException::withMessages([
+                'approved_grant_amount' => 'The approved grant cannot be changed after invoicing. Correct the invoice first.',
+            ]);
+        }
+
         $attributes = [
             'approved_budget' => $amount,
             'approved_grant_amount' => $amount,
             'approved_grant_currency' => 'EUR',
             'approved_declared_at' => $project->approved_declared_at ?: now(),
             'approved_declared_by' => $project->approved_declared_by ?: $project->owner_id,
-            'activation_fee_amount' => Project::calculateActivationFee($amount),
+            'activation_fee_amount' => $amount === $project->approvedGrantAmount()
+                ? $project->activation_fee_amount
+                : $project->administrationFeeForApprovedGrant($amount),
             'activation_fee_currency' => 'EUR',
             'invoice_status' => $status,
             'invoice_number' => filled($data['invoice_number'] ?? null) ? trim((string) $data['invoice_number']) : null,
