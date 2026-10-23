@@ -828,7 +828,7 @@ class ViewProjectOverview extends Page
             ->title('Project marked as approved')
             ->body($this->record->owner()?->isUnlimitedAccount()
                 ? 'The approved grant was locked. Unlimited accounts do not generate project administration fees.'
-                : 'The approved grant was declared. All implementation modules are now available, and a 1% fiscal invoice will be issued for payment after the first grant instalment.')
+                : 'The approved grant was declared. All implementation modules are now available, and a fiscal invoice for the displayed administration fee will be issued for payment after the first grant instalment.')
             ->success()
             ->send();
     }

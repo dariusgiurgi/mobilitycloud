@@ -1,4 +1,5 @@
 @php
+    $globalFeeLabel = app(\App\Services\ProjectPricing::class)->globalLabel();
     $page = $page ?? 'home';
     $emails = $emails ?? config('mobilitycloud.emails');
     $company = $company ?? config('mobilitycloud.company');
@@ -19,7 +20,7 @@
     $descriptions = [
         'home' => 'MobilityCloud helps Erasmus+ teams write, approve, manage and archive mobility projects in one structured platform.',
         'features' => 'Explore the MobilityCloud modules for writing, budget, participants, documents, mobility evidence and collaboration.',
-        'pricing' => 'Use MobilityCloud free until approval, then pay 1% of the approved grant after the first instalment arrives.',
+        'pricing' => 'Use MobilityCloud free until approval, then pay '.$globalFeeLabel.' of the approved grant after the first instalment arrives.',
         'guide' => 'A practical guide for starting, writing, approving and managing your Erasmus+ mobility project in MobilityCloud.',
         'help' => 'Answers to the most common MobilityCloud account, billing, project, participant, document and mobility questions.',
         'contact' => 'Contact MobilityCloud for support, billing and partnership questions.',
@@ -79,7 +80,7 @@
     $faq = [
         ['q' => 'Can I use MobilityCloud before my project is approved?', 'a' => 'Yes. All application writing and planning work is free until your project is approved. No card is required.'],
         ['q' => 'When do I pay?', 'a' => 'When you declare the approved grant, every implementation module unlocks immediately. MobilityCloud then issues a manual fiscal invoice that you can pay after your first grant instalment arrives.'],
-        ['q' => 'What is the administration fee?', 'a' => 'The current launch fee is 1% of the exact approved grant value per project.'],
+        ['q' => 'What is the administration fee?', 'a' => 'The current fee is '.$globalFeeLabel.' of the exact approved grant value per project.'],
         ['q' => 'Can collaborators access only one project?', 'a' => 'Yes. Invitations are project-based, and access can be limited by role, including view-only and mobility-focused access.'],
         ['q' => 'Is MobilityCloud an official Erasmus+ tool?', 'a' => 'No. MobilityCloud is an independent project management platform that helps organise Erasmus+ workflows. Official decisions remain with the National Agency and programme rules.'],
         ['q' => 'Who develops MobilityCloud?', 'a' => 'MobilityCloud is powered by Xeotype, the company behind the platform design, development and operations.'],
@@ -699,7 +700,7 @@
                     </div>
                     <div class="mc-trust" aria-label="Key platform notes">
                         <span class="mc-pill">✓ Free until approval</span>
-                        <span class="mc-pill">✓ 1% after first instalment</span>
+                        <span class="mc-pill">✓ {{ $globalFeeLabel }} after first instalment</span>
                         <span class="mc-pill">✓ Powered by <a href="{{ $xeotypeUrl }}" target="_blank" rel="noopener" style="color:var(--mc-indigo);text-decoration:none;">Xeotype</a></span>
                     </div>
                 </div>
@@ -751,7 +752,7 @@
                         <span class="mc-kicker"><span>Pricing model</span></span>
                         <h2 style="margin-top:.9rem;">Use everything free before approval. Pay only after success.</h2>
                         <p class="mc-note">No card. No upfront payment. When a project is approved and the grant amount is declared, every implementation module unlocks immediately and the administration fee is calculated from that approved grant.</p>
-                        <div class="mc-price">1% <small>of approved grant</small></div>
+                        <div class="mc-price">{{ $globalFeeLabel }} <small>of approved grant</small></div>
                         <p class="mc-note">A manual fiscal invoice is issued after approval and can be paid after the first grant instalment arrives.</p>
                     </article>
                     <article class="mc-price-card">
@@ -804,13 +805,13 @@
             <section class="mc-shell mc-section">
                 <span class="mc-kicker"><span>Pricing</span></span>
                 <h1 class="mc-title" style="margin-top:1rem;max-width:12ch;">Free until approval. One simple fee after success.</h1>
-                <p class="mc-lead">Prepare the whole project without an upfront payment. If it is approved, MobilityCloud charges 1% of the approved grant.</p>
+                <p class="mc-lead">Prepare the whole project without an upfront payment. If it is approved, MobilityCloud charges {{ $globalFeeLabel }} of the approved grant.</p>
 
                 <div class="mc-price-wrap" style="margin-top:2rem;">
                     <article class="mc-price-card featured">
                         <p class="mc-eyebrow">Project administration fee</p>
-                        <div class="mc-price">1% <small>of the approved grant</small></div>
-                        <p class="mc-note">The fee is calculated from the exact approved grant amount declared by the project owner.</p>
+                        <div class="mc-price">{{ $globalFeeLabel }} <small>of the approved grant</small></div>
+                        <p class="mc-note">One payment covers management for the entire project duration. The applicable tariff is fixed when approval is declared. A custom tariff applies where agreed with your account.</p>
                         <div class="mc-price-list">
                             <span>No card or payment required before approval</span>
                             <span>Manual fiscal invoice issued after approval</span>

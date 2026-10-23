@@ -657,6 +657,36 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/QA Bot Owner/i).first()).toBeVisible();
     await expect(page.getByText(/Writer Pro|Free|Demo/i).first()).toBeVisible();
 
+    const accountRow = page.getByRole('row').filter({ hasText: state.users.free.email });
+    await accountRow.getByRole('link', { name: 'Edit', exact: true }).click();
+    await page.getByRole('button', { name: 'Project fee', exact: true }).click();
+    let pricingDialog = page.getByRole('dialog').filter({ hasText: 'Pricing rule' });
+    await pricingDialog.getByLabel('Pricing rule').selectOption('fixed');
+    await pricingDialog.getByLabel('Fixed amount (EUR per project)').fill('275.50');
+    await page.screenshot({ path: test.info().outputPath('custom-project-fee.png') });
+    await pricingDialog.getByRole('button', { name: 'Submit', exact: true }).click();
+    await expect(page.getByText('Project fee updated', { exact: true })).toBeVisible();
+    await page.reload();
+    await expect(page.getByText(/Custom tariff: 275.50 EUR per project/)).toBeVisible();
+    await page.getByRole('button', { name: 'Project fee', exact: true }).click();
+    pricingDialog = page.getByRole('dialog').filter({ hasText: 'Pricing rule' });
+    await pricingDialog.getByLabel('Pricing rule').selectOption('global');
+    await pricingDialog.getByRole('button', { name: 'Submit', exact: true }).click();
+    await expect(page.getByText('Project fee updated', { exact: true })).toBeVisible();
+
+    await page.getByRole('link', { name: 'Project pricing', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Project pricing', exact: true })).toBeVisible();
+    for (const rate of ['0.75', '0.5']) {
+      await page.getByRole('button', { name: 'Edit global fee', exact: true }).click();
+      const dialog = page.getByRole('dialog').filter({ hasText: 'Applies automatically' });
+      await dialog.getByLabel('Global fee').fill(rate);
+      await dialog.getByRole('button', { name: 'Submit', exact: true }).click();
+      await expect(page.getByText('Global fee updated', { exact: true })).toBeVisible();
+      await expect(page.getByText(`${rate}%`, { exact: true })).toBeVisible();
+      const publicPricing = await page.request.get('/pricing');
+      expect(await publicPricing.text()).toContain(`charges ${rate}% of the approved grant`);
+    }
+
     const announcementTitle = `QA Bot platform notice ${Date.now()}`;
     await page.goto('/platform/platform-announcements/create');
     await expect(page.getByRole('heading', { name: /Create account/i })).toHaveCount(0);

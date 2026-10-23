@@ -401,7 +401,7 @@
                         <section id="billing" class="legal-section">
                             <h2>4. Fees, invoices and payment terms</h2>
                             <p>The current MobilityCloud model allows use of writing and planning tools before approval. When a project is marked as approved and the approved grant amount is declared, implementation modules unlock immediately so the team can start work without waiting for online payment.</p>
-                            <p>Where an administration fee applies, it is currently calculated as 1% of the approved grant amount per approved project, unless another written agreement or unlimited access arrangement applies.</p>
+                            <p>Where an administration fee applies, it is currently calculated as {{ app(\App\Services\ProjectPricing::class)->globalLabel() }} of the approved grant amount per approved project, unless another written agreement or unlimited access arrangement applies. The tariff is fixed when project approval is declared; subsequent changes to account or global tariffs do not change already agreed project fees.</p>
                             <ul>
                                 <li>Invoices are issued manually as fiscal invoices by {{ $companyName }}.</li>
                                 <li>The invoice can be paid after the project owner receives the first grant instalment. The due date is shown on the fiscal invoice or payment notice.</li>
@@ -712,7 +712,7 @@
                         <section id="model" class="legal-section">
                             <h2>1. Pricing model</h2>
                             <p>MobilityCloud currently uses a manual project-activation and invoice model. The platform can be used for writing and planning before approval. When a project is approved, the project owner declares the exact approved grant amount and the relevant implementation modules unlock immediately.</p>
-                            <p>Where a project administration fee applies, the standard launch model is 1% of the approved grant value per approved project, unless a different written agreement, unlimited access arrangement or manual owner decision applies.</p>
+                            <p>Where a project administration fee applies, the current standard fee is {{ app(\App\Services\ProjectPricing::class)->globalLabel() }} of the approved grant value per approved project, unless a different written agreement, unlimited access arrangement or manual owner decision applies.</p>
                         </section>
 
                         <section id="declaration" class="legal-section">

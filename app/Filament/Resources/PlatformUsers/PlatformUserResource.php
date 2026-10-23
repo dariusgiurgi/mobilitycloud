@@ -374,6 +374,17 @@ class PlatformUserResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => PlanCatalog::displayPlanLabel($state))
                     ->color(fn (?string $state): string => PlanCatalog::canonicalPlanKey($state) === 'unlimited' ? 'success' : 'info'),
+                TextColumn::make('project_fee_mode')
+                    ->label('Project fee')
+                    ->formatStateUsing(fn (string $state, User $record): string => $record->isUnlimitedAccount()
+                        ? 'Exempt (unlimited)'
+                        : match ($state) {
+                            'percentage' => $record->project_fee_value.'% (custom)',
+                            'fixed' => number_format((float) $record->project_fee_value, 2).' EUR / project',
+                            default => 'Global fee',
+                        })
+                    ->badge()
+                    ->toggleable(),
                 TextColumn::make('billing_name')
                     ->label('Billing')
                     ->state(fn (User $record): string => $record->isUnlimitedAccount()

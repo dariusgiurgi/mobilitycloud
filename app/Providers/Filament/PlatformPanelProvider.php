@@ -7,6 +7,7 @@ use App\Filament\Pages\Dashboard;
 use App\Filament\Pages\PlatformBillingOperations;
 use App\Filament\Pages\PlatformHealth;
 use App\Filament\Pages\PlatformPermissions;
+use App\Filament\Pages\PlatformProjectPricing;
 use App\Filament\Resources\PlatformActivities\PlatformActivityResource;
 use App\Filament\Resources\PlatformAnnouncements\PlatformAnnouncementResource;
 use App\Filament\Resources\PlatformAuditLogs\PlatformAuditLogResource;
@@ -94,6 +95,7 @@ class PlatformPanelProvider extends PanelProvider
                 Dashboard::class,
                 AccountSettings::class,
                 PlatformBillingOperations::class,
+                PlatformProjectPricing::class,
                 PlatformPermissions::class,
                 PlatformHealth::class,
             ])

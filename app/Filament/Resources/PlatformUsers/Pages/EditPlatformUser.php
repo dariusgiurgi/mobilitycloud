@@ -3,9 +3,14 @@
 namespace App\Filament\Resources\PlatformUsers\Pages;
 
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
+use App\Services\ProjectPricing;
 use App\Support\PlatformAudit;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Validation\ValidationException;
 
 class EditPlatformUser extends EditRecord
@@ -21,6 +26,8 @@ class EditPlatformUser extends EditRecord
         $status = $this->record->is_suspended ? 'Suspended account' : 'Active account';
 
         return $status.' · '.$this->record->email.' · '
+            .($this->record->project_fee_mode === 'global' ? 'Global fee: ' : 'Custom tariff: ')
+            .app(ProjectPricing::class)->label(app(ProjectPricing::class)->forAccount($this->record)).' · '
             .$this->record->ownedProjects()->count().' owned project(s), '
             .$this->record->projects()->count().' shared project access';
     }
@@ -34,7 +41,26 @@ class EditPlatformUser extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [Action::make('projectFee')
+            ->label('Project fee')
+            ->modalDescription(fn () => 'Current tariff: '.app(ProjectPricing::class)->label(app(ProjectPricing::class)->forAccount($this->record)).'. Changes apply to future approvals. Existing project fees are preserved.')
+            ->fillForm(fn () => ['mode' => $this->record->project_fee_mode, 'value' => $this->record->project_fee_value])
+            ->schema([
+                Select::make('mode')->label('Pricing rule')->options([
+                    'global' => 'Global fee',
+                    'percentage' => 'Custom percentage',
+                    'fixed' => 'Fixed EUR amount per project',
+                ])->required()->live(),
+                TextInput::make('value')
+                    ->label(fn (Get $get) => $get('mode') === 'percentage' ? 'Custom percentage (%)' : 'Fixed amount (EUR per project)')
+                    ->numeric()->minValue(0.01)->step(0.01)->rules(['decimal:0,2'])
+                    ->maxValue(fn (Get $get) => $get('mode') === 'percentage' ? 100 : 9999999999.99)
+                    ->visible(fn (Get $get) => $get('mode') !== 'global')->required(),
+            ])
+            ->action(function (array $data): void {
+                app(ProjectPricing::class)->setAccount($this->record, $data);
+                Notification::make()->title('Project fee updated')->success()->send();
+            })];
     }
 
     protected function getFormActions(): array

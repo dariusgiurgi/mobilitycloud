@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProjectStatus;
+use App\Services\ProjectPricing;
 use App\Support\AccountAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -16,8 +17,6 @@ use Illuminate\Support\Facades\Storage;
 class Project extends Model
 {
     use SoftDeletes;
-
-    public const ACTIVATION_FEE_RATE = 0.01;
 
     public const INVOICE_NOT_REQUIRED = 'not_required';
 
@@ -63,6 +62,7 @@ class Project extends Model
         'approved_declared_at' => 'datetime',
         'approved_grant_proof_uploaded_at' => 'datetime',
         'activation_fee_amount' => 'decimal:2',
+        'project_fee_snapshot' => 'array',
         'invoice_sent_at' => 'datetime',
         'invoice_due_at' => 'datetime',
         'payment_confirmed_at' => 'datetime',
@@ -473,22 +473,16 @@ class Project extends Model
 
     public static function calculateActivationFee(float|int|string|null $approvedGrantAmount): float
     {
-        $amount = max(0, (float) $approvedGrantAmount);
+        $pricing = app(ProjectPricing::class);
 
-        if ($amount <= 0) {
-            return 0.0;
-        }
-
-        return round($amount * self::ACTIVATION_FEE_RATE, 2);
+        return $pricing->amount($pricing->forAccount(null), $approvedGrantAmount);
     }
 
     public function administrationFeeForApprovedGrant(float|int|string|null $approvedGrantAmount): float
     {
-        if ($this->owner()?->isUnlimitedAccount()) {
-            return 0.0;
-        }
+        $pricing = app(ProjectPricing::class);
 
-        return self::calculateActivationFee($approvedGrantAmount);
+        return $pricing->amount($pricing->forProject($this), $approvedGrantAmount);
     }
 
     public function approvedGrantAmount(): float
@@ -565,7 +559,10 @@ class Project extends Model
             throw new \InvalidArgumentException('Approved grant amount must be greater than zero.');
         }
 
-        $unlimitedOwner = $this->owner()?->isUnlimitedAccount() === true;
+        $pricing = app(ProjectPricing::class);
+        $snapshot = $pricing->forProject($this);
+        $fee = $pricing->amount($snapshot, $amount);
+        $feeExempt = $fee === 0.0;
 
         $this->forceFill([
             'status' => ProjectStatus::Approved->value,
@@ -575,16 +572,17 @@ class Project extends Model
             'approved_grant_currency' => 'EUR',
             'approved_declared_at' => now(),
             'approved_declared_by' => $declaredBy?->id,
-            'activation_fee_amount' => $unlimitedOwner ? 0 : self::calculateActivationFee($amount),
+            'activation_fee_amount' => $fee,
+            'project_fee_snapshot' => $snapshot,
             'activation_fee_currency' => 'EUR',
-            'invoice_status' => $unlimitedOwner ? self::INVOICE_NOT_REQUIRED : self::INVOICE_PENDING,
-            'invoice_number' => $unlimitedOwner ? null : $this->invoice_number,
-            'invoice_sent_at' => $unlimitedOwner ? null : $this->invoice_sent_at,
+            'invoice_status' => $feeExempt ? self::INVOICE_NOT_REQUIRED : self::INVOICE_PENDING,
+            'invoice_number' => $feeExempt ? null : $this->invoice_number,
+            'invoice_sent_at' => $feeExempt ? null : $this->invoice_sent_at,
             // The due date is set only when the fiscal invoice is issued,
             // after the customer has received the first grant instalment.
             'invoice_due_at' => null,
-            'payment_confirmed_at' => $unlimitedOwner ? now() : null,
-            'payment_confirmed_by' => $unlimitedOwner ? $declaredBy?->id : null,
+            'payment_confirmed_at' => $feeExempt ? now() : null,
+            'payment_confirmed_by' => $feeExempt ? $declaredBy?->id : null,
         ])->save();
     }
 
