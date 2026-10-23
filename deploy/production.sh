@@ -20,7 +20,14 @@ prepare_runtime_permissions() {
 
 command -v setfacl >/dev/null
 cd "$APP"
-as_deploy git diff --quiet && as_deploy git diff --cached --quiet || { echo 'Tracked production files have local changes.'; exit 1; }
+# Git reports tracked storage placeholders as deleted across the shared-directory symlink.
+# Validate the expected target before excluding mutable shared storage from checkout checks.
+checkout_paths=(.)
+if [[ -L "$APP/storage" ]]; then
+    test "$(readlink -f "$APP/storage")" = "$SHARED/storage"
+    checkout_paths+=(':(exclude)storage')
+fi
+as_deploy git diff --quiet -- "${checkout_paths[@]}" && as_deploy git diff --cached --quiet -- "${checkout_paths[@]}" || { echo 'Tracked production files have local changes.'; exit 1; }
 as_deploy git fetch --prune origin main
 test "$(as_deploy git rev-parse origin/main)" = "$EXPECTED_SHA" || { echo 'Verified revision is no longer main.'; exit 1; }
 readonly RELEASE="$RELEASES/$(date -u +%Y%m%dT%H%M%SZ)-${EXPECTED_SHA:0:12}"
