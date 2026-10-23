@@ -116,6 +116,8 @@ test.describe('Account-owned projects and project invitations', () => {
     await login(page, state.users.owner.email, state.password);
 
     await expect(page.getByRole('heading', { name: /Project dashboard|Platform overview/i })).toBeVisible();
+    // The dashboard deliberately shows only the four most recent projects.
+    await page.getByRole('link', { name: 'Projects', exact: true }).click();
     await expect(page.getByText(state.projects.owned.name).first()).toBeVisible();
 
     const projectBase = `/app/projects/${state.projects.owned.id}`;

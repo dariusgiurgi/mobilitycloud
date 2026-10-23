@@ -241,7 +241,7 @@ class ProjectDocumentsTest extends TestCase
         );
         $this->assertSame('evidence', $evidenceFirst['order_by']);
         $this->assertSame('Supporting evidence status', $evidenceFirst['order_label']);
-        $this->assertSame(['EXP-002', 'INV-10'], array_column($evidenceFirst['expenses'], 'reference'));
+        $this->assertSame(['EXP-'.str_pad((string) $facilitation->id, 3, '0', STR_PAD_LEFT), 'INV-10'], array_column($evidenceFirst['expenses'], 'reference'));
         $this->assertSame([1, 2], array_column($evidenceFirst['expenses'], 'row_number'));
     }
 
