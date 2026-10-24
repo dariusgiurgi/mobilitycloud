@@ -12,7 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class Project extends Model
 {
@@ -27,6 +29,8 @@ class Project extends Model
     public const INVOICE_PAID = 'paid';
 
     public const INVOICE_OVERDUE = 'overdue';
+
+    public const INVOICE_CANCELLED = 'cancelled';
 
     /** @deprecated Project managers are now treated as editors. */
     public const PROJECT_ROLE_MANAGER = 'manager';
@@ -64,6 +68,7 @@ class Project extends Model
         'activation_fee_amount' => 'decimal:2',
         'project_fee_snapshot' => 'array',
         'invoice_sent_at' => 'datetime',
+        'invoice_cancelled_at' => 'datetime',
         'invoice_due_at' => 'datetime',
         'payment_confirmed_at' => 'datetime',
         'is_activated' => 'boolean',
@@ -468,6 +473,7 @@ class Project extends Model
             self::INVOICE_SENT => 'Invoice sent',
             self::INVOICE_PAID => 'Paid',
             self::INVOICE_OVERDUE => 'Payment overdue',
+            self::INVOICE_CANCELLED => 'Cancelled',
         ];
     }
 
@@ -497,7 +503,7 @@ class Project extends Model
 
     public function hasPaymentOverdue(): bool
     {
-        if ($this->owner()?->isUnlimitedAccount()) {
+        if ($this->invoice_status === self::INVOICE_CANCELLED || $this->owner()?->isUnlimitedAccount()) {
             return false;
         }
 
@@ -553,37 +559,49 @@ class Project extends Model
 
     public function declareApprovedGrant(float|int|string $amount, ?User $declaredBy = null): void
     {
-        $amount = round(max(0, (float) $amount), 2);
+        DB::transaction(function () use ($amount, $declaredBy): void {
+            if ($this->exists) {
+                $this->setRawAttributes(static::query()->lockForUpdate()->findOrFail($this->getKey())->getAttributes(), true);
+            }
 
-        if ($amount <= 0) {
-            throw new \InvalidArgumentException('Approved grant amount must be greater than zero.');
-        }
+            if ($this->invoice_status === self::INVOICE_CANCELLED) {
+                throw ValidationException::withMessages([
+                    'approvedGrantAmount' => 'The project payment has been cancelled and cannot be reactivated by declaring the grant again.',
+                ]);
+            }
 
-        $pricing = app(ProjectPricing::class);
-        $snapshot = $pricing->forProject($this);
-        $fee = $pricing->amount($snapshot, $amount);
-        $feeExempt = $fee === 0.0;
+            $amount = round(max(0, (float) $amount), 2);
 
-        $this->forceFill([
-            'status' => ProjectStatus::Approved->value,
-            // Compatibility with older reports/widgets that still read approved_budget.
-            'approved_budget' => $amount,
-            'approved_grant_amount' => $amount,
-            'approved_grant_currency' => 'EUR',
-            'approved_declared_at' => now(),
-            'approved_declared_by' => $declaredBy?->id,
-            'activation_fee_amount' => $fee,
-            'project_fee_snapshot' => $snapshot,
-            'activation_fee_currency' => 'EUR',
-            'invoice_status' => $feeExempt ? self::INVOICE_NOT_REQUIRED : self::INVOICE_PENDING,
-            'invoice_number' => $feeExempt ? null : $this->invoice_number,
-            'invoice_sent_at' => $feeExempt ? null : $this->invoice_sent_at,
-            // The due date is set only when the fiscal invoice is issued,
-            // after the customer has received the first grant instalment.
-            'invoice_due_at' => null,
-            'payment_confirmed_at' => $feeExempt ? now() : null,
-            'payment_confirmed_by' => $feeExempt ? $declaredBy?->id : null,
-        ])->save();
+            if ($amount <= 0) {
+                throw new \InvalidArgumentException('Approved grant amount must be greater than zero.');
+            }
+
+            $pricing = app(ProjectPricing::class);
+            $snapshot = $pricing->forProject($this);
+            $fee = $pricing->amount($snapshot, $amount);
+            $feeExempt = $fee === 0.0;
+
+            $this->forceFill([
+                'status' => ProjectStatus::Approved->value,
+                // Compatibility with older reports/widgets that still read approved_budget.
+                'approved_budget' => $amount,
+                'approved_grant_amount' => $amount,
+                'approved_grant_currency' => 'EUR',
+                'approved_declared_at' => now(),
+                'approved_declared_by' => $declaredBy?->id,
+                'activation_fee_amount' => $fee,
+                'project_fee_snapshot' => $snapshot,
+                'activation_fee_currency' => 'EUR',
+                'invoice_status' => $feeExempt ? self::INVOICE_NOT_REQUIRED : self::INVOICE_PENDING,
+                'invoice_number' => $feeExempt ? null : $this->invoice_number,
+                'invoice_sent_at' => $feeExempt ? null : $this->invoice_sent_at,
+                // The due date is set only when the fiscal invoice is issued,
+                // after the customer has received the first grant instalment.
+                'invoice_due_at' => null,
+                'payment_confirmed_at' => $feeExempt ? now() : null,
+                'payment_confirmed_by' => $feeExempt ? $declaredBy?->id : null,
+            ])->save();
+        });
     }
 
     /**

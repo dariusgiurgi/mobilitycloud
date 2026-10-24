@@ -86,6 +86,15 @@ class SeedE2eQaData extends Command
         ]);
         $freeOwnedProject = $this->upsertProject($free, 'QA Bot Free Owned Project', 'QA-FREE');
 
+        $invoiceProject = $this->upsertProject($owner, 'QA Bot Invoice Cancellation Project', 'QA-CANCEL');
+        $invoiceProject->forceFill([
+            'status' => 'approved', 'approved_grant_amount' => 20000, 'approved_declared_at' => now(),
+            'activation_fee_amount' => 100, 'invoice_status' => Project::INVOICE_SENT,
+            'invoice_number' => 'QA-CANCEL-123', 'invoice_due_at' => now()->addWeek(),
+            'payment_confirmed_at' => null, 'invoice_cancelled_at' => null,
+            'invoice_cancelled_by' => null, 'invoice_cancellation_reason' => null,
+        ])->save();
+
         $editorInvitation = $this->upsertInvitation($owner, $collaborationProject, $editor, Project::PROJECT_ROLE_EDITOR);
         $viewerInvitation = $this->upsertInvitation($owner, $viewerProject, $viewer, Project::PROJECT_ROLE_VIEWER);
 

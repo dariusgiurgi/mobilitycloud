@@ -53,6 +53,9 @@ class ListPlatformProjectPayments extends ListRecords
                     ->where('invoice_status', Project::INVOICE_PAID)
                     ->count())
                 ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('invoice_status', Project::INVOICE_PAID)),
+            'cancelled' => Tab::make('Cancelled')
+                ->badge(fn (): int => PlatformProjectPaymentResource::paymentQueueQuery()->where('invoice_status', Project::INVOICE_CANCELLED)->count())
+                ->modifyQueryUsing(fn (Builder $query): Builder => $query->where('invoice_status', Project::INVOICE_CANCELLED)),
             'all' => Tab::make('All'),
         ];
     }

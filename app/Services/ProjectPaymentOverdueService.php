@@ -6,6 +6,7 @@ use App\Enums\ProjectStatus;
 use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResource;
 use App\Models\Project;
 use App\Support\PlatformAudit;
+use Illuminate\Support\Facades\DB;
 
 class ProjectPaymentOverdueService
 {
@@ -31,11 +32,17 @@ class ProjectPaymentOverdueService
 
     private function markOverdue(Project $project): bool
     {
+        return DB::transaction(fn (): bool => $this->markLockedProjectOverdue(
+            Project::query()->lockForUpdate()->findOrFail($project->getKey())
+        ));
+    }
+
+    private function markLockedProjectOverdue(Project $project): bool
+    {
         $project->loadMissing('ownerAccount');
 
         if ($project->ownerAccount?->isUnlimitedAccount()
-            || $project->invoice_status === Project::INVOICE_OVERDUE
-            || $project->invoice_status === Project::INVOICE_PAID) {
+            || ! in_array($project->invoice_status, [Project::INVOICE_PENDING, Project::INVOICE_SENT], true)) {
             return false;
         }
 

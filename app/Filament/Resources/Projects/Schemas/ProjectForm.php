@@ -224,6 +224,9 @@ class ProjectForm
                         $status = e(Project::invoiceStatusOptions()[$record->invoice_status] ?? 'Pending');
                         $grant = number_format((float) $record->approved_grant_amount, 2, '.', ',').' €';
                         $fee = number_format((float) $record->activation_fee_amount, 2, '.', ',').' €';
+                        if ($record->invoice_status === Project::INVOICE_CANCELLED) {
+                            $fee .= ' (cancelled — no payment due)';
+                        }
                         $code = e($record->grant_ref ?: 'Not recorded');
                         $proof = e($record->approved_grant_proof_original_name ?: 'Not uploaded');
                         $invoice = e($record->invoice_number ?: 'Will be added when issued');
