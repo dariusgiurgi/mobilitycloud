@@ -80,7 +80,7 @@ class PlatformAdminInterfaceTest extends TestCase
         Livewire::test(ListPlatformUsers::class)
             ->assertSee('Pending Client')
             ->assertSee('Verification pending')
-            ->assertSee('Pending verification');
+            ->assertSee('Unverified');
     }
 
     private function assertProductModulesAreUnavailable(): void

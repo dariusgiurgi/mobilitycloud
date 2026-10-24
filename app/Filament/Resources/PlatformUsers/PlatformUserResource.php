@@ -132,9 +132,10 @@ class PlatformUserResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make('Account')
-                ->description('Global account data. Project access is managed on each project.')
+        return $schema->columns(['default' => 1, 'xl' => 2])->components([
+            Section::make('Profile')
+                ->icon(Heroicon::OutlinedUserCircle)
+                ->description('Identity and role. Project permissions are managed within each project.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('name')
@@ -167,6 +168,59 @@ class PlatformUserResource extends Resource
                         ->disabled(fn (): bool => ! (auth()->user()?->canManagePlatformAdmins() ?? false))
                         ->dehydrated(fn (): bool => auth()->user()?->canManagePlatformAdmins() ?? false)
                         ->helperText('Only platform owners can promote or demote platform staff.'),
+                ]),
+            Section::make('Access')
+                ->icon(Heroicon::OutlinedKey)
+                ->description('Account access level and sign-in requirements.')
+                ->columns(2)
+                ->schema([
+                    Select::make('plan')
+                        ->label('Account access')
+                        ->options(PlanCatalog::planOptions())
+                        ->default('standard')
+                        ->live()
+                        ->required(),
+                    Select::make('subscription_status')
+                        ->label('Access status')
+                        ->options([
+                            'active' => 'Active',
+                            'expired' => 'Expired',
+                            'suspended' => 'Suspended',
+                        ])
+                        ->default('active')
+                        ->live()
+                        ->required(),
+                ]),
+            Section::make('Billing details')
+                ->icon(Heroicon::OutlinedBuildingOffice2)
+                ->description('The organisation and address used for fiscal invoices.')
+                ->columns(2)
+                ->schema([
+                    TextInput::make('billing_name')
+                        ->label('Billing name')
+                        ->live(onBlur: true)
+                        ->maxLength(255)
+                        ->columnSpanFull(),
+                    TextInput::make('billing_vat')
+                        ->label('VAT / registration')
+                        ->live(onBlur: true)
+                        ->maxLength(255),
+                    TextInput::make('billing_country')
+                        ->label('Billing country')
+                        ->live(onBlur: true)
+                        ->maxLength(255),
+                    Textarea::make('billing_address')
+                        ->label('Billing address')
+                        ->rows(3)
+                        ->live(onBlur: true)
+                        ->maxLength(2000)
+                        ->columnSpanFull(),
+                ]),
+            Section::make('Support & restrictions')
+                ->icon(Heroicon::OutlinedLifebuoy)
+                ->description('Internal notes and account security. Changes save automatically when editing.')
+                ->columns(2)
+                ->schema([
                     Toggle::make('is_suspended')
                         ->label('Suspended')
                         ->helperText('Suspended accounts are marked for support review.')
@@ -196,41 +250,6 @@ class PlatformUserResource extends Resource
                         ->rows(5)
                         ->live(onBlur: true)
                         ->maxLength(3000)
-                        ->columnSpanFull(),
-                    Select::make('plan')
-                        ->label('Account access')
-                        ->options(PlanCatalog::planOptions())
-                        ->default('standard')
-                        ->live()
-                        ->required(),
-                    Select::make('subscription_status')
-                        ->label('Access status')
-                        ->options([
-                            'active' => 'Active',
-                            'expired' => 'Expired',
-                            'suspended' => 'Suspended',
-                        ])
-                        ->default('active')
-                        ->live()
-                        ->required(),
-                    TextInput::make('billing_name')
-                        ->label('Billing name')
-                        ->live(onBlur: true)
-                        ->maxLength(255)
-                        ->columnSpanFull(),
-                    TextInput::make('billing_vat')
-                        ->label('VAT / registration')
-                        ->live(onBlur: true)
-                        ->maxLength(255),
-                    TextInput::make('billing_country')
-                        ->label('Billing country')
-                        ->live(onBlur: true)
-                        ->maxLength(255),
-                    Textarea::make('billing_address')
-                        ->label('Billing address')
-                        ->rows(3)
-                        ->live(onBlur: true)
-                        ->maxLength(2000)
                         ->columnSpanFull(),
                 ]),
         ]);
@@ -316,15 +335,23 @@ class PlatformUserResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->withTrashed()->withCount(['ownedProjects', 'projects']))
+            ->searchPlaceholder('Search name, email or organisation…')
+            ->filtersTriggerAction(fn (Action $action) => $action->button()->label('Filters'))
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(10)
+            ->emptyStateHeading('No matching accounts')
+            ->emptyStateDescription('Try another name, email or organisation, or clear the active filters.')
             ->columns([
                 TextColumn::make('name')
-                    ->label('User')
-                    ->searchable()
+                    ->label('Account')
+                    ->searchable(['name', 'email', 'billing_name'])
+                    ->view('filament.tables.columns.account-identity')
                     ->sortable()
                     ->weight('bold')
                     ->description(fn (User $record): string => $record->email),
                 TextColumn::make('platform_role_label')
                     ->label('Role')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->badge()
                     ->color(fn (User $record): string => match ($record->role) {
                         User::ROLE_PLATFORM_OWNER => 'danger',
@@ -393,9 +420,9 @@ class PlatformUserResource extends Resource
                     ->description(fn (User $record): ?string => $record->billing_country ?: null)
                     ->badge()
                     ->color(fn (User $record): string => $record->isUnlimitedAccount() || $record->hasBillingDetails() ? 'success' : 'danger')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('owned_projects_count')
-                    ->label('Owned')
+                    ->label('Projects')
                     ->numeric()
                     ->sortable()
                     ->alignEnd(),
@@ -414,9 +441,10 @@ class PlatformUserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('last_login_at')
                     ->label('Last login')
-                    ->dateTime('d M Y, H:i')
-                    ->placeholder('—')
-                    ->toggleable(),
+                    ->since()
+                    ->dateTimeTooltip('d M Y, H:i')
+                    ->placeholder('Never signed in')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('created_at')
                     ->label('Created')
                     ->dateTime('d M Y')
@@ -424,6 +452,8 @@ class PlatformUserResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                SelectFilter::make('plan')->label('Account access')->options(PlanCatalog::planOptions()),
+                SelectFilter::make('project_fee_mode')->label('Project fee')->options(['global' => 'Global fee', 'percentage' => 'Custom percentage', 'fixed' => 'Fixed EUR per project']),
                 SelectFilter::make('role')
                     ->options([
                         User::ROLE_USER => 'User',
@@ -449,11 +479,11 @@ class PlatformUserResource extends Resource
                     ),
             ])
             ->recordActions([
-                ViewAction::make()
-                    ->label('View'),
                 EditAction::make()
+                    ->label('Manage')
                     ->visible(fn (User $record): bool => blank($record->archived_at) && ! $record->trashed() && static::canManageAccount($record)),
                 ActionGroup::make([
+                    ViewAction::make()->label('View account'),
                     PlatformAccountNotificationAction::make(),
                     Action::make('impersonate')
                         ->label('Impersonate')

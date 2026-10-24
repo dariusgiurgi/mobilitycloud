@@ -25,6 +25,7 @@ use Filament\Navigation\NavigationGroup;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -52,11 +53,13 @@ class PlatformPanelProvider extends PanelProvider
                 'primary' => Color::Indigo,
             ])
             ->sidebarCollapsibleOnDesktop()
+            ->sidebarWidth('16rem')
+            ->maxContentWidth(Width::Full)
             ->databaseNotifications()
             ->databaseNotificationsPolling(null)
             ->renderHook(
                 PanelsRenderHook::STYLES_AFTER,
-                fn () => view('filament.hooks.compact-sidebar'),
+                fn () => view('filament.hooks.platform-design'),
             )
             ->navigationGroups([
                 NavigationGroup::make('Platform management')

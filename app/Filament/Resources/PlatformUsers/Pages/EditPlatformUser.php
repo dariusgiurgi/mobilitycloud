@@ -21,6 +21,11 @@ class EditPlatformUser extends EditRecord
 
     private bool $isAutosaving = false;
 
+    public function getTitle(): string
+    {
+        return $this->record->name ?: $this->record->email;
+    }
+
     public function getSubheading(): ?string
     {
         $status = $this->record->is_suspended ? 'Suspended account' : 'Active account';

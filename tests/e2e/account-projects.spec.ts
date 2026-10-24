@@ -657,8 +657,36 @@ test.describe('Account-owned projects and project invitations', () => {
     await expect(page.getByText(/QA Bot Owner/i).first()).toBeVisible();
     await expect(page.getByText(/Writer Pro|Free|Demo/i).first()).toBeVisible();
 
+    const directorySearch = page.getByPlaceholder('Search name, email or organisation…');
+    await directorySearch.fill(state.users.free.email);
+    await expect(page.getByRole('row').filter({ hasText: state.users.free.email })).toBeVisible();
+    await expect(page.getByRole('row').filter({ hasText: state.users.editor.email })).toHaveCount(0);
+    await directorySearch.fill('');
+    await expect(page.getByRole('row').filter({ hasText: state.users.editor.email })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('admin-accounts-desktop.png'), fullPage: true, animations: 'disabled' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(directorySearch).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('admin-accounts-mobile.png'), fullPage: true, animations: 'disabled' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.getByRole('button', { name: 'User menu', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Enable dark theme', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('html')).toHaveClass(/dark/);
+    await page.screenshot({ path: test.info().outputPath('admin-accounts-dark.png'), fullPage: true, animations: 'disabled' });
+    await page.getByRole('button', { name: 'User menu', exact: true }).click();
+    await page.getByRole('menuitemradio', { name: 'Enable light theme', exact: true }).click();
+    await page.keyboard.press('Escape');
+
     const accountRow = page.getByRole('row').filter({ hasText: state.users.free.email });
-    await accountRow.getByRole('link', { name: 'Edit', exact: true }).click();
+    await accountRow.getByRole('link', { name: 'Manage', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Billing details', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('admin-account-edit.png'), fullPage: true, animations: 'disabled' });
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('admin-account-edit-mobile.png'), fullPage: true, animations: 'disabled' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('button', { name: 'Project fee', exact: true }).click();
     let pricingDialog = page.getByRole('dialog').filter({ hasText: 'Pricing rule' });
     await pricingDialog.getByLabel('Pricing rule').selectOption('fixed');

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Filament\Resources\Projects\ProjectResource;
 use App\Filament\Resources\PublicBlockReports\PublicBlockReportResource;
 use App\Filament\Widgets\DashboardOverview;
@@ -27,7 +28,7 @@ class Dashboard extends BaseDashboard
     public function getSubheading(): ?string
     {
         if (auth()->user()?->isPlatformAdmin()) {
-            return 'Internal platform administration for users, reports and operational controls.';
+            return 'Your daily overview of accounts, project payments and support priorities.';
         }
 
         return 'Your projects, priorities and upcoming milestones.';
@@ -37,7 +38,12 @@ class Dashboard extends BaseDashboard
     {
         if (auth()->user()?->isPlatformAdmin()) {
             return [
+                Action::make('accounts')
+                    ->label('Manage accounts')
+                    ->icon(Heroicon::OutlinedUsers)
+                    ->url(fn (): string => PlatformUserResource::getUrl()),
                 Action::make('moderationReports')
+                    ->color('gray')
                     ->label('Review moderation reports')
                     ->icon(Heroicon::OutlinedFlag)
                     ->url(fn (): string => PublicBlockReportResource::getUrl()),
