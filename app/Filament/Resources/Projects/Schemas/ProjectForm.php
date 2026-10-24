@@ -227,6 +227,9 @@ class ProjectForm
                         if ($record->invoice_status === Project::INVOICE_CANCELLED) {
                             $fee .= ' (cancelled — no payment due)';
                         }
+                        if ($record->invoice_status === Project::INVOICE_REFUNDED) {
+                            $fee .= ' (fully refunded — no payment due)';
+                        }
                         $code = e($record->grant_ref ?: 'Not recorded');
                         $proof = e($record->approved_grant_proof_original_name ?: 'Not uploaded');
                         $invoice = e($record->invoice_number ?: 'Will be added when issued');

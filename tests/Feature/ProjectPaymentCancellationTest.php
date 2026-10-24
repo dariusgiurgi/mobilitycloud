@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Filament\Pages\PlatformBillingOperations;
 use App\Filament\Resources\PlatformProjectPayments\Pages\ListPlatformProjectPayments;
 use App\Filament\Resources\PlatformProjectPayments\PlatformProjectPaymentResource;
+use App\Filament\Resources\Projects\Pages\ViewProjectOverview;
 use App\Filament\Widgets\PlatformProjectPaymentsOverview;
 use App\Models\PlatformAuditLog;
 use App\Models\Project;
@@ -156,6 +157,121 @@ class ProjectPaymentCancellationTest extends TestCase
         }
         $this->expectException(ValidationException::class);
         $stale->declareApprovedGrant(20000, auth()->user());
+    }
+
+    public function test_project_owner_sees_no_payment_due_after_cancellation(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]));
+        $project = $this->project(Project::INVOICE_OVERDUE);
+        app(ProjectPaymentCancellationService::class)->cancel($project, 'No longer needed');
+        $this->actingAs($project->ownerAccount);
+        Filament::setCurrentPanel('app');
+
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
+            ->assertSee('Invoice cancelled · No payment due')
+            ->assertDontSee('Invoice payment is overdue')
+            ->assertDontSee('Fiscal invoice pending');
+    }
+
+    public function test_paid_invoice_can_be_fully_refunded_with_history_and_no_active_revenue(): void
+    {
+        $this->actingAs($admin = User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]));
+        Filament::setCurrentPanel('platform');
+        $project = $this->project(Project::INVOICE_PAID);
+        $paidAt = $project->payment_confirmed_at->toISOString();
+        $otherPaid = $this->project(Project::INVOICE_PAID);
+
+        Livewire::test(ListPlatformProjectPayments::class)->set('activeTab', 'paid')
+            ->assertTableActionVisible('refundInvoice', $project)
+            ->callTableAction('refundInvoice', $project, data: [
+                'reason' => 'Customer requested cancellation', 'refund_date' => today()->toDateString(), 'reference' => 'BANK-REFUND-123',
+            ])->assertHasNoTableActionErrors();
+        $project->refresh();
+        $this->assertSame(Project::INVOICE_REFUNDED, $project->invoice_status);
+        $this->assertSame('100.00', $project->invoice_refund_amount);
+        $this->assertSame('100.00', $project->activation_fee_amount);
+        $this->assertSame($paidAt, $project->payment_confirmed_at->toISOString());
+        $this->assertSame('MC-123', $project->invoice_number);
+        $this->assertEquals($admin->id, $project->invoice_cancelled_by);
+        $this->assertSame('BANK-REFUND-123', $project->invoice_refund_reference);
+        $this->assertFalse($project->hasPaymentOverdue());
+        $this->assertFalse($project->activationPaymentConfirmed());
+        $this->assertTrue($project->operationalModulesAvailable());
+        $this->assertSame(0, app(ProjectPaymentOverdueService::class)->dispatch());
+        $this->assertSame(1, PlatformAuditLog::where('action', 'project.invoice_refunded')->count());
+
+        $cards = collect(app(PlatformBillingOperations::class)->cards())->keyBy('label');
+        $this->assertSame('€ 100.00', $cards['Paid this month']['amount']);
+        $this->assertSame(1, $cards['Paid this month']['count']);
+        $this->assertSame('€ 100.00', $cards['Refunded this month']['amount']);
+        Livewire::test(PlatformProjectPaymentsOverview::class)->assertSee('€ 100.00 returned to customers');
+        Livewire::test(ListPlatformProjectPayments::class)->set('activeTab', 'paid')->assertCanNotSeeTableRecords([$project])->assertCanSeeTableRecords([$otherPaid]);
+        Livewire::test(ListPlatformProjectPayments::class)->set('activeTab', 'refunded')->assertCanSeeTableRecords([$project])
+            ->assertTableActionHidden('refundInvoice', $project)->assertTableActionHidden('editInvoice', $project)
+            ->assertTableActionHidden('cancelInvoice', $project)->assertTableActionHidden('markPaid', $project);
+        $this->actingAs($project->ownerAccount);
+        Filament::setCurrentPanel('app');
+        Livewire::test(ViewProjectOverview::class, ['record' => $project->id])->assertSee('Payment refunded · No payment due')
+            ->assertDontSee('Invoice payment is overdue')->assertDontSee('Fiscal invoice pending');
+    }
+
+    public function test_refund_validation_rejects_missing_reference_invalid_dates_unpaid_and_duplicate_refunds(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]));
+        $project = $this->project(Project::INVOICE_PAID);
+        $project->update(['payment_confirmed_at' => now()->subDays(3)]);
+        $service = app(ProjectPaymentCancellationService::class);
+        foreach (['', 'future', 'before_payment'] as $invalid) {
+            try {
+                $service->refund($project, 'Cancellation', match ($invalid) {
+                    'future' => today()->addDay()->toDateString(),
+                    'before_payment' => today()->subWeek()->toDateString(),
+                    default => today()->toDateString(),
+                }, $invalid === '' ? '   ' : 'BANK-123');
+                $this->fail('Invalid refund data must be rejected.');
+            } catch (ValidationException) {
+                $this->assertSame(Project::INVOICE_PAID, $project->fresh()->invoice_status);
+            }
+        }
+        try {
+            $service->refund($this->project(), 'Cancellation', today()->toDateString(), 'BANK-123');
+            $this->fail('An unpaid invoice cannot be refunded.');
+        } catch (ValidationException) {
+            $this->assertSame(0, PlatformAuditLog::where('action', 'project.invoice_refunded')->count());
+        }
+        $service->refund($project, 'Cancellation', today()->toDateString(), 'BANK-123');
+        try {
+            $service->refund($project, 'Repeated refund', today()->toDateString(), 'BANK-456');
+            $this->fail('A stale paid record cannot be refunded twice.');
+        } catch (ValidationException) {
+            $this->assertSame(1, PlatformAuditLog::where('action', 'project.invoice_refunded')->count());
+            $this->assertSame('BANK-123', $project->fresh()->invoice_refund_reference);
+        }
+    }
+
+    public function test_refunds_are_reported_in_the_refund_month_even_for_older_payments(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => User::ROLE_PLATFORM_OWNER]));
+        Filament::setCurrentPanel('platform');
+        $project = $this->project(Project::INVOICE_PAID);
+        $project->update(['payment_confirmed_at' => now()->subMonths(2)]);
+        app(ProjectPaymentCancellationService::class)->refund($project, 'Cancellation', today()->toDateString(), 'BANK-123');
+        $cards = collect(app(PlatformBillingOperations::class)->cards())->keyBy('label');
+        $this->assertSame('€ 0.00', $cards['Paid this month']['amount']);
+        $this->assertSame('€ 100.00', $cards['Refunded this month']['amount']);
+    }
+
+    public function test_regular_account_cannot_record_a_refund(): void
+    {
+        $project = $this->project(Project::INVOICE_PAID);
+        $this->actingAs($project->ownerAccount);
+        try {
+            app(ProjectPaymentCancellationService::class)->refund($project, 'Refund myself', today()->toDateString(), 'BANK-123');
+            $this->fail('Expected forbidden.');
+        } catch (HttpException $e) {
+            $this->assertSame(403, $e->getStatusCode());
+            $this->assertSame(Project::INVOICE_PAID, $project->fresh()->invoice_status);
+        }
     }
 
     public function test_stale_cancellation_cannot_remove_a_payment_confirmed_in_the_meantime(): void

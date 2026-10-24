@@ -48,6 +48,9 @@ class PlatformBillingOperations extends Page
             ->whereNotNull('payment_confirmed_at')
             ->where('payment_confirmed_at', '>=', now()->startOfMonth());
 
+        $refundedThisMonth = $this->paymentQuery()->where('invoice_status', Project::INVOICE_REFUNDED)
+            ->where('invoice_refunded_at', '>=', now()->startOfMonth());
+
         return [
             [
                 'label' => 'Ready to invoice',
@@ -85,9 +88,17 @@ class PlatformBillingOperations extends Page
                 'label' => 'Paid this month',
                 'count' => (clone $paidThisMonth)->count(),
                 'amount' => $this->formatEuro((clone $paidThisMonth)->sum('activation_fee_amount')),
-                'detail' => 'Externally confirmed administration fees.',
+                'detail' => 'Confirmed administration fees, excluding refunded invoices.',
                 'level' => 'success',
                 'url' => $this->paymentQueueUrl('paid'),
+            ],
+            [
+                'label' => 'Refunded this month',
+                'count' => (clone $refundedThisMonth)->count(),
+                'amount' => $this->formatEuro((clone $refundedThisMonth)->sum('invoice_refund_amount')),
+                'detail' => 'Full refunds recorded after returning the customer payment.',
+                'level' => 'info',
+                'url' => $this->paymentQueueUrl('refunded'),
             ],
         ];
     }

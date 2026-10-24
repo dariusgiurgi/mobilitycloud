@@ -32,6 +32,8 @@ class Project extends Model
 
     public const INVOICE_CANCELLED = 'cancelled';
 
+    public const INVOICE_REFUNDED = 'refunded';
+
     /** @deprecated Project managers are now treated as editors. */
     public const PROJECT_ROLE_MANAGER = 'manager';
 
@@ -69,6 +71,8 @@ class Project extends Model
         'project_fee_snapshot' => 'array',
         'invoice_sent_at' => 'datetime',
         'invoice_cancelled_at' => 'datetime',
+        'invoice_refunded_at' => 'datetime',
+        'invoice_refund_amount' => 'decimal:2',
         'invoice_due_at' => 'datetime',
         'payment_confirmed_at' => 'datetime',
         'is_activated' => 'boolean',
@@ -474,6 +478,7 @@ class Project extends Model
             self::INVOICE_PAID => 'Paid',
             self::INVOICE_OVERDUE => 'Payment overdue',
             self::INVOICE_CANCELLED => 'Cancelled',
+            self::INVOICE_REFUNDED => 'Refunded',
         ];
     }
 
@@ -503,7 +508,7 @@ class Project extends Model
 
     public function hasPaymentOverdue(): bool
     {
-        if ($this->invoice_status === self::INVOICE_CANCELLED || $this->owner()?->isUnlimitedAccount()) {
+        if (in_array($this->invoice_status, [self::INVOICE_CANCELLED, self::INVOICE_REFUNDED], true) || $this->owner()?->isUnlimitedAccount()) {
             return false;
         }
 
@@ -523,6 +528,10 @@ class Project extends Model
 
     public function activationPaymentConfirmed(): bool
     {
+        if ($this->invoice_status === self::INVOICE_REFUNDED) {
+            return false;
+        }
+
         if ($this->owner()?->isUnlimitedAccount()) {
             return true;
         }
@@ -564,7 +573,7 @@ class Project extends Model
                 $this->setRawAttributes(static::query()->lockForUpdate()->findOrFail($this->getKey())->getAttributes(), true);
             }
 
-            if ($this->invoice_status === self::INVOICE_CANCELLED) {
+            if (in_array($this->invoice_status, [self::INVOICE_CANCELLED, self::INVOICE_REFUNDED], true)) {
                 throw ValidationException::withMessages([
                     'approvedGrantAmount' => 'The project payment has been cancelled and cannot be reactivated by declaring the grant again.',
                 ]);

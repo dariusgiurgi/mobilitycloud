@@ -29,6 +29,9 @@ class PlatformProjectPaymentsOverview extends BaseWidget
             ->whereNotNull('payment_confirmed_at')
             ->where('payment_confirmed_at', '>=', now()->startOfMonth());
 
+        $refundedThisMonth = $this->paymentQuery()->where('invoice_status', Project::INVOICE_REFUNDED)
+            ->where('invoice_refunded_at', '>=', now()->startOfMonth());
+
         return [
             Stat::make('To invoice', number_format((clone $toInvoice)->count()))
                 ->description($this->formatAmount((clone $toInvoice)->sum('activation_fee_amount')).' ready to bill')
@@ -43,8 +46,11 @@ class PlatformProjectPaymentsOverview extends BaseWidget
                 ->description('Cannot invoice until billing details are complete')
                 ->color('danger'),
             Stat::make('Paid this month', number_format((clone $paidThisMonth)->count()))
-                ->description($this->formatAmount((clone $paidThisMonth)->sum('activation_fee_amount')).' confirmed')
+                ->description($this->formatAmount((clone $paidThisMonth)->sum('activation_fee_amount')).' confirmed, excluding refunds')
                 ->color('success'),
+            Stat::make('Refunded this month', number_format((clone $refundedThisMonth)->count()))
+                ->description($this->formatAmount((clone $refundedThisMonth)->sum('invoice_refund_amount')).' returned to customers')
+                ->color('gray'),
         ];
     }
 
