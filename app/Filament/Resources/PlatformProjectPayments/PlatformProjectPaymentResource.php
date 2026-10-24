@@ -5,13 +5,16 @@ namespace App\Filament\Resources\PlatformProjectPayments;
 use App\Filament\Resources\PlatformProjectPayments\Pages\ListPlatformProjectPayments;
 use App\Filament\Resources\PlatformUsers\PlatformUserResource;
 use App\Models\Project;
+use App\Services\ProjectPaymentCancellationService;
 use App\Services\ProjectPaymentNotificationService;
 use App\Support\PlatformAudit;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -23,6 +26,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class PlatformProjectPaymentResource extends Resource
@@ -98,7 +102,8 @@ class PlatformProjectPaymentResource extends Resource
                     ->money('EUR')
                     ->sortable(),
                 TextColumn::make('activation_fee_amount')
-                    ->label('Fee to invoice')
+                    ->label('Project fee')
+                    ->description(fn (Project $record): ?string => in_array($record->invoice_status, [Project::INVOICE_CANCELLED, Project::INVOICE_REFUNDED], true) ? 'Excluded from active totals' : null)
                     ->money('EUR')
                     ->sortable()
                     ->weight('bold'),
@@ -107,6 +112,8 @@ class PlatformProjectPaymentResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn (?string $state): string => Project::invoiceStatusOptions()[$state ?: Project::INVOICE_NOT_REQUIRED] ?? ucfirst((string) $state))
                     ->color(fn (Project $record): string => match (true) {
+                        $record->invoice_status === Project::INVOICE_CANCELLED => 'gray',
+                        $record->invoice_status === Project::INVOICE_REFUNDED => 'gray',
                         $record->hasPaymentOverdue() => 'danger',
                         $record->invoice_status === Project::INVOICE_PAID => 'success',
                         $record->invoice_status === Project::INVOICE_SENT => 'info',
@@ -123,6 +130,11 @@ class PlatformProjectPaymentResource extends Resource
                     ->dateTime('d M Y')
                     ->placeholder('—')
                     ->toggleable(),
+                TextColumn::make('invoice_cancelled_at')->label('Cancelled at')->dateTime('d M Y H:i')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('invoice_cancellation_reason')->label('Cancellation / refund reason')->wrap()->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('invoice_refunded_at')->label('Refund date')->date('d M Y')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('invoice_refund_amount')->label('Refund amount')->money('EUR')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('invoice_refund_reference')->label('Refund reference')->wrap()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->label('Project status')
                     ->badge()
@@ -212,7 +224,8 @@ class PlatformProjectPaymentResource extends Resource
                         ->label('Edit amount / invoice')
                         ->icon('heroicon-o-pencil-square')
                         ->color('info')
-                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount())
+                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount()
+                            && ! in_array($record->invoice_status, [Project::INVOICE_CANCELLED, Project::INVOICE_REFUNDED], true))
                         ->fillForm(fn (Project $record): array => [
                             'approved_grant_amount' => $record->approvedGrantAmount(),
                             'invoice_status' => $record->invoice_status ?: Project::INVOICE_PENDING,
@@ -221,6 +234,43 @@ class PlatformProjectPaymentResource extends Resource
                         ])
                         ->form(self::invoiceForm())
                         ->action(fn (Project $record, array $data): null => self::updateInvoice($record, $data, 'project.invoice_updated')),
+                    Action::make('cancelInvoice')
+                        ->label('Cancel invoice / order')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn (Project $record): bool => ! $record->ownerAccount?->isUnlimitedAccount()
+                            && ! $record->payment_confirmed_at
+                            && in_array($record->invoice_status, [Project::INVOICE_PENDING, Project::INVOICE_SENT, Project::INVOICE_OVERDUE], true))
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (Project $record): string => 'Cancel payment for '.$record->name.'?')
+                        ->modalDescription('This removes the fee from amounts to collect and stops overdue reminders. The original amount and invoice details remain in history. Any fiscal invoice issued outside MobilityCloud must also be corrected in your invoicing system. This does not refund a payment or change project access.')
+                        ->modalSubmitActionLabel('Cancel invoice / order')
+                        ->form([
+                            Textarea::make('reason')->label('Reason for cancellation')->required()->maxLength(2000)->rows(3),
+                        ])
+                        ->action(function (Project $record, array $data): void {
+                            app(ProjectPaymentCancellationService::class)->cancel($record, $data['reason']);
+                            Notification::make()->title('Invoice / order cancelled')->body('The fee is excluded from amounts to collect.')->success()->send();
+                        }),
+                    Action::make('refundInvoice')
+                        ->label('Record full refund')
+                        ->icon('heroicon-o-arrow-uturn-left')
+                        ->color('danger')
+                        ->visible(fn (Project $record): bool => $record->invoice_status === Project::INVOICE_PAID
+                            && (float) $record->activation_fee_amount > 0)
+                        ->requiresConfirmation()
+                        ->modalHeading(fn (Project $record): string => 'Record full refund of '.self::formatEuro($record->activation_fee_amount).'?')
+                        ->modalDescription('Confirm only after returning the full payment through your bank or payment provider. MobilityCloud records the refund; it does not transfer money. The invoice leaves active paid totals, and the original payment stays in history. Correct any external fiscal documents separately. Project access stays unchanged.')
+                        ->modalSubmitActionLabel('Confirm refund recorded')
+                        ->form([
+                            Textarea::make('reason')->label('Reason for refund')->required()->maxLength(2000)->rows(3),
+                            DatePicker::make('refund_date')->label('Refund date')->required()->default(today())->maxDate(today()),
+                            TextInput::make('reference')->label('Bank / payment reference')->required()->maxLength(255),
+                        ])
+                        ->action(function (Project $record, array $data): void {
+                            app(ProjectPaymentCancellationService::class)->refund($record, $data['reason'], $data['refund_date'], $data['reference']);
+                            Notification::make()->title('Full refund recorded')->body('The invoice is excluded from active paid totals.')->success()->send();
+                        }),
                     Action::make('openAccount')
                         ->label('Open account')
                         ->icon('heroicon-o-arrow-top-right-on-square')
@@ -247,6 +297,8 @@ class PlatformProjectPaymentResource extends Resource
                         Project::INVOICE_SENT,
                         Project::INVOICE_PAID,
                         Project::INVOICE_OVERDUE,
+                        Project::INVOICE_CANCELLED,
+                        Project::INVOICE_REFUNDED,
                     ]);
             });
     }
@@ -279,7 +331,8 @@ class PlatformProjectPaymentResource extends Resource
 
     public static function applyMissingBillingScope(Builder $query): Builder
     {
-        return $query->whereHas('ownerAccount', fn (Builder $query): Builder => $query->missingBillingDetails());
+        return $query->whereIn('invoice_status', [Project::INVOICE_PENDING, Project::INVOICE_SENT, Project::INVOICE_OVERDUE])
+            ->whereHas('ownerAccount', fn (Builder $query): Builder => $query->missingBillingDetails());
     }
 
     public static function paymentQueueQuery(): Builder
@@ -289,6 +342,14 @@ class PlatformProjectPaymentResource extends Resource
 
     public static function nextActionLabel(Project $record): string
     {
+        if ($record->invoice_status === Project::INVOICE_REFUNDED) {
+            return 'Refunded';
+        }
+
+        if ($record->invoice_status === Project::INVOICE_CANCELLED) {
+            return 'Cancelled';
+        }
+
         if (! $record->ownerAccount?->hasBillingDetails()) {
             return 'Missing billing details';
         }
@@ -307,6 +368,10 @@ class PlatformProjectPaymentResource extends Resource
 
     public static function nextActionColor(Project $record): string
     {
+        if (in_array($record->invoice_status, [Project::INVOICE_CANCELLED, Project::INVOICE_REFUNDED], true)) {
+            return 'gray';
+        }
+
         if (! $record->ownerAccount?->hasBillingDetails()) {
             return 'danger';
         }
@@ -325,6 +390,14 @@ class PlatformProjectPaymentResource extends Resource
 
     public static function nextActionDescription(Project $record): ?string
     {
+        if ($record->invoice_status === Project::INVOICE_REFUNDED) {
+            return 'Refunded '.self::formatEuro($record->invoice_refund_amount).' · '.$record->invoice_refunded_at?->format('d M Y').' · '.$record->invoice_cancellation_reason;
+        }
+
+        if ($record->invoice_status === Project::INVOICE_CANCELLED) {
+            return 'Excluded from totals. '.$record->invoice_cancellation_reason;
+        }
+
         if (! $record->ownerAccount?->hasBillingDetails()) {
             return 'Ask the account owner to complete billing details.';
         }
@@ -364,7 +437,7 @@ class PlatformProjectPaymentResource extends Resource
                 ->required(),
             Select::make('invoice_status')
                 ->label('Invoice status')
-                ->options(Project::invoiceStatusOptions())
+                ->options(array_diff_key(Project::invoiceStatusOptions(), [Project::INVOICE_CANCELLED => true, Project::INVOICE_REFUNDED => true]))
                 ->required()
                 ->native(false),
             TextInput::make('invoice_number')
@@ -379,6 +452,23 @@ class PlatformProjectPaymentResource extends Resource
     protected static function updateInvoice(Project $project, array $data, string $auditAction): null
     {
         abort_unless(auth()->user()?->isPlatformAdmin(), 403);
+
+        return DB::transaction(fn (): null => self::updateLockedInvoice(
+            Project::query()->lockForUpdate()->findOrFail($project->getKey()), $data, $auditAction
+        ));
+    }
+
+    private static function updateLockedInvoice(Project $project, array $data, string $auditAction): null
+    {
+        if (in_array($project->invoice_status, [Project::INVOICE_CANCELLED, Project::INVOICE_REFUNDED], true)
+            || in_array($data['invoice_status'] ?? null, [Project::INVOICE_CANCELLED, Project::INVOICE_REFUNDED], true)) {
+            throw ValidationException::withMessages(['invoice_status' => 'Cancelled or refunded payments cannot be edited. Use the dedicated cancellation or refund action.']);
+        }
+
+        if (($project->invoice_status === Project::INVOICE_PAID || $project->payment_confirmed_at)
+            && ($data['invoice_status'] ?? null) !== Project::INVOICE_PAID) {
+            throw ValidationException::withMessages(['invoice_status' => 'A confirmed payment cannot be removed through invoice editing.']);
+        }
 
         $amount = round(max(0, (float) ($data['approved_grant_amount'] ?? $project->approvedGrantAmount())), 2);
         $status = $data['invoice_status'] ?? Project::INVOICE_PENDING;

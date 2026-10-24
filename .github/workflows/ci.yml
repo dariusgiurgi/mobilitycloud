@@ -153,6 +153,7 @@ jobs:
             output/playwright-report
             /tmp/http.log
             /tmp/queue.log
+            storage/logs/*.log
           retention-days: 7
 
   quality:

@@ -715,6 +715,43 @@ test.describe('Account-owned projects and project invitations', () => {
       expect(await publicPricing.text()).toContain(`charges ${rate}% of the approved grant`);
     }
 
+    await page.goto('/platform/platform-project-payments?tab=sent');
+    const invoiceRow = page.getByRole('row').filter({ hasText: 'QA Bot Invoice Cancellation Project' });
+    await expect(invoiceRow).toBeVisible();
+    await invoiceRow.getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Cancel invoice / order', exact: true }).click();
+    const cancellationDialog = page.getByRole('alertdialog').filter({ hasText: 'Cancel payment for QA Bot Invoice Cancellation Project?' });
+    await expect(cancellationDialog.getByRole('heading')).toBeVisible();
+    await cancellationDialog.getByLabel('Reason for cancellation').fill('Customer changed their mind');
+    await page.screenshot({ path: test.info().outputPath('cancel-invoice-confirmation.png') });
+    await cancellationDialog.getByRole('button', { name: 'Cancel invoice / order', exact: true }).click();
+    await expect(page.getByText('Invoice / order cancelled', { exact: true })).toBeVisible();
+    await expect(invoiceRow).toHaveCount(0);
+    await page.goto('/platform/platform-project-payments?tab=cancelled');
+    await expect(invoiceRow).toContainText('Excluded from totals. Customer changed their mind');
+    await expect(invoiceRow.getByRole('button', { name: 'Mark paid', exact: true })).toHaveCount(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await invoiceRow.scrollIntoViewIfNeeded();
+    await expect(invoiceRow).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('cancelled-invoice-mobile.png'), animations: 'disabled' });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+
+    await page.goto('/platform/platform-project-payments?tab=paid');
+    const refundRow = page.getByRole('row').filter({ hasText: 'QA Bot Refund Project' });
+    await refundRow.getByRole('button', { name: 'Actions', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Record full refund', exact: true }).click();
+    const refundDialog = page.getByRole('alertdialog').filter({ hasText: 'Record full refund of € 100.00?' });
+    await refundDialog.getByLabel('Reason for refund').fill('Customer cancelled after paying');
+    await refundDialog.getByLabel('Bank / payment reference').fill('BANK-QA-REFUND-123');
+    await page.screenshot({ path: test.info().outputPath('record-refund-confirmation.png'), animations: 'disabled' });
+    await refundDialog.getByRole('button', { name: 'Confirm refund recorded', exact: true }).click();
+    await expect(page.getByText('Full refund recorded', { exact: true })).toBeVisible();
+    await expect(refundRow).toHaveCount(0);
+    await page.goto('/platform/platform-project-payments?tab=refunded');
+    await expect(refundRow).toContainText('Customer cancelled after paying');
+    await expect(page.getByText('€ 100.00 returned to customers')).toBeVisible();
+
     const announcementTitle = `QA Bot platform notice ${Date.now()}`;
     await page.goto('/platform/platform-announcements/create');
     await expect(page.getByRole('heading', { name: /Create account/i })).toHaveCount(0);

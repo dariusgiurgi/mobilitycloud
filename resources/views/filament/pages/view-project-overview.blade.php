@@ -45,6 +45,8 @@
             && ! in_array($this->record->invoice_status, [
                 \App\Models\Project::INVOICE_NOT_REQUIRED,
                 \App\Models\Project::INVOICE_PAID,
+                \App\Models\Project::INVOICE_CANCELLED,
+                \App\Models\Project::INVOICE_REFUNDED,
             ], true);
         $eur = fn ($value) => number_format((float) $value, 2, '.', ',').' €';
     @endphp
@@ -118,6 +120,12 @@
                 @endif
                 @if ($this->record->is_activated)
                     <x-filament::badge color="success">Activated</x-filament::badge>
+                @endif
+                @if ($this->record->invoice_status === \App\Models\Project::INVOICE_CANCELLED)
+                    <x-filament::badge color="gray">Invoice cancelled · No payment due</x-filament::badge>
+                @endif
+                @if ($this->record->invoice_status === \App\Models\Project::INVOICE_REFUNDED)
+                    <x-filament::badge color="gray">Payment refunded · No payment due</x-filament::badge>
                 @endif
                 @if ($showInvoiceActivationNotice)
                     <x-filament::badge color="{{ $this->record->hasPaymentOverdue() ? 'danger' : 'warning' }}">
