@@ -7,9 +7,12 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
 
 class PlatformProjectPricing extends Page
 {
+    protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedAdjustmentsHorizontal;
+
     protected static string|\UnitEnum|null $navigationGroup = 'Billing & access';
 
     protected static ?string $navigationLabel = 'Project pricing';
