@@ -124,6 +124,8 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
+          # setup-php enables JIT by default; production runs without JIT.
+          ini-values: opcache.jit=disable, opcache.jit_buffer_size=0
           extensions: mbstring, intl, pdo_sqlite, sqlite3, zip, gd, sodium
           coverage: none
       - uses: actions/setup-node@v7
@@ -137,8 +139,13 @@ jobs:
         run: |
           touch "$DB_DATABASE"
           php artisan migrate --force --no-interaction
-          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/http.log 2>&1 &
+          # Production compiles Blade views before accepting requests.
+          php artisan view:cache --no-interaction
+          php artisan serve --host=127.0.0.1 --port=8000 --no-reload > /tmp/http.log 2>&1 &
+          http_pid=$!
           php artisan queue:work database --queue=exports,default --sleep=1 --tries=2 --timeout=900 > /tmp/queue.log 2>&1 &
+          queue_pid=$!
+          trap 'kill "$http_pid" "$queue_pid" 2>/dev/null || true' EXIT
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8000/up >/dev/null; then break; fi
             sleep 1
