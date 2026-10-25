@@ -20,11 +20,14 @@ use App\Policies\ProjectPolicy;
 use Filament\Auth\Http\Responses\Contracts\LoginResponse;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Filament\Auth\Http\Responses\Contracts\RegistrationResponse;
+use Filament\Support\Components\ComponentManager;
+use Filament\Tables\Table;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\View\View;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -43,6 +46,23 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if ($this->app->environment('local')) {
+            \Illuminate\Support\Facades\View::composer('filament-tables::index', function (View $view): void {
+                $data = $view->getData();
+                if (! array_key_exists('getColumnManagerApplyAction', $data)) {
+                    $table = $data['table'] ?? null;
+                    logger()->error('Missing Filament table view callback', [
+                        'view' => $view->name(),
+                        'data_keys' => array_keys($data),
+                        'table_class' => is_object($table) ? $table::class : get_debug_type($table),
+                        'method_exists' => is_object($table) && method_exists($table, 'getColumnManagerApplyAction'),
+                        'extracted_callback_exists' => $table instanceof Table
+                            && array_key_exists('getColumnManagerApplyAction', ComponentManager::resolve()->extractPublicMethods($table)),
+                    ]);
+                }
+            });
+        }
+
         RateLimiter::for('public-link-submissions', function (Request $request): Limit {
             $token = (string) $request->route('token');
             $key = hash('sha256', $token.'|'.$request->ip());
