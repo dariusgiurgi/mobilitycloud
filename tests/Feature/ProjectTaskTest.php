@@ -88,7 +88,7 @@ class ProjectTaskTest extends TestCase
         $this->actingAs($viewer);
 
         Livewire::test(ViewProjectOverview::class, ['record' => $project->id])
-            ->assertSee('Manual follow-up tasks')
+            ->assertSee('Team tasks')
             ->assertSee('Read-only task')
             ->assertDontSee('Add task')
             ->assertDontSee('Task actions');

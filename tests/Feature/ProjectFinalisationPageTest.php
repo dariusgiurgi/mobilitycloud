@@ -32,7 +32,7 @@ class ProjectFinalisationPageTest extends TestCase
 
         Livewire::test(ViewProjectFinalisation::class, ['record' => $project->id])
             ->assertSee('Prepare the final project archive')
-            ->assertSee('Recommended before handover')
+            ->assertSee('Step 1 · Review checks')
             ->assertSee('not requirements for downloading the archive')
             ->assertSee('Prepare archive')
             ->assertSee('This ZIP may contain sensitive project data')

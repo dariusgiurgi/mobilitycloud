@@ -78,6 +78,10 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::STYLES_AFTER,
                 fn () => view('filament.hooks.project-setup-style'),
             )
+            ->renderHook(
+                PanelsRenderHook::STYLES_AFTER,
+                fn () => view('filament.hooks.product-design'),
+            )
             ->navigationGroups([
                 NavigationGroup::make('Platform management')
                     ->collapsible(false),
