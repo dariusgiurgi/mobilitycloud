@@ -34,11 +34,11 @@
                             </span>
                             <span style="min-width:0;flex:1;">
                                 <span class="text-gray-950 dark:text-white" style="display:block;font-size:.875rem;font-weight:600;line-height:1.35;">{{ $invitation->project?->name ?? 'Project invitation' }}</span>
-                                <span class="mc-muted" style="display:block;font-size:.76rem;margin-top:.15rem;">
+                                <span class="mc-muted" style="display:block;font-size:.8125rem;margin-top:.15rem;">
                                     Invited by {{ $invitation->inviter?->name ?? 'project owner' }} · expires {{ $invitation->expires_at?->format('d M Y') }}
                                 </span>
                             </span>
-                            <span style="font-size:.76rem;font-weight:700;color:#6366f1;">Accept</span>
+                            <span style="font-size:.8125rem;font-weight:700;color:#6366f1;">Accept</span>
                         </a>
                     @endforeach
                 </x-filament::section>
@@ -65,7 +65,7 @@
                         <span style="width:9px;height:9px;border-radius:9999px;margin-top:.35rem;flex:none;background:{{ $item['severity'] === 'danger' ? '#ef4444' : ($item['severity'] === 'warning' ? '#f59e0b' : '#3b82f6') }};"></span>
                         <span style="min-width:0;flex:1;">
                             <span class="text-gray-950 dark:text-white" style="display:block;font-size:.875rem;font-weight:600;line-height:1.35;">{{ $item['title'] }}</span>
-                            <span class="mc-muted" style="display:block;font-size:.76rem;margin-top:.15rem;">{{ $item['project'] }} · {{ $item['detail'] }}</span>
+                            <span class="mc-muted" style="display:block;font-size:.8125rem;margin-top:.15rem;">{{ $item['project'] }} · {{ $item['detail'] }}</span>
                         </span>
                         <x-filament::icon icon="heroicon-m-chevron-right" class="mc-muted" style="width:1rem;height:1rem;flex:none;margin-top:.1rem;" />
                     </a>
@@ -73,12 +73,12 @@
                     <div style="padding:1.4rem 0;text-align:center;">
                         <x-filament::icon icon="heroicon-o-check-circle" style="width:2rem;height:2rem;color:#22c55e;margin:0 auto .5rem;" />
                         <p class="text-gray-950 dark:text-white" style="font-size:.875rem;font-weight:600;">Everything looks in order</p>
-                        <p class="mc-muted" style="font-size:.78rem;margin-top:.2rem;">No urgent project issues were detected.</p>
+                        <p class="mc-muted" style="font-size:.8125rem;margin-top:.2rem;">No urgent project issues were detected.</p>
                     </div>
                 @endforelse
 
                 @if ($attentionCount > $attention->count())
-                    <p class="mc-muted" style="font-size:.75rem;margin-top:.65rem;">+ {{ $attentionCount - $attention->count() }} more items available inside the projects.</p>
+                    <p class="mc-muted" style="font-size:.8125rem;margin-top:.65rem;">+ {{ $attentionCount - $attention->count() }} more items available inside the projects.</p>
                 @endif
             </x-filament::section>
 
@@ -99,7 +99,7 @@
                 @if ($projects->isEmpty())
                     <div style="padding:1.5rem 0;text-align:center;">
                         <p class="text-gray-950 dark:text-white" style="font-size:.875rem;font-weight:600;">No current projects</p>
-                        <p class="mc-muted" style="font-size:.78rem;margin-top:.2rem;">Create a project to start planning your work.</p>
+                        <p class="mc-muted" style="font-size:.8125rem;margin-top:.2rem;">Create a project to start planning your work.</p>
                     </div>
                 @else
                     <div class="mc-project-grid">
@@ -116,9 +116,9 @@
                                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;">
                                     <div style="min-width:0;">
                                         <p class="text-gray-950 dark:text-white" style="font-size:.9rem;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $project->name }}</p>
-                                        <p class="mc-muted" style="font-size:.72rem;margin-top:.15rem;">{{ $date?->format('d M Y') ?? 'Dates not set' }} · {{ $project->participants->count() }} participants</p>
+                                        <p class="mc-muted" style="font-size:.8125rem;margin-top:.15rem;">{{ $date?->format('d M Y') ?? 'Dates not set' }} · {{ $project->participants->count() }} participants</p>
                                         @if($ownerLabel)
-                                            <p class="mc-muted" style="font-size:.68rem;margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $ownerLabel }} · {{ $project->accessLabelFor(auth()->user()) }}</p>
+                                            <p class="mc-muted" style="font-size:.8125rem;margin-top:.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $ownerLabel }} · {{ $project->accessLabelFor(auth()->user()) }}</p>
                                         @endif
                                     </div>
                                     <x-filament::badge :color="$status->getColor()" size="sm">{{ $status->getLabel() }}</x-filament::badge>
@@ -126,22 +126,22 @@
 
                                 @if ($projectReadiness)
                                     <div style="display:flex;align-items:center;justify-content:space-between;gap:.75rem;margin-top:.85rem;">
-                                        <span class="mc-muted" style="font-size:.72rem;">Readiness</span>
-                                        <span class="text-gray-950 dark:text-white" style="font-size:.72rem;font-weight:650;">{{ $projectReadiness['score'] }}%</span>
+                                        <span class="mc-muted" style="font-size:.8125rem;">Readiness</span>
+                                        <span class="text-gray-950 dark:text-white" style="font-size:.8125rem;font-weight:650;">{{ $projectReadiness['score'] }}%</span>
                                     </div>
                                     <div style="height:5px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden;margin-top:.3rem;">
                                         <div style="height:100%;width:{{ $projectReadiness['score'] }}%;border-radius:9999px;background:{{ $projectReadiness['tone'] === 'success' ? '#22c55e' : ($projectReadiness['tone'] === 'warning' ? '#f59e0b' : '#ef4444') }};"></div>
                                     </div>
                                 @endif
 
-                                <div style="display:flex;justify-content:space-between;gap:.75rem;margin-top:1rem;font-size:.75rem;">
+                                <div style="display:flex;justify-content:space-between;gap:.75rem;margin-top:1rem;font-size:.8125rem;">
                                     <span class="mc-muted">Spent {{ number_format($project->spent, 0) }} €</span>
                                     <span class="text-gray-950 dark:text-white" style="font-weight:600;">{{ number_format($remaining, 0) }} € left</span>
                                 </div>
                                 <div style="height:6px;border-radius:9999px;background:rgba(148,163,184,.22);overflow:hidden;margin-top:.4rem;">
                                     <div style="height:100%;width:{{ min(100, $project->progress) }}%;border-radius:9999px;background:{{ $project->progress >= 100 ? '#ef4444' : '#6366f1' }};"></div>
                                 </div>
-                                <div class="mc-muted" style="display:flex;justify-content:space-between;font-size:.68rem;margin-top:.35rem;">
+                                <div class="mc-muted" style="display:flex;justify-content:space-between;font-size:.8125rem;margin-top:.35rem;">
                                     <span>{{ number_format($budget, 0) }} € funding</span>
                                     <span>{{ $project->progress }}%</span>
                                 </div>
@@ -149,7 +149,7 @@
                         @endforeach
                     </div>
                     @if ($projectCount > $projects->count())
-                        <p class="mc-muted" style="font-size:.75rem;margin-top:.8rem;">Showing the {{ $projects->count() }} projects that are most relevant right now.</p>
+                        <p class="mc-muted" style="font-size:.8125rem;margin-top:.8rem;">Showing the {{ $projects->count() }} projects that are most relevant right now.</p>
                     @endif
                 @endif
             </x-filament::section>
@@ -168,18 +168,18 @@
                 @forelse ($milestones as $milestone)
                     <a href="{{ $milestone['url'] }}" class="mc-row-link">
                         <span style="width:42px;flex:none;text-align:center;border-radius:.55rem;background:rgba(99,102,241,.1);padding:.4rem .2rem;color:#6366f1;">
-                            <span style="display:block;font-size:.65rem;font-weight:700;text-transform:uppercase;line-height:1;">{{ $milestone['date']->format('M') }}</span>
+                            <span style="display:block;font-size:.8125rem;font-weight:700;text-transform:uppercase;line-height:1;">{{ $milestone['date']->format('M') }}</span>
                             <span style="display:block;font-size:1rem;font-weight:700;line-height:1.2;margin-top:.15rem;">{{ $milestone['date']->format('d') }}</span>
                         </span>
                         <span style="min-width:0;">
                             <span class="text-gray-950 dark:text-white" style="display:block;font-size:.82rem;font-weight:600;">{{ $milestone['label'] }}</span>
-                            <span class="mc-muted" style="display:block;font-size:.73rem;margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $milestone['project'] }}</span>
+                            <span class="mc-muted" style="display:block;font-size:.8125rem;margin-top:.15rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $milestone['project'] }}</span>
                         </span>
                     </a>
                 @empty
                     <div style="padding:1.25rem 0;text-align:center;">
                         <p class="text-gray-950 dark:text-white" style="font-size:.84rem;font-weight:600;">No milestones coming up</p>
-                        <p class="mc-muted" style="font-size:.76rem;margin-top:.2rem;">Project and mobility dates will appear here.</p>
+                        <p class="mc-muted" style="font-size:.8125rem;margin-top:.2rem;">Project and mobility dates will appear here.</p>
                     </div>
                 @endforelse
             </x-filament::section>
@@ -195,8 +195,8 @@
                                 <x-filament::icon :icon="$action['icon']" style="width:1.05rem;height:1.05rem;" />
                             </span>
                             <span style="min-width:0;">
-                                <span class="text-gray-950 dark:text-white" style="display:block;font-size:.78rem;font-weight:600;line-height:1.2;">{{ $action['label'] }}</span>
-                                <span class="mc-muted" style="display:block;font-size:.68rem;margin-top:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $action['description'] }}</span>
+                                <span class="text-gray-950 dark:text-white" style="display:block;font-size:.8125rem;font-weight:600;line-height:1.2;">{{ $action['label'] }}</span>
+                                <span class="mc-muted" style="display:block;font-size:.8125rem;margin-top:.18rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $action['description'] }}</span>
                             </span>
                         </a>
                     @endforeach
