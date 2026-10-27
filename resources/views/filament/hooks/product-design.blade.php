@@ -11,7 +11,9 @@
     .fi-panel-admin .fi-page-main, .fi-panel-admin .fi-page-content { min-width: 0; }
     .fi-panel-admin .fi-page-content { gap: 1.5rem; }
     .fi-panel-admin .fi-header-heading { letter-spacing: -.025em; overflow-wrap: anywhere; }
-    .fi-panel-admin .fi-section, .fi-panel-admin .fi-ta-ctn { border-radius: var(--mc-radius); }
+    .fi-panel-admin .fi-header-subheading { font-size: .875rem; line-height: 1.6; }
+    .fi-panel-admin .fi-section, .fi-panel-admin .fi-ta-ctn { min-width: 0; max-width: 100%; border-radius: var(--mc-radius); }
+    .fi-panel-admin .fi-section-header-text-ctn { min-width: 0; }
     .fi-panel-admin .fi-section-header-description, .fi-panel-admin .fi-fo-field-wrp-helper-text { font-size: .875rem; line-height: 1.6; }
     .fi-panel-admin .fi-btn { min-height: 2.5rem; border-radius: .65rem; }
     .fi-panel-admin :is(.mc-muted, .mc-overview-muted) { color: var(--mc-muted); }
