@@ -14,7 +14,17 @@
           "Open Projects and create a project with a clear name and the appropriate starting stage.",
           "Check project dates and organisations in Settings."
         ],
-        "keywords": "start first project create new begin getting started inceput incep primul proiect creare cont"
+        "keywords": "start first project create new begin getting started inceput incep primul proiect creare cont",
+        "related": [
+          "account-save",
+          "invite",
+          "write-save"
+        ],
+        "examples": [
+          "create an account",
+          "start project",
+          "creez proiect"
+        ]
       },
       {
         "id": "account-save",
@@ -25,7 +35,12 @@
           "For a password change, enter the current password and the new password twice.",
           "Select Update password and resolve any validation messages."
         ],
-        "keywords": "account profile password save autosave settings parola cont salvare profil"
+        "keywords": "account profile password save autosave settings parola cont salvare profil",
+        "related": [
+          "save-error",
+          "start"
+        ],
+        "examples": []
       },
       {
         "id": "write-save",
@@ -37,7 +52,17 @@
           "Review the character count, section status and consistency across answers.",
           "Export PDF or Word for review, then check the official submission requirements separately."
         ],
-        "keywords": "application writing write pdf word answer export saved autosave save redactare scriere aplicatie salveaza word pdf"
+        "keywords": "application writing write pdf word answer export saved autosave save redactare scriere aplicatie salveaza word pdf",
+        "related": [
+          "save-error",
+          "archive",
+          "readiness"
+        ],
+        "examples": [
+          "export my application",
+          "download word",
+          "descarc aplicatia"
+        ]
       }
     ]
   },
@@ -56,7 +81,16 @@
           "Send the invitation and ask them to accept it using the invited email address.",
           "Review access in the same panel when responsibilities change."
         ],
-        "keywords": "invite invitation colleague collaborator share team access invitatie invita coleg colaborator acces echipa"
+        "keywords": "invite invitation colleague collaborator share team access invitatie invita coleg colaborator acces echipa",
+        "related": [
+          "roles",
+          "editing-lock"
+        ],
+        "examples": [
+          "add a teammate",
+          "adauga un coleg",
+          "invite colleague"
+        ]
       },
       {
         "id": "roles",
@@ -67,7 +101,15 @@
           "Check your access label in the project.",
           "Ask the owner to review your role through Project access if your responsibilities require editing."
         ],
-        "keywords": "viewer editor permissions role edit read only cannot disabled missing button rol permisiuni editare nu pot modifica buton lipseste"
+        "keywords": "viewer editor permissions role edit read only cannot disabled missing button rol permisiuni editare nu pot modifica buton lipseste",
+        "related": [
+          "invite",
+          "payment-access"
+        ],
+        "examples": [
+          "cannot edit project",
+          "nu pot edita"
+        ]
       },
       {
         "id": "editing-lock",
@@ -78,7 +120,12 @@
           "Coordinate with that person and wait for them to finish.",
           "Return to the area after the lock is released. If it remains stuck, contact support with the project and module name."
         ],
-        "keywords": "locked lock editing colleague someone else conflict blocat blocare editeaza simultan"
+        "keywords": "locked lock editing colleague someone else conflict blocat blocare editeaza simultan",
+        "related": [
+          "save-error",
+          "roles"
+        ],
+        "examples": []
       }
     ]
   },
@@ -97,7 +144,13 @@
           "Review the amount and displayed fee, then confirm.",
           "Continue in the implementation modules. Contact support if the declared grant needs correction."
         ],
-        "keywords": "approval approve approved grant decision amount mark approved aprobare aprobat aproba grant suma finantare"
+        "keywords": "approval approve approved grant decision amount mark approved aprobare aprobat aproba grant suma finantare",
+        "related": [
+          "price",
+          "payment-access",
+          "expense"
+        ],
+        "examples": []
       },
       {
         "id": "expense",
@@ -109,7 +162,13 @@
           "Attach the invoice, receipt or other supporting file using the expense upload action.",
           "Review the basket total and remaining balance."
         ],
-        "keywords": "expense cost receipt invoice evidence spending budget cheltuiala cheltuieli factura bon dovada buget"
+        "keywords": "expense cost receipt invoice evidence spending budget cheltuiala cheltuieli factura bon dovada buget",
+        "related": [
+          "currency",
+          "transfer",
+          "documents"
+        ],
+        "examples": []
       },
       {
         "id": "transfer",
@@ -120,7 +179,12 @@
           "Select the source and destination baskets and enter the amount.",
           "Review the balances and your project’s applicable conditions before confirming."
         ],
-        "keywords": "transfer move money basket budget allocation realocare transfer cos categorii buget"
+        "keywords": "transfer move money basket budget allocation realocare transfer cos categorii buget",
+        "related": [
+          "expense",
+          "currency"
+        ],
+        "examples": []
       },
       {
         "id": "currency",
@@ -131,7 +195,11 @@
           "Check each currency code and the rate convention displayed beside the field.",
           "Return to Budget to verify the expense currency and converted totals against your source documents."
         ],
-        "keywords": "currency exchange conversion rate currencies valuta curs schimb monede conversie"
+        "keywords": "currency exchange conversion rate currencies valuta curs schimb monede conversie",
+        "related": [
+          "expense"
+        ],
+        "examples": []
       }
     ]
   },
@@ -150,7 +218,16 @@
           "Upload a small sample first and read any row-level errors.",
           "Correct the file and check the imported register before adding the rest of the group."
         ],
-        "keywords": "csv import participants upload spreadsheet excel template participant import participanti tabel sablon"
+        "keywords": "csv import participants upload spreadsheet excel template participant import participanti tabel sablon",
+        "related": [
+          "registration",
+          "participant-files"
+        ],
+        "examples": [
+          "import from excel",
+          "incarc participantii",
+          "import lista participanti"
+        ]
       },
       {
         "id": "registration",
@@ -162,7 +239,12 @@
           "Copy it and share it with the intended participants.",
           "Review submitted records and close the link when registration has ended."
         ],
-        "keywords": "registration form link participant signup public register formular inscriere inregistrare participanti link"
+        "keywords": "registration form link participant signup public register formular inscriere inregistrare participanti link",
+        "related": [
+          "csv",
+          "participant-files"
+        ],
+        "examples": []
       },
       {
         "id": "participant-files",
@@ -173,7 +255,12 @@
           "Upload the relevant participant files to the correct record.",
           "Use search and filters to check other incomplete records."
         ],
-        "keywords": "participant incomplete missing files document register date lipsa incomplet participanti documente"
+        "keywords": "participant incomplete missing files document register date lipsa incomplet participanti documente",
+        "related": [
+          "documents",
+          "registration"
+        ],
+        "examples": []
       }
     ]
   },
@@ -192,7 +279,16 @@
           "Use the document list and filters to find the file later.",
           "Check the document checklist for records that still need attention."
         ],
-        "keywords": "documents upload project file files category folder documente incarc fisiere dosar"
+        "keywords": "documents upload project file files category folder documente incarc fisiere dosar",
+        "related": [
+          "signed-copy",
+          "file-missing",
+          "archive-content"
+        ],
+        "examples": [
+          "upload documents",
+          "incarc documente"
+        ]
       },
       {
         "id": "signed-copy",
@@ -204,7 +300,12 @@
           "Find the generated record in Documents and select Upload signed copy.",
           "Check that the signed-copy status is updated and include the relevant records in the final archive."
         ],
-        "keywords": "signed copy signature sign attendance sheet report semnat semnata semnatura prezenta raport"
+        "keywords": "signed copy signature sign attendance sheet report semnat semnata semnatura prezenta raport",
+        "related": [
+          "documents",
+          "archive-content"
+        ],
+        "examples": []
       },
       {
         "id": "file-missing",
@@ -216,7 +317,12 @@
           "Check whether the upload was attached to an expense, participant or mobility instead of general project files.",
           "If the upload showed an error, resolve it and upload again."
         ],
-        "keywords": "missing file lost document find search uploaded lipsa disparut gasesc fisier document cautare"
+        "keywords": "missing file lost document find search uploaded lipsa disparut gasesc fisier document cautare",
+        "related": [
+          "documents",
+          "participant-files"
+        ],
+        "examples": []
       }
     ]
   },
@@ -235,7 +341,13 @@
           "Add evidence to the relevant day or section with clear titles.",
           "Review materials, outputs and dissemination records before finalisation."
         ],
-        "keywords": "mobility evidence daily activity materials outputs dissemination mobilitate dovezi activitati diseminare materiale rezultate"
+        "keywords": "mobility evidence daily activity materials outputs dissemination mobilitate dovezi activitati diseminare materiale rezultate",
+        "related": [
+          "feedback",
+          "participant-files",
+          "archive-content"
+        ],
+        "examples": []
       },
       {
         "id": "feedback",
@@ -247,7 +359,15 @@
           "Share the link with participants, then review the results in the campaign.",
           "Use the anonymous results PDF when preparing your evidence."
         ],
-        "keywords": "feedback questionnaire survey anonymous form results chestionar evaluare anonim raspunsuri feedback"
+        "keywords": "feedback questionnaire survey anonymous form results chestionar evaluare anonim raspunsuri feedback",
+        "related": [
+          "mobility",
+          "archive-content"
+        ],
+        "examples": [
+          "collect feedback",
+          "colectez feedback"
+        ]
       }
     ]
   },
@@ -266,7 +386,12 @@
           "Use My Tasks to review work across projects.",
           "Mark the task complete after doing the work in the relevant module."
         ],
-        "keywords": "task tasks assign deadline due reminder priority sarcina sarcini atribuie termen prioritati"
+        "keywords": "task tasks assign deadline due reminder priority sarcina sarcini atribuie termen prioritati",
+        "related": [
+          "readiness",
+          "invite"
+        ],
+        "examples": []
       },
       {
         "id": "readiness",
@@ -277,7 +402,12 @@
           "Correct the underlying information or evidence.",
           "Review official requirements separately before submitting your application or final report."
         ],
-        "keywords": "readiness score checklist complete compliance eligible eligibility valid validare pregatire scor eligibil aprobare conformitate"
+        "keywords": "readiness score checklist complete compliance eligible eligibility valid validare pregatire scor eligibil aprobare conformitate",
+        "related": [
+          "tasks",
+          "archive"
+        ],
+        "examples": []
       }
     ]
   },
@@ -296,7 +426,18 @@
           "The agreed project fee is saved at approval; a later global rate change does not reprice it.",
           "Follow the payment instructions on the invoice after the first instalment arrives."
         ],
-        "keywords": "price pricing cost fee percentage percent subscription payment pay cat costa pret taxa procent abonament plata factura"
+        "keywords": "price pricing cost fee percentage percent subscription payment pay cat costa pret taxa procent abonament plata factura",
+        "related": [
+          "approval",
+          "payment-access",
+          "invoice"
+        ],
+        "examples": [
+          "is it free",
+          "cat ma costa",
+          "cand platesc",
+          "when do i pay"
+        ]
       },
       {
         "id": "invoice",
@@ -307,7 +448,15 @@
           "Use the contact page for billing support.",
           "For a paid invoice, the administrator records a refund after the money has been returned through the external payment process."
         ],
-        "keywords": "cancel invoice refund cancellation paid billing wrong invoice anula anulare factura rambursare restituire gresita"
+        "keywords": "cancel invoice refund cancellation paid billing wrong invoice anula anulare factura rambursare restituire gresita",
+        "related": [
+          "price",
+          "payment-access"
+        ],
+        "examples": [
+          "get a refund",
+          "anulez factura"
+        ]
       },
       {
         "id": "payment-access",
@@ -318,7 +467,12 @@
           "Continue preparing budgets, participants, documents and evidence.",
           "Pay the management invoice according to its payment instructions."
         ],
-        "keywords": "payment locked unlock management export locked access paid plata blocat deblocare acces achitat"
+        "keywords": "payment locked unlock management export locked access paid plata blocat deblocare acces achitat",
+        "related": [
+          "price",
+          "roles"
+        ],
+        "examples": []
       }
     ]
   },
@@ -337,7 +491,19 @@
           "Select Prepare archive and wait for processing to finish. You can leave and return.",
           "Select Download ZIP and review the index and files before sharing."
         ],
-        "keywords": "final archive zip download export finalisation arhiva finala descarca descarcare export zip raport final"
+        "keywords": "final archive zip download export finalisation arhiva finala descarca descarcare export zip raport final",
+        "related": [
+          "archive-fresh",
+          "archive-content",
+          "archive-expired"
+        ],
+        "examples": [
+          "download project",
+          "descarc proiectul",
+          "descarc arhiva",
+          "export proiect",
+          "get final zip"
+        ]
       },
       {
         "id": "archive-fresh",
@@ -348,7 +514,17 @@
           "If you changed data or files after that date, select Prepare fresh archive.",
           "Wait for the new ZIP and download that copy."
         ],
-        "keywords": "fresh latest outdated old archive regenerate update snapshot recent actualizat vechi arhiva regenerare schimbari"
+        "keywords": "fresh latest outdated old archive regenerate update snapshot recent actualizat vechi arhiva regenerare schimbari",
+        "related": [
+          "archive",
+          "archive-expired"
+        ],
+        "examples": [
+          "zip is out of date",
+          "latest changes missing",
+          "arhiva nu este actualizata",
+          "zip vechi"
+        ]
       },
       {
         "id": "archive-expired",
@@ -359,7 +535,18 @@
           "Use Prepare again after an expiry or failed preparation.",
           "For a persistent failure, note the message and project name and contact support."
         ],
-        "keywords": "expired expires expiry failed failure preparing stuck zip archive error expirat expira eroare esuat arhiva asteptare"
+        "keywords": "expired expires expiry failed failure preparing stuck zip archive error expirat expira eroare esuat arhiva asteptare",
+        "related": [
+          "archive-fresh",
+          "archive"
+        ],
+        "examples": [
+          "zip will not download",
+          "zip does not download",
+          "cannot download zip",
+          "nu pot descarca zip",
+          "arhiva a expirat"
+        ]
       },
       {
         "id": "archive-content",
@@ -371,7 +558,13 @@
           "Open the archive index after downloading and check the actual contents.",
           "Store and share it securely: it may contain personal and financial data and is not password-protected."
         ],
-        "keywords": "archive content include selection categories files count sensitive privacy zip contine arhiva selectie categorii confidential date personale"
+        "keywords": "archive content include selection categories files count sensitive privacy zip contine arhiva selectie categorii confidential date personale",
+        "related": [
+          "signed-copy",
+          "documents",
+          "archive"
+        ],
+        "examples": []
       }
     ]
   },
@@ -390,7 +583,18 @@
           "Check the connection and whether another colleague is editing the same area.",
           "If it persists, contact support with the page, steps and exact message; never include your password."
         ],
-        "keywords": "save error not saved autosave connection refresh unsaved salvare nu salveaza nesalvat conexiune eroare"
+        "keywords": "save error not saved autosave connection refresh unsaved salvare nu salveaza nesalvat conexiune eroare",
+        "related": [
+          "editing-lock",
+          "account-save",
+          "write-save"
+        ],
+        "examples": [
+          "changes not saving",
+          "changes do not save",
+          "nu se salveaza",
+          "nu pot salva"
+        ]
       },
       {
         "id": "help-scope",
@@ -401,7 +605,13 @@
           "Choose a suggested question when more than one topic matches.",
           "Use Read in guide to open the source. Contact support for account-specific questions."
         ],
-        "keywords": "mobi assistant ai chat help support contact ajutor asistenta suport inteligenta"
+        "keywords": "mobi assistant ai chat help support contact ajutor asistenta suport inteligenta",
+        "related": [
+          "start",
+          "archive",
+          "price"
+        ],
+        "examples": []
       }
     ]
   }
