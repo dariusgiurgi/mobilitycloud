@@ -29,6 +29,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, PreventRequestForgery::class])->group(function (): void {
     Route::get('/', [MarketingPageController::class, 'home'])->name('marketing.home');
+    Route::redirect('/demo/{path?}', '/features', 301)->where('path', '.*');
     Route::get('/features', [MarketingPageController::class, 'features'])->name('marketing.features');
     Route::get('/pricing', [MarketingPageController::class, 'pricing'])->name('marketing.pricing');
     Route::get('/guide', [MarketingPageController::class, 'guide'])->name('marketing.guide');
@@ -68,7 +69,6 @@ Route::withoutMiddleware([StartSession::class, ShareErrorsFromSession::class, Pr
                 $url.'/',
                 $url.'/features',
                 $url.'/pricing',
-                $url.'/demo',
                 $url.'/guide',
                 $url.'/help',
                 $url.'/resources',
