@@ -3,7 +3,7 @@
         <span class="mc-dot"></span>
         <span class="mc-dot"></span>
         <span class="mc-dot"></span>
-        <span class="mc-url">mobilitycloud.eu/app/projects/demo</span>
+        <span class="mc-url">mobilitycloud.eu/app/projects</span>
     </div>
     <div class="mc-preview-body">
         <aside class="mc-sidebar" aria-hidden="true">
@@ -17,7 +17,7 @@
         <div class="mc-board">
             <div class="mc-board-head">
                 <div>
-                    <h2 class="mc-board-title">Project Demo</h2>
+                    <h2 class="mc-board-title">Project overview</h2>
                     <p class="mc-board-subtitle">Approved mobility project · ready for management</p>
                 </div>
                 <span class="mc-mini-button">New task</span>

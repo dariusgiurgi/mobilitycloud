@@ -28,7 +28,6 @@
 
     $nav = [
         'features' => ['label' => 'Features', 'url' => route('marketing.features')],
-        'demo' => ['label' => 'Live demo', 'url' => url('/demo')],
         'pricing' => ['label' => 'Pricing', 'url' => route('marketing.pricing')],
         'guide' => ['label' => 'Guide', 'url' => route('marketing.guide')],
         'help' => ['label' => 'Help', 'url' => route('marketing.help')],
@@ -696,7 +695,6 @@
                     <p class="mc-lead">Write, plan and prepare your Erasmus+ project for free. After approval, declare the grant and move straight into budgets, participants, documents and evidence.</p>
                     <div class="mc-hero-actions">
                         <a class="mc-btn primary" href="{{ $registerUrl }}">Start free</a>
-                        <a class="mc-btn ghost" href="{{ url('/demo') }}">Explore live demo</a>
                     </div>
                     <div class="mc-trust" aria-label="Key platform notes">
                         <span class="mc-pill">✓ Free until approval</span>
@@ -902,7 +900,6 @@
                 <div>
                     <h4>Product</h4>
                     <a href="{{ route('marketing.features') }}">Features</a>
-                    <a href="{{ url('/demo') }}">Live demo</a>
                     <a href="{{ route('marketing.pricing') }}">Pricing</a>
                     <a href="{{ route('marketing.guide') }}">Guide</a>
                     <a href="{{ route('marketing.help') }}">Help</a>
