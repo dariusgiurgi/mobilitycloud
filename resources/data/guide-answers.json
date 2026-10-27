@@ -1,0 +1,408 @@
+[
+  {
+    "id": "account-guide",
+    "title": "Account and first steps",
+    "intro": "Set up the account that will own the project before entering project data.",
+    "items": [
+      {
+        "id": "start",
+        "question": "How do I start my first project?",
+        "answer": "Create an account, complete the required billing identity in Account Center, then create a project from Projects. Choose whether you are writing an application or managing a project that is already approved.",
+        "steps": [
+          "Verify your email and sign in.",
+          "Open Account Center from the user menu and complete the required billing details.",
+          "Open Projects and create a project with a clear name and the appropriate starting stage.",
+          "Check project dates and organisations in Settings."
+        ],
+        "keywords": "start first project create new begin getting started inceput incep primul proiect creare cont"
+      },
+      {
+        "id": "account-save",
+        "question": "How do I save account details and change my password?",
+        "answer": "Profile, billing and preference fields save automatically. Changing your password is a separate action in Security.",
+        "steps": [
+          "Edit a profile or billing field and wait for the save confirmation.",
+          "For a password change, enter the current password and the new password twice.",
+          "Select Update password and resolve any validation messages."
+        ],
+        "keywords": "account profile password save autosave settings parola cont salvare profil"
+      },
+      {
+        "id": "write-save",
+        "question": "How do I save and export my application?",
+        "answer": "Application answers save after you stop typing. PDF and Word exports use saved content; they do not submit the application to the funding authority.",
+        "steps": [
+          "Open the Application tab and answer the selected question.",
+          "Wait for the save indicator before navigating away or exporting.",
+          "Review the character count, section status and consistency across answers.",
+          "Export PDF or Word for review, then check the official submission requirements separately."
+        ],
+        "keywords": "application writing write pdf word answer export saved autosave save redactare scriere aplicatie salveaza word pdf"
+      }
+    ]
+  },
+  {
+    "id": "team-guide",
+    "title": "Project access and collaboration",
+    "intro": "Give collaborators access to the project they need, with a role suited to their responsibility.",
+    "items": [
+      {
+        "id": "invite",
+        "question": "How do I invite a colleague to a project?",
+        "answer": "The project owner manages invitations through Project access. The invitation must be accepted before the colleague can use the shared project.",
+        "steps": [
+          "Open the project and select Project access.",
+          "Enter the colleague’s email and choose the role shown in the invitation form.",
+          "Send the invitation and ask them to accept it using the invited email address.",
+          "Review access in the same panel when responsibilities change."
+        ],
+        "keywords": "invite invitation colleague collaborator share team access invitatie invita coleg colaborator acces echipa"
+      },
+      {
+        "id": "roles",
+        "question": "Why can I view a project but not edit it?",
+        "answer": "Available controls depend on your project role and project stage. Viewers have read-only access; restricted mobility roles see only the relevant operational modules. Some lifecycle and access actions remain with the owner.",
+        "steps": [
+          "Confirm that you opened the intended project and signed in with the invited email.",
+          "Check your access label in the project.",
+          "Ask the owner to review your role through Project access if your responsibilities require editing."
+        ],
+        "keywords": "viewer editor permissions role edit read only cannot disabled missing button rol permisiuni editare nu pot modifica buton lipseste"
+      },
+      {
+        "id": "editing-lock",
+        "question": "Why does a field say someone else is editing?",
+        "answer": "Editing locks help prevent two people overwriting the same work. They are separate from your project permissions.",
+        "steps": [
+          "Read the collaborator name shown beside the locked area.",
+          "Coordinate with that person and wait for them to finish.",
+          "Return to the area after the lock is released. If it remains stuck, contact support with the project and module name."
+        ],
+        "keywords": "locked lock editing colleague someone else conflict blocat blocare editeaza simultan"
+      }
+    ]
+  },
+  {
+    "id": "budget-guide",
+    "title": "Approval and budget",
+    "intro": "Keep the approved grant distinct from day-to-day budget allocations and recorded expenses.",
+    "items": [
+      {
+        "id": "approval",
+        "question": "How do I mark a project as approved?",
+        "answer": "After receiving the official decision, use the approval action in the project Overview. Enter the exact approved grant and review the displayed management fee before confirming. The approved grant is locked after declaration.",
+        "steps": [
+          "Open Overview and select Mark as Approved when available for the current stage.",
+          "Enter the approved amount and the requested project reference or evidence.",
+          "Review the amount and displayed fee, then confirm.",
+          "Continue in the implementation modules. Contact support if the declared grant needs correction."
+        ],
+        "keywords": "approval approve approved grant decision amount mark approved aprobare aprobat aproba grant suma finantare"
+      },
+      {
+        "id": "expense",
+        "question": "How do I record an expense with supporting evidence?",
+        "answer": "Add the expense to the relevant budget basket and attach its evidence to that expense. The project budget is a management record, not a replacement for your accounting records.",
+        "steps": [
+          "Open Budget and choose the appropriate basket.",
+          "Add the expense with a clear description, date, amount and currency.",
+          "Attach the invoice, receipt or other supporting file using the expense upload action.",
+          "Review the basket total and remaining balance."
+        ],
+        "keywords": "expense cost receipt invoice evidence spending budget cheltuiala cheltuieli factura bon dovada buget"
+      },
+      {
+        "id": "transfer",
+        "question": "How do I move money between budget baskets?",
+        "answer": "Transfer budget reallocates an amount between existing baskets. It does not change the declared approved grant or decide whether a transfer is allowed under your funding agreement.",
+        "steps": [
+          "Open Budget and choose Transfer budget.",
+          "Select the source and destination baskets and enter the amount.",
+          "Review the balances and your project’s applicable conditions before confirming."
+        ],
+        "keywords": "transfer move money basket budget allocation realocare transfer cos categorii buget"
+      },
+      {
+        "id": "currency",
+        "question": "How are different currencies handled?",
+        "answer": "Project currency settings hold the conversion rates used by the project. Check these settings and the currency on each expense before relying on converted totals.",
+        "steps": [
+          "Open project Settings and review Project currencies.",
+          "Check each currency code and the rate convention displayed beside the field.",
+          "Return to Budget to verify the expense currency and converted totals against your source documents."
+        ],
+        "keywords": "currency exchange conversion rate currencies valuta curs schimb monede conversie"
+      }
+    ]
+  },
+  {
+    "id": "participants-guide",
+    "title": "Participants and registration",
+    "intro": "Use manual entry for individual records, CSV for groups, and form links for participant self-registration.",
+    "items": [
+      {
+        "id": "csv",
+        "question": "How do I import participants from CSV?",
+        "answer": "Use the platform’s blank CSV template so that the column names match the importer. Participant imports accept CSV or text files up to 5 MB.",
+        "steps": [
+          "Open Participants → Import / export CSV.",
+          "Download the blank CSV template and fill it without changing its column headings.",
+          "Upload a small sample first and read any row-level errors.",
+          "Correct the file and check the imported register before adding the rest of the group."
+        ],
+        "keywords": "csv import participants upload spreadsheet excel template participant import participanti tabel sablon"
+      },
+      {
+        "id": "registration",
+        "question": "How do I share a participant registration form?",
+        "answer": "Participants can complete a public registration form. You can use a general project form or a link for one mobility, without giving participants access to your project workspace.",
+        "steps": [
+          "Open Participants and choose Create form link or Manage form links.",
+          "Create the general link or the link for the intended mobility.",
+          "Copy it and share it with the intended participants.",
+          "Review submitted records and close the link when registration has ended."
+        ],
+        "keywords": "registration form link participant signup public register formular inscriere inregistrare participanti link"
+      },
+      {
+        "id": "participant-files",
+        "question": "Why are participant records marked incomplete?",
+        "answer": "The register checks the data and files expected for participants. A missing-data indicator is a prompt to review the record; it does not assess official eligibility.",
+        "steps": [
+          "Open the participant record and review the missing fields or documents indicated.",
+          "Upload the relevant participant files to the correct record.",
+          "Use search and filters to check other incomplete records."
+        ],
+        "keywords": "participant incomplete missing files document register date lipsa incomplet participanti documente"
+      }
+    ]
+  },
+  {
+    "id": "documents-guide",
+    "title": "Documents and signed copies",
+    "intro": "Keep general files, generated records and signed versions connected to the right project records.",
+    "items": [
+      {
+        "id": "documents",
+        "question": "Where should I upload project documents?",
+        "answer": "Use Documents for general project files. Expense evidence belongs with its expense, participant files with the participant, and daily mobility evidence with the relevant mobility.",
+        "steps": [
+          "Open Documents → Files for general project uploads.",
+          "Choose a recognisable title and category.",
+          "Use the document list and filters to find the file later.",
+          "Check the document checklist for records that still need attention."
+        ],
+        "keywords": "documents upload project file files category folder documente incarc fisiere dosar"
+      },
+      {
+        "id": "signed-copy",
+        "question": "How do I add a signed attendance sheet or report?",
+        "answer": "A generated record and its signed copy are different files. Attach the signed version through that record’s signed-copy action so the platform can track it correctly.",
+        "steps": [
+          "Generate or download the required attendance sheet or expense report.",
+          "Collect the signatures outside MobilityCloud.",
+          "Find the generated record in Documents and select Upload signed copy.",
+          "Check that the signed-copy status is updated and include the relevant records in the final archive."
+        ],
+        "keywords": "signed copy signature sign attendance sheet report semnat semnata semnatura prezenta raport"
+      },
+      {
+        "id": "file-missing",
+        "question": "Why can I not find a document I uploaded?",
+        "answer": "Start by checking the project, module and filters. Uploading a file to an expense or participant does not place it in every document list.",
+        "steps": [
+          "Confirm that you are in the correct project.",
+          "Clear search terms and filters.",
+          "Check whether the upload was attached to an expense, participant or mobility instead of general project files.",
+          "If the upload showed an error, resolve it and upload again."
+        ],
+        "keywords": "missing file lost document find search uploaded lipsa disparut gasesc fisier document cautare"
+      }
+    ]
+  },
+  {
+    "id": "mobility-guide",
+    "title": "Mobility, dissemination and feedback",
+    "intro": "Organise delivery evidence while activities are happening, rather than collecting everything at the end.",
+    "items": [
+      {
+        "id": "mobility",
+        "question": "How do I organise mobility evidence?",
+        "answer": "Use the Mobility module to keep activity information, daily evidence, materials and outputs associated with the correct mobility.",
+        "steps": [
+          "Open Mobility and select the relevant mobility record.",
+          "Check dates and the participating group.",
+          "Add evidence to the relevant day or section with clear titles.",
+          "Review materials, outputs and dissemination records before finalisation."
+        ],
+        "keywords": "mobility evidence daily activity materials outputs dissemination mobilitate dovezi activitati diseminare materiale rezultate"
+      },
+      {
+        "id": "feedback",
+        "question": "How do I collect participant feedback?",
+        "answer": "Feedback forms provide public response links for a selected mobility. The results are anonymous; avoid asking respondents to identify themselves in free-text answers.",
+        "steps": [
+          "Open Feedback in the project and choose the form you want to use.",
+          "Create a link for the intended mobility and give it a clear title.",
+          "Share the link with participants, then review the results in the campaign.",
+          "Use the anonymous results PDF when preparing your evidence."
+        ],
+        "keywords": "feedback questionnaire survey anonymous form results chestionar evaluare anonim raspunsuri feedback"
+      }
+    ]
+  },
+  {
+    "id": "tasks-guide",
+    "title": "Tasks and project priorities",
+    "intro": "Distinguish automatic checks from the follow-up work assigned to your team.",
+    "items": [
+      {
+        "id": "tasks",
+        "question": "How do I assign and follow up on tasks?",
+        "answer": "Team tasks are manual reminders. Stage priorities are generated from the project data; completing a manual task does not automatically fix missing project information.",
+        "steps": [
+          "Open Overview → Team tasks and select Add task.",
+          "Describe the action, choose an assignee and set the deadline and priority.",
+          "Use My Tasks to review work across projects.",
+          "Mark the task complete after doing the work in the relevant module."
+        ],
+        "keywords": "task tasks assign deadline due reminder priority sarcina sarcini atribuie termen prioritati"
+      },
+      {
+        "id": "readiness",
+        "question": "Does a readiness score mean my project is approved or compliant?",
+        "answer": "No. Readiness highlights missing information and records to review. It is not a funding decision, a compliance certificate or a guarantee that a submission is complete.",
+        "steps": [
+          "Open the relevant priority or checklist item.",
+          "Correct the underlying information or evidence.",
+          "Review official requirements separately before submitting your application or final report."
+        ],
+        "keywords": "readiness score checklist complete compliance eligible eligibility valid validare pregatire scor eligibil aprobare conformitate"
+      }
+    ]
+  },
+  {
+    "id": "billing-guide",
+    "title": "Fees and billing",
+    "intro": "Writing is free. The management fee is a one-time charge for an approved project, not a monthly subscription.",
+    "items": [
+      {
+        "id": "price",
+        "question": "How much does MobilityCloud cost?",
+        "answer": "The current global management fee is {global_fee} of the approved grant, payable after the first grant instalment. A negotiated percentage or fixed amount may apply to your account. Check the fee shown when declaring approval and the invoice for your project.",
+        "steps": [
+          "Write and prepare the application without a writing charge.",
+          "At approval, review the management fee shown for that project.",
+          "The agreed project fee is saved at approval; a later global rate change does not reprice it.",
+          "Follow the payment instructions on the invoice after the first instalment arrives."
+        ],
+        "keywords": "price pricing cost fee percentage percent subscription payment pay cat costa pret taxa procent abonament plata factura"
+      },
+      {
+        "id": "invoice",
+        "question": "Who can correct, cancel or refund an invoice?",
+        "answer": "Contact MobilityCloud support about an incorrect invoice, cancellation or refund. Platform administrators manage these changes; an organisation user cannot cancel its own invoice from the project.",
+        "steps": [
+          "Provide the project name and invoice reference, plus the correction you need.",
+          "Use the contact page for billing support.",
+          "For a paid invoice, the administrator records a refund after the money has been returned through the external payment process."
+        ],
+        "keywords": "cancel invoice refund cancellation paid billing wrong invoice anula anulare factura rambursare restituire gresita"
+      },
+      {
+        "id": "payment-access",
+        "question": "Do I have to pay before managing an approved project?",
+        "answer": "Implementation modules become available when approval is declared. Payment follows the first grant instalment. The current platform does not block final exports until payment; your role and project stage still determine which actions are available.",
+        "steps": [
+          "Declare the approved grant accurately.",
+          "Continue preparing budgets, participants, documents and evidence.",
+          "Pay the management invoice according to its payment instructions."
+        ],
+        "keywords": "payment locked unlock management export locked access paid plata blocat deblocare acces achitat"
+      }
+    ]
+  },
+  {
+    "id": "export-guide",
+    "title": "Final archive: selection, preparation and download",
+    "intro": "Prepare a handover copy from the saved project data, and know which version you are downloading.",
+    "items": [
+      {
+        "id": "archive",
+        "question": "How do I download the final project archive?",
+        "answer": "Finalisation brings together advisory checks, content selection and ZIP preparation. The archive is a snapshot of your project data and selected files, not an official final-report submission.",
+        "steps": [
+          "Open Finalisation and review the suggested checks.",
+          "Select the categories you want to include; selections save automatically.",
+          "Select Prepare archive and wait for processing to finish. You can leave and return.",
+          "Select Download ZIP and review the index and files before sharing."
+        ],
+        "keywords": "final archive zip download export finalisation arhiva finala descarca descarcare export zip raport final"
+      },
+      {
+        "id": "archive-fresh",
+        "question": "Does my downloaded archive include the latest changes?",
+        "answer": "An existing ZIP keeps the saved snapshot from its preparation. Editing the project does not update an already generated ZIP. Use Prepare fresh archive to include later changes.",
+        "steps": [
+          "Check the Prepared date displayed beside Download ZIP.",
+          "If you changed data or files after that date, select Prepare fresh archive.",
+          "Wait for the new ZIP and download that copy."
+        ],
+        "keywords": "fresh latest outdated old archive regenerate update snapshot recent actualizat vechi arhiva regenerare schimbari"
+      },
+      {
+        "id": "archive-expired",
+        "question": "My ZIP expired or preparation failed. What should I do?",
+        "answer": "Download links are temporary and normally expire after 24 hours. An expired or failed archive can be prepared again; this does not remove the project’s source data.",
+        "steps": [
+          "Read the status beside the archive controls.",
+          "Use Prepare again after an expiry or failed preparation.",
+          "For a persistent failure, note the message and project name and contact support."
+        ],
+        "keywords": "expired expires expiry failed failure preparing stuck zip archive error expirat expira eroare esuat arhiva asteptare"
+      },
+      {
+        "id": "archive-content",
+        "question": "What is included in the final archive?",
+        "answer": "You choose categories such as project data, application, participants, budget, signed agreements, generated records, project files, mobility, dissemination and feedback. The source-record count is not a promise of the same number of ZIP files.",
+        "steps": [
+          "Review each category and its description in Finalisation.",
+          "Include the relevant generated records and signed evidence.",
+          "Open the archive index after downloading and check the actual contents.",
+          "Store and share it securely: it may contain personal and financial data and is not password-protected."
+        ],
+        "keywords": "archive content include selection categories files count sensitive privacy zip contine arhiva selectie categorii confidential date personale"
+      }
+    ]
+  },
+  {
+    "id": "troubleshooting-guide",
+    "title": "When something does not work",
+    "intro": "Use the visible message and the correct project context to narrow down the problem.",
+    "items": [
+      {
+        "id": "save-error",
+        "question": "What should I do if changes do not save?",
+        "answer": "A validation message, connection problem or editing lock can prevent a save. Mobi cannot see your account or confirm whether a change was saved.",
+        "steps": [
+          "Read any field errors and the save indicator.",
+          "Keep a temporary copy of important unsaved text before refreshing.",
+          "Check the connection and whether another colleague is editing the same area.",
+          "If it persists, contact support with the page, steps and exact message; never include your password."
+        ],
+        "keywords": "save error not saved autosave connection refresh unsaved salvare nu salveaza nesalvat conexiune eroare"
+      },
+      {
+        "id": "help-scope",
+        "question": "What can Mobi answer or do for me?",
+        "answer": "Mobi finds prepared answers from this public guide. It does not use an external AI service, read your account, modify projects or provide official funding decisions. Questions are matched in your browser and are not sent to an AI provider.",
+        "steps": [
+          "Ask about a module, button or task in English or Romanian. Answers use the English guide text.",
+          "Choose a suggested question when more than one topic matches.",
+          "Use Read in guide to open the source. Contact support for account-specific questions."
+        ],
+        "keywords": "mobi assistant ai chat help support contact ajutor asistenta suport inteligenta"
+      }
+    ]
+  }
+]
