@@ -1,9 +1,12 @@
+<link rel="stylesheet" href="{{ asset('css/guide-helper.css') }}?v={{ filemtime(public_path('css/guide-helper.css')) }}">
 @php
     /*
      * Guide content is intentionally kept here instead of the marketing layout.
      * To change the order or labels later, edit this map and the matching chapter
      * below. Screenshots live in public/images/guide/.
      */
+    $guideChapters = \App\Support\GuideKnowledge::chapters($globalFeeLabel);
+    $guideAnswers = collect($guideChapters)->flatMap(fn ($chapter) => $chapter['items'])->values()->all();
     $guideNavigation = [
         ['id' => 'side-menu', 'number' => '00', 'label' => 'Sidebar menu'],
         ['id' => 'prepare', 'number' => '01', 'label' => 'Prepare your workspace'],
@@ -15,6 +18,11 @@
         ['id' => 'archive', 'number' => '06', 'label' => 'Prepare final files'],
         ['id' => 'controls', 'number' => '07', 'label' => 'Button reference'],
     ];
+
+    $detailedNavigation = collect($guideChapters)->map(fn ($chapter, $index) => [
+        'id' => $chapter['id'], 'number' => sprintf('P%02d', $index + 1), 'label' => $chapter['title'],
+    ])->all();
+    array_splice($guideNavigation, count($guideNavigation) - 1, 0, $detailedNavigation);
 
     $gettingStarted = [
         ['icon' => '1', 'title' => 'Use a real project owner account', 'body' => 'The project owner controls access, approval status and the project record. Invite collaborators after the project exists.'],
@@ -154,18 +162,10 @@
             <div id="mc-guide-search-results" class="mc-guide-search-results" aria-live="polite" hidden></div>
         </div>
         <div class="mc-guide-hero-pills" aria-label="Guide scope">
-            <span>7 project stages</span><span>Sidebar menu reference</span><span>Real platform screens</span>
+            <span>Step-by-step workflows</span><span>{{ count($guideAnswers) }} practical answers</span><span>Ask Mobi</span>
         </div>
     </div>
-    <aside class="mc-guide-route" aria-label="Guide workflow">
-        <p class="mc-card-label">Your route through MobilityCloud</p>
-        <div class="mc-route-steps">
-            @foreach($guideNavigation as $item)
-                <a href="#{{ $item['id'] }}"><b>{{ $item['number'] }}</b><span>{{ $item['label'] }}</span></a>
-            @endforeach
-        </div>
-        <p class="mc-guide-route-note">Tip: finish the checks shown in each stage before moving to the next one.</p>
-    </aside>
+    @include('public.partials.mobi-guide')
 </section>
 
 <section class="mc-shell mc-guide-start">
@@ -237,7 +237,7 @@
                 </ol>
                 <figure class="mc-guide-shot mc-guide-shot-dashboard">
                     <img src="{{ asset('images/guide/dashboard-demo.png') }}" alt="MobilityCloud project dashboard with funding, priorities and quick actions">
-                    <figcaption><span>Platform screen</span> The project dashboard highlights funding, readiness and actions that require attention.</figcaption>
+                    <figcaption><span>Illustrative screen</span> The project dashboard highlights funding, readiness and actions that require attention.</figcaption>
                 </figure>
                 <div class="mc-guide-callout info"><b>Good habit</b><p>Open the dashboard whenever you return to the platform. It helps you continue from the most important task rather than from the last tab you used.</p></div>
             </div>
@@ -262,7 +262,7 @@
                         <label>Project name <i>Green Skills Exchange</i></label>
                         <label>Action / template <i>KA122-VET · Short-term project</i></label>
                         <div class="mc-guide-ui-two"><label>Start date <i>01 Sep 2026</i></label><label>End date <i>31 Aug 2027</i></label></div>
-                        <div class="mc-guide-ui-footer"><span>All details can be updated later.</span><b>Continue →</b></div>
+                        <div class="mc-guide-ui-footer"><span>Review the starting stage before continuing.</span><b>Continue →</b></div>
                     </div>
                 </div>
                 <div class="mc-guide-callout warning"><b>Before approval</b><p>Keep the project in the writing or planning stage until you know the official result. The management modules are designed to continue after you declare approval.</p></div>
@@ -286,7 +286,7 @@
                 </div>
                 <ol class="mc-guide-list">
                     <li><b>Read the prompt first.</b><span>Answer the question that is shown, not a general version of it. Keep one clear idea per section.</span></li>
-                    <li><b>Save as you work.</b><span>Use the section status and character count to see whether an answer is still incomplete.</span></li>
+                    <li><b>Wait for automatic saving.</b><span>Answers save after you stop typing. Check the save indicator before navigating away or exporting.</span></li>
                     <li><b>Review before export.</b><span>Use readiness checks to locate gaps, then create a PDF or Word working copy for your team review.</span></li>
                 </ol>
             </div>
@@ -329,7 +329,7 @@
             <div class="mc-guide-chapter-content">
                 <p class="mc-eyebrow">Declare approval</p>
                 <h2>Move to implementation only after the official result.</h2>
-                <p class="mc-guide-intro">When the project is approved, open its settings and declare the exact approved grant amount. The record then continues into budget, participant, document and mobility workflows.</p>
+                <p class="mc-guide-intro">When the project is approved, use <b>Mark as Approved</b> in the project <b>Overview</b> and declare the exact approved grant amount. The record then continues into budget, participant, document and mobility workflows.</p>
                 <div class="mc-guide-approval-flow">
                     <div><span>1</span><b>Official approval received</b><small>Confirm the grant and project conditions outside MobilityCloud.</small></div>
                     <i>→</i>
@@ -349,7 +349,7 @@
                 <p class="mc-guide-intro">After approval, the project navigation gives each operational area its own workspace. Start with budget baskets, then add the people, files and daily mobility evidence needed for delivery.</p>
                 <figure class="mc-guide-shot">
                     <img src="{{ asset('images/guide/budget-demo.png') }}" alt="MobilityCloud budget screen with approved grant, spending and expense evidence">
-                    <figcaption><span>Platform screen</span> Budget control shows the approved grant, remaining balance, expense rows and supporting files in one project view.</figcaption>
+                    <figcaption><span>Illustrative screen</span> Budget control shows the approved grant, remaining balance, expense rows and supporting files in one project view.</figcaption>
                 </figure>
                 <div class="mc-guide-module-grid">
                     <article><span>€</span><h3>Budget</h3><p>Create baskets, enter expenses and attach the relevant invoice, receipt or support file.</p><b>Check: amount, currency, evidence</b></article>
@@ -382,6 +382,10 @@
             </div>
         </article>
 
+        @foreach($guideChapters as $chapter)
+            @include('public.partials.guide-detailed-chapter', ['chapter' => $chapter, 'chapterNumber' => sprintf('P%02d', $loop->iteration)])
+        @endforeach
+
         <article class="mc-guide-chapter" id="controls" data-guide-search-item data-guide-anchor="controls" data-guide-search-title="Button and control reference">
             <div class="mc-guide-chapter-number">07</div>
             <div class="mc-guide-chapter-content">
@@ -412,92 +416,3 @@
         </article>
     </div>
 </section>
-
-@once
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const input = document.getElementById('mc-guide-search-input');
-            const clear = document.getElementById('mc-guide-search-clear');
-            const results = document.getElementById('mc-guide-search-results');
-
-            if (!input || !clear || !results) {
-                return;
-            }
-
-            const entries = Array.from(document.querySelectorAll('[data-guide-search-item]')).map(function (node) {
-                return {
-                    anchor: node.dataset.guideAnchor || node.id,
-                    title: node.dataset.guideSearchTitle || (node.querySelector('h2, h3, h4') || {}).textContent || 'Guide item',
-                    text: node.textContent.replace(/\s+/g, ' ').trim(),
-                };
-            });
-
-            const renderResults = function () {
-                const query = input.value.trim().toLocaleLowerCase();
-                clear.hidden = query.length === 0;
-                results.replaceChildren();
-
-                if (query.length < 2) {
-                    results.hidden = true;
-                    return;
-                }
-
-                const seen = new Set();
-                const matches = entries.filter(function (entry) {
-                    return entry.title.toLocaleLowerCase().includes(query) || entry.text.toLocaleLowerCase().includes(query);
-                }).filter(function (entry) {
-                    const key = entry.anchor + '|' + entry.title;
-                    if (seen.has(key)) {
-                        return false;
-                    }
-                    seen.add(key);
-                    return true;
-                }).slice(0, 10);
-
-                const summary = document.createElement('p');
-                summary.className = 'mc-guide-search-summary';
-                summary.textContent = matches.length ? matches.length + ' matching guide item' + (matches.length === 1 ? '' : 's') : 'No matching guide items';
-                results.appendChild(summary);
-
-                if (matches.length) {
-                    const list = document.createElement('div');
-                    list.className = 'mc-guide-search-list';
-                    matches.forEach(function (entry) {
-                        const link = document.createElement('a');
-                        link.href = '#' + entry.anchor;
-                        const title = document.createElement('b');
-                        title.textContent = entry.title.trim();
-                        const hint = document.createElement('span');
-                        hint.textContent = 'Open this section';
-                        link.append(title, hint);
-                        link.addEventListener('click', function () {
-                            results.hidden = true;
-                        });
-                        list.appendChild(link);
-                    });
-                    results.appendChild(list);
-                } else {
-                    const hint = document.createElement('small');
-                    hint.textContent = 'Try a module name, an action such as “upload”, or the name of a button.';
-                    results.appendChild(hint);
-                }
-
-                results.hidden = false;
-            };
-
-            input.addEventListener('input', renderResults);
-            input.addEventListener('keydown', function (event) {
-                if (event.key === 'Escape') {
-                    input.value = '';
-                    renderResults();
-                    input.blur();
-                }
-            });
-            clear.addEventListener('click', function () {
-                input.value = '';
-                renderResults();
-                input.focus();
-            });
-        });
-    </script>
-@endonce
