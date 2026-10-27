@@ -85,7 +85,12 @@ test('shared section layouts fit on account, dashboard, tools and project pages'
       expect(response?.status(), route).toBe(200);
       const overflow = await page.locator('.fi-page-content .fi-section').evaluateAll(sections => sections.filter(section => section.getClientRects().length).flatMap(section => {
         const box = section.getBoundingClientRect();
-        const parent = section.parentElement!.getBoundingClientRect();
+        // Collaboration wrappers use display:contents and have no layout box.
+        let container = section.parentElement!;
+        while (getComputedStyle(container).display === 'contents' && container.parentElement) {
+          container = container.parentElement;
+        }
+        const parent = container.getBoundingClientRect();
         return box.right > innerWidth + 1 || box.left < -1 || box.width > parent.width + 1
           ? [{ width: box.width, parentWidth: parent.width, right: box.right }] : [];
       }));
