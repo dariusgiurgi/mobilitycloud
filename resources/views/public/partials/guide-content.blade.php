@@ -149,8 +149,8 @@
 <section class="mc-shell mc-guide-hero">
     <div>
         <span class="mc-kicker"><span>Platform guide</span></span>
-        <h1 class="mc-title" style="margin-top:1rem;max-width:13ch;">Build a complete project record, step by step.</h1>
-        <p class="mc-lead">This practical guide follows the same order as an Erasmus+ project: prepare, write, approve, implement and archive. Use it as an onboarding path for project owners and collaborators.</p>
+        <h1 class="mc-title" style="margin-top:1rem;max-width:13ch;">Your next step, made clear.</h1>
+        <p class="mc-lead">Choose where you are in your project. Follow the practical steps, find a specific task, or ask Mobi to point you in the right direction.</p>
         <div class="mc-guide-search" role="search" aria-label="Search the platform guide">
             <label for="mc-guide-search-input">Search this guide</label>
             <div class="mc-guide-search-field">
@@ -168,6 +168,16 @@
     @include('public.partials.mobi-guide')
 </section>
 
+<section class="mc-shell mc-guide-paths" aria-labelledby="guide-path-title">
+    <div class="mc-guide-path-heading"><div><p class="mc-eyebrow">Start with your goal</p><h2 id="guide-path-title">Where are you in your project?</h2></div><button type="button" id="guide-show-all" hidden>Show all chapters</button></div>
+    <div class="mc-guide-path-grid">
+        <a href="#account-guide" data-guide-path="writing"><span class="mc-path-number">01 · BEFORE APPROVAL</span><h3>I’m writing a project</h3><p>Set up your account, invite your team, write and export the application.</p><span class="mc-path-action">Explore writing →</span></a>
+        <a href="#budget-guide" data-guide-path="managing"><span class="mc-path-number">02 · AFTER APPROVAL</span><h3>I’m managing a project</h3><p>Keep budgets, participants, documents and delivery evidence organised.</p><span class="mc-path-action">Explore management →</span></a>
+        <a href="#export-guide" data-guide-path="exporting"><span class="mc-path-number">03 · FINAL HANDOVER</span><h3>I’m preparing the final ZIP</h3><p>Check the files, prepare the right version and resolve download problems.</p><span class="mc-path-action">Explore final exports →</span></a>
+    </div>
+    <p id="guide-path-status" role="status" aria-live="polite">Browse the full guide below, or choose a path to focus on the chapters you need.</p>
+</section>
+
 <section class="mc-shell mc-guide-start">
     <div class="mc-guide-start-head">
         <p class="mc-eyebrow">Before you start</p>
@@ -183,9 +193,9 @@
     </div>
 </section>
 
-<section class="mc-shell mc-guide-layout">
+<section class="mc-shell mc-guide-layout" id="guide-chapters">
     <nav class="mc-guide-toc" aria-label="Guide chapters">
-        <p>In this guide</p>
+        <p>In this guide</p><button class="mc-guide-all-link" type="button" data-guide-reset hidden>Show all chapters</button>
         @foreach($guideNavigation as $item)
             <a href="#{{ $item['id'] }}"><span>{{ $item['number'] }}</span>{{ $item['label'] }}</a>
         @endforeach

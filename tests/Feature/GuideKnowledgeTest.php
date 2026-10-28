@@ -22,6 +22,10 @@ class GuideKnowledgeTest extends TestCase
         foreach ($answers as $answer) {
             $this->assertMatchesRegularExpression('/^[a-z0-9-]+$/', $answer['id']);
             $this->assertNotEmpty($answer['steps']);
+            foreach ($answer['related'] as $relatedId) {
+                $this->assertNotSame($answer['id'], $relatedId);
+                $this->assertTrue($answers->contains('id', $relatedId));
+            }
             $page->assertSee('id="answer-'.$answer['id'].'"', false);
         }
 
