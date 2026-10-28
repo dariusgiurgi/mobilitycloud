@@ -1,0 +1,30 @@
+import { expect, test } from '@playwright/test';
+import { login } from './support/auth';
+import { qaState } from './support/qa-state';
+
+test('contextual export help stays usable through preparation and on mobile', async ({ page }, testInfo) => {
+  const state = qaState();
+  await login(page, state.users.owner.email, state.password);
+  await page.goto(`/app/projects/${state.projects.budget_active.id}/finalisation`);
+  const help = page.locator('#archive-help');
+  await page.getByRole('link', { name: 'Help choosing content' }).click();
+  await expect(help).toHaveAttribute('open', '');
+  await expect(help.locator('[data-archive-help-state]')).toHaveAttribute('data-archive-help-state', 'not-prepared');
+  await help.getByText('Does my downloaded archive include the latest changes?', { exact: true }).click();
+  const source = help.getByRole('link', { name: 'Read in guide (new tab)' }).first();
+  await expect(source).toHaveAttribute('target', '_blank');
+  await expect(source).toHaveAttribute('href', /\/guide#answer-archive-fresh$/);
+  await page.getByRole('button', { name: 'Prepare archive', exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Download ZIP', exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(help.locator('[data-archive-help-state]')).toHaveAttribute('data-archive-help-state', 'ready');
+  await expect(help).toContainText('check your browser’s downloads list');
+  await expect(help).toHaveAttribute('open', '');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await help.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+  await page.screenshot({ path: testInfo.outputPath('export-help-mobile.png') });
+  await page.evaluate(() => document.documentElement.classList.add('dark'));
+  await page.screenshot({ path: testInfo.outputPath('export-help-dark.png') });
+  await help.getByRole('link', { name: 'Go to download controls' }).click();
+  await expect(page.locator('#archive-download')).toBeInViewport();
+});
