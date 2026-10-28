@@ -13,6 +13,11 @@
         $archive = $this->currentArchive();
         $archiveInProgress = $archive && in_array($archive->status, [\App\Models\ProjectFinalArchive::STATUS_QUEUED, \App\Models\ProjectFinalArchive::STATUS_PROCESSING], true);
         $archiveReady = $archive?->isReady() ?? false;
+        $archiveUnavailable = $archive?->status === \App\Models\ProjectFinalArchive::STATUS_READY && ! $archiveReady && ! $archive->hasExpired();
+        $archiveHelp = \App\Support\FinalArchiveHelp::build($archive, $archiveReady, $canConfigure, $selected, $exportsLocked);
+        $guideAnswers = collect(\App\Support\GuideKnowledge::chapters(app(\App\Services\ProjectPricing::class)->globalLabel()))
+            ->flatMap(fn ($chapter) => $chapter['items'])
+            ->whereIn('id', ['archive-fresh', 'archive-content', 'signed-copy'])->values()->all();
         $archiveFailed = $archive?->status === \App\Models\ProjectFinalArchive::STATUS_FAILED;
         $archiveSize = $archiveReady
             ? (((int) $archive->size) >= 1048576
@@ -153,7 +158,7 @@
 
     <section id="archive-selection" aria-labelledby="archive-selection-title">
         <h2 id="archive-selection-title" class="mc-final-title">2. Select archive content</h2>
-        <p class="mc-final-copy">Your selection saves automatically. Excluded categories stay in your project.</p>
+        <p class="mc-final-copy">Your selection saves automatically. Excluded categories stay in your project. <a href="#archive-help-answer-archive-content" onclick="document.getElementById('archive-help').open = true; document.getElementById('archive-help-answer-archive-content').open = true" style="color:#6366f1;text-decoration:underline;">Help choosing content</a></p>
         <div class="mc-final-layout">
             @foreach ($groups as $groupLabel => $keys)
                 @php($groupCategories = collect($keys)->mapWithKeys(fn (string $key): array => [$key => $categories[$key]])->all())
@@ -206,7 +211,7 @@
                 @elseif ($archiveInProgress)
                     <x-filament::button disabled icon="heroicon-m-arrow-path">Preparing ZIP…</x-filament::button>
                 @elseif ($canConfigure)
-                    <x-filament::button wire:click="requestFinalArchive" wire:loading.attr="disabled" icon="heroicon-m-archive-box-arrow-down">{{ $archiveFailed || $archive?->hasExpired() ? 'Prepare again' : 'Prepare archive' }}</x-filament::button>
+                    <x-filament::button wire:click="requestFinalArchive" wire:loading.attr="disabled" icon="heroicon-m-archive-box-arrow-down">{{ $archiveFailed || $archiveUnavailable || $archive?->hasExpired() ? 'Prepare again' : 'Prepare archive' }}</x-filament::button>
                 @endif
             @endif
             @if ($archiveReady)
@@ -215,11 +220,14 @@
                 <div class="mc-final-archive-state"><strong>{{ $archive->status === \App\Models\ProjectFinalArchive::STATUS_QUEUED ? 'Waiting in queue' : 'Building securely' }}</strong><br>You can leave this page and return later.</div>
             @elseif ($archiveFailed)
                 <div class="mc-final-archive-state"><strong>Preparation did not finish.</strong><br>{{ $archive->failure_message ?: 'No project data was changed. You can try again.' }}</div>
+            @elseif ($archiveUnavailable)
+                <div class="mc-final-archive-state"><strong>The prepared file is unavailable.</strong><br>Prepare another copy or contact support if the problem continues.</div>
             @elseif ($archive?->hasExpired())
                 <div class="mc-final-archive-state"><strong>The temporary ZIP was removed.</strong><br>Prepare a fresh copy when you need it.</div>
             @endif
         </div>
     </section>
+    <x-final-archive-help :help="$archiveHelp" :can-configure="$canConfigure" :answers="$guideAnswers" />
     <div class="mc-final-sensitive">
         <x-filament::icon icon="heroicon-o-shield-exclamation" style="width:1.08rem;height:1.08rem;color:#dc2626;flex:none;margin-top:.05rem;" />
         <div>
